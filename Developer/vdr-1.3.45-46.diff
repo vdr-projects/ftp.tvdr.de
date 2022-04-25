@@ -1,0 +1,1425 @@
+diff -ruN vdr-1.3.45/CONTRIBUTORS vdr-1.3.46/CONTRIBUTORS
+--- vdr-1.3.45/CONTRIBUTORS	2006-03-26 11:46:58.000000000 +0200
++++ vdr-1.3.46/CONTRIBUTORS	2006-04-09 16:31:33.000000000 +0200
+@@ -780,6 +780,7 @@
+  for fixing a possible crash with inconsistent SI data
+  for pointing out a problem with the cChannel copy constructor
+  for fixing cDvbTuner to avoid lockups on NPTL systems
++ for pointing out how to detect broken PMT records
+ 
+ Torsten Herz <torsten.herz@web.de>
+  for fixing a possible deadlock when using the "Blue" button in the "Schedules" menu
+@@ -969,6 +970,9 @@
+  for suggesting to also set the language codes when setting the audio track descriptions
+  for reporting a problem in setting the audio language codes in 'Transfer-Mode'
+  for fixing cReadLine::Read() for lines that end with the infamous "\r\n"
++ for adding a missing "Button$" for the Timer button and "Key$" in skinclassic.c
++ for reporting a bug in handling the color button texts when switching from the
++ 'Schedule' menu of a channel without EPG info to the 'What's on now' menu
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1011,12 +1015,14 @@
+ Michael Walle <michael.walle@web.de>
+  for reporting a bug in channel switching after Left/Right has been pressed
+ 
+-Thomas Keil <tk@commedia-group.com>
++Thomas Keil <tkeil@datacrystal.de>
+  for suggesting to change the behaviour of the '0' key in normal viewing mode so
+  that a channel only qualifies as "previous" if it has been selected for at least
+  3 seconds
+  for reporting a bug in handling the color buttons in the "Edit channel" menu
+  for adding a note about the config files of plugins to INSTALL
++ for a patch that was used as a base to implement setting the initial channel and
++ volume
+ 
+ Kenneth Aafløy <ke-aa@frisurf.no>
+  for fixing checking CA capabilities with the dvb-kernel driver
+@@ -1070,6 +1076,7 @@
+  for fixing replaying recordings of radio channels with many audio tracks
+  for speeding up cRemux::ScanVideoPacket()
+  for implementing cDevice::ForceTransferMode()
++ for changing the behaviour when hitting the end of a recording in fast forward mode
+ 
+ Richard Robson <richard_robson@beeb.net>
+  for reporting freezing replay if a timer starts while in Transfer Mode from the
+@@ -1393,6 +1400,8 @@
+  Up/Down in insert mode
+  for fixing handling the "Setup/OSD/Menu button closes" option when set to 'yes' in
+  case a replay is active
++ for reporting a problem with plugins that report errors when VDR is run with the
++ --help or --version option
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -1425,6 +1434,7 @@
+  runs all the way until the end of the recording
+  for fixing removing the '-' when entering a channel number where there is no other
+  one that fits the input
++ for reporting a problem with cStatus::MsgOsdTextItem() being called without a text
+ 
+ Sascha Klek <sklek@gmx.de>
+  for reporting a problem with the '0' key in the "Day" item of the "Timers" menu
+@@ -1517,6 +1527,7 @@
+  for suggesting to make the "Menu" key behave consistently
+  for suggesting to implement a timeout for remote controls that don't deliver
+  "repeat" keypresses very fast
++ for reporting a broken entry 'A111.1W' in sources.conf
+ 
+ Mikko Salo <mikko.salo@ppe.inet.fi>
+  for suggesting to make the setup option "DVB/Video display format" available only
+@@ -1543,6 +1554,7 @@
+  for making the cLircRemote try to reestablish the connection to the LIRC daemon
+  in case it breaks
+  for enabling generating a core dump if VDR is run with a different user id
++ for reporting an obsolete entry 'S21.5E' in the default 'diseqc.conf'
+ 
+ Steffen Beyer <cpunk@reactor.de>
+  for fixing setting the colored button help after deleting a recording in case the next
+@@ -1643,6 +1655,9 @@
+  for making the '.update' file in the video directory be touched when a recording is
+  added or deleted, so that other VDR instances can update their lists
+  for adding cSkin::GetTextAreaWidth() and cSkin::GetTextAreaFont()
++ for fixing a typo in skins.h
++ for making cSkins::QueueMessage() called from a background thread with an empty
++ message clears all messages that have been previously queued by that thread
+ 
+ Philip Prindeville <philipp_subx@redfish-solutions.com>
+  for updates to 'sources.conf'
+@@ -1793,6 +1808,10 @@
+ 
+ Oleg Roitburd <oleg@roitburd.de>
+  for translating OSD texts to the Russian language
++ for updating 'sources.conf'
+ 
+ Marius Heidenstecker <marius@heidenstecker.de>
+  for suggesting to make cMenuRecordings::GetRecording() 'protected'
++
++Jurij Retzlaff <jurij@topofweb.de>
++ for fixing learning keys when VDR is already running
+diff -ruN vdr-1.3.45/HISTORY vdr-1.3.46/HISTORY
+--- vdr-1.3.45/HISTORY	2006-03-26 16:38:46.000000000 +0200
++++ vdr-1.3.46/HISTORY	2006-04-09 16:30:39.000000000 +0200
+@@ -4428,7 +4428,7 @@
+   Rolf Ahrenberg).
+ - Fixed cDvbDevice::SetAudioBypass() in case setTransferModeForDolbyDigital is false
+   (thanks to Werner Fink).
+-- Updated 'sources.conf'.
++- Updated 'sources.conf' (thanks to Oleg Roitburd).
+ - Fixed the shutdown timeout (thanks to Alexander Wenzel).
+ - Only calling RemoveEmptyVideoDirectories() once in case a recording has been
+   deleted (reported by Hardy Flor).
+@@ -4455,3 +4455,47 @@
+ - Single shot VPS timers are now only considered 'expired' if their associated
+   EPG event has been explicitly set to SI::RunningStatusNotRunning.
+ - The check for timers to be deleted is now done only every 30 seconds.
++
++2006-04-09: Version 1.3.46
++
++- Fixed handling broken PMT records (thanks to Marcel Wiesweg for pointing out how
++  to detect these).
++- Added a missing "Button$" for the Timer button and "Key$" in skinclassic.c
++  (thanks to Rolf Ahrenberg).
++- Fixed broken entry 'A111.1W' in sources.conf (reported by Luca Olivetti).
++- Replaced the obsolete entry 'S21.5E' in the default 'diseqc.conf' with 'S13.0E'
++  (reported by Ville Skyttä).
++- Fixed learning keys when VDR is already running (thanks to Jurij Retzlaff).
++- Fixed handling the system time transponder setting in the Setup/EPG menu, which
++  was broken by the min/max fix in cMenuEditIntItem.
++- VPS timers now record only events that have exactly the given start time.
++  This fix also implements recording several subsequent events that have the
++  same VPS time (like a sports event with intermittent news breaks).
++- When checking for timers that have entered the "VPS margin", any free devices are
++  now used to switch to the needed transponder. This improves cases where more than
++  one VPS timer is about to start.
++- Fixed handling the VPS margin in case the event's duration is shorter than the
++  margin.
++- Fixed handling VPS timers in case the primary device needs to switch to the
++  timer's transponder.
++- Now avoiding the 'actual' device when starting a recording, so that a Transfer
++  Mode for live tv isn't interrupted.
++- Fixed a typo in skins.h (thanks to Alexander Rieger).
++- cSkins::QueueMessage() called from a background thread with an empty message
++  now clears all messages that have been previously queued by that thread and have
++  not yet beed displayed (thanks to Alexander Rieger).
++- Fixed handling the color button texts when switching from the 'Schedule' menu of
++  a channel without EPG info to the 'What's on now' menu (reported by Rolf
++  Ahrenberg).
++- cMenuEditIntItem and cMenuEditChanItem can now be given strings to label the
++  minimum and maximum values, and the case that no channel has been selected,
++  respectively.
++- The initial channel and volume can now be defined in the "Setup/Miscellaneous"
++  menu (based on a patch from Thomas Keil).
++- When hitting the end of a recording in fast forward mode, VDR no longer switches
++  back to normal speed if the recording is already finished (thanks to Reinhard
++  Nissl).
++- No longer calling cPlugin::ProcessArgs() if VDR is run with the --help or
++  --version option, to avoid error messages from plugins (reported by Udo Richter).
++- Now checking whether there is any text before calling cStatus::MsgOsdTextItem()
++  (reported by Joachim Wilke).
+diff -ruN vdr-1.3.45/MANUAL vdr-1.3.46/MANUAL
+--- vdr-1.3.45/MANUAL	2006-02-25 15:27:18.000000000 +0100
++++ vdr-1.3.46/MANUAL	2006-04-09 15:22:49.000000000 +0200
+@@ -779,6 +779,15 @@
+   Zap Timeout = 3        The time (in seconds) until a channel counts as "previous"
+                          for switching with '0'
+ 
++  Inital channel = 0     The number of the channel that shall be tuned to when
++                         VDR starts. Default is 0, which means that it will
++                         tune to the channel that was on before VDR was stopped.
++
++  Initial volume = -1    The volume that shall be set when VDR starts. Default
++                         is -1, which means that the same volume as before
++                         VDR was stopped will be used. The valid range is from
++                         0 (silent) to 255 (loudest).
++
+ * Executing system commands
+ 
+   The "VDR" menu option "Commands" allows you to execute any system commands
+diff -ruN vdr-1.3.45/channels.conf vdr-1.3.46/channels.conf
+--- vdr-1.3.45/channels.conf	2006-03-26 16:47:14.000000000 +0200
++++ vdr-1.3.46/channels.conf	2006-04-09 16:52:40.000000000 +0200
+@@ -8,7 +8,7 @@
+ NDR FS MV;ARD:12109:hC34:S19.2E:27500:2401:2402=deu:2404:0:28224:1:1073:0
+ SR SÜDWEST Ferns.;ARD:12265:hC34:S19.2E:27500:1301:1302=deu:1304:0:28486:1:1093:0
+ WDR Köln;ARD:11836:hC34:S19.2E:27500:601:602=deu:604:0:28111:1:1101:0
+-BR-alpha;ARD:11836:hC34:S19.2E:27500:701:702=deu;706=deu:704:0:28112:1:1101:0
++BR-alpha;ARD:11836:hC34:S19.2E:27500:701:702=deu:704:0:28112:1:1101:0
+ SÜDWEST Ferns. BW;ARD:11836:hC34:S19.2E:27500:801:802=deu:804:0:28113:1:1101:0
+ Phoenix;ARD:11836:hC34:S19.2E:27500:901:902=deu:904:0:28114:1:1101:0
+ ZDF;ZDFvision:11953:hC34:S19.2E:27500:110:120=deu,121=2ch;125=dd:130:0:28006:1:1079:0
+@@ -27,7 +27,7 @@
+ DSF;BetaDigital:12480:vC34:S19.2E:27500:1023:1024=deu:39:0:900:133:33:0
+ HSE24,HSE24;BetaDigital:12480:vC34:S19.2E:27500:1279:1280=deu:37:0:40:133:33:0
+ Bloomberg TV Germany;Bloomberg:12551:vC56:S19.2E:22000:162:99=deu:0:0:12160:1:1108:0
+-EURONEWS;CSAT:11817:vC34:S19.2E:27500:163:92=fra,93=eng,94=ita,95=esl,91=rus,98=por,99=deu:0:0:8004:1:1070:0
++EURONEWS;CSAT:11817:vC34:S19.2E:27500:163:92=fra,91=rus,93=eng,94=ita,95=esl,98=por,99=deu:0:0:8004:1:1070:0
+ rbb Brandenburg;ARD:12109:hC34:S19.2E:27500:601:602=deu:604:0:28205:1:1073:0
+ Sky News;BT:11597:vC56:S19.2E:22000:305+131:306=eng:0:0:28707:1:1026:0
+ Veronica/JETIX;CANALDIGITAAL:12574:hC56:S19.2E:22000:518+8190:92=dut:38:622,100:5020:53:1109:0
+@@ -45,11 +45,11 @@
+ rbb Berlin;ARD:12109:hC34:S19.2E:27500:601:602=deu:604:0:28206:1:1073:0
+ :Premiere World
+ PREMIERE START,START;PREMIERE:11797:hC34:S19.2E:27500:255:256=deu:32:1722,1801,1702:8:133:2:0
+-PREMIERE 1,PREM 1;PREMIERE:11797:hC34:S19.2E:27500:511:512=deu;515=deu:32:1:10:133:2:0
+-PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu;1795=deu:32:1:11:133:2:0
++PREMIERE 1,PREM 1;PREMIERE:11797:hC34:S19.2E:27500:511:512=deu,513=deu;515=deu:32:1:10:133:2:0
++PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu,1793=deu;1795=deu:32:1:11:133:2:0
+ PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu,2305=deu:32:1:43:133:2:0
+ PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu:32:1:9:133:2:0
+-PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu,1281=deu:32:1:29:133:2:0
++PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu:32:1:29:133:2:0
+ PREMIERE 6,PREM 6;PREMIERE:11797:hC34:S19.2E:27500:1535:1536=deu:32:1:41:133:2:0
+ PREMIERE 7,PREM 7;PREMIERE:11797:hC34:S19.2E:27500:1023:1024=deu:32:1702,1801,1722:20:133:2:0
+ DISNEY CHANNEL,DISNEY;PREMIERE:11758:hC34:S19.2E:27500:2559:2560=deu:32:1:34:133:17:0
+@@ -119,9 +119,9 @@
+ Sky Movies 4;BSkyB:11914:hC23:S28.2E:27500:512+8190:640=eng,655=NAR:576:960,961:4402:2:2011:0
+ Sky Movies 5;BSkyB:11914:hC23:S28.2E:27500:515+8190:643=eng,656=NAR:579:960,961:4503:2:2011:0
+ Sky Movies 6;BSkyB:11914:hC23:S28.2E:27500:513+8190:641=eng,657=NAR:577:960,961:4502:2:2011:0
+-Sky Movies 7;BSkyB:12285:vC23:S28.2E:27500:515+8190:643=eng,663=NAR:579:960,961:4603:2:2030:0
++Sky Movies 7;BSkyB:12285:vC23:S28.2E:27500:515+8190:643=eng,653=NAR;663=eng:579:960,961:4603:2:2030:0
+ Sky Movies 8;BSkyB:11836:hC23:S28.2E:27500:515+8190:643=eng,656=NAR;663=eng:579:960,961:5502:2:2007:0
+-Sky Movies 9;BSkyB:12285:vC23:S28.2E:27500:518+8190:646=eng,666=NAR:582:960,961:4602:2:2030:0
++Sky Movies 9;BSkyB:12285:vC23:S28.2E:27500:518+8190:646=eng,654=NAR;666=eng:2440:960,961:4602:2:2030:0
+ Sky Cinema 1;BSkyB:12285:vC23:S28.2E:27500:519+8190:647=eng,667=NAR:583:960,961:4809:2:2030:0
+ Sky Cinema 2;BSkyB:12285:vC23:S28.2E:27500:517+8190:645=eng,665=NAR:581:960,961:4802:2:2030:0
+ :@900 Some 'seed' channels
+diff -ruN vdr-1.3.45/config.c vdr-1.3.46/config.c
+--- vdr-1.3.45/config.c	2006-02-25 15:12:16.000000000 +0100
++++ vdr-1.3.46/config.c	2006-04-09 14:12:01.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 1.142 2006/02/25 14:12:16 kls Exp $
++ * $Id: config.c 1.143 2006/04/09 12:12:01 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -271,6 +271,8 @@
+   CurrentChannel = -1;
+   CurrentVolume = MAXVOLUME;
+   CurrentDolby = 0;
++  InitialChannel = 0;
++  InitialVolume = -1;
+ }
+ 
+ cSetup& cSetup::operator= (const cSetup &s)
+@@ -430,6 +432,8 @@
+   else if (!strcasecmp(Name, "CurrentChannel"))      CurrentChannel     = atoi(Value);
+   else if (!strcasecmp(Name, "CurrentVolume"))       CurrentVolume      = atoi(Value);
+   else if (!strcasecmp(Name, "CurrentDolby"))        CurrentDolby       = atoi(Value);
++  else if (!strcasecmp(Name, "InitialChannel"))      InitialChannel     = atoi(Value);
++  else if (!strcasecmp(Name, "InitialVolume"))       InitialVolume      = atoi(Value);
+   else
+      return false;
+   return true;
+@@ -496,6 +500,8 @@
+   Store("CurrentChannel",     CurrentChannel);
+   Store("CurrentVolume",      CurrentVolume);
+   Store("CurrentDolby",       CurrentDolby);
++  Store("InitialChannel",     InitialChannel);
++  Store("InitialVolume",      InitialVolume);
+ 
+   Sort();
+ 
+diff -ruN vdr-1.3.45/config.h vdr-1.3.46/config.h
+--- vdr-1.3.45/config.h	2006-02-28 13:23:28.000000000 +0100
++++ vdr-1.3.46/config.h	2006-04-09 14:09:05.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.247 2006/02/28 12:23:28 kls Exp $
++ * $Id: config.h 1.249 2006/04/09 12:09:05 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -19,8 +19,8 @@
+ #include "i18n.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.3.45"
+-#define VDRVERSNUM   10345  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.3.46"
++#define VDRVERSNUM   10346  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+@@ -237,6 +237,8 @@
+   int CurrentChannel;
+   int CurrentVolume;
+   int CurrentDolby;
++  int InitialChannel;
++  int InitialVolume;
+   int __EndData__;
+   cSetup(void);
+   cSetup& operator= (const cSetup &s);
+diff -ruN vdr-1.3.45/device.c vdr-1.3.46/device.c
+--- vdr-1.3.45/device.c	2006-03-26 11:42:48.000000000 +0200
++++ vdr-1.3.46/device.c	2006-04-09 12:46:36.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 1.125 2006/03/26 09:42:48 kls Exp $
++ * $Id: device.c 1.127 2006/04/09 10:46:36 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -281,27 +281,30 @@
+ cDevice *cDevice::GetDevice(const cChannel *Channel, int Priority, bool *NeedsDetachReceivers)
+ {
+   cDevice *d = NULL;
+-  int select = 8, pri;
++  int select = INT_MAX;
+ 
+   for (int i = 0; i < numDevices; i++) {
+       bool ndr;
+       if (device[i]->ProvidesChannel(Channel, Priority, &ndr)) { // this device is basicly able to do the job
++         int pri;
+          if (device[i]->Receiving() && !ndr)
+             pri = 0; // receiving and allows additional receivers
+-         else if (d && !device[i]->Receiving() && device[i]->ProvidesCa(Channel) < d->ProvidesCa(Channel))
++         else if (!device[i]->Receiving(true) && d && device[i]->ProvidesCa(Channel) < d->ProvidesCa(Channel))
+             pri = 1; // free and fewer Ca's
+          else if (!device[i]->Receiving() && !device[i]->HasDecoder())
+             pri = 2; // free and not a full featured card
++         else if (!device[i]->Receiving() && device[i] != ActualDevice())
++            pri = 3; // free and not the actual device
+          else if (!device[i]->Receiving() && !device[i]->IsPrimaryDevice())
+-            pri = 3; // free and not the primary device
++            pri = 4; // free and not the primary device
+          else if (!device[i]->Receiving())
+-            pri = 4; // free
++            pri = 5; // free
+          else if (d && device[i]->Priority() < d->Priority())
+-            pri = 5; // receiving but priority is lower
++            pri = 6; // receiving but priority is lower
+          else if (d && device[i]->Priority() == d->Priority() && device[i]->ProvidesCa(Channel) < d->ProvidesCa(Channel))
+-            pri = 6; // receiving with same priority but fewer Ca's
++            pri = 7; // receiving with same priority but fewer Ca's
+          else
+-            pri = 7; // all others
++            pri = 8; // all others
+          if (pri <= select) {
+             select = pri;
+             d = device[i];
+@@ -547,6 +550,11 @@
+   return false;
+ }
+ 
++bool cDevice::IsTunedToTransponder(const cChannel *Channel)
++{
++  return false;
++}
++
+ bool cDevice::MaySwitchTransponder(void)
+ {
+   return !Receiving(true) && !(pidHandles[ptAudio].pid || pidHandles[ptVideo].pid || pidHandles[ptDolby].pid);
+diff -ruN vdr-1.3.45/device.h vdr-1.3.46/device.h
+--- vdr-1.3.45/device.h	2006-03-26 11:42:40.000000000 +0200
++++ vdr-1.3.46/device.h	2006-04-02 15:08:13.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 1.73 2006/03/26 09:42:40 kls Exp $
++ * $Id: device.h 1.74 2006/04/02 13:08:13 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -217,6 +217,9 @@
+          ///< function itself actually returns true.
+          ///< The default implementation always returns false, so a derived cDevice
+          ///< class that can provide channels must implement this function.
++  virtual bool IsTunedToTransponder(const cChannel *Channel);
++         ///< Returns true if this device is currently tuned to the given Channel's
++         ///< transponder.
+   virtual bool MaySwitchTransponder(void);
+          ///< Returns true if it is ok to switch the transponder on this device,
+          ///< without disturbing any other activities.
+diff -ruN vdr-1.3.45/diseqc.conf vdr-1.3.46/diseqc.conf
+--- vdr-1.3.45/diseqc.conf	2006-01-14 12:14:09.000000000 +0100
++++ vdr-1.3.46/diseqc.conf	2006-03-31 16:05:52.000000000 +0200
+@@ -32,10 +32,10 @@
+ S19.2E  11700 H  9750  t V W15 [E0 10 38 F2] W15 A W15 t
+ S19.2E  99999 H 10600  t V W15 [E0 10 38 F3] W15 A W15 T
+ 
+-S21.5E  11700 V  9750  t v W15 [E0 10 38 F4] W15 B W15 t
+-S21.5E  99999 V 10600  t v W15 [E0 10 38 F5] W15 B W15 T
+-S21.5E  11700 H  9750  t V W15 [E0 10 38 F6] W15 B W15 t
+-S21.5E  99999 H 10600  t V W15 [E0 10 38 F7] W15 B W15 T
++S13.0E  11700 V  9750  t v W15 [E0 10 38 F4] W15 B W15 t
++S13.0E  99999 V 10600  t v W15 [E0 10 38 F5] W15 B W15 T
++S13.0E  11700 H  9750  t V W15 [E0 10 38 F6] W15 B W15 t
++S13.0E  99999 H 10600  t V W15 [E0 10 38 F7] W15 B W15 T
+ 
+ # Optimized for mini DiSEqC (aka toneburst):
+ #
+@@ -44,10 +44,10 @@
+ # S19.2E  11700 H  9750  t V W15 A W15 t
+ # S19.2E  99999 H 10600  t V W15 A W15 T
+ #
+-# S21.5E  11700 V  9750  t v W15 B W15 t
+-# S21.5E  99999 V 10600  t v W15 B W15 T
+-# S21.5E  11700 H  9750  t V W15 B W15 t
+-# S21.5E  99999 H 10600  t V W15 B W15 T
++# S13.0E  11700 V  9750  t v W15 B W15 t
++# S13.0E  99999 V 10600  t v W15 B W15 T
++# S13.0E  11700 H  9750  t V W15 B W15 t
++# S13.0E  99999 H 10600  t V W15 B W15 T
+ #
+ # Optimized for full DiSEqC:
+ #
+@@ -56,10 +56,10 @@
+ # S19.2E  11700 H  9750  [E0 10 38 F2]
+ # S19.2E  99999 H 10600  [E0 10 38 F3]
+ #
+-# S21.5E  11700 V  9750  [E0 10 38 F4]
+-# S21.5E  99999 V 10600  [E0 10 38 F5]
+-# S21.5E  11700 H  9750  [E0 10 38 F6]
+-# S21.5E  99999 H 10600  [E0 10 38 F7]
++# S13.0E  11700 V  9750  [E0 10 38 F4]
++# S13.0E  99999 V 10600  [E0 10 38 F5]
++# S13.0E  11700 H  9750  [E0 10 38 F6]
++# S13.0E  99999 H 10600  [E0 10 38 F7]
+ #
+ # DisiCon-4 Single Cable Network:
+ #
+diff -ruN vdr-1.3.45/dvbdevice.c vdr-1.3.46/dvbdevice.c
+--- vdr-1.3.45/dvbdevice.c	2006-03-26 11:42:54.000000000 +0200
++++ vdr-1.3.46/dvbdevice.c	2006-04-01 16:19:43.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.155 2006/03/26 09:42:54 kls Exp $
++ * $Id: dvbdevice.c 1.156 2006/04/01 14:19:43 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -801,6 +801,11 @@
+   return result;
+ }
+ 
++bool cDvbDevice::IsTunedToTransponder(const cChannel *Channel)
++{
++  return dvbTuner->IsTunedTo(Channel);
++}
++
+ bool cDvbDevice::SetChannelDevice(const cChannel *Channel, bool LiveView)
+ {
+   bool DoTune = !dvbTuner->IsTunedTo(Channel);
+diff -ruN vdr-1.3.45/dvbdevice.h vdr-1.3.46/dvbdevice.h
+--- vdr-1.3.45/dvbdevice.h	2006-02-04 11:21:51.000000000 +0100
++++ vdr-1.3.46/dvbdevice.h	2006-04-01 16:18:59.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 1.38 2006/02/04 10:21:51 kls Exp $
++ * $Id: dvbdevice.h 1.39 2006/04/01 14:18:59 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -62,6 +62,7 @@
+   virtual bool ProvidesSource(int Source) const;
+   virtual bool ProvidesTransponder(const cChannel *Channel) const;
+   virtual bool ProvidesChannel(const cChannel *Channel, int Priority = -1, bool *NeedsDetachReceivers = NULL) const;
++  virtual bool IsTunedToTransponder(const cChannel *Channel);
+ protected:
+   virtual bool SetChannelDevice(const cChannel *Channel, bool LiveView);
+ public:
+diff -ruN vdr-1.3.45/dvbplayer.c vdr-1.3.46/dvbplayer.c
+--- vdr-1.3.45/dvbplayer.c	2006-02-19 15:20:15.000000000 +0100
++++ vdr-1.3.46/dvbplayer.c	2006-04-09 15:47:11.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.c 1.43 2006/02/19 14:20:15 kls Exp $
++ * $Id: dvbplayer.c 1.44 2006/04/09 13:47:11 kls Exp $
+  */
+ 
+ #include "dvbplayer.h"
+@@ -399,12 +399,19 @@
+                     if (playMode == pmFast || (playMode == pmSlow && playDir == pdBackward)) {
+                        uchar FileNumber;
+                        int FileOffset;
+-                       int Index = index->GetNextIFrame(readIndex, playDir == pdForward, &FileNumber, &FileOffset, &Length, true);
++                       bool TimeShiftMode = index->IsStillRecording();
++                       int Index = index->GetNextIFrame(readIndex, playDir == pdForward, &FileNumber, &FileOffset, &Length, TimeShiftMode);
+                        if (Index >= 0) {
+                           if (!NextFile(FileNumber, FileOffset))
+                              continue;
+                           }
+                        else {
++                          if (!TimeShiftMode && playDir == pdForward) {
++                             // hit end of recording: signal end of file but don't change playMode
++                             readIndex = -1;
++                             eof = true;
++                             continue;
++                             }
+                           // hit begin of recording: wait for device buffers to drain
+                           // before changing play mode:
+                           if (!DeviceFlush(100))
+diff -ruN vdr-1.3.45/i18n.c vdr-1.3.46/i18n.c
+--- vdr-1.3.45/i18n.c	2006-03-26 11:17:58.000000000 +0200
++++ vdr-1.3.46/i18n.c	2006-04-09 15:04:50.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.252 2006/03/26 09:17:58 kls Exp $
++ * $Id: i18n.c 1.255 2006/04/09 13:04:50 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -680,7 +680,7 @@
+     "Til/Fra",
+     "Zap./Vyp.",
+   },
+-  { "Timer",
++  { "Button$Timer",
+     "Timer",
+     "",// TODO
+     "",// TODO
+@@ -2246,6 +2246,28 @@
+     "*** Ugyldig kanal! ***",
+     "*** Neplatný kanál ***",
+   },
++  { "Upcoming VPS recording!",
++    "VPS-Aufnahme beginnt in Kürze!",
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++  },
+   { "No free DVB device to record!",
+     "Keine freie DVB-Karte zum Aufnehmen!",
+     "Ni proste DVB naprave za snemanje!",
+@@ -4382,6 +4404,72 @@
+     "Zap timeout (s)",
+     "Èasový limit Zap (s)",
+   },
++  { "Setup.Miscellaneous$Initial channel",
++    "Kanal beim Einschalten",
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++  },
++  { "Setup.Miscellaneous$Initial volume",
++    "Lautstärke beim Einschalten",
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++  },
++  { "Setup.Miscellaneous$as before",
++    "wie vorher",
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++  },
+   // The days of the week:
+   { "MTWTFSS",
+     "MDMDFSS",
+diff -ruN vdr-1.3.45/interface.c vdr-1.3.46/interface.c
+--- vdr-1.3.45/interface.c	2006-03-25 12:50:55.000000000 +0100
++++ vdr-1.3.46/interface.c	2006-03-31 16:20:04.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: interface.c 1.74 2006/03/25 11:50:55 kls Exp $
++ * $Id: interface.c 1.75 2006/03/31 14:20:04 kls Exp $
+  */
+ 
+ #include "interface.h"
+@@ -37,7 +37,10 @@
+      if (SVDRP->Process())
+         Wait = false;
+      }
+-  return cRemote::Get(Wait ? 1000 : 10);
++  if (!cRemote::IsLearning())
++     return cRemote::Get(Wait ? 1000 : 10);
++  else
++     return kNone;
+ }
+ 
+ eKeys cInterface::Wait(int Seconds, bool KeepChar)
+diff -ruN vdr-1.3.45/menu.c vdr-1.3.46/menu.c
+--- vdr-1.3.45/menu.c	2006-02-28 14:58:00.000000000 +0100
++++ vdr-1.3.46/menu.c	2006-04-09 16:29:24.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.424 2006/02/28 13:58:00 kls Exp $
++ * $Id: menu.c 1.428 2006/04/09 14:29:24 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -589,7 +589,8 @@
+ {
+   cOsdMenu::Display();
+   DisplayMenu()->SetText(text, font == fontFix); //XXX define control character in text to choose the font???
+-  cStatus::MsgOsdTextItem(text);
++  if (text)
++     cStatus::MsgOsdTextItem(text);
+ }
+ 
+ eOSState cMenuText::ProcessKey(eKeys Key)
+@@ -938,7 +939,8 @@
+ {
+   cOsdMenu::Display();
+   DisplayMenu()->SetEvent(event);
+-  cStatus::MsgOsdTextItem(event->Description());
++  if (event->Description())
++     cStatus::MsgOsdTextItem(event->Description());
+ }
+ 
+ eOSState cMenuEvent::ProcessKey(eKeys Key)
+@@ -1079,6 +1081,7 @@
+          }
+       }
+   currentChannel = CurrentChannelNr;
++  Display();
+   SetHelpKeys();
+ }
+ 
+@@ -1105,7 +1108,7 @@
+         NewHelpKeys = 1;
+      }
+   if (NewHelpKeys != helpKeys) {
+-     const char *Red[] = { NULL, tr("Button$Record"), tr("Timer") };
++     const char *Red[] = { NULL, tr("Button$Record"), tr("Button$Timer") };
+      SetHelp(Red[NewHelpKeys], now ? tr("Button$Next") : tr("Button$Now"), tr("Button$Schedule"), tr("Button$Switch"));
+      helpKeys = NewHelpKeys;
+      }
+@@ -1347,7 +1350,7 @@
+         NewHelpKeys = 1;
+      }
+   if (NewHelpKeys != helpKeys) {
+-     const char *Red[] = { NULL, tr("Button$Record"), tr("Timer") };
++     const char *Red[] = { NULL, tr("Button$Record"), tr("Button$Timer") };
+      SetHelp(Red[NewHelpKeys], tr("Button$Now"), tr("Button$Next"));
+      helpKeys = NewHelpKeys;
+      }
+@@ -1737,7 +1740,8 @@
+ {
+   cOsdMenu::Display();
+   DisplayMenu()->SetRecording(recording);
+-  cStatus::MsgOsdTextItem(recording->Info()->Description());
++  if (recording->Info()->Description())
++     cStatus::MsgOsdTextItem(recording->Info()->Description());
+ }
+ 
+ eOSState cMenuRecording::ProcessKey(eKeys Key)
+@@ -2583,6 +2587,8 @@
+   Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Min. user inactivity (min)"), &data.MinUserInactivity));
+   Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$SVDRP timeout (s)"),          &data.SVDRPTimeout));
+   Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Zap timeout (s)"),            &data.ZapTimeout));
++  Add(new cMenuEditChanItem(tr("Setup.Miscellaneous$Initial channel"),            &data.InitialChannel, tr("Setup.Miscellaneous$as before")));
++  Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Initial volume"),             &data.InitialVolume, -1, 255, tr("Setup.Miscellaneous$as before")));
+ }
+ 
+ // --- cMenuSetupPluginItem --------------------------------------------------
+diff -ruN vdr-1.3.45/menuitems.c vdr-1.3.46/menuitems.c
+--- vdr-1.3.45/menuitems.c	2006-03-26 11:10:17.000000000 +0200
++++ vdr-1.3.46/menuitems.c	2006-04-09 15:10:02.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.c 1.34 2006/03/26 09:10:17 kls Exp $
++ * $Id: menuitems.c 1.36 2006/04/09 13:10:02 kls Exp $
+  */
+ 
+ #include "menuitems.h"
+@@ -45,12 +45,14 @@
+ 
+ // --- cMenuEditIntItem ------------------------------------------------------
+ 
+-cMenuEditIntItem::cMenuEditIntItem(const char *Name, int *Value, int Min, int Max)
++cMenuEditIntItem::cMenuEditIntItem(const char *Name, int *Value, int Min, int Max, const char *MinString, const char *MaxString)
+ :cMenuEditItem(Name)
+ {
+   value = Value;
+   min = Min;
+   max = Max;
++  minString = MinString;
++  maxString = MaxString;
+   if (*value < min)
+      *value = min;
+   else if (*value > max)
+@@ -60,9 +62,15 @@
+ 
+ void cMenuEditIntItem::Set(void)
+ {
+-  char buf[16];
+-  snprintf(buf, sizeof(buf), "%d", *value);
+-  SetValue(buf);
++  if (minString && *value == min)
++     SetValue(minString);
++  else if (maxString && *value == max)
++     SetValue(maxString);
++  else {
++     char buf[16];
++     snprintf(buf, sizeof(buf), "%d", *value);
++     SetValue(buf);
++     }
+ }
+ 
+ eOSState cMenuEditIntItem::ProcessKey(eKeys Key)
+@@ -549,18 +557,23 @@
+ 
+ // --- cMenuEditChanItem -----------------------------------------------------
+ 
+-cMenuEditChanItem::cMenuEditChanItem(const char *Name, int *Value)
+-:cMenuEditIntItem(Name, Value, 1, Channels.MaxNumber())
++cMenuEditChanItem::cMenuEditChanItem(const char *Name, int *Value, const char *NoneString)
++:cMenuEditIntItem(Name, Value, NoneString ? 0 : 1, Channels.MaxNumber())
+ {
++  noneString = NoneString;
+   Set();
+ }
+ 
+ void cMenuEditChanItem::Set(void)
+ {
+-  char buf[255];
+-  cChannel *channel = Channels.GetByNumber(*value);
+-  snprintf(buf, sizeof(buf), "%d %s", *value, channel ? channel->Name() : "");
+-  SetValue(buf);
++  if (*value > 0) {
++     char buf[255];
++     cChannel *channel = Channels.GetByNumber(*value);
++     snprintf(buf, sizeof(buf), "%d %s", *value, channel ? channel->Name() : "");
++     SetValue(buf);
++     }
++  else
++     SetValue(noneString);
+ }
+ 
+ eOSState cMenuEditChanItem::ProcessKey(eKeys Key)
+@@ -574,10 +587,11 @@
+     case kRight:
+                  {
+                    cChannel *channel = Channels.GetByNumber(*value + delta, delta);
+-                   if (channel) {
++                   if (channel)
+                       *value = channel->Number();
+-                      Set();
+-                      }
++                   else if (delta < 0 && noneString)
++                      *value = 0;
++                   Set();
+                  }
+                  break;
+     default: return cMenuEditIntItem::ProcessKey(Key);
+@@ -588,11 +602,11 @@
+ // --- cMenuEditTranItem -----------------------------------------------------
+ 
+ cMenuEditTranItem::cMenuEditTranItem(const char *Name, int *Value, int *Source)
+-:cMenuEditChanItem(Name, Value)
++:cMenuEditChanItem(Name, &number)
+ {
+   number = 0;
+   source = Source;
+-  transponder = *Value;
++  transponder = Value;
+   cChannel *channel = Channels.First();
+   while (channel) {
+         if (!channel->GroupSep() && *source == channel->Source() && ISTRANSPONDER(channel->Transponder(), *Value)) {
+@@ -601,22 +615,17 @@
+            }
+         channel = (cChannel *)channel->Next();
+         }
+-  *Value = number;
+   Set();
+-  *Value = transponder;
+ }
+ 
+ eOSState cMenuEditTranItem::ProcessKey(eKeys Key)
+ {
+-  *value = number;
+   eOSState state = cMenuEditChanItem::ProcessKey(Key);
+-  number = *value;
+-  cChannel *channel = Channels.GetByNumber(*value);
++  cChannel *channel = Channels.GetByNumber(number);
+   if (channel) {
+      *source = channel->Source();
+-     transponder = channel->Transponder();
++     *transponder = channel->Transponder();
+      }
+-  *value = transponder;
+   return state;
+ }
+ 
+diff -ruN vdr-1.3.45/menuitems.h vdr-1.3.46/menuitems.h
+--- vdr-1.3.45/menuitems.h	2006-02-12 11:22:03.000000000 +0100
++++ vdr-1.3.46/menuitems.h	2006-04-09 14:56:48.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.h 1.17 2006/02/12 10:22:03 kls Exp $
++ * $Id: menuitems.h 1.19 2006/04/09 12:56:48 kls Exp $
+  */
+ 
+ #ifndef __MENUITEMS_H
+@@ -28,9 +28,10 @@
+ protected:
+   int *value;
+   int min, max;
++  const char *minString, *maxString;
+   virtual void Set(void);
+ public:
+-  cMenuEditIntItem(const char *Name, int *Value, int Min = 0, int Max = INT_MAX);
++  cMenuEditIntItem(const char *Name, int *Value, int Min = 0, int Max = INT_MAX, const char *MinString = NULL, const char *MaxString = NULL);
+   virtual eOSState ProcessKey(eKeys Key);
+   };
+ 
+@@ -110,9 +111,10 @@
+ 
+ class cMenuEditChanItem : public cMenuEditIntItem {
+ protected:
++  const char *noneString;
+   virtual void Set(void);
+ public:
+-  cMenuEditChanItem(const char *Name, int *Value);
++  cMenuEditChanItem(const char *Name, int *Value, const char *NoneString = NULL);
+   virtual eOSState ProcessKey(eKeys Key);
+   };
+ 
+@@ -120,7 +122,7 @@
+ private:
+   int number;
+   int *source;
+-  int transponder;
++  int *transponder;
+ public:
+   cMenuEditTranItem(const char *Name, int *Value, int *Source);
+   virtual eOSState ProcessKey(eKeys Key);
+diff -ruN vdr-1.3.45/pat.c vdr-1.3.46/pat.c
+--- vdr-1.3.45/pat.c	2006-01-27 16:48:29.000000000 +0100
++++ vdr-1.3.46/pat.c	2006-03-31 14:39:34.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.c 1.15 2006/01/27 15:48:29 kls Exp $
++ * $Id: pat.c 1.16 2006/03/31 12:39:34 kls Exp $
+  */
+ 
+ #include "pat.h"
+@@ -232,6 +232,7 @@
+ {
+   pmtIndex = 0;
+   pmtPid = 0;
++  pmtSid = 0;
+   lastPmtScan = 0;
+   numPmtEntries = 0;
+   Set(0x00, 0x00);  // PAT
+@@ -242,6 +243,7 @@
+   cFilter::SetStatus(On);
+   pmtIndex = 0;
+   pmtPid = 0;
++  pmtSid = 0;
+   lastPmtScan = 0;
+   numPmtEntries = 0;
+ }
+@@ -289,6 +291,7 @@
+                if (!assoc.isNITPid()) {
+                   if (Index++ >= pmtIndex && Channels.GetByServiceID(Source(), Transponder(), assoc.getServiceId())) {
+                      pmtPid = assoc.getPid();
++                     pmtSid = assoc.getServiceId();
+                      Add(pmtPid, 0x02);
+                      break;
+                      }
+@@ -303,6 +306,8 @@
+      SI::PMT pmt(Data, false);
+      if (!pmt.CheckCRCAndParse())
+         return;
++     if (pmt.getServiceId() != pmtSid)
++        return; // skip broken PMT records
+      if (!PmtVersionChanged(pmtPid, pmt.getTableIdExtension(), pmt.getVersionNumber())) {
+         lastPmtScan = 0; // this triggers the next scan
+         return;
+diff -ruN vdr-1.3.45/pat.h vdr-1.3.46/pat.h
+--- vdr-1.3.45/pat.h	2006-03-26 16:09:43.000000000 +0200
++++ vdr-1.3.46/pat.h	2006-03-29 17:18:38.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.h 1.5 2006/03/26 14:09:43 kls Exp $
++ * $Id: pat.h 1.6 2006/03/29 15:18:38 kls Exp $
+  */
+ 
+ #ifndef __PAT_H
+@@ -20,6 +20,7 @@
+   time_t lastPmtScan;
+   int pmtIndex;
+   int pmtPid;
++  int pmtSid;
+   uint64_t pmtVersion[MAXPMTENTRIES];
+   int numPmtEntries;
+   bool PmtVersionChanged(int PmtPid, int Sid, int Version);
+diff -ruN vdr-1.3.45/plugin.c vdr-1.3.46/plugin.c
+--- vdr-1.3.45/plugin.c	2006-02-28 15:16:54.000000000 +0100
++++ vdr-1.3.46/plugin.c	2006-04-09 16:16:17.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: plugin.c 1.17 2006/02/28 14:16:54 kls Exp $
++ * $Id: plugin.c 1.18 2006/04/09 14:16:17 kls Exp $
+  */
+ 
+ #include "plugin.h"
+@@ -232,7 +232,7 @@
+         if (argc)
+            plugin->SetName(argv[0]);
+         optind = 0; // to reset the getopt() data
+-        return !argc || plugin->ProcessArgs(argc, argv);
++        return !Log || !argc || plugin->ProcessArgs(argc, argv);
+         }
+      }
+   else {
+diff -ruN vdr-1.3.45/recording.c vdr-1.3.46/recording.c
+--- vdr-1.3.45/recording.c	2006-03-26 11:11:00.000000000 +0200
++++ vdr-1.3.46/recording.c	2006-04-09 15:49:51.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 1.143 2006/03/26 09:11:00 kls Exp $
++ * $Id: recording.c 1.144 2006/04/09 13:49:51 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -1368,6 +1368,11 @@
+   return -1;
+ }
+ 
++bool cIndexFile::IsStillRecording()
++{
++  return f >= 0;
++}
++
+ // --- cFileName -------------------------------------------------------------
+ 
+ #include <errno.h>
+diff -ruN vdr-1.3.45/recording.h vdr-1.3.46/recording.h
+--- vdr-1.3.45/recording.h	2006-02-25 13:24:46.000000000 +0100
++++ vdr-1.3.46/recording.h	2006-04-09 15:47:11.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 1.53 2006/02/25 12:24:46 kls Exp $
++ * $Id: recording.h 1.54 2006/04/09 13:47:11 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -210,6 +210,7 @@
+   int Last(void) { CatchUp(); return last; }
+   int GetResume(void) { return resumeFile.Read(); }
+   bool StoreResume(int Index) { return resumeFile.Save(Index); }
++  bool IsStillRecording(void);
+   };
+ 
+ class cFileName {
+diff -ruN vdr-1.3.45/remote.h vdr-1.3.46/remote.h
+--- vdr-1.3.45/remote.h	2006-01-29 13:27:08.000000000 +0100
++++ vdr-1.3.46/remote.h	2006-03-31 16:18:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.h 1.33 2006/01/29 12:27:08 kls Exp $
++ * $Id: remote.h 1.34 2006/03/31 14:18:44 kls Exp $
+  */
+ 
+ #ifndef __REMOTE_H
+@@ -42,6 +42,7 @@
+   virtual bool Initialize(void);
+   const char *Name(void) { return name; }
+   static void SetLearning(cRemote *Learning) { learning = Learning; }
++  static bool IsLearning() { return learning != NULL; }
+   static void Clear(void);
+   static bool Put(eKeys Key, bool AtFront = false);
+   static bool PutMacro(eKeys Key);
+diff -ruN vdr-1.3.45/skinclassic.c vdr-1.3.46/skinclassic.c
+--- vdr-1.3.45/skinclassic.c	2006-02-05 15:51:39.000000000 +0100
++++ vdr-1.3.46/skinclassic.c	2006-03-31 15:59:50.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinclassic.c 1.14 2006/02/05 14:51:39 kls Exp $
++ * $Id: skinclassic.c 1.15 2006/03/31 13:59:50 kls Exp $
+  */
+ 
+ #include "skinclassic.h"
+@@ -517,7 +517,7 @@
+   const cFont *font = cFont::GetFont(fontOsd);
+   if (Mute) {
+      osd->DrawRectangle(0, 0, osd->Width() - 1, osd->Height() - 1, clrTransparent);
+-     osd->DrawText(0, 0, tr("Mute"), Theme.Color(clrVolumePrompt), Theme.Color(clrBackground), font);
++     osd->DrawText(0, 0, tr("Key$Mute"), Theme.Color(clrVolumePrompt), Theme.Color(clrBackground), font);
+      }
+   else {
+      const char *Prompt = tr("Volume ");
+diff -ruN vdr-1.3.45/skins.c vdr-1.3.46/skins.c
+--- vdr-1.3.45/skins.c	2006-02-05 15:53:04.000000000 +0100
++++ vdr-1.3.46/skins.c	2006-04-09 13:25:30.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skins.c 1.8 2006/02/05 14:53:04 kls Exp $
++ * $Id: skins.c 1.9 2006/04/09 11:25:30 kls Exp $
+  */
+ 
+ #include "skins.h"
+@@ -255,7 +255,16 @@
+      return kNone;
+      }
+   if (isempty(s)) {
+-     dsyslog("cSkins::QueueMessage() called with empty message - ignored!");
++     if (!cThread::IsMainThread()) {
++        queueMessageMutex.Lock();
++        for (cSkinQueuedMessage *m = SkinQueuedMessages.Last(); m; m = SkinQueuedMessages.Prev(m)) {
++            if (m->threadId == cThread::ThreadId() && m->state == 0)
++               m->state = 2; // done
++            }
++        queueMessageMutex.Unlock();
++        }
++     else
++        dsyslog("cSkins::QueueMessage() called with empty message from main thread - ignored!");
+      return kNone;
+      }
+   int k = kNone;
+diff -ruN vdr-1.3.45/skins.h vdr-1.3.46/skins.h
+--- vdr-1.3.45/skins.h	2006-02-05 15:59:57.000000000 +0100
++++ vdr-1.3.46/skins.h	2006-04-09 13:23:35.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skins.h 1.11 2006/02/05 14:59:57 kls Exp $
++ * $Id: skins.h 1.13 2006/04/09 11:23:35 kls Exp $
+  */
+ 
+ #ifndef __SKINS_H
+@@ -329,7 +329,7 @@
+        ///< temporary cSkinDisplayMessage object.
+        ///< The return value is the key pressed by the user. If no user input
+        ///< has been received within Seconds (the default value of 0 results
+-       ///< in the ///< value defined for "Message time" in the setup), kNone
++       ///< in the value defined for "Message time" in the setup), kNone
+        ///< will be returned.
+   int QueueMessage(eMessageType Type, const char *s, int Seconds = 0, int Timeout = 0);
+        ///< Like Message(), but this function may be called from a background
+@@ -353,7 +353,9 @@
+        ///< progress displays, where only the most recent message is actually
+        ///< important.
+        ///< Type may only be mtInfo, mtWarning or mtError. A call with mtStatus
+-       ///< will be ignored, as will be one with an empty message.
++       ///< will be ignored. A call with an empty message from a background thread
++       ///< removes all queued messages from the calling thread. A call with
++       ///< an empty message from the main thread will be ignored.
+   void ProcessQueuedMessages(void);
+        ///< Processes the first queued message, if any.
+   void Flush(void);
+diff -ruN vdr-1.3.45/sources.conf vdr-1.3.46/sources.conf
+--- vdr-1.3.45/sources.conf	2006-03-19 14:03:46.000000000 +0100
++++ vdr-1.3.46/sources.conf	2006-03-31 16:03:59.000000000 +0200
+@@ -165,7 +165,7 @@
+ S105W   AMC15
+ S107.3W Anik F1/F1R
+ S110W   DirecTV 5 & Echostar 6/8
+-A111.1W Anik F2
++S111.1W Anik F2
+ S113W   Solidaridad 2
+ S119W   Echostar 7 & DirecTV 7S
+ S121W   Echostar 9 & Intelsat Americas 13
+diff -ruN vdr-1.3.45/timers.c vdr-1.3.46/timers.c
+--- vdr-1.3.45/timers.c	2006-03-26 16:08:57.000000000 +0200
++++ vdr-1.3.46/timers.c	2006-04-09 11:10:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 1.55 2006/03/26 14:08:57 kls Exp $
++ * $Id: timers.c 1.57 2006/04/09 09:10:08 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -330,7 +330,7 @@
+   return file;
+ }
+ 
+-bool cTimer::Matches(time_t t, bool Directly) const
++bool cTimer::Matches(time_t t, bool Directly, int Margin) const
+ {
+   startTime = stopTime = 0;
+   if (t == 0)
+@@ -370,7 +370,7 @@
+         stopTime = event->EndTime();
+         return event->IsRunning(true);
+         }
+-     return startTime <= t && t < stopTime; // must stop *before* stopTime to allow adjacent timers
++     return startTime <= t + Margin && t < stopTime; // must stop *before* stopTime to allow adjacent timers
+      }
+   return false;
+ }
+@@ -401,7 +401,9 @@
+      startTime = stopTime = 0;
+      if (Overlap)
+         *Overlap = overlap;
+-     return overlap >= 1000 ? tmFull : overlap > 0 ? tmPartial : tmNone;
++     if (UseVps)
++        return overlap > FULLMATCH ? tmFull : tmNone;
++     return overlap >= FULLMATCH ? tmFull : overlap > 0 ? tmPartial : tmNone;
+      }
+   return tmNone;
+ }
+@@ -435,8 +437,6 @@
+ 
+ #define EPGLIMITBEFORE   (1 * 3600) // Time in seconds before a timer's start time and
+ #define EPGLIMITAFTER    (1 * 3600) // after its stop time within which EPG events will be taken into consideration.
+-#define VPSLIMITBEFORE   (2 * 3600) // Same for VPS timers, which need to
+-#define VPSLIMITAFTER   (24 * 3600) // look further into the future to catch shifted broadcasts.
+ 
+ void cTimer::SetEventFromSchedule(const cSchedules *Schedules)
+ {
+@@ -447,51 +447,51 @@
+         return;
+      }
+   const cSchedule *Schedule = Schedules->GetSchedule(Channel());
+-  if (Schedule) {
++  if (Schedule && Schedule->Events()->First()) {
+      time_t now = time(NULL);
+      if (!lastSetEvent || Schedule->Modified() >= lastSetEvent) {
++        lastSetEvent = now;
+         const cEvent *Event = NULL;
+-        int Overlap = 0;
+-        int Distance = INT_MIN;
+-        bool UseVps = HasFlags(tfVps);
+-        const cEvent *PresentEvent = UseVps ? Schedule->GetPresentEvent() : NULL;
+-        const cEvent *FollowingEvent = UseVps ? Schedule->GetFollowingEvent() : NULL;
+-        // Set up the time frame within which to check events:
+-        Matches(0, true);
+-        time_t TimeFrameBegin = StartTime() - (UseVps ? VPSLIMITBEFORE : EPGLIMITBEFORE);
+-        time_t TimeFrameEnd   = StopTime()  + (UseVps ? VPSLIMITAFTER  : EPGLIMITAFTER);
+-        for (const cEvent *e = Schedule->Events()->First(); e; e = Schedule->Events()->Next(e)) {
+-            if (!UseVps || e != event && e != PresentEvent && e != FollowingEvent) { // always check these if this is a VPS timer
++        if (HasFlags(tfVps) && Schedule->Events()->First()->Vps()) {
++           if (event && Recording())
++              return; // let the recording end first
++           // VPS timers only match if their start time exactly matches the event's VPS time:
++           for (const cEvent *e = Schedule->Events()->First(); e; e = Schedule->Events()->Next(e)) {
++               if (e->StartTime() && e->RunningStatus() != SI::RunningStatusNotRunning) { // skip outdated events
++                  int overlap = 0;
++                  Matches(e, &overlap);
++                  if (overlap > FULLMATCH) {
++                     Event = e;
++                     break; // take the first matching event
++                     }
++                  }
++               }
++           if (!Event && event && (now <= event->EndTime() || Matches(0, true)))
++              return; // stay with the old event until the timer has completely expired
++           }
++        else {
++           // Normal timers match the event they have the most overlap with:
++           int Overlap = 0;
++           // Set up the time frame within which to check events:
++           Matches(0, true);
++           time_t TimeFrameBegin = StartTime() - EPGLIMITBEFORE;
++           time_t TimeFrameEnd   = StopTime()  + EPGLIMITAFTER;
++           for (const cEvent *e = Schedule->Events()->First(); e; e = Schedule->Events()->Next(e)) {
+                if (e->EndTime() < TimeFrameBegin)
+                   continue; // skip events way before the timer starts
+                if (e->StartTime() > TimeFrameEnd)
+                   break; // the rest is way after the timer ends
+-               }
+-            int overlap = 0;
+-            Matches(e, &overlap);
+-            if (overlap && overlap >= Overlap) {
+-               int distance = 0;
+-               if (now < e->StartTime())
+-                  distance = e->StartTime() - now;
+-               else if (now > e->EndTime())
+-                  distance = e->EndTime() - now;
+-               if (Event && overlap == Overlap) {
+-                  if (Overlap > FULLMATCH) { // this means VPS
+-                     if (abs(Distance) < abs(distance))
+-                        break; // we've already found the closest VPS event
+-                     }
+-                  else if (e->Duration() <= Event->Duration())
++               int overlap = 0;
++               Matches(e, &overlap);
++               if (overlap && overlap >= Overlap) {
++                  if (Event && overlap == Overlap && e->Duration() <= Event->Duration())
+                      continue; // if overlap is the same, we take the longer event
++                  Overlap = overlap;
++                  Event = e;
+                   }
+-               Overlap = overlap;
+-               Distance = distance;
+-               Event = e;
+                }
+-            }
+-        if (Event && Event->EndTime() < now - EXPIRELATENCY && Overlap > FULLMATCH && !Event->IsRunning())
+-           Event = NULL;
++           }
+         SetEvent(Event);
+-        lastSetEvent = now;
+         }
+      }
+ }
+diff -ruN vdr-1.3.45/timers.h vdr-1.3.46/timers.h
+--- vdr-1.3.45/timers.h	2006-03-26 12:44:01.000000000 +0200
++++ vdr-1.3.46/timers.h	2006-04-08 14:41:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.h 1.27 2006/03/26 10:44:01 kls Exp $
++ * $Id: timers.h 1.28 2006/04/08 12:41:44 kls Exp $
+  */
+ 
+ #ifndef __TIMERS_H
+@@ -73,7 +73,7 @@
+   static time_t IncDay(time_t t, int Days);
+   static time_t SetTime(time_t t, int SecondsFromMidnight);
+   char *SetFile(const char *File);
+-  bool Matches(time_t t = 0, bool Directly = false) const;
++  bool Matches(time_t t = 0, bool Directly = false, int Margin = 0) const;
+   int Matches(const cEvent *Event, int *Overlap = NULL) const;
+   bool Expired(void) const;
+   time_t StartTime(void) const;
+diff -ruN vdr-1.3.45/vdr.c vdr-1.3.46/vdr.c
+--- vdr-1.3.45/vdr.c	2006-03-26 11:16:53.000000000 +0200
++++ vdr-1.3.46/vdr.c	2006-04-09 14:22:46.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.251 2006/03/26 09:16:53 kls Exp $
++ * $Id: vdr.c 1.254 2006/04/09 12:22:46 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -72,6 +72,8 @@
+ #define DEVICEREADYTIMEOUT 30 // seconds to wait until all devices are ready
+ #define MENUTIMEOUT       120 // seconds of user inactivity after which an OSD display is closed
+ #define SHUTDOWNRETRY     300 // seconds before trying again to shut down
++#define VPSCHECKDELTA      10 // seconds between checks for timers that have entered the VPS margin
++#define VPSDEVICETIMEOUT    8 // seconds before a device used for VPS may be reused
+ 
+ #define EXIT(v) { ExitCode = (v); goto Exit; }
+ 
+@@ -630,6 +632,10 @@
+ 
+   if (!cDevice::WaitForAllDevicesReady(DEVICEREADYTIMEOUT))
+      dsyslog("not all devices ready after %d seconds", DEVICEREADYTIMEOUT);
++  if (Setup.InitialChannel > 0)
++     Setup.CurrentChannel = Setup.InitialChannel;
++  if (Setup.InitialVolume >= 0)
++     Setup.CurrentVolume = Setup.InitialVolume;
+   Channels.SwitchTo(Setup.CurrentChannel);
+   if (MuteAudio)
+      cDevice::PrimaryDevice()->ToggleMute();
+@@ -736,8 +742,6 @@
+            PreviousChannel[PreviousChannelIndex ^= 1] = LastChannel;
+         // Timers and Recordings:
+         if (!Timers.BeingEdited()) {
+-           // Delete expired timers:
+-           Timers.DeleteExpired();
+            // Assign events to timers:
+            Timers.SetEvents();
+            // Must do all following calls with the exact same time!
+@@ -753,21 +757,63 @@
+                  LastTimerChannel = Timer->Channel()->Number();
+               }
+            // Make sure VPS timers "see" their channel early enough:
+-           TimerInVpsMargin = false;
+-           for (cTimer *Timer = Timers.First(); Timer; Timer = Timers.Next(Timer)) {
+-               if (Timer->HasFlags(tfActive | tfVps) && !Timer->Recording() && !Timer->Pending() && Timer->Matches(Now + Setup.VpsMargin, true)) {
+-                  if (!Timer->InVpsMargin()) {
++           static time_t LastVpsCheck = 0;
++           if (Now - LastVpsCheck > VPSCHECKDELTA) { // don't do this too often
++              TimerInVpsMargin = false;
++              static time_t DeviceUsed[MAXDEVICES] = { 0 };
++              for (cTimer *Timer = Timers.First(); Timer; Timer = Timers.Next(Timer)) {
++                  if (Timer->HasFlags(tfActive | tfVps) && !Timer->Recording() && Timer->Matches(Now, true, Setup.VpsMargin)) {
+                      Timer->SetInVpsMargin(true);
+-                     //XXX if not primary device has TP???
+-                     LastTimerChannel = Timer->Channel()->Number();
+-                     cRecordControls::Start(Timer); // will only switch the device
++                     // Find a device that provides the required transponder:
++                     cDevice *Device = NULL;
++                     for (int i = 0; i < cDevice::NumDevices(); i++) {
++                         cDevice *d = cDevice::GetDevice(i);
++                         if (d && d->ProvidesTransponder(Timer->Channel())) {
++                            if (d->IsTunedToTransponder(Timer->Channel())) {
++                               // if any device is tuned to the transponder, we're done
++                               Device = d;
++                               break;
++                               }
++                            else if (Now - DeviceUsed[d->DeviceNumber()] > VPSDEVICETIMEOUT) {
++                               // only check other devices if they have been left alone for a while
++                               if (d->MaySwitchTransponder())
++                                  // this one can be switched without disturbing anything else
++                                  Device = d;
++                               else if (!Device && !d->Receiving() && d->ProvidesTransponderExclusively(Timer->Channel()))
++                                  // use this one only if no other with less impact can be found
++                                  Device = d;
++                               }
++                            }
++                         }
++                     if (!Device) {
++                        cDevice *d = cDevice::ActualDevice();
++                        if (!d->Receiving() && d->ProvidesTransponder(Timer->Channel()) && Now - DeviceUsed[d->DeviceNumber()] > VPSDEVICETIMEOUT)
++                           Device = d; // use the actual device as a last resort
++                        }
++                     // Switch the device to the transponder:
++                     if (Device) {
++                        if (Device == cDevice::ActualDevice() && !Device->IsPrimaryDevice())
++                           cDevice::PrimaryDevice()->StopReplay(); // stop transfer mode
++                        if (!Device->IsTunedToTransponder(Timer->Channel())) {
++                           dsyslog("switching device %d to channel %d", Device->DeviceNumber() + 1, Timer->Channel()->Number());
++                           Device->SwitchChannel(Timer->Channel(), false);
++                           DeviceUsed[Device->DeviceNumber()] = Now;
++                           }
++                        if (cDevice::PrimaryDevice()->HasDecoder() && !cDevice::PrimaryDevice()->HasProgramme()) {
++                           // the previous SwitchChannel() has switched away the current live channel
++                           Channels.SwitchTo(Timer->Channel()->Number()); // avoids toggling between old channel and black screen
++                           Skins.Message(mtInfo, tr("Upcoming VPS recording!"));
++                           }
++                        }
++                     TimerInVpsMargin = true;
+                      }
++                  else
++                     Timer->SetInVpsMargin(false);
+                   }
+-               else
+-                  Timer->SetInVpsMargin(false);
+-               if (Timer->InVpsMargin())
+-                  TimerInVpsMargin = true;
+-               }
++              LastVpsCheck = time(NULL);
++              }
++           // Delete expired timers:
++           Timers.DeleteExpired();
+            }
+         if (!Menu && Recordings.NeedsUpdate()) {
+            Recordings.Update();

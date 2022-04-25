@@ -1,0 +1,1132 @@
+diff -ruN vdr-1.4.0-1/CONTRIBUTORS vdr-1.4.0-2/CONTRIBUTORS
+--- vdr-1.4.0-1/CONTRIBUTORS	2006-05-12 14:42:57.000000000 +0200
++++ vdr-1.4.0-2/CONTRIBUTORS	2006-05-28 12:48:50.000000000 +0200
+@@ -274,6 +274,7 @@
+  for pointing out a problem with the ERR macro defined by ncurses.h
+  for a patch that contained a fix for checking toFile in cCuttingThread::Action()
+  for improving cUnbufferedFile
++ for fixing calculating the cache size in cUnbufferedFile::Read()
+ 
+ Werner Fink <werner@suse.de>
+  for making I/O more robust by handling EINTR
+@@ -309,6 +310,8 @@
+  and firmware can handle live DD without the need of a Transfer Mode
+  for fixing cDvbDevice::SetAudioBypass() in case setTransferModeForDolbyDigital is
+  false
++ for a patch that was used as a base to fix handling Transfer Mode when replaying
++ Dolby Digital audio and the option '-a' was given
+ 
+ Rolf Hakenes <hakenes@hippomi.de>
+  for providing 'libdtv' and adapting the EIT mechanisms to it
+@@ -442,6 +445,9 @@
+  for making the "Play" key in live viewing mode resume a previous replay session
+  for suggesting to allow defining key macros for all non-modeless keys
+  for reporting a bug in entering '0' in a cMenuEditIntItem
++ for reporting that moving channels sometimes stopped the current replay session
++ for reporting a problem with deleting channels in case the current channel's
++ number changes
+ 
+ Michael Rakowski <mrak@gmx.de>
+  for translating OSD texts to the Polish language
+@@ -538,6 +544,7 @@
+ 
+ Joerg Riechardt <J.Riechardt@gmx.de>
+  for filling in some missing teletext PIDs
++ for improving the repeat function for LIRC remote controls
+ 
+ Holger Wächtler <holger@qanu.de>
+  for some valuable advice during adapting to the NEWSTRUCT driver
+@@ -1273,6 +1280,8 @@
+  for reporting a spelling error in 'canceling'
+  for adding some 'mkdir -p' to the Makefile's 'install' target
+  for reporting some missing braces in remux.c
++ for suggesting to modifiy the Makefile to copy additional libraries a plugin might
++ provide
+ 
+ Marco Schlüßler <marco@lordzodiac.de>
+  for fixing handling colors in cDvbSpuPalette::yuv2rgb()
+@@ -1427,6 +1436,8 @@
+  for suggesting to add 'eval' to the $VDRCMD call in 'runvdr' to avoid problems with
+  quoting
+  for fixing handling the "Power" key in case a timer is about to start recording
++ for fixing calculating the start time of repeated timers with "first day"
++ for setting a timer's cached start time to 0 after a call to Skip()
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -1756,6 +1767,7 @@
+  for his idea of going directly into the "Edit timer" menu for a timer created
+  from the "Schedule" menu in case it starts withing the next two minutes
+  for reporting a problem with a format string in recording.c on 64bit systems
++ for reporting a problem with the device selection in case of timer conflicts
+ 
+ Thiemo Gehrke <tgehrke@reel-multimedia.com>
+  for suggesting to add a setup option to turn off the automatic timeout of the
+@@ -1873,6 +1885,7 @@
+  for suggesting to use geteuid() to check whether VDR is running as user 'root'
+  for fixing a memory leak in handling external EPG data
+  for fixing a memory leak in closing the video file during replay
++ for fixing deleting the 'skinDescriptions' in cMenuSetupOSD::~cMenuSetupOSD()
+ 
+ Helge Lenz <h.lenz@gmx.de>
+  for reporting a bug in setting the 'Delta' parameter when calling the shutdown
+@@ -1905,3 +1918,9 @@
+ 
+ M. Kiesel <vdr@continuity.cjb.net>
+  for reporting that the 'runvdr' script still used DVBDIR
++
++Prakash Punnoor <prakash@punnoor.de>
++ for suggesting to remove -fPIC from VDR's and libsi's Makefile
++
++Anssi Hannula <anssi.hannula@gmail.com>
++ for a patch that was used to implement processing the "frequency list descriptor"
+diff -ruN vdr-1.4.0-1/HISTORY vdr-1.4.0-2/HISTORY
+--- vdr-1.4.0-1/HISTORY	2006-05-14 13:22:13.000000000 +0200
++++ vdr-1.4.0-2/HISTORY	2006-05-28 12:48:28.000000000 +0200
+@@ -4715,3 +4715,33 @@
+   events.
+ - Fixed automatically updating the CAM menu in case the whole operation (for
+   instance a firmware update) takes longer than the menu timeout.
++
++2006-05-28: Version 1.4.0-2
++
++- Removed leftover LSMOD=... line from 'runvdr'.
++- Modified the Makefile to copy additional libraries a plugin might provide (suggested
++  by Wayne Keer). See PLUGINS.html for details.
++- Fixed handling Transfer Mode when replaying Dolby Digital audio and the option
++  '-a' was given (based on a patch from Werner Fink). To avoid having to increment
++  the API version, several #if checks have been introduced around this. These will
++  be removed once the API version actually needs to be incremented.
++- Fixed deleting the 'skinDescriptions' in cMenuSetupOSD::~cMenuSetupOSD() (thanks
++  to Tobias Grimm).
++- Fixed calculating the start time of repeated timers with "first day" (thanks to
++  Udo Richter).
++- Now setting a timer's cached start time to 0 after a call to Skip() (thanks to
++  Udo Richter).
++- Fixed handling the running status of EPG events in case the "Schedule" menu is
++  currently open (i.e. a write lock on the schedules data can't be achieved).
++- Fixed handling VPS timers in case the EPG event hasn't been 'seen' in a while.
++- Fixed calculating the cache size in cUnbufferedFile::Read() (thanks to Artur Skawina).
++- Removed -fPIC from VDR's and libsi's Makefile (suggested by Prakash Punnoor).
++- Modifed the device selection to better handle timer conflicts (reported by
++  Christian Wieninger).
++- Avoiding a compiler warning in libsi's TypeLoop::operator[].
++- Now processing the "frequency list descriptor" (based on a patch from Anssi Hannula).
++- Improved the repeat function for LIRC remote controls (thanks to Joerg Riechardt).
++- Fixed moving channels, which sometimes stopped the current replay session
++  (reported by Mirko Dölle).
++- Fixed deleting channels in case the current channel's number changes (reported
++  by Mirko Dölle).
+diff -ruN vdr-1.4.0-1/Make.config.template vdr-1.4.0-2/Make.config.template
+--- vdr-1.4.0-1/Make.config.template	2006-04-15 14:28:03.000000000 +0200
++++ vdr-1.4.0-2/Make.config.template	2006-05-26 12:41:46.000000000 +0200
+@@ -6,15 +6,15 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Make.config.template 1.8 2006/04/15 12:28:03 kls Exp $
++# $Id: Make.config.template 1.9 2006/05/26 10:41:46 kls Exp $
+ 
+ ### The C compiler and options:
+ 
+ CC       = gcc
+-CFLAGS   = -O2
++CFLAGS   = -g -O2 -Wall
+ 
+ CXX      = g++
+-CXXFLAGS = -fPIC -g -O2 -Wall -Woverloaded-virtual
++CXXFLAGS = -g -O2 -Wall -Woverloaded-virtual
+ 
+ ### The directory environment:
+ 
+diff -ruN vdr-1.4.0-1/Makefile vdr-1.4.0-2/Makefile
+--- vdr-1.4.0-1/Makefile	2006-04-24 19:18:06.000000000 +0200
++++ vdr-1.4.0-2/Makefile	2006-05-26 12:42:17.000000000 +0200
+@@ -4,15 +4,15 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 1.91 2006/04/24 17:18:06 kls Exp $
++# $Id: Makefile 1.93 2006/05/26 10:42:17 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+ CC       ?= gcc
+-CFLAGS   ?= -O2
++CFLAGS   ?= -g -O2 -Wall
+ 
+ CXX      ?= g++
+-CXXFLAGS ?= -fPIC -g -O2 -Wall -Woverloaded-virtual
++CXXFLAGS ?= -g -O2 -Wall -Woverloaded-virtual
+ 
+ LSIDIR   = ./libsi
+ MANDIR   = /usr/local/man
+@@ -223,7 +223,7 @@
+ 
+ install-plugins: plugins
+ 	@mkdir -p $(PLUGINLIBDIR)
+-	@cp $(PLUGINDIR)/lib/libvdr-*.so.$(APIVERSION) $(PLUGINLIBDIR)
++	@cp $(PLUGINDIR)/lib/lib*-*.so.$(APIVERSION) $(PLUGINLIBDIR)
+ 
+ # Source documentation:
+ 
+diff -ruN vdr-1.4.0-1/PLUGINS.html vdr-1.4.0-2/PLUGINS.html
+--- vdr-1.4.0-1/PLUGINS.html	2006-04-28 15:05:28.000000000 +0200
++++ vdr-1.4.0-2/PLUGINS.html	2006-05-19 14:11:36.000000000 +0200
+@@ -6,7 +6,7 @@
+ 
+ <center><h1>The VDR Plugin System</h1></center>
+ 
+-<center><b>Version 1.4</b></center>
++<center><b>Version 1.4.1</b></center>
+ <p>
+ <center>
+ Copyright &copy; 2006 Klaus Schmidinger<br>
+@@ -192,6 +192,16 @@
+ should lead to the current version of the plugin you want to use. This way you can
+ have several different versions of a plugin source (like <tt>hello-0.0.1</tt> and
+ <tt>hello-0.0.2</tt>) and define which one to actually use through the symbolic link.
++<p>
++If a plugin needs library files of its own, it can copy them to the <tt>lib</tt>
++directory following the naming convention <tt>lib<i>name</i>-<i>library</i>.so.0.0.1</tt>,
++where <i>name</i> is the name of the plugin, and <i>library</i> identifies the
++plugin's additional library. If the plugin <tt>hello</tt> would require the two
++additional libraries <tt>foo</tt> and <tt>bar</tt>, the  names would be
++<p>
++<tt>libhello-foo.so.0.0.1</tt><br>
++<tt>libhello-bar.so.0.0.1</tt>
++<p>
+ 
+ <a name="Initializing a new plugin directory"><hr><h2>Initializing a new plugin directory</h2>
+ 
+diff -ruN vdr-1.4.0-1/audio.c vdr-1.4.0-2/audio.c
+--- vdr-1.4.0-1/audio.c	2005-02-12 13:40:51.000000000 +0100
++++ vdr-1.4.0-2/audio.c	2006-05-20 12:02:08.000000000 +0200
+@@ -4,11 +4,18 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: audio.c 1.3 2005/02/12 12:40:51 kls Exp $
++ * $Id: audio.c 1.4 2006/05/20 10:02:08 kls Exp $
+  */
+ 
+ #include "audio.h"
+-#include "stdlib.h"
++#include <stdlib.h>
++// TODO remove the following if APIVERSNUM > 10400
++#include "config.h"
++#if APIVERSNUM != 10400
++#warning ******* API version changed - remove old stuff
++#endif
++// TODO
++#include "dvbdevice.h"
+ 
+ // --- cAudio ----------------------------------------------------------------
+ 
+@@ -61,6 +68,14 @@
+   if (command && !mute) {
+      if (pipe || pipe.Open(command, "w")) {
+         if (0x80 <= Id && Id <= 0x87 || Id == 0xBD) { // AC3
++#if APIVERSNUM == 10400
++           extern int cDvbDevice__setTransferModeForDolbyDigital;
++           cDvbDevice__setTransferModeForDolbyDigital = 2;
++           cDvbDevice::SetTransferModeForDolbyDigital(false);
++#else
++#warning ******* API version changed - remove old stuff
++           cDvbDevice::SetTransferModeForDolbyDigital(2);
++#endif
+            int written = Data[8] + 9; // skips the PES header
+            if (Id != 0xBD)
+               written += 4; // skips AC3 bytes
+diff -ruN vdr-1.4.0-1/channels.c vdr-1.4.0-2/channels.c
+--- vdr-1.4.0-1/channels.c	2006-04-17 14:18:57.000000000 +0200
++++ vdr-1.4.0-2/channels.c	2006-05-28 12:14:18.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 1.51 2006/04/17 12:18:57 kls Exp $
++ * $Id: channels.c 1.52 2006/05/28 10:14:18 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -925,6 +925,17 @@
+   return channel ? Idx : -1;
+ }
+ 
++#if APIVERSNUM != 10400
++#warning ******* API version changed - activate new code
++int cChannels::GetPrevNormal(int Idx)
++{
++  cChannel *channel = Get(--Idx);
++  while (channel && channel->GroupSep())
++        channel = Get(--Idx);
++  return channel ? Idx : -1;
++}
++#endif
++
+ void cChannels::ReNumber( void )
+ {
+   channelsHashSid.Clear();
+diff -ruN vdr-1.4.0-1/channels.h vdr-1.4.0-2/channels.h
+--- vdr-1.4.0-1/channels.h	2006-02-28 14:52:49.000000000 +0100
++++ vdr-1.4.0-2/channels.h	2006-05-28 12:13:21.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.h 1.40 2006/02/28 13:52:49 kls Exp $
++ * $Id: channels.h 1.41 2006/05/28 10:13:21 kls Exp $
+  */
+ 
+ #ifndef __CHANNELS_H
+@@ -233,6 +233,10 @@
+   int GetNextGroup(int Idx);   // Get next channel group
+   int GetPrevGroup(int Idx);   // Get previous channel group
+   int GetNextNormal(int Idx);  // Get next normal channel (not group)
++#if APIVERSNUM != 10400
++#warning ******* API version changed - activate new code
++  int GetPrevNormal(int Idx);  // Get previous normal channel (not group)
++#endif
+   void ReNumber(void);         // Recalculate 'number' based on channel type
+   cChannel *GetByNumber(int Number, int SkipGap = 0);
+   cChannel *GetByServiceID(int Source, int Transponder, unsigned short ServiceID);
+diff -ruN vdr-1.4.0-1/config.h vdr-1.4.0-2/config.h
+--- vdr-1.4.0-1/config.h	2006-05-07 11:01:49.000000000 +0200
++++ vdr-1.4.0-2/config.h	2006-05-19 14:12:39.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.256 2006/05/07 09:01:49 kls Exp $
++ * $Id: config.h 1.257 2006/05/19 12:12:39 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -21,7 +21,7 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.4.0-1"
++#define VDRVERSION  "1.4.0-2"
+ #define VDRVERSNUM   10400  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+diff -ruN vdr-1.4.0-1/device.c vdr-1.4.0-2/device.c
+--- vdr-1.4.0-1/device.c	2006-04-14 16:34:43.000000000 +0200
++++ vdr-1.4.0-2/device.c	2006-05-27 13:14:42.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 1.128 2006/04/14 14:34:43 kls Exp $
++ * $Id: device.c 1.130 2006/05/27 11:14:42 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -281,32 +281,20 @@
+ cDevice *cDevice::GetDevice(const cChannel *Channel, int Priority, bool *NeedsDetachReceivers)
+ {
+   cDevice *d = NULL;
+-  int select = INT_MAX;
+-
++  uint Impact = 0xFFFFFFFF;
+   for (int i = 0; i < numDevices; i++) {
+       bool ndr;
+       if (device[i]->ProvidesChannel(Channel, Priority, &ndr)) { // this device is basicly able to do the job
+-         int pri;
+-         if (device[i]->Receiving() && !ndr)
+-            pri = 0; // receiving and allows additional receivers
+-         else if (!device[i]->Receiving(true) && d && device[i]->ProvidesCa(Channel) < d->ProvidesCa(Channel))
+-            pri = 1; // free and fewer Ca's
+-         else if (!device[i]->Receiving() && !device[i]->HasDecoder())
+-            pri = 2; // free and not a full featured card
+-         else if (!device[i]->Receiving() && device[i] != ActualDevice())
+-            pri = 3; // free and not the actual device
+-         else if (!device[i]->Receiving() && !device[i]->IsPrimaryDevice())
+-            pri = 4; // free and not the primary device
+-         else if (!device[i]->Receiving())
+-            pri = 5; // free
+-         else if (d && device[i]->Priority() < d->Priority())
+-            pri = 6; // receiving but priority is lower
+-         else if (d && device[i]->Priority() == d->Priority() && device[i]->ProvidesCa(Channel) < d->ProvidesCa(Channel))
+-            pri = 7; // receiving with same priority but fewer Ca's
+-         else
+-            pri = 8; // all others
+-         if (pri <= select) {
+-            select = pri;
++         uint imp = 0;
++         imp <<= 1; imp |= !device[i]->Receiving() || ndr;
++         imp <<= 1; imp |= device[i]->Receiving();
++         imp <<= 1; imp |= device[i] == ActualDevice();
++         imp <<= 1; imp |= device[i]->IsPrimaryDevice();
++         imp <<= 1; imp |= device[i]->HasDecoder();
++         imp <<= 8; imp |= min(max(device[i]->Priority() + MAXPRIORITY, 0), 0xFF);
++         imp <<= 8; imp |= min(max(device[i]->ProvidesCa(Channel), 0), 0xFF);
++         if (imp < Impact) {
++            Impact = imp;
+             d = device[i];
+             if (NeedsDetachReceivers)
+                *NeedsDetachReceivers = ndr;
+@@ -613,7 +601,7 @@
+      StopReplay();
+ 
+   // If this card is switched to an other transponder, any receivers still
+-  // attached to it ineed to be automatically detached:
++  // attached to it need to be automatically detached:
+   bool NeedsDetachReceivers = false;
+ 
+   // If this card can't receive this channel, we must not actually switch
+diff -ruN vdr-1.4.0-1/device.h vdr-1.4.0-2/device.h
+--- vdr-1.4.0-1/device.h	2006-04-14 16:35:13.000000000 +0200
++++ vdr-1.4.0-2/device.h	2006-05-28 11:19:30.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 1.75 2006/04/14 14:35:13 kls Exp $
++ * $Id: device.h 1.77 2006/05/28 09:19:30 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -169,7 +169,7 @@
+   int CardIndex(void) const { return cardIndex; }
+          ///< Returns the card index of this device (0 ... MAXDEVICES - 1).
+   int DeviceNumber(void) const;
+-         ///< Returns the number of this device (0 ... MAXDEVICES - 1).
++         ///< Returns the number of this device (0 ... numDevices).
+   virtual int ProvidesCa(const cChannel *Channel) const;
+          ///< Checks whether this device provides the conditional access
+          ///< facilities to decrypt the given Channel.
+@@ -239,6 +239,13 @@
+ public:
+   static int CurrentChannel(void) { return primaryDevice ? currentChannel : 0; }
+          ///< Returns the number of the current channel on the primary device.
++#if APIVERSNUM != 10400
++#warning ******* API version changed - activate new code
++  static void SetCurrentChannel(const cChannel *Channel) { currentChannel = Channel ? Channel->Number() : 0; }
++         ///< Sets the number of the current channel on the primary device, without
++         ///< actually switching to it. This can be used to correct the current
++         ///< channel number while replaying.
++#endif
+   void ForceTransferMode(void);
+          ///< Forces the device into transfermode for the current channel.
+   virtual bool HasLock(int TimeoutMs = 0);//XXX PLUGINS.html
+diff -ruN vdr-1.4.0-1/dvbdevice.c vdr-1.4.0-2/dvbdevice.c
+--- vdr-1.4.0-1/dvbdevice.c	2006-04-01 16:19:43.000000000 +0200
++++ vdr-1.4.0-2/dvbdevice.c	2006-05-20 11:52:23.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.156 2006/04/01 14:19:43 kls Exp $
++ * $Id: dvbdevice.c 1.157 2006/05/20 09:52:23 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -356,7 +356,12 @@
+ // --- cDvbDevice ------------------------------------------------------------
+ 
+ int cDvbDevice::devVideoOffset = -1;
+-bool cDvbDevice::setTransferModeForDolbyDigital = true;
++int cDvbDevice::setTransferModeForDolbyDigital = 1;
++#if APIVERSNUM == 10400
++int cDvbDevice__setTransferModeForDolbyDigital = -1;
++#else
++#warning ******* API version changed - remove old stuff
++#endif
+ 
+ cDvbDevice::cDvbDevice(int n)
+ {
+@@ -653,7 +658,7 @@
+ 
+ bool cDvbDevice::SetAudioBypass(bool On)
+ {
+-  if (!setTransferModeForDolbyDigital)
++  if (setTransferModeForDolbyDigital != 1)
+      return false;
+   return ioctl(fd_audio, AUDIO_SET_BYPASS_MODE, On) == 0;
+ }
+@@ -914,10 +919,23 @@
+      }
+ }
+ 
++#if APIVERSNUM == 10400
+ void cDvbDevice::SetTransferModeForDolbyDigital(bool On)
+ {
+-  setTransferModeForDolbyDigital = On;
++  if (cDvbDevice__setTransferModeForDolbyDigital >= 0) {
++     setTransferModeForDolbyDigital = cDvbDevice__setTransferModeForDolbyDigital;
++     cDvbDevice__setTransferModeForDolbyDigital = -1;
++     }
++  else
++     setTransferModeForDolbyDigital = On;
++}
++#else
++#warning ******* API version changed - remove old stuff
++void cDvbDevice::SetTransferModeForDolbyDigital(int Mode)
++{
++  setTransferModeForDolbyDigital = Mode;
+ }
++#endif
+ 
+ void cDvbDevice::SetAudioTrackDevice(eTrackType Type)
+ {
+@@ -932,7 +950,7 @@
+            }
+         }
+      else if (IS_DOLBY_TRACK(Type)) {
+-        if (!setTransferModeForDolbyDigital)
++        if (setTransferModeForDolbyDigital == 0)
+            return;
+         // Currently this works only in Transfer Mode
+         ForceTransferMode();
+diff -ruN vdr-1.4.0-1/dvbdevice.h vdr-1.4.0-2/dvbdevice.h
+--- vdr-1.4.0-1/dvbdevice.h	2006-04-01 16:18:59.000000000 +0200
++++ vdr-1.4.0-2/dvbdevice.h	2006-05-20 11:32:06.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 1.39 2006/04/01 14:18:59 kls Exp $
++ * $Id: dvbdevice.h 1.40 2006/05/20 09:32:06 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -104,14 +104,24 @@
+ 
+ private:
+   bool digitalAudio;
+-  static bool setTransferModeForDolbyDigital;
++  static int setTransferModeForDolbyDigital;
+ protected:
+   virtual int GetAudioChannelDevice(void);
+   virtual void SetAudioChannelDevice(int AudioChannel);
+   virtual void SetVolumeDevice(int Volume);
+   virtual void SetDigitalAudioDevice(bool On);
+ public:
++#if APIVERSNUM == 10400
+   static void SetTransferModeForDolbyDigital(bool On);
++#else
++#warning ******* API version changed - remove old stuff
++  static void SetTransferModeForDolbyDigital(int Mode);
++         ///< Controls how the DVB device handles Transfer Mode when replaying
++         ///< Dolby Digital audio.
++         ///< 0 = don't set "audio bypass" in driver/firmware, don't force Transfer Mode
++         ///< 1 = set "audio bypass" in driver/firmware, force Transfer Mode (default)
++         ///< 2 = don't set "audio bypass" in driver/firmware, force Transfer Mode
++#endif
+ 
+ // Player facilities
+ 
+diff -ruN vdr-1.4.0-1/eit.c vdr-1.4.0-2/eit.c
+--- vdr-1.4.0-1/eit.c	2006-04-29 13:38:37.000000000 +0200
++++ vdr-1.4.0-2/eit.c	2006-05-25 16:35:19.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 1.117 2006/04/29 11:38:37 kls Exp $
++ * $Id: eit.c 1.118 2006/05/25 14:35:19 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -21,10 +21,10 @@
+ 
+ class cEIT : public SI::EIT {
+ public:
+-  cEIT(cSchedules *Schedules, int Source, u_char Tid, const u_char *Data);
++  cEIT(cSchedules *Schedules, int Source, u_char Tid, const u_char *Data, bool OnlyRunningStatus = false);
+   };
+ 
+-cEIT::cEIT(cSchedules *Schedules, int Source, u_char Tid, const u_char *Data)
++cEIT::cEIT(cSchedules *Schedules, int Source, u_char Tid, const u_char *Data, bool OnlyRunningStatus)
+ :SI::EIT(Data, false)
+ {
+   if (!CheckCRCAndParse())
+@@ -57,6 +57,8 @@
+       cEvent *rEvent = NULL;
+       cEvent *pEvent = (cEvent *)pSchedule->GetEvent(SiEitEvent.getEventId(), SiEitEvent.getStartTime());
+       if (!pEvent) {
++         if (OnlyRunningStatus)
++            continue;
+          // If we don't have that event yet, we create a new one.
+          // Otherwise we copy the information into the existing event anyway, because the data might have changed.
+          pEvent = newEvent = new cEvent(SiEitEvent.getEventId());
+@@ -92,6 +94,12 @@
+          pEvent->SetStartTime(SiEitEvent.getStartTime());
+          pEvent->SetDuration(SiEitEvent.getDuration());
+          }
++      if (Tid == 0x4E) { // we trust only the present/following info on the actual TS
++         if (SiEitEvent.getRunningStatus() >= SI::RunningStatusNotRunning)
++            pSchedule->SetRunningStatus(pEvent, SiEitEvent.getRunningStatus(), channel);
++         }
++      if (OnlyRunningStatus)
++         continue; // do this before setting the version, so that the full update can be done later
+       pEvent->SetVersion(getVersionNumber());
+ 
+       int LanguagePreferenceShort = -1;
+@@ -240,15 +248,13 @@
+       pEvent->FixEpgBugs();
+       if (LinkChannels)
+          channel->SetLinkChannels(LinkChannels);
+-      if (Tid == 0x4E) { // we trust only the present/following info on the actual TS
+-         if (SiEitEvent.getRunningStatus() >= SI::RunningStatusNotRunning)
+-            pSchedule->SetRunningStatus(pEvent, SiEitEvent.getRunningStatus(), channel);
+-         }
+       Modified = true;
+       }
+   if (Empty && Tid == 0x4E && getSectionNumber() == 0)
+      // ETR 211: an empty entry in section 0 of table 0x4E means there is currently no event running
+      pSchedule->ClrRunningStatus(channel);
++  if (OnlyRunningStatus)
++     return;
+   if (Tid == 0x4E)
+      pSchedule->SetPresentSeen();
+   if (Modified) {
+@@ -312,6 +318,16 @@
+          cSchedules *Schedules = (cSchedules *)cSchedules::Schedules(SchedulesLock);
+          if (Schedules)
+             cEIT EIT(Schedules, Source(), Tid, Data);
++         else {
++            // If we don't get a write lock, let's at least get a read lock, so
++            // that we can set the running status and 'seen' timestamp (well, actually
++            // with a read lock we shouldn't be doing that, but it's only integers that
++            // get changed, so it should be ok)
++            cSchedulesLock SchedulesLock;
++            cSchedules *Schedules = (cSchedules *)cSchedules::Schedules(SchedulesLock);
++            if (Schedules)
++               cEIT EIT(Schedules, Source(), Tid, Data, true);
++            }
+          }
+          break;
+     case 0x14: {
+diff -ruN vdr-1.4.0-1/epg.c vdr-1.4.0-2/epg.c
+--- vdr-1.4.0-1/epg.c	2006-05-12 15:25:44.000000000 +0200
++++ vdr-1.4.0-2/epg.c	2006-05-25 16:55:36.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 1.74 2006/05/12 13:25:44 kls Exp $
++ * $Id: epg.c 1.75 2006/05/25 14:55:36 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -227,7 +227,7 @@
+ 
+ bool cEvent::IsRunning(bool OrAboutToStart) const
+ {
+-  return SeenWithin(RUNNINGSTATUSTIMEOUT) && runningStatus >= (OrAboutToStart ? SI::RunningStatusStartsInAFewSeconds : SI::RunningStatusPausing);
++  return runningStatus >= (OrAboutToStart ? SI::RunningStatusStartsInAFewSeconds : SI::RunningStatusPausing);
+ }
+ 
+ cString cEvent::GetDateString(void) const
+diff -ruN vdr-1.4.0-1/libsi/Makefile vdr-1.4.0-2/libsi/Makefile
+--- vdr-1.4.0-1/libsi/Makefile	2005-05-29 13:47:12.000000000 +0200
++++ vdr-1.4.0-2/libsi/Makefile	2006-05-26 12:40:19.000000000 +0200
+@@ -1,12 +1,12 @@
+ #
+ # Makefile for a libsi
+ #
+-# $Id: Makefile 1.5 2005/05/29 11:47:12 kls Exp $
++# $Id: Makefile 1.6 2006/05/26 10:40:19 kls Exp $
+ 
+ ### The C++ compiler and options:
+ 
+ CXX      ?= g++
+-CXXFLAGS ?= -fPIC -O2 -g -Wall -Woverloaded-virtual
++CXXFLAGS ?= -O2 -g -Wall -Woverloaded-virtual
+ AR = ar
+ ARFLAGS = ru
+ RANLIB = ranlib
+diff -ruN vdr-1.4.0-1/libsi/si.h vdr-1.4.0-2/libsi/si.h
+--- vdr-1.4.0-1/libsi/si.h	2006-04-14 12:53:44.000000000 +0200
++++ vdr-1.4.0-2/libsi/si.h	2006-05-27 15:07:20.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.h 1.14 2006/04/14 10:53:44 kls Exp $
++ *   $Id: si.h 1.15 2006/05/27 13:07:20 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -399,6 +399,7 @@
+          case 8:
+             return (SixtyFourBit(data.FourBytes(index)) << 32) | data.FourBytes(index+4);
+          }
++         return 0; // just to avoid a compiler warning
+       }
+    T getNext(Iterator &it) const
+       {
+diff -ruN vdr-1.4.0-1/lirc.c vdr-1.4.0-2/lirc.c
+--- vdr-1.4.0-1/lirc.c	2006-01-27 16:59:47.000000000 +0100
++++ vdr-1.4.0-2/lirc.c	2006-05-28 10:48:13.000000000 +0200
+@@ -6,16 +6,16 @@
+  *
+  * LIRC support added by Carsten Koch <Carsten.Koch@icem.de>  2000-06-16.
+  *
+- * $Id: lirc.c 1.14 2006/01/27 15:59:47 kls Exp $
++ * $Id: lirc.c 1.15 2006/05/28 08:48:13 kls Exp $
+  */
+ 
+ #include "lirc.h"
+ #include <netinet/in.h>
+ #include <sys/socket.h>
+ 
+-#define REPEATLIMIT  20 // ms
+ #define REPEATDELAY 350 // ms
+-#define KEYPRESSDELAY 150 // ms
++#define REPEATFREQ 100 // ms
++#define REPEATTIMEOUT 500 // ms
+ #define RECONNECTDELAY 3000 // ms
+ 
+ cLircRemote::cLircRemote(const char *DeviceName)
+@@ -94,7 +94,7 @@
+               continue;
+               }
+            if (count == 0) {
+-              if (strcmp(KeyName, LastKeyName) == 0 && FirstTime.Elapsed() < KEYPRESSDELAY)
++              if (strcmp(KeyName, LastKeyName) == 0 && FirstTime.Elapsed() < REPEATDELAY)
+                  continue; // skip keys coming in too fast
+               if (repeat)
+                  Put(LastKeyName, false, true);
+@@ -104,8 +104,10 @@
+               timeout = -1;
+               }
+            else {
++              if (LastTime.Elapsed() < REPEATFREQ)
++                 continue; // repeat function kicks in after a short delay (after last key instead of first key)
+               if (FirstTime.Elapsed() < REPEATDELAY)
+-                 continue; // repeat function kicks in after a short delay
++                 continue; // skip keys coming in too fast (for count != 0 as well)
+               repeat = true;
+               timeout = REPEATDELAY;
+               }
+@@ -113,7 +115,7 @@
+            Put(KeyName, repeat);
+            }
+         else if (repeat) { // the last one was a repeat, so let's generate a release
+-           if (LastTime.Elapsed() >= REPEATDELAY) {
++           if (LastTime.Elapsed() >= REPEATTIMEOUT) {
+               Put(LastKeyName, false, true);
+               repeat = false;
+               *LastKeyName = 0;
+diff -ruN vdr-1.4.0-1/menu.c vdr-1.4.0-2/menu.c
+--- vdr-1.4.0-1/menu.c	2006-04-28 14:48:01.000000000 +0200
++++ vdr-1.4.0-2/menu.c	2006-05-28 12:47:40.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.435 2006/04/28 12:48:01 kls Exp $
++ * $Id: menu.c 1.438 2006/05/28 10:47:40 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -499,6 +499,8 @@
+ eOSState cMenuChannels::Delete(void)
+ {
+   if (!HasSubMenu() && Count() > 0) {
++     int CurrentChannelNr = cDevice::CurrentChannel();
++     cChannel *CurrentChannel = Channels.GetByNumber(CurrentChannelNr);
+      int Index = Current();
+      cChannel *channel = GetChannel(Current());
+      int DeletedChannel = channel->Number();
+@@ -508,10 +510,38 @@
+         return osContinue;
+         }
+      if (Interface->Confirm(tr("Delete channel?"))) {
++        if (CurrentChannel && channel == CurrentChannel) {
++           int n = Channels.GetNextNormal(CurrentChannel->Index());
++#if APIVERSNUM == 10400
++           if (n < 0) {
++              int Idx = CurrentChannel->Index();
++              cChannel *channel = Channels.Get(--Idx);
++              while (channel && channel->GroupSep())
++                    channel = Channels.Get(--Idx);
++              if (channel)
++                 n = Idx;
++              }
++#else
++#warning ******* API version changed - remove old stuff
++           if (n < 0)
++              n = Channels.GetPrevNormal(CurrentChannel->Index());
++#endif
++           CurrentChannel = Channels.Get(n);
++           CurrentChannelNr = 0; // triggers channel switch below
++           }
+         Channels.Del(channel);
+         cOsdMenu::Del(Index);
+         Propagate();
+         isyslog("channel %d deleted", DeletedChannel);
++        if (CurrentChannel && CurrentChannel->Number() != CurrentChannelNr) {
++           if (!cDevice::PrimaryDevice()->Replaying() || cDevice::PrimaryDevice()->Transferring())
++              Channels.SwitchTo(CurrentChannel->Number());
++#if APIVERSNUM != 10400
++#warning ******* API version changed - activate new code
++           else
++              cDevice::SetCurrentChannel(CurrentChannel);
++#endif
++           }
+         }
+      }
+   return osContinue;
+@@ -530,8 +560,15 @@
+      cOsdMenu::Move(From, To);
+      Propagate();
+      isyslog("channel %d moved to %d", FromNumber, ToNumber);
+-     if (CurrentChannel && CurrentChannel->Number() != CurrentChannelNr)
+-        Channels.SwitchTo(CurrentChannel->Number());
++     if (CurrentChannel && CurrentChannel->Number() != CurrentChannelNr) {
++        if (!cDevice::PrimaryDevice()->Replaying() || cDevice::PrimaryDevice()->Transferring())
++           Channels.SwitchTo(CurrentChannel->Number());
++#if APIVERSNUM != 10400
++#warning ******* API version changed - activate new code
++        else
++           cDevice::SetCurrentChannel(CurrentChannel);
++#endif
++        }
+      }
+ }
+ 
+@@ -2131,7 +2168,7 @@
+ cMenuSetupOSD::~cMenuSetupOSD()
+ {
+   cFont::SetCode(I18nCharSets()[Setup.OSDLanguage]);
+-  delete skinDescriptions;
++  delete[] skinDescriptions;
+ }
+ 
+ void cMenuSetupOSD::Set(void)
+diff -ruN vdr-1.4.0-1/nit.c vdr-1.4.0-2/nit.c
+--- vdr-1.4.0-1/nit.c	2006-04-15 16:10:42.000000000 +0200
++++ vdr-1.4.0-2/nit.c	2006-05-27 17:35:16.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: nit.c 1.11 2006/04/15 14:10:42 kls Exp $
++ * $Id: nit.c 1.12 2006/05/27 15:35:16 kls Exp $
+  */
+ 
+ #include "nit.h"
+@@ -48,7 +48,7 @@
+                    if (nits[j].hasTransponder) {
+                       networkId = nits[j].networkId;
+                       //printf("taking NIT with network ID %d\n", networkId);
+-                      //XXX what if more than one NIT contaisn this transponder???
++                      //XXX what if more than one NIT contains this transponder???
+                       break;
+                       }
+                    }
+@@ -95,46 +95,84 @@
+   SI::NIT::TransportStream ts;
+   for (SI::Loop::Iterator it; nit.transportStreamLoop.getNext(ts, it); ) {
+       SI::Descriptor *d;
++
++      SI::Loop::Iterator it2;
++      SI::FrequencyListDescriptor *fld = (SI::FrequencyListDescriptor *)ts.transportStreamDescriptors.getNext(it2, SI::FrequencyListDescriptorTag);
++      int NumFrequencies = fld ? fld->frequencies.getCount() + 1 : 1;
++      int Frequencies[NumFrequencies];
++      if (fld) {
++         int ct = fld->getCodingType();
++         if (ct > 0) {
++            int n = 1;
++            for (SI::Loop::Iterator it3; fld->frequencies.hasNext(it3); ) {
++                int f = fld->frequencies.getNext(it3);
++                switch (ct) {
++                  case 1: f = BCD2INT(f) / 100; break;
++                  case 2: f = BCD2INT(f) / 10; break;
++                  case 3: f = f * 10;  break;
++                  }
++                Frequencies[n++] = f;
++                }
++            }
++         else
++            NumFrequencies = 1;
++         }
++      delete fld;
++
+       for (SI::Loop::Iterator it2; (d = ts.transportStreamDescriptors.getNext(it2)); ) {
+           switch (d->getDescriptorTag()) {
+             case SI::SatelliteDeliverySystemDescriptorTag: {
+                  SI::SatelliteDeliverySystemDescriptor *sd = (SI::SatelliteDeliverySystemDescriptor *)d;
+                  int Source = cSource::FromData(cSource::stSat, BCD2INT(sd->getOrbitalPosition()), sd->getWestEastFlag());
+-                 int Frequency = BCD2INT(sd->getFrequency()) / 100;
++                 int Frequency = Frequencies[0] = BCD2INT(sd->getFrequency()) / 100;
+                  static char Polarizations[] = { 'h', 'v', 'l', 'r' };
+                  char Polarization = Polarizations[sd->getPolarization()];
+                  static int CodeRates[] = { FEC_NONE, FEC_1_2, FEC_2_3, FEC_3_4, FEC_5_6, FEC_7_8, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_NONE };
+                  int CodeRate = CodeRates[sd->getFecInner()];
+                  int SymbolRate = BCD2INT(sd->getSymbolRate()) / 10;
+                  if (ThisNIT >= 0) {
+-                    if (ISTRANSPONDER(cChannel::Transponder(Frequency, Polarization), Transponder())) {
+-                       nits[ThisNIT].hasTransponder = true;
+-                       //printf("has transponder %d\n", Transponder());
+-                       }
++                    for (int n = 0; n < NumFrequencies; n++) {
++                        if (ISTRANSPONDER(cChannel::Transponder(Frequencies[n], Polarization), Transponder())) {
++                           nits[ThisNIT].hasTransponder = true;
++                           //printf("has transponder %d\n", Transponder());
++                           break;
++                           }
++                        }
+                     break;
+                     }
+                  bool found = false;
+                  for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+                      if (!Channel->GroupSep() && Channel->Source() == Source && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+-                        if (Setup.UpdateChannels >= 5)
++                        if (Setup.UpdateChannels >= 5) {
++                           if (!ISTRANSPONDER(cChannel::Transponder(Frequency, Polarization), Channel->Transponder())) {
++                              for (int n = 0; n < NumFrequencies; n++) {
++                                  if (ISTRANSPONDER(cChannel::Transponder(Frequencies[n], Polarization), Channel->Transponder())) {
++                                     Frequency = Frequencies[n];
++                                     break;
++                                     }
++                                  }
++                              }
+                            Channel->SetSatTransponderData(Source, Frequency, Polarization, SymbolRate, CodeRate);
++                           }
+                         found = true;
+                         }
+                      }
+                  if (!found && Setup.UpdateChannels >= 5) {
+-                    cChannel *Channel = new cChannel;
+-                    Channel->SetId(ts.getOriginalNetworkId(), ts.getTransportStreamId(), 0, 0);
+-                    if (Channel->SetSatTransponderData(Source, Frequency, Polarization, SymbolRate, CodeRate))
+-                       EITScanner.AddTransponder(Channel);
+-                    else
+-                       delete Channel;
++                    for (int n = 0; n < NumFrequencies; n++) {
++                        cChannel *Channel = new cChannel;
++                        Channel->SetId(ts.getOriginalNetworkId(), ts.getTransportStreamId(), 0, 0);
++                        if (Channel->SetSatTransponderData(Source, Frequencies[n], Polarization, SymbolRate, CodeRate))
++                           EITScanner.AddTransponder(Channel);
++                        else
++                           delete Channel;
++                        }
+                     }
+                  }
+                  break;
+             case SI::CableDeliverySystemDescriptorTag: {
+                  SI::CableDeliverySystemDescriptor *sd = (SI::CableDeliverySystemDescriptor *)d;
+                  int Source = cSource::FromData(cSource::stCable);
+-                 int Frequency = BCD2INT(sd->getFrequency()) / 10;
++                 int Frequency = Frequencies[0] = BCD2INT(sd->getFrequency()) / 10;
+                  //XXX FEC_outer???
+                  static int CodeRates[] = { FEC_NONE, FEC_1_2, FEC_2_3, FEC_3_4, FEC_5_6, FEC_7_8, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_NONE };
+                  int CodeRate = CodeRates[sd->getFecInner()];
+@@ -142,34 +180,48 @@
+                  int Modulation = Modulations[min(sd->getModulation(), 6)];
+                  int SymbolRate = BCD2INT(sd->getSymbolRate()) / 10;
+                  if (ThisNIT >= 0) {
+-                    if (ISTRANSPONDER(Frequency / 1000, Transponder())) {
+-                       nits[ThisNIT].hasTransponder = true;
+-                       //printf("has transponder %d\n", Transponder());
+-                       }
++                    for (int n = 0; n < NumFrequencies; n++) {
++                        if (ISTRANSPONDER(Frequencies[n] / 1000, Transponder())) {
++                           nits[ThisNIT].hasTransponder = true;
++                           //printf("has transponder %d\n", Transponder());
++                           break;
++                           }
++                        }
+                     break;
+                     }
+                  bool found = false;
+                  for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+                      if (!Channel->GroupSep() && Channel->Source() == Source && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+-                        if (Setup.UpdateChannels >= 5)
++                        if (Setup.UpdateChannels >= 5) {
++                           if (!ISTRANSPONDER(Frequency / 1000, Channel->Transponder())) {
++                              for (int n = 0; n < NumFrequencies; n++) {
++                                  if (ISTRANSPONDER(Frequencies[n] / 1000, Channel->Transponder())) {
++                                     Frequency = Frequencies[n];
++                                     break;
++                                     }
++                                  }
++                              }
+                            Channel->SetCableTransponderData(Source, Frequency, Modulation, SymbolRate, CodeRate);
++                           }
+                         found = true;
+                         }
+                      }
+                  if (!found && Setup.UpdateChannels >= 5) {
+-                    cChannel *Channel = new cChannel;
+-                    Channel->SetId(ts.getOriginalNetworkId(), ts.getTransportStreamId(), 0, 0);
+-                    if (Channel->SetCableTransponderData(Source, Frequency, Modulation, SymbolRate, CodeRate))
+-                       EITScanner.AddTransponder(Channel);
+-                    else
+-                       delete Channel;
++                    for (int n = 0; n < NumFrequencies; n++) {
++                        cChannel *Channel = new cChannel;
++                        Channel->SetId(ts.getOriginalNetworkId(), ts.getTransportStreamId(), 0, 0);
++                        if (Channel->SetCableTransponderData(Source, Frequencies[n], Modulation, SymbolRate, CodeRate))
++                           EITScanner.AddTransponder(Channel);
++                        else
++                           delete Channel;
++                        }
+                     }
+                  }
+                  break;
+             case SI::TerrestrialDeliverySystemDescriptorTag: {
+                  SI::TerrestrialDeliverySystemDescriptor *sd = (SI::TerrestrialDeliverySystemDescriptor *)d;
+                  int Source = cSource::FromData(cSource::stTerr);
+-                 int Frequency = sd->getFrequency() * 10;
++                 int Frequency = Frequencies[0] = sd->getFrequency() * 10;
+                  static int Bandwidths[] = { BANDWIDTH_8_MHZ, BANDWIDTH_7_MHZ, BANDWIDTH_6_MHZ, BANDWIDTH_AUTO, BANDWIDTH_AUTO, BANDWIDTH_AUTO, BANDWIDTH_AUTO, BANDWIDTH_AUTO };
+                  int Bandwidth = Bandwidths[sd->getBandwidth()];
+                  static int Constellations[] = { QPSK, QAM_16, QAM_64, QAM_AUTO };
+@@ -184,27 +236,41 @@
+                  static int TransmissionModes[] = { TRANSMISSION_MODE_2K, TRANSMISSION_MODE_8K, TRANSMISSION_MODE_AUTO, TRANSMISSION_MODE_AUTO };
+                  int TransmissionMode = TransmissionModes[sd->getTransmissionMode()];
+                  if (ThisNIT >= 0) {
+-                    if (ISTRANSPONDER(Frequency / 1000000, Transponder())) {
+-                       nits[ThisNIT].hasTransponder = true;
+-                       //printf("has transponder %d\n", Transponder());
+-                       }
++                    for (int n = 0; n < NumFrequencies; n++) {
++                        if (ISTRANSPONDER(Frequencies[n] / 1000000, Transponder())) {
++                           nits[ThisNIT].hasTransponder = true;
++                           //printf("has transponder %d\n", Transponder());
++                           break;
++                           }
++                        }
+                     break;
+                     }
+                  bool found = false;
+                  for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+                      if (!Channel->GroupSep() && Channel->Source() == Source && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+-                        if (Setup.UpdateChannels >= 5)
++                        if (Setup.UpdateChannels >= 5) {
++                           if (!ISTRANSPONDER(Frequency / 1000000, Channel->Transponder())) {
++                              for (int n = 0; n < NumFrequencies; n++) {
++                                  if (ISTRANSPONDER(Frequencies[n] / 1000000, Channel->Transponder())) {
++                                     Frequency = Frequencies[n];
++                                     break;
++                                     }
++                                  }
++                              }
+                            Channel->SetTerrTransponderData(Source, Frequency, Bandwidth, Constellation, Hierarchy, CodeRateHP, CodeRateLP, GuardInterval, TransmissionMode);
++                           }
+                         found = true;
+                         }
+                      }
+                  if (!found && Setup.UpdateChannels >= 5) {
+-                    cChannel *Channel = new cChannel;
+-                    Channel->SetId(ts.getOriginalNetworkId(), ts.getTransportStreamId(), 0, 0);
+-                    if (Channel->SetTerrTransponderData(Source, Frequency, Bandwidth, Constellation, Hierarchy, CodeRateHP, CodeRateLP, GuardInterval, TransmissionMode))
+-                       EITScanner.AddTransponder(Channel);
+-                    else
+-                       delete Channel;
++                    for (int n = 0; n < NumFrequencies; n++) {
++                        cChannel *Channel = new cChannel;
++                        Channel->SetId(ts.getOriginalNetworkId(), ts.getTransportStreamId(), 0, 0);
++                        if (Channel->SetTerrTransponderData(Source, Frequencies[n], Bandwidth, Constellation, Hierarchy, CodeRateHP, CodeRateLP, GuardInterval, TransmissionMode))
++                           EITScanner.AddTransponder(Channel);
++                        else
++                           delete Channel;
++                        }
+                     }
+                  }
+                  break;
+diff -ruN vdr-1.4.0-1/receiver.h vdr-1.4.0-2/receiver.h
+--- vdr-1.4.0-1/receiver.h	2005-01-16 15:05:10.000000000 +0100
++++ vdr-1.4.0-2/receiver.h	2006-05-27 11:04:22.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: receiver.h 1.3 2005/01/16 14:05:10 kls Exp $
++ * $Id: receiver.h 1.4 2006/05/27 09:04:22 kls Exp $
+  */
+ 
+ #ifndef __RECEIVER_H
+@@ -44,7 +44,7 @@
+                ///< Pids1...Pids3 are pointers to zero terminated lists of PIDs.
+                ///< If any of these PIDs are 0, they will be silently ignored.
+                ///< The total number of non-zero PIDs must not exceed MAXRECEIVEPIDS.
+-               ///< Priority may be any value in the range 0..99. Negative values indicate
++               ///< Priority may be any value in the range -99..99. Negative values indicate
+                ///< that this cReceiver may be detached at any time (without blocking the
+                ///< cDevice it is attached to).
+   virtual ~cReceiver();
+diff -ruN vdr-1.4.0-1/runvdr vdr-1.4.0-2/runvdr
+--- vdr-1.4.0-1/runvdr	2006-05-01 16:51:00.000000000 +0200
++++ vdr-1.4.0-2/runvdr	2006-05-14 18:02:05.000000000 +0200
+@@ -20,12 +20,11 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: runvdr 1.18 2006/05/01 14:51:00 kls Exp $
++# $Id: runvdr 1.19 2006/05/14 16:02:05 kls Exp $
+ 
+ VDRPRG="./vdr"
+ VDRCMD="$VDRPRG -w 60 $*"
+ 
+-LSMOD="`/sbin/lsmod | grep -w '^dvb' | wc -l`"
+ KILL="/usr/bin/killall -q -TERM"
+ 
+ # Detect whether the DVB driver is already loaded
+diff -ruN vdr-1.4.0-1/timers.c vdr-1.4.0-2/timers.c
+--- vdr-1.4.0-1/timers.c	2006-05-13 11:03:59.000000000 +0200
++++ vdr-1.4.0-2/timers.c	2006-05-25 16:36:37.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 1.59 2006/05/13 09:03:59 kls Exp $
++ * $Id: timers.c 1.61 2006/05/25 14:36:37 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -347,7 +347,7 @@
+      }
+   else {
+      for (int i = -1; i <= 7; i++) {
+-         time_t t0 = IncDay(t, i);
++         time_t t0 = IncDay(day ? max(day, t) : t, i);
+          if (DayMatches(t0)) {
+             time_t a = SetTime(t0, begin);
+             time_t b = a + length;
+@@ -359,7 +359,7 @@
+             }
+          }
+      if (!startTime)
+-        startTime = day; // just to have something that's more than a week in the future
++        startTime = IncDay(t, 7); // just to have something that's more than a week in the future
+      else if (!Directly && (t > startTime || t > day + SECSINDAY + 3600)) // +3600 in case of DST change
+         day = 0;
+      }
+@@ -560,6 +560,7 @@
+ void cTimer::Skip(void)
+ {
+   day = IncDay(SetTime(StartTime(), 0), 1);
++  startTime = 0;
+   SetEvent(NULL);
+ }
+ 
+diff -ruN vdr-1.4.0-1/tools.c vdr-1.4.0-2/tools.c
+--- vdr-1.4.0-1/tools.c	2006-04-21 17:12:47.000000000 +0200
++++ vdr-1.4.0-2/tools.c	2006-05-26 12:10:31.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 1.117 2006/04/21 15:12:47 kls Exp $
++ * $Id: tools.c 1.118 2006/05/26 10:10:31 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -1179,7 +1179,7 @@
+            }
+         else if (cachedend > ahead && cachedend - curpos > READCHUNK * 2) {
+            // current position has moved back enough, shrink head window.
+-           FadviseDrop(curpos + READCHUNK, cachedend - curpos + READCHUNK);
++           FadviseDrop(curpos + READCHUNK, cachedend - (curpos + READCHUNK));
+            cachedend = curpos + READCHUNK;
+            }
+         }

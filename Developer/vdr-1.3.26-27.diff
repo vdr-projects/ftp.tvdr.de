@@ -1,0 +1,640 @@
+diff -ruN vdr-1.3.26/CONTRIBUTORS vdr-1.3.27/CONTRIBUTORS
+--- vdr-1.3.26/CONTRIBUTORS	2005-06-12 12:02:59.000000000 +0200
++++ vdr-1.3.27/CONTRIBUTORS	2005-06-19 12:47:06.000000000 +0200
+@@ -1080,6 +1080,7 @@
+  cSkins::Message()
+  for reporting a problem in handling Transfer Mode for radio channels
+  for reporting a problem with messages when a cOsdObject uses the raw OSD
++ for implementing palette replace mode in the OSD bitmaps
+ 
+ Thomas Bergwinkl <Thomas.Bergwinkl@t-online.de>
+  for fixing the validity check for channel IDs, because some providers use TIDs
+@@ -1241,6 +1242,7 @@
+  for fixing handling lifetime when deciding whether to delete a recording
+  for reporting a problem in handling page up/down in menu lists in case there are
+  several non selectable items in a row
++ for fixing handling 'page down' after it was broken in version 1.3.26
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -1296,6 +1298,8 @@
+ 
+ Patrick Gleichmann <patrick@feedface.com>
+  for fixing the default quality value when grabbing a JPEG image
++ for suggestiong a modified page scrolling behaviour
++ for suggesting wrapping around in menu lists
+ 
+ Achim Tuffentsammer <a.tuffentsammer@web.de>
+  for reporting a crash in case a plugin needs to issue an error message before the
+diff -ruN vdr-1.3.26/HISTORY vdr-1.3.27/HISTORY
+--- vdr-1.3.26/HISTORY	2005-06-12 16:16:12.000000000 +0200
++++ vdr-1.3.27/HISTORY	2005-06-19 12:46:12.000000000 +0200
+@@ -3612,3 +3612,24 @@
+ - Added cOsdMenu::SetCols() to allow adjusting the menu columns.
+ - Modified cEITScanner::Process() so that it works on systems with only budget cards
+   or a mix of DVB-S, DVB-C or DVB-T cards.
++
++2005-06-19: Version 1.3.27
++
++- Fixed handling 'page down', which was broken in version 1.3.26 (thanks to Udo
++  Richter).
++- Modified page scrolling behaviour (based on a suggestion by Patrick Gleichmann).
++- The new setup option "OSD/Scroll wraps" can be used to activate wrapping around
++  in menu lists (based on a suggestion by Patrick Gleichmann).
++- Removed the NPTL check at startup, since several users have reported that VDR
++  now runs fine with NPTL.
++- Fixed handling VPS timers, so that they only record if the event they are assigned
++  to actually has the given VPS time.
++- Disabled cVideoRepacker in remux.c, because it has caused several problems
++  during recording. If you want to test (and maybe debug) it, activate the line
++
++  //#define TEST_cVideoRepacker
++
++  in remux.c.
++- When drawing a bitmap to the OSD, the existing palette of the target can now be
++  replaced with the new one instead of adding the new entries (thanks to Andreas
++  Regel).
+diff -ruN vdr-1.3.26/INSTALL vdr-1.3.27/INSTALL
+--- vdr-1.3.26/INSTALL	2005-02-16 18:03:32.000000000 +0100
++++ vdr-1.3.27/INSTALL	2005-06-18 13:21:12.000000000 +0200
+@@ -7,14 +7,7 @@
+ IMPORTANT NOTES:
+ ----------------
+ 
+-VDR currently doesn't work with NPTL ("Native Posix Thread Library").
+-Either don't use NPTL, or set the environment variable
+-
+-  LD_ASSUME_KERNEL=2.4.1
+-  
+-before running VDR.
+-
+-Also, please make sure your environment is NOT set to use UTF-8 or
++Please make sure your environment is NOT set to use UTF-8 or
+ any other multibyte character representation. Check the value of your
+ $LANG or $LC_CTYPE environment variable, and if it contains something
+ like "de_DE.UTF-8", make sure you set it to something like "de_DE.iso8859-1"
+diff -ruN vdr-1.3.26/MANUAL vdr-1.3.27/MANUAL
+--- vdr-1.3.26/MANUAL	2005-05-15 16:54:40.000000000 +0200
++++ vdr-1.3.27/MANUAL	2005-06-18 12:39:02.000000000 +0200
+@@ -495,11 +495,18 @@
+ 
+   Scroll pages = yes     no  = when pressing the "Down" ("Up") key while the cursor
+                                is on the last (first) line of a list page, the
+-                               list is advanced by a full page and the cursor will
+-                               be at the top (bottom) of that page
+-                         yes = dto., but the cursor remains at the bottom (top) of
+-                               the page (this mode allows for faster scrolling
+-                               through long lists).
++                               list is scrolled down (up) a single line and the cursor will
++                               remain at the bottom (top) of that page
++                         yes = the list is scrolled down (up) a full page and the cursor
++                               will be at the top (bottom) of that page (this mode allows
++                               for faster scrolling through long lists).
++
++  Scroll wraps = no      no  = when the end (beginning) of a list is reached while
++                               moving the cursor through it, the cursor stays at the
++                               last (first) line of the list
++                         yes = the cursor "wraps around" and moves from the last
++                               (first) line of the list directly to the first (last)
++                               one.
+ 
+   Sort timers = yes      Turns sorting the timers in the "Timers" menu on/off.
+                          Timers are sorted by ascending start times, with the
+diff -ruN vdr-1.3.26/channels.conf vdr-1.3.27/channels.conf
+--- vdr-1.3.26/channels.conf	2005-06-12 16:20:01.000000000 +0200
++++ vdr-1.3.27/channels.conf	2005-06-19 16:29:38.000000000 +0200
+@@ -48,7 +48,7 @@
+ PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu,1793=deu;1795=deu:32:1722,1801,1702:11:133:2:0
+ PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu,2305=deu:32:1722,1801,1702:43:133:2:0
+ PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu,769=deu:32:1801,1722,1702:9:133:2:0
+-PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu:32:1801,1722,1702:29:133:2:0
++PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu,1281=deu:32:1801,1722,1702:29:133:2:0
+ PREMIERE 6,PREM 6;PREMIERE:11797:hC34:S19.2E:27500:1535:1536=deu:32:1702,1722,1801:41:133:2:0
+ PREMIERE 7,PREM 7;PREMIERE:11797:hC34:S19.2E:27500:1023:1024=deu:32:1722,1702,1801:20:133:2:0
+ DISNEY CHANNEL,DISNEY;PREMIERE:11758:hC34:S19.2E:27500:2559:2560=deu:32:1722,1801,1702:34:133:17:0
+@@ -89,7 +89,7 @@
+ :@201 Sky
+ Sky One;BSkyB:12226:hC23:S28.2E:27500:515+8190:643=eng:579:960,961:4705:2:2027:0
+ Sky Mix;BSkyB:12226:hC23:S28.2E:27500:514+8190:642=eng,662=NAR:578:960,961:5104:2:2027:0
+-ITV2;BSkyB:10906:vC56:S28.2E:22000:2350:2351=eng,2374=UND:2353:960,961:10240:2:2054:0
++ITV2;BSkyB:10906:vC56:S28.2E:22000:2350:2351=eng:2353:960,961:10240:2:2054:0
+ Sci-Fi;BSkyB:12148:hC23:S28.2E:27500:512+8190:640=eng:576:960,961:4905:2:2023:0
+ Paramount;BSkyB:12187:hC23:S28.2E:27500:2313+2304:2317=eng,2318=NAR:2315:960,961:5904:2:2025:0
+ Discovery;BSkyB:11875:hC23:S28.2E:27500:2304:2306=eng,2307=NAR:2305:960,961:6201:2:2009:0
+@@ -112,7 +112,7 @@
+ S1T;BSkyB:12285:vC23:S28.2E:27500:513+8190:641=eng,661=NAR:577:960,961:4409:2:2030:0
+ CNN;BSkyB:12051:vC23:S28.2E:27500:2313:2315=eng:2314:0:7140:2:2018:0
+ BBC PARL'MNT:12129:vC23:S28.2E:27500:2304:2306=eng,2307=eng:2305:0:7300:2:2022:0
+-Bethel TV;T-Systems/MTI:11200:vC56:S13.0E:27500:413:414=ita:0:0:4733:318:13400:0
++Bethel TV;T-Systems/MTI:11200:vC56:S13.0E:27500:413:414:0:0:4733:318:13400:0
+ Euro1080;EURO1080:12168:vC34:S19.2E:27500:308:256:0:FF:21100:1:1088:0
+ Astra HD:12441:vC34:S19.2E:27500:133+80:134=eng:0:FF:29700:0:0:0
+ eng-WRN-multi;WRN:12597:vC34:S13.0E:27500:0:2132:0:0:8230:318:9400:0
+diff -ruN vdr-1.3.26/config.c vdr-1.3.27/config.c
+--- vdr-1.3.26/config.c	2005-02-20 13:52:59.000000000 +0100
++++ vdr-1.3.27/config.c	2005-06-18 12:30:02.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 1.133 2005/02/20 12:52:59 kls Exp $
++ * $Id: config.c 1.134 2005/06/18 10:30:02 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -250,6 +250,7 @@
+   PrimaryDVB = 1;
+   ShowInfoOnChSwitch = 1;
+   MenuScrollPage = 1;
++  MenuScrollWrap = 0;
+   MarkInstantRecord = 1;
+   strcpy(NameInstantRecord, "TITLE EPISODE");
+   InstantRecordTime = 180;
+@@ -407,6 +408,7 @@
+   else if (!strcasecmp(Name, "PrimaryDVB"))          PrimaryDVB         = atoi(Value);
+   else if (!strcasecmp(Name, "ShowInfoOnChSwitch"))  ShowInfoOnChSwitch = atoi(Value);
+   else if (!strcasecmp(Name, "MenuScrollPage"))      MenuScrollPage     = atoi(Value);
++  else if (!strcasecmp(Name, "MenuScrollWrap"))      MenuScrollWrap     = atoi(Value);
+   else if (!strcasecmp(Name, "MarkInstantRecord"))   MarkInstantRecord  = atoi(Value);
+   else if (!strcasecmp(Name, "NameInstantRecord"))   strn0cpy(NameInstantRecord, Value, MaxFileName);
+   else if (!strcasecmp(Name, "InstantRecordTime"))   InstantRecordTime  = atoi(Value);
+@@ -470,7 +472,7 @@
+   Store("OSDTheme",           OSDTheme);
+   Store("PrimaryDVB",         PrimaryDVB);
+   Store("ShowInfoOnChSwitch", ShowInfoOnChSwitch);
+-  Store("MenuScrollPage",     MenuScrollPage);
++  Store("MenuScrollWrap",     MenuScrollWrap);
+   Store("MarkInstantRecord",  MarkInstantRecord);
+   Store("NameInstantRecord",  NameInstantRecord);
+   Store("InstantRecordTime",  InstantRecordTime);
+diff -ruN vdr-1.3.26/config.h vdr-1.3.27/config.h
+--- vdr-1.3.26/config.h	2005-06-03 14:39:16.000000000 +0200
++++ vdr-1.3.27/config.h	2005-06-18 12:29:25.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.219 2005/06/03 12:39:16 kls Exp $
++ * $Id: config.h 1.221 2005/06/18 10:29:25 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -20,8 +20,8 @@
+ #include "i18n.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.3.26"
+-#define VDRVERSNUM   10326  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.3.27"
++#define VDRVERSNUM   10327  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+@@ -211,6 +211,7 @@
+   int PrimaryDVB;
+   int ShowInfoOnChSwitch;
+   int MenuScrollPage;
++  int MenuScrollWrap;
+   int MarkInstantRecord;
+   char NameInstantRecord[MaxFileName];
+   int InstantRecordTime;
+diff -ruN vdr-1.3.26/dvbdevice.c vdr-1.3.27/dvbdevice.c
+--- vdr-1.3.26/dvbdevice.c	2005-06-05 15:05:55.000000000 +0200
++++ vdr-1.3.27/dvbdevice.c	2005-06-19 13:00:43.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.130 2005/06/05 13:05:55 kls Exp $
++ * $Id: dvbdevice.c 1.131 2005/06/19 11:00:43 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -742,7 +742,6 @@
+       || type == cSource::stCable && frontendType == FE_QAM
+       || type == cSource::stSat   && frontendType == FE_QPSK
+       || type == cSource::stTerr  && frontendType == FE_OFDM;
+-  return true;
+ }
+ 
+ bool cDvbDevice::ProvidesTransponder(const cChannel *Channel) const
+diff -ruN vdr-1.3.26/i18n.c vdr-1.3.27/i18n.c
+--- vdr-1.3.26/i18n.c	2005-06-05 13:59:09.000000000 +0200
++++ vdr-1.3.27/i18n.c	2005-06-18 12:42:31.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.194 2005/06/05 11:59:09 kls Exp $
++ * $Id: i18n.c 1.195 2005/06/18 10:42:31 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -2905,6 +2905,27 @@
+     "Lehekülje kerimine",
+     "Rul sider",
+   },
++  { "Setup.OSD$Scroll wraps",
++    "Rundum scrollen",
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++  },
+   { "Setup.OSD$Sort timers",
+     "Timer sortieren",
+     "Sortiraj termine",
+diff -ruN vdr-1.3.26/menu.c vdr-1.3.27/menu.c
+--- vdr-1.3.26/menu.c	2005-06-05 16:11:54.000000000 +0200
++++ vdr-1.3.27/menu.c	2005-06-18 12:31:52.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.350 2005/06/05 14:11:54 kls Exp $
++ * $Id: menu.c 1.351 2005/06/18 10:31:52 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -1845,6 +1845,7 @@
+   Add(new cMenuEditIntItem( tr("Setup.OSD$Channel info time (s)"),  &data.ChannelInfoTime, 1, 60));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Info on channel switch"), &data.ShowInfoOnChSwitch));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Scroll pages"),           &data.MenuScrollPage));
++  Add(new cMenuEditBoolItem(tr("Setup.OSD$Scroll wraps"),           &data.MenuScrollWrap));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Sort timers"),            &data.SortTimers));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Recording directories"),  &data.RecordingDirs));
+   SetCurrent(Get(current));
+diff -ruN vdr-1.3.26/osd.c vdr-1.3.27/osd.c
+--- vdr-1.3.26/osd.c	2005-06-11 16:31:36.000000000 +0200
++++ vdr-1.3.27/osd.c	2005-06-19 12:43:04.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 1.61 2005/06/11 14:31:36 kls Exp $
++ * $Id: osd.c 1.62 2005/06/19 10:43:04 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -86,6 +86,13 @@
+       }
+ }
+ 
++void cPalette::Replace(const cPalette &Palette)
++{
++  for (int i = 0; i < Palette.numColors; i++)
++      SetColor(i, Palette.color[i]);
++  numColors = Palette.numColors;
++}
++
+ // --- cBitmap ---------------------------------------------------------------
+ 
+ cBitmap::cBitmap(int Width, int Height, int Bpp, int X0, int Y0)
+@@ -337,19 +344,28 @@
+      SetIndex(x, y, Index(Color));
+ }
+ 
+-void cBitmap::DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg, tColor ColorBg)
++void cBitmap::DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg, tColor ColorBg, bool ReplacePalette)
+ {
+   if (bitmap && Bitmap.bitmap && Intersects(x, y, x + Bitmap.Width() - 1, y + Bitmap.Height() - 1)) {
+      if (Covers(x, y, x + Bitmap.Width() - 1, y + Bitmap.Height() - 1))
+         Reset();
+      x -= x0;
+      y -= y0;
+-     tIndexes Indexes;
+-     Take(Bitmap, &Indexes, ColorFg, ColorBg);
+-     for (int ix = 0; ix < Bitmap.width; ix++) {
+-         for (int iy = 0; iy < Bitmap.height; iy++)
+-             SetIndex(x + ix, y + iy, Indexes[int(Bitmap.bitmap[Bitmap.width * iy + ix])]);
+-         }
++     if (ReplacePalette && Covers(x + x0, y + y0, x + x0 + Bitmap.Width() - 1, y + y0 + Bitmap.Height() - 1)) {
++        Replace(Bitmap);
++        for (int ix = 0; ix < Bitmap.width; ix++) {
++            for (int iy = 0; iy < Bitmap.height; iy++)
++                SetIndex(x + ix, y + iy, Bitmap.bitmap[Bitmap.width * iy + ix]);
++            }
++        }
++     else {
++        tIndexes Indexes;
++        Take(Bitmap, &Indexes, ColorFg, ColorBg);
++        for (int ix = 0; ix < Bitmap.width; ix++) {
++            for (int iy = 0; iy < Bitmap.height; iy++)
++                SetIndex(x + ix, y + iy, Indexes[int(Bitmap.bitmap[Bitmap.width * iy + ix])]);
++            }
++        }
+      }
+ }
+ 
+@@ -665,10 +681,10 @@
+       bitmaps[i]->DrawPixel(x, y, Color);
+ }
+ 
+-void cOsd::DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg, tColor ColorBg)
++void cOsd::DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg, tColor ColorBg, bool ReplacePalette)
+ {
+   for (int i = 0; i < numBitmaps; i++)
+-      bitmaps[i]->DrawBitmap(x, y, Bitmap, ColorFg, ColorBg);
++      bitmaps[i]->DrawBitmap(x, y, Bitmap, ColorFg, ColorBg, ReplacePalette);
+ }
+ 
+ void cOsd::DrawText(int x, int y, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width, int Height, int Alignment)
+diff -ruN vdr-1.3.26/osd.h vdr-1.3.27/osd.h
+--- vdr-1.3.26/osd.h	2005-05-14 13:15:55.000000000 +0200
++++ vdr-1.3.27/osd.h	2005-06-19 12:35:25.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.h 1.48 2005/05/14 11:15:55 kls Exp $
++ * $Id: osd.h 1.49 2005/06/19 10:35:25 kls Exp $
+  */
+ 
+ #ifndef __OSD_H
+@@ -84,6 +84,9 @@
+         ///< palette. If either of ColorFg or ColorBg is not zero, the first color
+         ///< in Palette will be taken as ColorBg, and the second color will become
+         ///< ColorFg.
++  void Replace(const cPalette &Palette);
++        ///< Replaces the colors of this palette with the colors from the given
++        ///< palette.
+   };
+ 
+ enum eTextAlignment { taCenter  = 0x00,
+@@ -153,7 +156,7 @@
+        ///< Sets the pixel at the given coordinates to the given Color, which is
+        ///< a full 32 bit ARGB value.
+        ///< If the coordinates are outside the bitmap area, no pixel will be set.
+-  void DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg = 0, tColor ColorBg = 0);
++  void DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg = 0, tColor ColorBg = 0, bool ReplacePalette = false);
+        ///< Sets the pixels in this bitmap with the data from the given
+        ///< Bitmap, putting the upper left corner of the Bitmap at (x, y).
+        ///< If ColorFg or ColorBg is given, the first palette entry of the Bitmap
+@@ -274,7 +277,7 @@
+        ///< If the OSD area has been divided into separate sub-areas, and the
+        ///< given coordinates don't fall into any of these sub-areas, no pixel will
+        ///< be set.
+-  virtual void DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg = 0, tColor ColorBg = 0);
++  virtual void DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg = 0, tColor ColorBg = 0, bool ReplacePalette = false);
+        ///< Sets the pixels in the OSD with the data from the given
+        ///< Bitmap, putting the upper left corner of the Bitmap at (x, y).
+        ///< If ColorFg or ColorBg is given, the first palette entry of the Bitmap
+diff -ruN vdr-1.3.26/osdbase.c vdr-1.3.27/osdbase.c
+--- vdr-1.3.26/osdbase.c	2005-06-12 12:44:22.000000000 +0200
++++ vdr-1.3.27/osdbase.c	2005-06-18 12:30:51.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osdbase.c 1.17 2005/06/12 10:44:22 kls Exp $
++ * $Id: osdbase.c 1.20 2005/06/18 10:30:51 kls Exp $
+  */
+ 
+ #include "osdbase.h"
+@@ -261,54 +261,64 @@
+ 
+ void cOsdMenu::CursorUp(void)
+ {
+-  if (current > 0) {
+-     int tmpCurrent = current;
+-     while (--tmpCurrent >= 0 && !SelectableItem(tmpCurrent))
+-           ;
+-     if (tmpCurrent < 0)
+-        return;
+-     if (tmpCurrent >= first)
+-        DisplayCurrent(false);
+-     current = tmpCurrent;
+-     if (current < first) {
+-        first = first > displayMenuItems - 1 ? first - (displayMenuItems - 1) : 0;
+-        if (Setup.MenuScrollPage)
+-           current = !SelectableItem(first) ? first + 1 : first;
+-        Display();
++  int tmpCurrent = current;
++  int lastOnScreen = first + displayMenuItems - 1;
++  int last = Count() - 1;
++  while (--tmpCurrent != current) {
++        if (tmpCurrent < 0) {
++           if (Setup.MenuScrollWrap)
++              tmpCurrent = last;
++           else
++              return;
++           }
++        if (SelectableItem(tmpCurrent))
++           break;
+         }
+-     else
+-        DisplayCurrent(true);
++  if (first <= tmpCurrent && tmpCurrent <= lastOnScreen)
++     DisplayCurrent(false);
++  current = tmpCurrent;
++  if (current < first) {
++     first = Setup.MenuScrollPage ? max(0, current - displayMenuItems + 1) : current;
++     Display();
+      }
++  else if (current > lastOnScreen) {
++     first = max(0, current - displayMenuItems + 1);
++     Display();
++     }
++  else
++     DisplayCurrent(true);
+ }
+ 
+ void cOsdMenu::CursorDown(void)
+ {
+-  int last = Count() - 1;
++  int tmpCurrent = current;
+   int lastOnScreen = first + displayMenuItems - 1;
+-
+-  if (current < last) {
+-     int tmpCurrent = current;
+-     while (++tmpCurrent <= last && !SelectableItem(tmpCurrent))
+-           ;
+-     if (tmpCurrent > last)
+-        return;
+-     if (tmpCurrent <= lastOnScreen)
+-        DisplayCurrent(false);
+-     current = tmpCurrent;
+-     if (current > lastOnScreen) {
+-        first += displayMenuItems - 1;
+-        lastOnScreen = first + displayMenuItems - 1;
+-        if (lastOnScreen > last) {
+-           first = last - (displayMenuItems - 1);
+-           lastOnScreen = last;
++  int last = Count() - 1;
++  while (++tmpCurrent != current) {
++        if (tmpCurrent > last) {
++           if (Setup.MenuScrollWrap)
++              tmpCurrent = 0;
++           else
++              return;
+            }
+-        if (Setup.MenuScrollPage)
+-           current = !SelectableItem(lastOnScreen) ? lastOnScreen - 1 : lastOnScreen;
+-        Display();
++        if (SelectableItem(tmpCurrent))
++           break;
+         }
+-     else
+-        DisplayCurrent(true);
++  if (first <= tmpCurrent && tmpCurrent <= lastOnScreen)
++     DisplayCurrent(false);
++  current = tmpCurrent;
++  if (current > lastOnScreen) {
++     first = Setup.MenuScrollPage ? current : max(0, current - displayMenuItems + 1);
++     if (first + displayMenuItems > last)
++        first = max(0, last - displayMenuItems + 1);
++     Display();
+      }
++  else if (current < first) {
++     first = current;
++     Display();
++     }
++  else
++     DisplayCurrent(true);
+ }
+ 
+ void cOsdMenu::PageUp(void)
+@@ -341,6 +351,8 @@
+      Display();
+      DisplayCurrent(true);
+      }
++  else if (Setup.MenuScrollWrap)
++     CursorUp();
+ }
+ 
+ void cOsdMenu::PageDown(void) 
+@@ -350,6 +362,10 @@
+   current += displayMenuItems;
+   first += displayMenuItems;
+   int last = Count() - 1;
++  if (current > last)
++     current = last;
++  if (first + displayMenuItems > last)
++     first = max(0, last - displayMenuItems + 1);
+   int tmpCurrent = current;
+   while (!SelectableItem(tmpCurrent) && ++tmpCurrent <= last)
+         ;
+@@ -369,6 +385,8 @@
+      Display();
+      DisplayCurrent(true);
+      }
++  else if (Setup.MenuScrollWrap)
++     CursorDown();
+ }
+ 
+ void cOsdMenu::Mark(void)
+diff -ruN vdr-1.3.26/remux.c vdr-1.3.27/remux.c
+--- vdr-1.3.26/remux.c	2005-06-04 16:49:25.000000000 +0200
++++ vdr-1.3.27/remux.c	2005-06-19 12:17:00.000000000 +0200
+@@ -11,7 +11,7 @@
+  * The cDolbyRepacker code was originally written by Reinhard Nissl <rnissl@gmx.de>,
+  * and adapted to the VDR coding style by Klaus.Schmidinger@cadsoft.de.
+  *
+- * $Id: remux.c 1.34 2005/06/04 14:49:25 kls Exp $
++ * $Id: remux.c 1.35 2005/06/19 10:17:00 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -1155,7 +1155,12 @@
+   resultBuffer = new cRingBufferLinear(RESULTBUFFERSIZE, IPACKS, false, "Result");
+   resultBuffer->SetTimeouts(0, 100);
+   if (VPid)
++//#define TEST_cVideoRepacker
++#ifdef TEST_cVideoRepacker
+      ts2pes[numTracks++] = new cTS2PES(VPid, resultBuffer, IPACKS, 0x00, 0x00, new cVideoRepacker);
++#else
++     ts2pes[numTracks++] = new cTS2PES(VPid, resultBuffer, IPACKS);
++#endif
+   if (APids) {
+      int n = 0;
+      while (*APids && numTracks < MAXTRACKS && n < MAXAPIDS)
+diff -ruN vdr-1.3.26/timers.c vdr-1.3.27/timers.c
+--- vdr-1.3.26/timers.c	2005-06-11 16:19:58.000000000 +0200
++++ vdr-1.3.27/timers.c	2005-06-18 14:49:55.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 1.32 2005/06/11 14:19:58 kls Exp $
++ * $Id: timers.c 1.33 2005/06/18 12:49:55 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -363,6 +363,8 @@
+ 
+   if (HasFlags(tfActive)) {
+      if (HasFlags(tfVps) && !Directly && event && event->Vps() && schedule && schedule->PresentSeenWithin(30)) {
++        if (startTime != event->Vps())
++           return false;
+         startTime = event->StartTime();
+         stopTime = event->EndTime();
+         return event->IsRunning(true);
+@@ -384,15 +386,17 @@
+   if (HasFlags(tfActive) && channel->GetChannelID() == Event->ChannelID()) {
+      bool UseVps = HasFlags(tfVps) && Event->Vps();
+      Matches(UseVps ? Event->Vps() : Event->StartTime(), true);
+-     int overlap;
++     int overlap = 0;
+      if (UseVps)
+         overlap = (startTime == Event->Vps()) ? FULLMATCH + (Event->IsRunning() ? 200 : 100) : 0;
+-     else if (startTime <= Event->StartTime() && Event->EndTime() <= stopTime)
+-        overlap = FULLMATCH;
+-     else if (stopTime <= Event->StartTime() || Event->EndTime() <= startTime)
+-        overlap = 0;
+-     else
+-        overlap = (min(stopTime, Event->EndTime()) - max(startTime, Event->StartTime())) * FULLMATCH / max(Event->Duration(), 1);
++     if (!overlap) {
++        if (startTime <= Event->StartTime() && Event->EndTime() <= stopTime)
++           overlap = FULLMATCH;
++        else if (stopTime <= Event->StartTime() || Event->EndTime() <= startTime)
++           overlap = 0;
++        else
++           overlap = (min(stopTime, Event->EndTime()) - max(startTime, Event->StartTime())) * FULLMATCH / max(Event->Duration(), 1);
++        }
+      startTime = stopTime = 0;
+      if (Overlap)
+         *Overlap = overlap;
+diff -ruN vdr-1.3.26/vdr.c vdr-1.3.27/vdr.c
+--- vdr-1.3.26/vdr.c	2005-05-26 12:45:29.000000000 +0200
++++ vdr-1.3.27/vdr.c	2005-06-18 13:19:07.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.207 2005/05/26 10:45:29 kls Exp $
++ * $Id: vdr.c 1.208 2005/06/18 11:19:07 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -302,17 +302,6 @@
+      return 0;
+      }
+ 
+-#ifdef _CS_GNU_LIBPTHREAD_VERSION
+-  // Check for NPTL and exit if present - VDR apparently doesn't run well with NPTL:
+-  char LibPthreadVersion[128];
+-  if (confstr(_CS_GNU_LIBPTHREAD_VERSION, LibPthreadVersion, sizeof(LibPthreadVersion)) > 0) {
+-     if (strstr(LibPthreadVersion, "NPTL")) {
+-        fprintf(stderr, "vdr: please turn off NPTL by setting 'export LD_ASSUME_KERNEL=2.4.1' before starting VDR\n");
+-        return 2;
+-        }
+-     }
+-#endif
+-
+   // Check for UTF-8 and exit if present - asprintf() will fail if it encounters 8 bit ASCII codes
+   char *LangEnv;
+   if ((LangEnv = getenv("LANG"))     != NULL && strcasestr(LangEnv, "utf") ||

@@ -1,0 +1,1325 @@
+diff -ruN vdr-1.7.34/CONTRIBUTORS vdr-1.7.35/CONTRIBUTORS
+--- vdr-1.7.34/CONTRIBUTORS	2012-12-23 14:32:26.000000000 +0100
++++ vdr-1.7.35/CONTRIBUTORS	2012-12-30 12:30:17.000000000 +0100
+@@ -691,6 +691,8 @@
+  for suggesting a better way of handling calls to realloc()
+  for making the cutter set the 'broken link' flag for MPEG2 TS recordings
+  for reporting a crash in a plugin using cDeviceHook when VDR ends
++ for reporting that "include" needs to be removed from the DVBDIR setting in the VDR
++ Makefile
+ 
+ Reinhard Walter Buchner <rw.buchner@freenet.de>
+  for adding some satellites to 'sources.conf'
+@@ -1324,6 +1326,8 @@
+  for reporting that the Transfer Mode indicator bitmap in the LCARS skin may not
+  fit with small font sizes
+  for reporting a race condition when zapping in transfer mode
++ for requesting that plugin Makefiles should include a configuration file for compile
++ time parameters
+ 
+ Richard Robson <richard_robson@beeb.net>
+  for reporting freezing replay if a timer starts while in Transfer Mode from the
+@@ -1763,6 +1767,7 @@
+  for suggesting to check cIoThrottle::Engaged() in cRemoveDeletedRecordingsThread::Action()
+  for suggesting to shift editing marks that don't point to an I-frame towards the next I-frame
+  when a recording is played
++ for requesting to keep using relative paths when building plugins locally
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -2814,6 +2819,8 @@
+  mechanism
+  for suggesting to give the plugin Makefiles a separate 'install' target
+  for making plugin Makefiles use DESTDIR and the 'install' program
++ for suggesting to make sure that plugins include the VDR header files from the actual
++ VDR source directory when doing "make plugins"
+ 
+ Stefan Huskamp <coca_cola1@gmx.de>
+  for suggesting to make entering characters via the number keys
+@@ -3022,3 +3029,6 @@
+  recording is started
+  for suggesting that floating point numbers presented to the user shall be displayed
+  in the way defined by the current locale
++
++Cedric Dewijs <cedric.dewijs@telfort.nl>
++ for adding maximum SNR value for PCTV Systems PCTV 73ESE
+diff -ruN vdr-1.7.34/HISTORY vdr-1.7.35/HISTORY
+--- vdr-1.7.34/HISTORY	2012-12-24 10:00:55.000000000 +0100
++++ vdr-1.7.35/HISTORY	2012-12-30 12:29:17.000000000 +0100
+@@ -7459,3 +7459,37 @@
+ - Fixed cIndexFile::GetNextIFrame() to properly handle the case where the very last frame
+   is an I-frame (which normally shouldn't occur).
+ - Fixed replaying ongoing recordings from other VDR instances.
++
++2012-12-30: Version 1.7.35
++
++- Making sure that plugins include the VDR header files from the actual VDR source
++  directory when doing "make plugins" (suggested by Christoper Reimer).
++- Increased the version numbers of all plugins to reflect the recent Makefile changes.
++- Removed the lines
++  ifdef DVBDIR
++  INCLUDES += -I$(DVBDIR)/include
++  endif
++  from the file Make.config.template. If set, DVBDIR is now conveyed to plugins via
++  the CFLAGS.
++- Removed some redundancy from Make.config.template.
++- Changed "==" to "=" in the Makefile to make it POSIX style.
++- Added MANDIR to the vdr.pc file, so that plugins that need it can retrieve it via
++  MANDIR = $(DESTDIR)$(call PKGCFG,mandir).
++- Using relative paths again when building plugins locally (by request of Udo Richter).
++- Plugin Makefiles can now include a configuration file for compile time parameters
++  (requested by Reinhard Nissl). The actual name of this file can be defined in
++  Make.config (see "PLGCFG" in Make.config.template), and existing plugin Makefiles
++  that have compile time parameters should add the lines
++  PLGCFG = $(call PKGCFG,plgcfg)
++  -include $(PLGCFG)
++  accordingly (see the "newplugin" script for details).
++- Re-enabled building plugins that still use pre-version-1.7.34 Makefiles.
++  The file Make.global is present again to satisfy the "include" these Makefiles do,
++  but the file itself contains no settings. The VDR Makefile's "plugins" target
++  determines whether a particular plugin uses an old style Makefile and calls it
++  accordingly. Note that this only works when building plugins from within the VDR
++  source tree, using "make plugins" in the VDR source directory.
++- Removed "include" from the DVBDIR setting in the VDR Makefile (reported by Oliver
++  Endriss). You may need to adjust your DVBDIR setting in Make.config, in case you
++  use it.
++- Added maximum SNR value for PCTV Systems PCTV 73ESE (thanks to Cedric Dewijs).
+diff -ruN vdr-1.7.34/Make.config.template vdr-1.7.35/Make.config.template
+--- vdr-1.7.34/Make.config.template	2012-12-22 11:54:47.000000000 +0100
++++ vdr-1.7.35/Make.config.template	2012-12-28 10:55:22.000000000 +0100
+@@ -6,7 +6,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Make.config.template 2.12 2012/12/22 10:54:47 kls Exp $
++# $Id: Make.config.template 2.14 2012/12/28 09:55:22 kls Exp $
+ 
+ ### The C compiler and options:
+ 
+@@ -17,12 +17,10 @@
+ CXXFLAGS = $(CFLAGS) -Werror=overloaded-virtual -Wno-parentheses
+ 
+ CFLAGS   += -fPIC
+-CXXFLAGS += -fPIC
+ 
+ # Use 'make M32=1 ...' to build a 32-bit version of VDR on a 64-bit machine:
+ ifdef M32
+ CFLAGS   += -m32
+-CXXFLAGS += -m32
+ endif
+ 
+ ### The directory environment:
+@@ -32,6 +30,10 @@
+ MANDIR   = $(PREFIX)/man
+ BINDIR   = $(PREFIX)/bin
+ 
++# Use this if you want to have a central place where you configure compile time
++# parameters for plugins:
++#PLGCFG = /etc/vdr/plugins.conf
++
+ # By default locale and plugin files are built under the source directory:
+ INCDIR       = $(CWD)/include
+ LOCDIR       = $(CWD)/locale
+@@ -57,9 +59,3 @@
+ 
+ ## Define if you want vdr to not run as root
+ #VDR_USER = vdr
+-
+-### You don't need to touch the following:
+-
+-ifdef DVBDIR
+-INCLUDES += -I$(DVBDIR)/include
+-endif
+diff -ruN vdr-1.7.34/Make.global vdr-1.7.35/Make.global
+--- vdr-1.7.34/Make.global	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.7.35/Make.global	2012-12-29 13:03:01.000000000 +0100
+@@ -0,0 +1,10 @@
++#
++# Strictly necessary Makefile options for the Video Disk Recorder
++#
++# See the main source file 'vdr.c' for copyright information and
++# how to reach the author.
++#
++# $Id: Make.global 1.2 2012/12/29 12:03:01 kls Exp $
++
++# This is just a dummy file for plugins that use old style (version 1.7.33
++# or earlier) Makefiles.
+diff -ruN vdr-1.7.34/Makefile vdr-1.7.35/Makefile
+--- vdr-1.7.34/Makefile	2012-12-23 12:28:13.000000000 +0100
++++ vdr-1.7.35/Makefile	2012-12-30 12:18:18.000000000 +0100
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 2.36 2012/12/23 11:28:13 kls Exp $
++# $Id: Makefile 2.47 2012/12/30 11:18:18 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -17,14 +17,13 @@
+ CXXFLAGS ?= $(CFLAGS) -Werror=overloaded-virtual -Wno-parentheses
+ 
+ CFLAGS   += -fPIC
+-CXXFLAGS += -fPIC
+ 
+ CDEFINES  = -D_GNU_SOURCE
+ CDEFINES += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
+ 
+ # Directories:
+ 
+-CWD     := $(shell pwd)
++CWD      = .
+ LSIDIR   = ./libsi
+ DESTDIR ?=
+ PREFIX  ?= /usr/local
+@@ -49,6 +48,12 @@
+ 
+ -include Make.config
+ 
++ifdef DVBDIR
++CFLAGS += -I$(DVBDIR)
++endif
++
++UP3 = $(if $(findstring "$(LIBDIR)-$(LOCDIR)","$(CWD)/PLUGINS/lib-$(CWD)/locale"),../../../,)
++
+ SILIB    = $(LSIDIR)/libsi.a
+ 
+ OBJS = audio.o channels.o ci.o config.o cutter.o device.o diseqc.o dvbdevice.o dvbci.o\
+@@ -127,15 +132,17 @@
+ .PHONY: vdr.pc
+ vdr.pc:
+ 	@echo "bindir=$(BINDIR)" > $@
++	@echo "mandir=$(MANDIR)" >> $@
+ 	@echo "configdir=$(CONFDIRDEF)" >> $@
+ 	@echo "videodir=$(VIDEODIR)" >> $@
+ 	@echo "cachedir=$(CACHEDIRDEF)" >> $@
+ 	@echo "resdir=$(RESDIRDEF)" >> $@
+-	@echo "libdir=$(LIBDIR)" >> $@
+-	@echo "locdir=$(LOCDIR)" >> $@
++	@echo "libdir=$(UP3)$(LIBDIR)" >> $@
++	@echo "locdir=$(UP3)$(LOCDIR)" >> $@
++	@echo "plgcfg=$(PLGCFG)" >> $@
+ 	@echo "apiversion=$(APIVERSION)" >> $@
+-	@echo "cflags=$(CFLAGS) $(CDEFINES) -I$(INCDIR)" >> $@
+-	@echo "cxxflags=$(CXXFLAGS) $(CDEFINES) -I$(INCDIR)" >> $@
++	@echo "cflags=$(CFLAGS) $(CDEFINES) -I$(UP3)$(INCDIR)" >> $@
++	@echo "cxxflags=$(CXXFLAGS) $(CDEFINES) -I$(UP3)$(INCDIR)" >> $@
+ 	@echo "" >> $@
+ 	@echo "Name: VDR" >> $@
+ 	@echo "Description: Video Disk Recorder" >> $@
+@@ -192,11 +199,27 @@
+ 	       noapiv="$$noapiv $$i";\
+ 	       continue;\
+ 	       fi;\
+-            target=all;\
+-	    if [ "$(LIBDIR)" == "$(CWD)/PLUGINS/lib" ] && [ "$(LOCDIR)" == "$(CWD)/locale" ]; then\
+-	       target=install;\
++	    newmakefile=`grep "PKGCFG" "$(PLUGINDIR)/src/$$i/Makefile"`;\
++	    if [ -z "$$newmakefile" ]; then\
++	       echo "********************************************************************";\
++	       echo "* Your plugin \"$$i\" is using an old Makefile!";\
++	       echo "* While this currently still works, it is strongly recommended";\
++	       echo "* that you convert that Makefile to the new style used since";\
++	       echo "* VDR version 1.7.35. Support for old style Makefiles may be dropped";\
++	       echo "* in future versions of VDR.";\
++	       echo "********************************************************************";\
++	       $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" CXXFLAGS="$(CXXFLAGS)" VDRDIR=$(UP3) LIBDIR=../../lib all || failed="$$failed $$i";\
++	    else\
++               target=all;\
++	       if [ "$(LIBDIR)" = "$(CWD)/PLUGINS/lib" ] && [ "$(LOCDIR)" = "$(CWD)/locale" ]; then\
++	          target="install";\
++	          fi;\
++	       includes=;\
++	       if [ "$(INCDIR)" != "$(CWD)/include" ]; then\
++	          includes="INCLUDES=-I$(UP3)/include";\
++	          fi;\
++	       $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" VDRDIR=$(UP3) $$includes $$target || failed="$$failed $$i";\
+ 	       fi;\
+-	    $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" VDRDIR=$(CWD) $$target || failed="$$failed $$i";\
+ 	    done;\
+ 	if [ -n "$$noapiv" ] ; then echo; echo "*** plugins without APIVERSION:$$noapiv"; echo; fi;\
+ 	if [ -n "$$failed" ] ; then echo; echo "*** failed plugins:$$failed"; echo; exit 1; fi
+@@ -239,7 +262,7 @@
+ 
+ install-plugins: plugins
+ 	@for i in `ls $(PLUGINDIR)/src | grep -v '[^a-z0-9]'`; do\
+-	     $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" VDRDIR=$(CWD) DESTDIR=$(DESTDIR) install;\
++	     $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" VDRDIR=$(UP3) DESTDIR=$(DESTDIR) install;\
+ 	     done
+ 
+ # Includes:
+diff -ruN vdr-1.7.34/PLUGINS/src/dvbhddevice/HISTORY vdr-1.7.35/PLUGINS/src/dvbhddevice/HISTORY
+--- vdr-1.7.34/PLUGINS/src/dvbhddevice/HISTORY	2011-04-22 20:49:38.000000000 +0200
++++ vdr-1.7.35/PLUGINS/src/dvbhddevice/HISTORY	2012-12-27 11:31:52.000000000 +0100
+@@ -39,7 +39,11 @@
+ - Allow to disable true color OSD support via setup option
+ 
+ 2011-04-xx: Version 0.0.4
++
+ - locally define DVB OSD API extensions to support compiling with original DVB headers
+ - Return correct pixel aspect ratio in GetOsdSize
+ - Adapt Makefile to changes introduced in recent VDR versions
+ 
++2012-12-27: Version 0.0.5
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.34/PLUGINS/src/dvbhddevice/Makefile vdr-1.7.35/PLUGINS/src/dvbhddevice/Makefile
+--- vdr-1.7.34/PLUGINS/src/dvbhddevice/Makefile	2012-12-23 11:01:00.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/dvbhddevice/Makefile	2012-12-28 11:08:50.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.19 2012/12/23 10:01:00 kls Exp $
++# $Id: Makefile 1.20 2012/12/28 10:08:50 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -19,6 +19,7 @@
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+ LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
+ LOCDIR = $(DESTDIR)$(call PKGCFG,locdir)
++PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+ 
+@@ -31,6 +32,10 @@
+ 
+ APIVERSION = $(call PKGCFG,apiversion)
+ 
++### Allow user defined options to overwrite defaults:
++
++-include $(PLGCFG)
++
+ ### The name of the distribution archive:
+ 
+ ARCHIVE = $(PLUGIN)-$(VERSION)
+diff -ruN vdr-1.7.34/PLUGINS/src/dvbhddevice/dvbhddevice.c vdr-1.7.35/PLUGINS/src/dvbhddevice/dvbhddevice.c
+--- vdr-1.7.34/PLUGINS/src/dvbhddevice/dvbhddevice.c	2012-06-07 11:33:18.000000000 +0200
++++ vdr-1.7.35/PLUGINS/src/dvbhddevice/dvbhddevice.c	2012-12-27 11:30:48.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbhddevice.c 1.17 2012/06/07 09:33:18 kls Exp $
++ * $Id: dvbhddevice.c 1.18 2012/12/27 10:30:48 kls Exp $
+  */
+ 
+ #include <vdr/plugin.h>
+@@ -12,7 +12,7 @@
+ #include "menu.h"
+ #include "setup.h"
+ 
+-static const char *VERSION        = "0.0.4";
++static const char *VERSION        = "0.0.5";
+ static const char *DESCRIPTION    = trNOOP("HD Full Featured DVB device");
+ static const char *MAINMENUENTRY  = "dvbhddevice";
+ 
+diff -ruN vdr-1.7.34/PLUGINS/src/dvbhddevice/dvbhdffdevice.c vdr-1.7.35/PLUGINS/src/dvbhddevice/dvbhdffdevice.c
+--- vdr-1.7.34/PLUGINS/src/dvbhddevice/dvbhdffdevice.c	2012-11-15 10:19:10.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/dvbhddevice/dvbhdffdevice.c	2012-12-29 14:23:22.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbhdffdevice.c 1.46 2012/11/15 09:19:10 kls Exp $
++ * $Id: dvbhdffdevice.c 1.47 2012/12/29 13:23:22 kls Exp $
+  */
+ 
+ #include <stdint.h>
+@@ -23,6 +23,10 @@
+ #include "hdffosd.h"
+ #include "setup.h"
+ 
++
++static uchar *YuvToJpeg(uchar *Mem, int Width, int Height, int &Size, int Quality);
++
++
+ // --- cDvbHdFfDevice ----------------------------------------------------------
+ 
+ int cDvbHdFfDevice::devHdffOffset = -1;
+@@ -123,8 +127,112 @@
+ 
+ uchar *cDvbHdFfDevice::GrabImage(int &Size, bool Jpeg, int Quality, int SizeX, int SizeY)
+ {
+-  //TODO
+-  return NULL;
++    #define BUFFER_SIZE  (sizeof(struct v4l2_pix_format) + 1920 * 1080 * 2)
++    int fd;
++    uint8_t * buffer;
++    uint8_t * result = NULL;
++
++    fd = DvbOpen(DEV_DVB_VIDEO, adapter, frontend, O_RDONLY);
++    if (fd < 0) {
++        esyslog("GrabImage: failed open DVB video device");
++        return NULL;
++    }
++
++    buffer = (uint8_t *) malloc(BUFFER_SIZE);
++    if (buffer)
++    {
++        int readBytes;
++
++        readBytes = read(fd, buffer, BUFFER_SIZE);
++        if (readBytes < (int) sizeof(struct v4l2_pix_format))
++            esyslog("GrabImage: failed reading from DVB video device");
++        else {
++            struct v4l2_pix_format * pixfmt;
++            int dataSize;
++
++            pixfmt = (struct v4l2_pix_format *) buffer;
++            dsyslog("GrabImage: Read image of size %d x %d",
++                    pixfmt->width, pixfmt->height);
++            dataSize = readBytes - sizeof(struct v4l2_pix_format);
++            if (dataSize < (int) pixfmt->sizeimage)
++                esyslog("GrabImage: image is not complete");
++            else {
++                if (Jpeg) {
++                    uint8_t * temp;
++                    temp = (uint8_t *) malloc(pixfmt->width * 3 * pixfmt->height);
++                    if (temp) {
++                        int numPixels = pixfmt->width * pixfmt->height;
++                        uint8_t * destData = temp;
++                        uint8_t * srcData = buffer + sizeof(struct v4l2_pix_format);
++                        while (numPixels > 0)
++                        {
++                            destData[0] = srcData[1];
++                            destData[1] = srcData[0];
++                            destData[2] = srcData[2];
++                            destData[3] = srcData[3];
++                            destData[4] = srcData[0];
++                            destData[5] = srcData[2];
++                            srcData += 4;
++                            destData += 6;
++                            numPixels -= 2;
++                        }
++                        if (Quality < 0)
++                            Quality = 100;
++                        result = YuvToJpeg(temp, pixfmt->width, pixfmt->height, Size, Quality);
++                        free(temp);
++                    }
++                }
++                else {
++                    // convert to PNM:
++                    char buf[32];
++                    snprintf(buf, sizeof(buf), "P6\n%d\n%d\n255\n",
++                             pixfmt->width, pixfmt->height);
++                    int l = strlen(buf);
++                    Size = l + pixfmt->width * 3 * pixfmt->height;
++                    result = (uint8_t *) malloc(Size);
++                    if (result)
++                    {
++                        memcpy(result, buf, l);
++                        uint8_t * destData = result + l;
++                        uint8_t * srcData = buffer + sizeof(struct v4l2_pix_format);
++                        int numPixels = pixfmt->width * pixfmt->height;
++                        while (numPixels > 0)
++                        {
++                            int cb = srcData[0] - 128;
++                            int y1 = srcData[1];
++                            int cr = srcData[2] - 128;
++                            int y2 = srcData[3];
++                            int r;
++                            int g;
++                            int b;
++
++                            r = y1 + (int) (1.402f * cr);
++                            g = y1 - (int) (0.344f * cb + 0.714f * cr);
++                            b = y1 + (int) (1.772f * cb);
++                            destData[0] = r > 255 ? 255 : r < 0 ? 0 : r;
++                            destData[1] = g > 255 ? 255 : g < 0 ? 0 : g;
++                            destData[2] = b > 255 ? 255 : b < 0 ? 0 : b;
++                            r = y2 + (int) (1.402f * cr);
++                            g = y2 - (int) (0.344f * cb + 0.714f * cr);
++                            b = y2 + (int) (1.772f * cb);
++                            destData[3] = r > 255 ? 255 : r < 0 ? 0 : r;
++                            destData[4] = g > 255 ? 255 : g < 0 ? 0 : g;
++                            destData[5] = b > 255 ? 255 : b < 0 ? 0 : b;
++
++                            srcData += 4;
++                            destData += 6;
++                            numPixels -= 2;
++                        }
++                    }
++                }
++            }
++        }
++        free(buffer);
++    }
++
++    close(fd);
++
++    return result;
+ }
+ 
+ void cDvbHdFfDevice::SetVideoDisplayFormat(eVideoDisplayFormat VideoDisplayFormat)
+@@ -423,7 +531,7 @@
+ 
+             mHdffCmdIf->CmdAvSetDecoderInput(0, 2);
+             ioctl(fd_video, VIDEO_SELECT_SOURCE, VIDEO_SOURCE_MEMORY);
+-	}
++        }
+     }
+     playMode = PlayMode;
+     return true;
+@@ -840,3 +948,104 @@
+       }
+   return false;
+ }
++
++
++// --- YuvToJpeg -------------------------------------------------------------
++
++#include <jpeglib.h>
++
++#define JPEGCOMPRESSMEM 4000000
++
++struct tJpegCompressData {
++  int size;
++  uchar *mem;
++  };
++
++static void JpegCompressInitDestination(j_compress_ptr cinfo)
++{
++  tJpegCompressData *jcd = (tJpegCompressData *)cinfo->client_data;
++  if (jcd) {
++     cinfo->dest->free_in_buffer = jcd->size = JPEGCOMPRESSMEM;
++     cinfo->dest->next_output_byte = jcd->mem = MALLOC(uchar, jcd->size);
++     }
++}
++
++static boolean JpegCompressEmptyOutputBuffer(j_compress_ptr cinfo)
++{
++  tJpegCompressData *jcd = (tJpegCompressData *)cinfo->client_data;
++  if (jcd) {
++     int Used = jcd->size;
++     int NewSize = jcd->size + JPEGCOMPRESSMEM;
++     if (uchar *NewBuffer = (uchar *)realloc(jcd->mem, NewSize)) {
++        jcd->size = NewSize;
++        jcd->mem = NewBuffer;
++        }
++     else {
++        esyslog("ERROR: out of memory");
++        return false;
++        }
++     if (jcd->mem) {
++        cinfo->dest->next_output_byte = jcd->mem + Used;
++        cinfo->dest->free_in_buffer = jcd->size - Used;
++        return true;
++        }
++     }
++  return false;
++}
++
++static void JpegCompressTermDestination(j_compress_ptr cinfo)
++{
++  tJpegCompressData *jcd = (tJpegCompressData *)cinfo->client_data;
++  if (jcd) {
++     int Used = cinfo->dest->next_output_byte - jcd->mem;
++     if (Used < jcd->size) {
++        if (uchar *NewBuffer = (uchar *)realloc(jcd->mem, Used)) {
++           jcd->size = Used;
++           jcd->mem = NewBuffer;
++           }
++        else
++           esyslog("ERROR: out of memory");
++        }
++     }
++}
++
++static uchar *YuvToJpeg(uchar *Mem, int Width, int Height, int &Size, int Quality)
++{
++  if (Quality < 0)
++     Quality = 0;
++  else if (Quality > 100)
++     Quality = 100;
++
++  jpeg_destination_mgr jdm;
++
++  jdm.init_destination = JpegCompressInitDestination;
++  jdm.empty_output_buffer = JpegCompressEmptyOutputBuffer;
++  jdm.term_destination = JpegCompressTermDestination;
++
++  struct jpeg_compress_struct cinfo;
++  struct jpeg_error_mgr jerr;
++  cinfo.err = jpeg_std_error(&jerr);
++  jpeg_create_compress(&cinfo);
++  cinfo.dest = &jdm;
++  tJpegCompressData jcd;
++  cinfo.client_data = &jcd;
++  cinfo.image_width = Width;
++  cinfo.image_height = Height;
++  cinfo.input_components = 3;
++  cinfo.in_color_space = JCS_YCbCr;
++
++  jpeg_set_defaults(&cinfo);
++  jpeg_set_quality(&cinfo, Quality, true);
++  jpeg_start_compress(&cinfo, true);
++
++  int rs = Width * 3;
++  JSAMPROW rp[Height];
++  for (int k = 0; k < Height; k++)
++      rp[k] = &Mem[rs * k];
++  jpeg_write_scanlines(&cinfo, rp, Height);
++  jpeg_finish_compress(&cinfo);
++  jpeg_destroy_compress(&cinfo);
++
++  Size = jcd.size;
++  return jcd.mem;
++}
+diff -ruN vdr-1.7.34/PLUGINS/src/dvbsddevice/HISTORY vdr-1.7.35/PLUGINS/src/dvbsddevice/HISTORY
+--- vdr-1.7.34/PLUGINS/src/dvbsddevice/HISTORY	2012-03-07 15:00:28.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/dvbsddevice/HISTORY	2012-12-27 11:35:29.000000000 +0100
+@@ -24,8 +24,12 @@
+ 
+ - Added option --outputonly to use the device only for output (thanks to Udo Richter).
+ 
+-2012-03-07: Version 0.06
++2012-03-07: Version 0.0.6
+ 
+ - Removed the call to EITScanner.UsesDevice(this) from dvbsddevice.c, because
+   the code following these calls is only executed if LiveView is true, which is
+   never the case when the EITScanner switches to a channel.
++
++2012-12-27: Version 0.0.7
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.34/PLUGINS/src/dvbsddevice/Makefile vdr-1.7.35/PLUGINS/src/dvbsddevice/Makefile
+--- vdr-1.7.34/PLUGINS/src/dvbsddevice/Makefile	2012-12-23 11:01:12.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/dvbsddevice/Makefile	2012-12-29 11:28:45.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.15 2012/12/23 10:01:12 kls Exp $
++# $Id: Makefile 1.18 2012/12/29 10:28:45 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -18,6 +18,7 @@
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+ LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
++PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+ 
+@@ -30,6 +31,10 @@
+ 
+ APIVERSION = $(call PKGCFG,apiversion)
+ 
++### Allow user defined options to overwrite defaults:
++
++-include $(PLGCFG)
++
+ ### The name of the distribution archive:
+ 
+ ARCHIVE = $(PLUGIN)-$(VERSION)
+diff -ruN vdr-1.7.34/PLUGINS/src/dvbsddevice/dvbsddevice.c vdr-1.7.35/PLUGINS/src/dvbsddevice/dvbsddevice.c
+--- vdr-1.7.34/PLUGINS/src/dvbsddevice/dvbsddevice.c	2012-03-07 14:58:08.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/dvbsddevice/dvbsddevice.c	2012-12-27 11:32:23.000000000 +0100
+@@ -3,14 +3,14 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsddevice.c 1.6 2012/03/07 13:58:08 kls Exp $
++ * $Id: dvbsddevice.c 1.7 2012/12/27 10:32:23 kls Exp $
+  */
+ 
+ #include <getopt.h>
+ #include <vdr/plugin.h>
+ #include "dvbsdffdevice.h"
+ 
+-static const char *VERSION        = "0.0.6";
++static const char *VERSION        = "0.0.7";
+ static const char *DESCRIPTION    = "SD Full Featured DVB device";
+ 
+ class cPluginDvbsddevice : public cPlugin {
+diff -ruN vdr-1.7.34/PLUGINS/src/epgtableid0/HISTORY vdr-1.7.35/PLUGINS/src/epgtableid0/HISTORY
+--- vdr-1.7.34/PLUGINS/src/epgtableid0/HISTORY	2012-03-10 15:23:58.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/epgtableid0/HISTORY	2012-12-27 11:33:07.000000000 +0100
+@@ -4,3 +4,7 @@
+ 2012-03-10: Version 0.0.1
+ 
+ - Initial revision.
++
++2012-12-27: Version 0.0.2
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.34/PLUGINS/src/epgtableid0/Makefile vdr-1.7.35/PLUGINS/src/epgtableid0/Makefile
+--- vdr-1.7.34/PLUGINS/src/epgtableid0/Makefile	2012-12-23 11:01:40.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/epgtableid0/Makefile	2012-12-29 11:28:58.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.8 2012/12/23 10:01:40 kls Exp $
++# $Id: Makefile 1.11 2012/12/29 10:28:58 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -18,6 +18,7 @@
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+ LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
++PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+ 
+@@ -30,6 +31,10 @@
+ 
+ APIVERSION = $(call PKGCFG,apiversion)
+ 
++### Allow user defined options to overwrite defaults:
++
++-include $(PLGCFG)
++
+ ### The name of the distribution archive:
+ 
+ ARCHIVE = $(PLUGIN)-$(VERSION)
+diff -ruN vdr-1.7.34/PLUGINS/src/epgtableid0/epgtableid0.c vdr-1.7.35/PLUGINS/src/epgtableid0/epgtableid0.c
+--- vdr-1.7.34/PLUGINS/src/epgtableid0/epgtableid0.c	2012-03-10 16:10:43.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/epgtableid0/epgtableid0.c	2012-12-27 11:32:52.000000000 +0100
+@@ -3,13 +3,13 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: epgtableid0.c 1.1 2012/03/10 15:10:43 kls Exp $
++ * $Id: epgtableid0.c 1.2 2012/12/27 10:32:52 kls Exp $
+  */
+ 
+ #include <vdr/epg.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "0.0.1";
++static const char *VERSION        = "0.0.2";
+ static const char *DESCRIPTION    = "EPG handler for events with table id 0x00";
+ 
+ // --- cTable0Handler --------------------------------------------------------
+diff -ruN vdr-1.7.34/PLUGINS/src/hello/HISTORY vdr-1.7.35/PLUGINS/src/hello/HISTORY
+--- vdr-1.7.34/PLUGINS/src/hello/HISTORY	2010-02-28 13:49:18.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/hello/HISTORY	2012-12-27 11:33:26.000000000 +0100
+@@ -74,3 +74,7 @@
+ 2010-02-28: Version 0.2.5
+ 
+ - Added Lithuanian language translations (thanks to Valdemaras Pipiras).
++
++2012-12-27: Version 0.2.6
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.34/PLUGINS/src/hello/Makefile vdr-1.7.35/PLUGINS/src/hello/Makefile
+--- vdr-1.7.34/PLUGINS/src/hello/Makefile	2012-12-23 11:03:51.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/hello/Makefile	2012-12-28 11:09:20.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.15 2012/12/23 10:03:51 kls Exp $
++# $Id: Makefile 2.16 2012/12/28 10:09:20 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -19,6 +19,7 @@
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+ LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
+ LOCDIR = $(DESTDIR)$(call PKGCFG,locdir)
++PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+ 
+@@ -31,6 +32,10 @@
+ 
+ APIVERSION = $(call PKGCFG,apiversion)
+ 
++### Allow user defined options to overwrite defaults:
++
++-include $(PLGCFG)
++
+ ### The name of the distribution archive:
+ 
+ ARCHIVE = $(PLUGIN)-$(VERSION)
+diff -ruN vdr-1.7.34/PLUGINS/src/hello/hello.c vdr-1.7.35/PLUGINS/src/hello/hello.c
+--- vdr-1.7.34/PLUGINS/src/hello/hello.c	2010-02-28 13:49:28.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/hello/hello.c	2012-12-27 11:35:04.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: hello.c 2.3 2010/02/28 12:49:28 kls Exp $
++ * $Id: hello.c 2.4 2012/12/27 10:35:04 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -12,7 +12,7 @@
+ #include <vdr/interface.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "0.2.5";
++static const char *VERSION        = "0.2.6";
+ static const char *DESCRIPTION    = trNOOP("A friendly greeting");
+ static const char *MAINMENUENTRY  = trNOOP("Hello");
+ 
+diff -ruN vdr-1.7.34/PLUGINS/src/osddemo/HISTORY vdr-1.7.35/PLUGINS/src/osddemo/HISTORY
+--- vdr-1.7.34/PLUGINS/src/osddemo/HISTORY	2012-03-13 16:18:15.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/osddemo/HISTORY	2012-12-27 11:36:15.000000000 +0100
+@@ -38,3 +38,7 @@
+ 2012-03-13: Version 0.2.3
+ 
+ - No longer using GetFont() (which is not thread safe) in the 'osddemo' plugin,
++
++2012-12-27: Version 0.2.4
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.34/PLUGINS/src/osddemo/Makefile vdr-1.7.35/PLUGINS/src/osddemo/Makefile
+--- vdr-1.7.34/PLUGINS/src/osddemo/Makefile	2012-12-23 11:04:05.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/osddemo/Makefile	2012-12-29 11:29:04.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.11 2012/12/23 10:04:05 kls Exp $
++# $Id: Makefile 2.14 2012/12/29 10:29:04 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -18,6 +18,7 @@
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+ LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
++PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+ 
+@@ -30,6 +31,10 @@
+ 
+ APIVERSION = $(call PKGCFG,apiversion)
+ 
++### Allow user defined options to overwrite defaults:
++
++-include $(PLGCFG)
++
+ ### The name of the distribution archive:
+ 
+ ARCHIVE = $(PLUGIN)-$(VERSION)
+diff -ruN vdr-1.7.34/PLUGINS/src/osddemo/osddemo.c vdr-1.7.35/PLUGINS/src/osddemo/osddemo.c
+--- vdr-1.7.34/PLUGINS/src/osddemo/osddemo.c	2012-03-13 16:17:33.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/osddemo/osddemo.c	2012-12-27 11:36:21.000000000 +0100
+@@ -3,13 +3,13 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: osddemo.c 2.6 2012/03/13 15:17:33 kls Exp $
++ * $Id: osddemo.c 2.7 2012/12/27 10:36:21 kls Exp $
+  */
+ 
+ #include <vdr/osd.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "0.2.3";
++static const char *VERSION        = "0.2.4";
+ static const char *DESCRIPTION    = "Demo of arbitrary OSD setup";
+ static const char *MAINMENUENTRY  = "Osd Demo";
+ 
+diff -ruN vdr-1.7.34/PLUGINS/src/pictures/HISTORY vdr-1.7.35/PLUGINS/src/pictures/HISTORY
+--- vdr-1.7.34/PLUGINS/src/pictures/HISTORY	2012-04-28 15:07:18.000000000 +0200
++++ vdr-1.7.35/PLUGINS/src/pictures/HISTORY	2012-12-27 11:36:55.000000000 +0100
+@@ -72,6 +72,10 @@
+ 
+ - Removed an obsolete command line option.
+ 
+-2012-04-2r8 Version 0.1.3
++2012-04-28: Version 0.1.3
+ 
+ - Added cPictureControl::GetHeader().
++
++2012-12-27: Version 0.1.4
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.34/PLUGINS/src/pictures/Makefile vdr-1.7.35/PLUGINS/src/pictures/Makefile
+--- vdr-1.7.34/PLUGINS/src/pictures/Makefile	2012-12-23 11:04:13.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/pictures/Makefile	2012-12-28 11:09:29.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.15 2012/12/23 10:04:13 kls Exp $
++# $Id: Makefile 2.16 2012/12/28 10:09:29 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -19,6 +19,7 @@
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+ LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
+ LOCDIR = $(DESTDIR)$(call PKGCFG,locdir)
++PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+ 
+@@ -31,6 +32,10 @@
+ 
+ APIVERSION = $(call PKGCFG,apiversion)
+ 
++### Allow user defined options to overwrite defaults:
++
++-include $(PLGCFG)
++
+ ### The name of the distribution archive:
+ 
+ ARCHIVE = $(PLUGIN)-$(VERSION)
+diff -ruN vdr-1.7.34/PLUGINS/src/pictures/pictures.c vdr-1.7.35/PLUGINS/src/pictures/pictures.c
+--- vdr-1.7.34/PLUGINS/src/pictures/pictures.c	2012-04-28 13:58:42.000000000 +0200
++++ vdr-1.7.35/PLUGINS/src/pictures/pictures.c	2012-12-27 11:37:07.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: pictures.c 2.6 2012/04/28 11:58:42 kls Exp $
++ * $Id: pictures.c 2.7 2012/12/27 10:37:07 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -11,7 +11,7 @@
+ #include "menu.h"
+ #include "player.h"
+ 
+-static const char *VERSION       = "0.1.3";
++static const char *VERSION       = "0.1.4";
+ static const char *DESCRIPTION   = trNOOP("A simple picture viewer");
+ static const char *MAINMENUENTRY = trNOOP("Pictures");
+ 
+diff -ruN vdr-1.7.34/PLUGINS/src/rcu/HISTORY vdr-1.7.35/PLUGINS/src/rcu/HISTORY
+--- vdr-1.7.34/PLUGINS/src/rcu/HISTORY	2012-03-07 15:23:27.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/rcu/HISTORY	2012-12-27 11:37:23.000000000 +0100
+@@ -8,3 +8,7 @@
+ 2012-03-07: Version 0.0.2
+ 
+ - Added new parameter LiveView to ChannelSwitch().
++
++2012-12-27: Version 0.0.3
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.34/PLUGINS/src/rcu/Makefile vdr-1.7.35/PLUGINS/src/rcu/Makefile
+--- vdr-1.7.34/PLUGINS/src/rcu/Makefile	2012-12-23 11:04:15.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/rcu/Makefile	2012-12-29 11:29:09.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.8 2012/12/23 10:04:15 kls Exp $
++# $Id: Makefile 1.11 2012/12/29 10:29:09 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -18,6 +18,7 @@
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+ LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
++PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+ 
+@@ -30,6 +31,10 @@
+ 
+ APIVERSION = $(call PKGCFG,apiversion)
+ 
++### Allow user defined options to overwrite defaults:
++
++-include $(PLGCFG)
++
+ ### The name of the distribution archive:
+ 
+ ARCHIVE = $(PLUGIN)-$(VERSION)
+diff -ruN vdr-1.7.34/PLUGINS/src/rcu/rcu.c vdr-1.7.35/PLUGINS/src/rcu/rcu.c
+--- vdr-1.7.34/PLUGINS/src/rcu/rcu.c	2012-03-07 15:22:44.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/rcu/rcu.c	2012-12-27 11:37:31.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: rcu.c 1.2 2012/03/07 14:22:44 kls Exp $
++ * $Id: rcu.c 1.3 2012/12/27 10:37:31 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -16,7 +16,7 @@
+ #include <vdr/thread.h>
+ #include <vdr/tools.h>
+ 
+-static const char *VERSION        = "0.0.2";
++static const char *VERSION        = "0.0.3";
+ static const char *DESCRIPTION    = "Remote Control Unit";
+ 
+ #define REPEATLIMIT      150 // ms
+diff -ruN vdr-1.7.34/PLUGINS/src/servicedemo/HISTORY vdr-1.7.35/PLUGINS/src/servicedemo/HISTORY
+--- vdr-1.7.34/PLUGINS/src/servicedemo/HISTORY	2007-08-15 15:18:16.000000000 +0200
++++ vdr-1.7.35/PLUGINS/src/servicedemo/HISTORY	2012-12-27 11:37:48.000000000 +0100
+@@ -9,3 +9,7 @@
+ 
+ - Moved the "all" target in the Makefile before the "Implicit rules",
+   so that a plain "make" will compile everything.
++
++2012-12-27: Version 0.1.3
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.34/PLUGINS/src/servicedemo/Makefile vdr-1.7.35/PLUGINS/src/servicedemo/Makefile
+--- vdr-1.7.34/PLUGINS/src/servicedemo/Makefile	2012-12-23 11:04:16.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/servicedemo/Makefile	2012-12-29 11:29:15.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.9 2012/12/23 10:04:16 kls Exp $
++# $Id: Makefile 2.12 2012/12/29 10:29:15 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -19,6 +19,7 @@
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+ LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
++PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+ 
+@@ -31,6 +32,10 @@
+ 
+ APIVERSION = $(call PKGCFG,apiversion)
+ 
++### Allow user defined options to overwrite defaults:
++
++-include $(PLGCFG)
++
+ ### The name of the distribution archive:
+ 
+ ARCHIVE = svcintf-$(VERSION)
+@@ -72,10 +77,12 @@
+ libvdr-$(PLUGIN2).so: $(PLUGIN2).o
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(PLUGIN2).o -o $@
+ 
+-install: libvdr-$(PLUGIN1).so libvdr-$(PLUGIN2).so
++install-lib: libvdr-$(PLUGIN1).so libvdr-$(PLUGIN2).so
+ 	install -D libvdr-$(PLUGIN1).so $(LIBDIR)/libvdr-$(PLUGIN1).so.$(APIVERSION)
+ 	install -D libvdr-$(PLUGIN2).so $(LIBDIR)/libvdr-$(PLUGIN2).so.$(APIVERSION)
+ 
++install: install-lib
++
+ dist: clean
+ 	@-rm -rf $(TMPDIR)/$(ARCHIVE)
+ 	@mkdir $(TMPDIR)/$(ARCHIVE)
+diff -ruN vdr-1.7.34/PLUGINS/src/servicedemo/svccli.c vdr-1.7.35/PLUGINS/src/servicedemo/svccli.c
+--- vdr-1.7.34/PLUGINS/src/servicedemo/svccli.c	2007-08-15 15:18:08.000000000 +0200
++++ vdr-1.7.35/PLUGINS/src/servicedemo/svccli.c	2012-12-27 11:37:57.000000000 +0100
+@@ -3,14 +3,14 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: svccli.c 2.0 2007/08/15 13:18:08 kls Exp $
++ * $Id: svccli.c 2.1 2012/12/27 10:37:57 kls Exp $
+  */
+ 
+ #include <stdlib.h>
+ #include <vdr/interface.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "0.1.2";
++static const char *VERSION        = "0.1.3";
+ static const char *DESCRIPTION    = "Service demo client";
+ static const char *MAINMENUENTRY  = "Service demo";
+ 
+diff -ruN vdr-1.7.34/PLUGINS/src/servicedemo/svcsvr.c vdr-1.7.35/PLUGINS/src/servicedemo/svcsvr.c
+--- vdr-1.7.34/PLUGINS/src/servicedemo/svcsvr.c	2007-08-15 15:18:59.000000000 +0200
++++ vdr-1.7.35/PLUGINS/src/servicedemo/svcsvr.c	2012-12-27 11:38:19.000000000 +0100
+@@ -3,14 +3,14 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: svcsvr.c 2.0 2007/08/15 13:18:59 kls Exp $
++ * $Id: svcsvr.c 2.1 2012/12/27 10:38:19 kls Exp $
+  */
+ 
+ #include <stdlib.h>
+ #include <vdr/interface.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "0.1.2";
++static const char *VERSION        = "0.1.3";
+ static const char *DESCRIPTION    = "Service demo server";
+ 
+ class cPluginSvcSvr : public cPlugin {
+diff -ruN vdr-1.7.34/PLUGINS/src/skincurses/HISTORY vdr-1.7.35/PLUGINS/src/skincurses/HISTORY
+--- vdr-1.7.34/PLUGINS/src/skincurses/HISTORY	2012-04-23 10:54:52.000000000 +0200
++++ vdr-1.7.35/PLUGINS/src/skincurses/HISTORY	2012-12-27 11:38:36.000000000 +0100
+@@ -101,3 +101,7 @@
+ 
+ - Now displaying disk usage in the title of the main and "Recordings" menu,
+   which is no longer done by the VDR core.
++
++2012-12-27: Version 0.1.13
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.34/PLUGINS/src/skincurses/Makefile vdr-1.7.35/PLUGINS/src/skincurses/Makefile
+--- vdr-1.7.34/PLUGINS/src/skincurses/Makefile	2012-12-23 11:04:18.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/skincurses/Makefile	2012-12-28 11:09:36.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.15 2012/12/23 10:04:18 kls Exp $
++# $Id: Makefile 2.16 2012/12/28 10:09:36 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -19,6 +19,7 @@
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+ LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
+ LOCDIR = $(DESTDIR)$(call PKGCFG,locdir)
++PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+ 
+@@ -31,6 +32,10 @@
+ 
+ APIVERSION = $(call PKGCFG,apiversion)
+ 
++### Allow user defined options to overwrite defaults:
++
++-include $(PLGCFG)
++
+ ### The name of the distribution archive:
+ 
+ ARCHIVE = $(PLUGIN)-$(VERSION)
+diff -ruN vdr-1.7.34/PLUGINS/src/skincurses/skincurses.c vdr-1.7.35/PLUGINS/src/skincurses/skincurses.c
+--- vdr-1.7.34/PLUGINS/src/skincurses/skincurses.c	2012-04-23 10:53:13.000000000 +0200
++++ vdr-1.7.35/PLUGINS/src/skincurses/skincurses.c	2012-12-27 11:38:43.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: skincurses.c 2.9 2012/04/23 08:53:13 kls Exp $
++ * $Id: skincurses.c 2.10 2012/12/27 10:38:43 kls Exp $
+  */
+ 
+ #include <ncurses.h>
+@@ -12,7 +12,7 @@
+ #include <vdr/skins.h>
+ #include <vdr/videodir.h>
+ 
+-static const char *VERSION        = "0.1.12";
++static const char *VERSION        = "0.1.13";
+ static const char *DESCRIPTION    = trNOOP("A text only skin");
+ static const char *MAINMENUENTRY  = NULL;
+ 
+diff -ruN vdr-1.7.34/PLUGINS/src/status/HISTORY vdr-1.7.35/PLUGINS/src/status/HISTORY
+--- vdr-1.7.34/PLUGINS/src/status/HISTORY	2012-03-11 15:50:04.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/status/HISTORY	2012-12-27 11:39:04.000000000 +0100
+@@ -48,3 +48,7 @@
+ 2012-03-11: Version 0.3.1
+ 
+ - Added new parameter LiveView to ChannelSwitch() (reported by Udo Richter).
++
++2012-12-27: Version 0.3.2
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.34/PLUGINS/src/status/Makefile vdr-1.7.35/PLUGINS/src/status/Makefile
+--- vdr-1.7.34/PLUGINS/src/status/Makefile	2012-12-23 11:04:43.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/status/Makefile	2012-12-29 11:29:20.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.10 2012/12/23 10:04:43 kls Exp $
++# $Id: Makefile 2.13 2012/12/29 10:29:20 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -18,6 +18,7 @@
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+ LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
++PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+ 
+@@ -30,6 +31,10 @@
+ 
+ APIVERSION = $(call PKGCFG,apiversion)
+ 
++### Allow user defined options to overwrite defaults:
++
++-include $(PLGCFG)
++
+ ### The name of the distribution archive:
+ 
+ ARCHIVE = $(PLUGIN)-$(VERSION)
+diff -ruN vdr-1.7.34/PLUGINS/src/status/status.c vdr-1.7.35/PLUGINS/src/status/status.c
+--- vdr-1.7.34/PLUGINS/src/status/status.c	2012-03-11 15:48:37.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/status/status.c	2012-12-27 11:39:26.000000000 +0100
+@@ -3,13 +3,13 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: status.c 2.1 2012/03/11 14:48:37 kls Exp $
++ * $Id: status.c 2.2 2012/12/27 10:39:26 kls Exp $
+  */
+ 
+ #include <vdr/plugin.h>
+ #include <vdr/status.h>
+ 
+-static const char *VERSION        = "0.3.1";
++static const char *VERSION        = "0.3.2";
+ static const char *DESCRIPTION    = "Status monitor test";
+ static const char *MAINMENUENTRY  = NULL;
+ 
+diff -ruN vdr-1.7.34/PLUGINS/src/svdrpdemo/HISTORY vdr-1.7.35/PLUGINS/src/svdrpdemo/HISTORY
+--- vdr-1.7.34/PLUGINS/src/svdrpdemo/HISTORY	2007-08-15 15:20:04.000000000 +0200
++++ vdr-1.7.35/PLUGINS/src/svdrpdemo/HISTORY	2012-12-27 11:39:40.000000000 +0100
+@@ -13,3 +13,7 @@
+ 
+ - Moved the "all" target in the Makefile before the "Implicit rules",
+   so that a plain "make" will compile everything.
++
++2012-12-27: Version 0.0.4
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.34/PLUGINS/src/svdrpdemo/Makefile vdr-1.7.35/PLUGINS/src/svdrpdemo/Makefile
+--- vdr-1.7.34/PLUGINS/src/svdrpdemo/Makefile	2012-12-23 11:04:47.000000000 +0100
++++ vdr-1.7.35/PLUGINS/src/svdrpdemo/Makefile	2012-12-29 11:29:24.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.10 2012/12/23 10:04:47 kls Exp $
++# $Id: Makefile 2.13 2012/12/29 10:29:24 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -18,6 +18,7 @@
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+ LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
++PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+ 
+@@ -30,6 +31,10 @@
+ 
+ APIVERSION = $(call PKGCFG,apiversion)
+ 
++### Allow user defined options to overwrite defaults:
++
++-include $(PLGCFG)
++
+ ### The name of the distribution archive:
+ 
+ ARCHIVE = $(PLUGIN)-$(VERSION)
+diff -ruN vdr-1.7.34/PLUGINS/src/svdrpdemo/svdrpdemo.c vdr-1.7.35/PLUGINS/src/svdrpdemo/svdrpdemo.c
+--- vdr-1.7.34/PLUGINS/src/svdrpdemo/svdrpdemo.c	2007-08-15 15:19:57.000000000 +0200
++++ vdr-1.7.35/PLUGINS/src/svdrpdemo/svdrpdemo.c	2012-12-27 11:39:48.000000000 +0100
+@@ -3,12 +3,12 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: svdrpdemo.c 2.0 2007/08/15 13:19:57 kls Exp $
++ * $Id: svdrpdemo.c 2.1 2012/12/27 10:39:48 kls Exp $
+  */
+ 
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "0.0.3";
++static const char *VERSION        = "0.0.4";
+ static const char *DESCRIPTION    = "How to add SVDRP support to a plugin";
+ 
+ class cPluginSvdrpdemo : public cPlugin {
+diff -ruN vdr-1.7.34/config.h vdr-1.7.35/config.h
+--- vdr-1.7.34/config.h	2012-12-11 10:59:16.000000000 +0100
++++ vdr-1.7.35/config.h	2012-12-27 10:56:56.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.58 2012/12/11 09:59:16 kls Exp $
++ * $Id: config.h 2.59 2012/12/27 09:56:56 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.34"
+-#define VDRVERSNUM   10734  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.35"
++#define VDRVERSNUM   10735  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.34"
+-#define APIVERSNUM   10734  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.35"
++#define APIVERSNUM   10735  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-1.7.34/dvbdevice.c vdr-1.7.35/dvbdevice.c
+--- vdr-1.7.34/dvbdevice.c	2012-12-03 15:07:01.000000000 +0100
++++ vdr-1.7.35/dvbdevice.c	2012-12-30 12:27:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.75 2012/12/03 14:07:01 kls Exp $
++ * $Id: dvbdevice.c 2.76 2012/12/30 11:27:39 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -632,6 +632,7 @@
+      // special treatment to map their Snr value into the range 0...0xFFFF.
+      switch (subsystemId) {
+        case 0x13C21019: MaxSnr = 200; break; // TT-budget S2-3200 (DVB-S/DVB-S2)
++       case 0x20130245: MaxSnr = 255; break; // PCTV Systems PCTV 73ESE
+        }
+      int a = int(Snr) * 100 / MaxSnr;
+      int b = 100 - (Unc * 10 + (Ber / 256) * 5);
+diff -ruN vdr-1.7.34/newplugin vdr-1.7.35/newplugin
+--- vdr-1.7.34/newplugin	2012-12-23 11:05:22.000000000 +0100
++++ vdr-1.7.35/newplugin	2012-12-28 10:52:29.000000000 +0100
+@@ -12,7 +12,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: newplugin 2.14 2012/12/23 10:05:22 kls Exp $
++# $Id: newplugin 2.15 2012/12/28 09:52:29 kls Exp $
+ 
+ $PLUGIN_NAME = $ARGV[0] || die "Usage: newplugin <name>\n";
+ 
+@@ -78,6 +78,7 @@
+ PKGCFG = \$(if \$(VDRDIR),\$(shell pkg-config --variable=\$(1) \$(VDRDIR)/vdr.pc),\$(shell pkg-config --variable=\$(1) vdr || pkg-config --variable=\$(1) ../../../vdr.pc))
+ LIBDIR = \$(DESTDIR)\$(call PKGCFG,libdir)
+ LOCDIR = \$(DESTDIR)\$(call PKGCFG,locdir)
++PLGCFG = \$(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+ 
+@@ -90,6 +91,10 @@
+ 
+ APIVERSION = \$(call PKGCFG,apiversion)
+ 
++### Allow user defined options to overwrite defaults:
++
++-include \$(PLGCFG)
++
+ ### The name of the distribution archive:
+ 
+ ARCHIVE = \$(PLUGIN)-\$(VERSION)
+diff -ruN vdr-1.7.34/skinlcars.h vdr-1.7.35/skinlcars.h
+--- vdr-1.7.34/skinlcars.h	2012-04-15 15:17:35.000000000 +0200
++++ vdr-1.7.35/skinlcars.h	2012-04-15 15:17:35.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinlcars.h 1.1 2012/04/15 13:17:35 kls Exp $
++ * $Id: skinlcars.h 2.1 2012/04/15 13:17:35 kls Exp $
+  */
+ 
+ #ifndef __SKINLCARS_H

@@ -1,0 +1,2586 @@
+diff -ruN vdr-2.3.4/CONTRIBUTORS vdr-2.3.5/CONTRIBUTORS
+--- vdr-2.3.4/CONTRIBUTORS	2017-04-23 14:00:06.000000000 +0200
++++ vdr-2.3.5/CONTRIBUTORS	2017-05-22 22:21:30.000000000 +0200
+@@ -1199,6 +1199,8 @@
+  for the "binary skip" patch
+  for adding support for LCN (Logical Channel Numbers)
+  for suggesting to change the naming of "binary skip mode" to "adaptive skip mode"
++ for adding a Status parameter to the interface of cDevice::SignalStats() and
++ cDvbDevice::SignalStats()
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -2827,6 +2829,8 @@
+  for fixing loading the setup.conf file in case a parameter contains the '#' character
+  for reporting that the "Resume" button in the main menu was active even if the
+  respective recording did not exist
++ for fixing a double deletion of a cTimer in case HandleRemoteModifications() returned
++ false
+ 
+ Timo Helkio <timolavi@mbnet.fi>
+  for reporting a hangup when replaying a TS recording with subtitles activated
+@@ -3022,6 +3026,8 @@
+  for adding support for "Satellite Channel Routing" (SCR) according to EN50607 ("JESS")
+  for suggesting to make the Setup/CAM menu display which device an individual CAM
+  is currently assigned to
++ for reporting a problem with the default return value of cEpgHandler::BeginSegmentTransfer()
++ in derived classes that don't implement this function
+ 
+ Gerald Dachs <vdr@dachsweb.de>
+  for reporting a problem with checking for minimum line length of 21 characters in
+@@ -3377,6 +3383,9 @@
+ Christian Winkler <winkler_chr@yahoo.de>
+  for reporting a problem with transfer mode on full featured DVB cards for encrypted
+  channels that have no audio pid
++ for reporting a problem when selecting a device/CAM combination for live viewing, if
++ the CAM that is known to decrypt the requested channel can not be assigned to the
++ primary device
+ 
+ Dietmar Spingler <d_spingler@gmx.de>
+  for reporting a problem that led to a fix in detaching receivers from devices in case
+@@ -3389,6 +3398,8 @@
+  for suggesting to implement the setup option "Recording/Record key handling"
+  for suggesting to cache the channel/CAM relations in the file 'cam.data'
+  for suggesting to optionally list the channels with channel ids in the SVDRP command LSTC
++ for suggesting to include the channel ID in log messages about switching channels
++ for reporting a problem with the SVDRP command CHAN while the channel display is open
+ 
+ Stefan Schallenberg <infos@nafets.de>
+  for adding the functions IndexOf(), InsertUnique(), AppendUnique() and RemoveElement()
+@@ -3411,6 +3422,8 @@
+  assigned to any devices
+  for writing the ddci2 plugin and for valuable input and help with testing and
+  debugging MTD support
++ for fixing selecting delivery system names in case of undefined indexes
++ for fixing detecting the inclusion of STL header files in tools.h
+ 
+ Martin Schirrmacher <schirrmie@gmail.com>
+  for suggesting to provide a way for skin plugins to get informed about the currently
+diff -ruN vdr-2.3.4/HISTORY vdr-2.3.5/HISTORY
+--- vdr-2.3.4/HISTORY	2017-04-27 10:43:41.000000000 +0200
++++ vdr-2.3.5/HISTORY	2017-05-25 11:08:46.000000000 +0200
+@@ -8990,3 +8990,68 @@
+ - If 0 is given as the channel number in the SVDRP command LSTC, the data of the
+   current channel is listed.
+ - Fixed a possible crash when pulling the CAM while decrypting a channel with MTD.
++
++2017-05-25: Version 2.3.5
++
++- CAMs are now sent a generated EIT packet that contains a single 'present event' for
++  the current SID, in order to avoid any parental rating dialogs.
++- Fixed handling UNC values (the shift operator behaves unexpected for shift values
++  larger than the size of the variable).
++- Log messages about switching channels now include the channel ID (suggested by
++  Dietmar Spingler).
++- Events in the EIT that end before the EPG linger time are now ignored in the incoming
++  data stream, because they would just be deleted in the next schedules cleanup anyway.
++- The constructor of cHash (via cHashBase) now has an additional parameter (OwnObjects)
++  which, if set to true, makes the hash take ownership of the hashed objects, so that
++  they are deleted when the hash is cleared or destroyed.
++- Fixed a memory leak in cSectionSyncerHash. The cSectionSyncerEntry objects put into
++  the hash were never explicitly deleted. Now the cSectionSyncerHash takes ownership of
++  these objects.
++- cListObject now implements a private copy constructor and assignment operator, to keep
++  derived objects from calling them implicitly.
++- When selecting a device/CAM combination for live viewing, CAMs that are known to decrypt
++  the requested channel are now given a higher priority than prefering the primary device
++  (reported by Christian Winkler).
++- Changed the default return value of cEpgHandler::BeginSegmentTransfer() to true, to
++  avoid problems with derived classes that don't implement this function (reported by
++  Frank Neumann).
++- Fixed selecting delivery system names in case of undefined indexes (thanks to Jasmin
++  Jessich).
++- Changed the legacy delivery system name "DMBTH" to "DTMB", and added names for
++  DVBC_ANNEX_C and DVBC2.
++- Added a Status parameter to the interface of cDevice::SignalStats() and
++  cDvbDevice::SignalStats() (thanks to Rolf Ahrenberg).
++- Fixed handling line numbers in error messages when reading EPG data.
++- Added handling RI_HOST_CONTROL to the CI protocol (no actual processing, but its
++  presence is required by some CAMs).
++- Fixed a crash in case the bottom text of a CAM menu is empty.
++- Extended the CI API to allow plugins to implement additional CAM resources.
++- Fixed a race between SVDRP CHAN and cDevice::HasProgramme() (reported by Dietmar
++  Spingler).
++- Reduced the time before a CAM is marked as known to decrypt a particular channel to
++  3 seconds.
++- When the connection to a peer VDR is terminated, any remote timers of that peer
++  are no longer shown on the local VDR.
++- No longer setting a new timer's remote host name if "SVDRP peering" is turned off.
++- Fixed a double deletion of a cTimer in case HandleRemoteModifications() returned
++  false (thanks to Johann Friedrichs).
++- Removed TsGetContinuityCounter() from remux.h, using TsContinuityCounter() instead.
++- Fixed setting the local machine's SVDRP host name (was overwritten if setup.conf
++  contained an empty string). The SVDRP host name is now only written to setup.conf
++  if it differs from the system's host name.
++- If the Channel+/- keys are pressed while in the Schedules menu, the menu is now
++  switched to the EPG of the new current channel.
++- The Makefiles have been modified so that during the build process they no longer
++  display the actual (lengthy) commands, but rather just the name of the file that
++  is being built, as in
++  CC vdr.o
++  The first two characters indicate the kind of operation (CC=compile, LD=link,
++  AR=archive, MO=msgfmt, GT=xgettext, PO=msgmerge, IN=install).
++  This way it is much easier to spot error messages and warnings, since they are not
++  buried under tons of text.
++  Plugin authors should modify their makefiles accordingly, by simply preceeding
++  the respective commands with an '@' and inserting '@echo XX $@' (where XX is one
++  of the character combinations listed above) before the command.
++  The newplugin script has also been modified accordingly.
++- Fixed detecting the inclusion of STL header files in tools.h (thanks to Jasmin
++  Jessich).
+diff -ruN vdr-2.3.4/Makefile vdr-2.3.5/Makefile
+--- vdr-2.3.4/Makefile	2017-02-20 10:22:47.000000000 +0100
++++ vdr-2.3.5/Makefile	2017-05-22 17:33:30.000000000 +0200
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 4.3 2017/02/20 09:22:47 kls Exp $
++# $Id: Makefile 4.4 2017/05/22 15:33:30 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -121,7 +121,8 @@
+ # Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	@echo CC $@
++	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ # Dependencies:
+ 
+@@ -135,7 +136,8 @@
+ # The main program:
+ 
+ vdr: $(OBJS) $(SILIB)
+-	$(CXX) $(CXXFLAGS) -rdynamic $(LDFLAGS) $(OBJS) $(LIBS) $(SILIB) -o vdr
++	@echo LD $@
++	@$(CXX) $(CXXFLAGS) -rdynamic $(LDFLAGS) $(OBJS) $(LIBS) $(SILIB) -o vdr
+ 
+ # The libsi library:
+ 
+@@ -177,17 +179,21 @@
+ I18Npot   = $(PODIR)/vdr.pot
+ 
+ %.mo: %.po
+-	msgfmt -c -o $@ $<
++	@echo MO $@
++	@msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ `ls $^`
++	@echo GT $@
++	@xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ `ls $^`
+ 
+ %.po: $(I18Npot)
+-	msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
++	@echo PO $@
++	@msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
+ 	@touch $@
+ 
+ $(I18Nmsgs): $(LOCALEDIR)/%/LC_MESSAGES/vdr.mo: $(PODIR)/%.mo
+-	install -D -m644 $< $@
++	@echo IN $@
++	@install -D -m644 $< $@
+ 
+ .PHONY: i18n
+ i18n: $(I18Nmsgs)
+diff -ruN vdr-2.3.4/PLUGINS/src/epgtableid0/Makefile vdr-2.3.5/PLUGINS/src/epgtableid0/Makefile
+--- vdr-2.3.4/PLUGINS/src/epgtableid0/Makefile	2014-01-01 14:29:54.000000000 +0100
++++ vdr-2.3.5/PLUGINS/src/epgtableid0/Makefile	2017-05-22 17:30:42.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.0 2014/01/01 13:29:54 kls Exp $
++# $Id: Makefile 4.1 2017/05/22 15:30:42 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -61,7 +61,8 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	@echo CC $@
++	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -75,7 +76,8 @@
+ ### Targets:
+ 
+ $(SOFILE): $(OBJS)
+-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
++	@echo LD $@
++	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+diff -ruN vdr-2.3.4/PLUGINS/src/hello/Makefile vdr-2.3.5/PLUGINS/src/hello/Makefile
+--- vdr-2.3.4/PLUGINS/src/hello/Makefile	2014-01-01 14:29:54.000000000 +0100
++++ vdr-2.3.5/PLUGINS/src/hello/Makefile	2017-05-22 17:32:10.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.0 2014/01/01 13:29:54 kls Exp $
++# $Id: Makefile 4.1 2017/05/22 15:32:10 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -62,7 +62,8 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	@echo CC $@
++	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -82,13 +83,16 @@
+ I18Npot   = $(PODIR)/$(PLUGIN).pot
+ 
+ %.mo: %.po
+-	msgfmt -c -o $@ $<
++	@echo MO $@
++	@msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-$(PLUGIN) --package-version=$(VERSION) --msgid-bugs-address='<see README>' -o $@ `ls $^`
++	@echo GT $@
++	@xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-$(PLUGIN) --package-version=$(VERSION) --msgid-bugs-address='<see README>' -o $@ `ls $^`
+ 
+ %.po: $(I18Npot)
+-	msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
++	@echo PO $@
++	@msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
+ 	@touch $@
+ 
+ $(I18Nmsgs): $(DESTDIR)$(LOCDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
+@@ -102,7 +106,8 @@
+ ### Targets:
+ 
+ $(SOFILE): $(OBJS)
+-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
++	@echo LD $@
++	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+diff -ruN vdr-2.3.4/PLUGINS/src/osddemo/Makefile vdr-2.3.5/PLUGINS/src/osddemo/Makefile
+--- vdr-2.3.4/PLUGINS/src/osddemo/Makefile	2014-01-01 14:29:54.000000000 +0100
++++ vdr-2.3.5/PLUGINS/src/osddemo/Makefile	2017-05-22 17:30:47.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.0 2014/01/01 13:29:54 kls Exp $
++# $Id: Makefile 4.1 2017/05/22 15:30:47 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -61,7 +61,8 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	@echo CC $@
++	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -75,7 +76,8 @@
+ ### Targets:
+ 
+ $(SOFILE): $(OBJS)
+-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
++	@echo LD $@
++	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+diff -ruN vdr-2.3.4/PLUGINS/src/pictures/Makefile vdr-2.3.5/PLUGINS/src/pictures/Makefile
+--- vdr-2.3.4/PLUGINS/src/pictures/Makefile	2014-01-01 14:29:54.000000000 +0100
++++ vdr-2.3.5/PLUGINS/src/pictures/Makefile	2017-05-22 17:31:28.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.0 2014/01/01 13:29:54 kls Exp $
++# $Id: Makefile 4.1 2017/05/22 15:31:28 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -62,7 +62,8 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	@echo CC $@
++	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -82,13 +83,16 @@
+ I18Npot   = $(PODIR)/$(PLUGIN).pot
+ 
+ %.mo: %.po
+-	msgfmt -c -o $@ $<
++	@echo MO $@
++	@msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-$(PLUGIN) --package-version=$(VERSION) --msgid-bugs-address='<see README>' -o $@ `ls $^`
++	@echo GT $@
++	@xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-$(PLUGIN) --package-version=$(VERSION) --msgid-bugs-address='<see README>' -o $@ `ls $^`
+ 
+ %.po: $(I18Npot)
+-	msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
++	@echo PO $@
++	@msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
+ 	@touch $@
+ 
+ $(I18Nmsgs): $(DESTDIR)$(LOCDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
+@@ -102,7 +106,8 @@
+ ### Targets:
+ 
+ $(SOFILE): $(OBJS)
+-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
++	@echo LD $@
++	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+diff -ruN vdr-2.3.4/PLUGINS/src/servicedemo/Makefile vdr-2.3.5/PLUGINS/src/servicedemo/Makefile
+--- vdr-2.3.4/PLUGINS/src/servicedemo/Makefile	2014-01-01 14:29:54.000000000 +0100
++++ vdr-2.3.5/PLUGINS/src/servicedemo/Makefile	2017-05-22 17:31:59.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.0 2014/01/01 13:29:54 kls Exp $
++# $Id: Makefile 4.1 2017/05/22 15:31:59 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -58,7 +58,8 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	@echo CC $@
++	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -72,10 +73,12 @@
+ ### Targets:
+ 
+ libvdr-$(PLUGIN1).so: $(PLUGIN1).o
+-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(PLUGIN1).o -o $@
++	@echo LD $@
++	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(PLUGIN1).o -o $@
+ 
+ libvdr-$(PLUGIN2).so: $(PLUGIN2).o
+-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(PLUGIN2).o -o $@
++	@echo LD $@
++	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(PLUGIN2).o -o $@
+ 
+ install-lib: libvdr-$(PLUGIN1).so libvdr-$(PLUGIN2).so
+ 	install -D libvdr-$(PLUGIN1).so $(DESTDIR)$(LIBDIR)/libvdr-$(PLUGIN1).so.$(APIVERSION)
+diff -ruN vdr-2.3.4/PLUGINS/src/skincurses/Makefile vdr-2.3.5/PLUGINS/src/skincurses/Makefile
+--- vdr-2.3.4/PLUGINS/src/skincurses/Makefile	2014-01-01 14:29:54.000000000 +0100
++++ vdr-2.3.5/PLUGINS/src/skincurses/Makefile	2017-05-22 17:31:47.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.0 2014/01/01 13:29:54 kls Exp $
++# $Id: Makefile 4.1 2017/05/22 15:31:47 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -62,7 +62,8 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	@echo CC $@
++	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -82,13 +83,16 @@
+ I18Npot   = $(PODIR)/$(PLUGIN).pot
+ 
+ %.mo: %.po
+-	msgfmt -c -o $@ $<
++	@echo MO $@
++	@msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-$(PLUGIN) --package-version=$(VERSION) --msgid-bugs-address='<see README>' -o $@ `ls $^`
++	@echo GT $@
++	@xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-$(PLUGIN) --package-version=$(VERSION) --msgid-bugs-address='<see README>' -o $@ `ls $^`
+ 
+ %.po: $(I18Npot)
+-	msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
++	@echo PO $@
++	@msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
+ 	@touch $@
+ 
+ $(I18Nmsgs): $(DESTDIR)$(LOCDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
+@@ -102,7 +106,8 @@
+ ### Targets:
+ 
+ $(SOFILE): $(OBJS)
+-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -lncursesw -o $@
++	@echo LD $@
++	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -lncursesw -o $@
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+diff -ruN vdr-2.3.4/PLUGINS/src/status/Makefile vdr-2.3.5/PLUGINS/src/status/Makefile
+--- vdr-2.3.4/PLUGINS/src/status/Makefile	2014-01-01 14:29:54.000000000 +0100
++++ vdr-2.3.5/PLUGINS/src/status/Makefile	2017-05-22 17:30:58.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.0 2014/01/01 13:29:54 kls Exp $
++# $Id: Makefile 4.1 2017/05/22 15:30:58 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -61,7 +61,8 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	@echo CC $@
++	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -75,7 +76,8 @@
+ ### Targets:
+ 
+ $(SOFILE): $(OBJS)
+-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
++	@echo LD $@
++	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+diff -ruN vdr-2.3.4/PLUGINS/src/svdrpdemo/Makefile vdr-2.3.5/PLUGINS/src/svdrpdemo/Makefile
+--- vdr-2.3.4/PLUGINS/src/svdrpdemo/Makefile	2014-01-01 14:29:54.000000000 +0100
++++ vdr-2.3.5/PLUGINS/src/svdrpdemo/Makefile	2017-05-22 17:31:19.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.0 2014/01/01 13:29:54 kls Exp $
++# $Id: Makefile 4.1 2017/05/22 15:31:19 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -61,7 +61,8 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	@echo CC $@
++	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -75,7 +76,8 @@
+ ### Targets:
+ 
+ $(SOFILE): $(OBJS)
+-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
++	@echo LD $@
++	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+diff -ruN vdr-2.3.4/ci.c vdr-2.3.5/ci.c
+--- vdr-2.3.4/ci.c	2017-04-26 11:18:26.000000000 +0200
++++ vdr-2.3.5/ci.c	2017-05-18 11:05:46.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 4.13 2017/04/26 09:18:26 kls Exp $
++ * $Id: ci.c 4.16 2017/05/18 09:05:46 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -292,7 +292,7 @@
+ 
+ // --- cTPDU -----------------------------------------------------------------
+ 
+-#define MAX_TPDU_SIZE  2048
++#define MAX_TPDU_SIZE  4096
+ #define MAX_TPDU_DATA  (MAX_TPDU_SIZE - 4)
+ 
+ #define DATA_INDICATOR 0x80
+@@ -427,6 +427,7 @@
+   cTimeMs alive;
+   cTimeMs timer;
+   cCiSession *sessions[MAX_SESSIONS_PER_TC + 1]; // session numbering starts with 1
++  cCiSession *tsPostProcessor;
+   void SendTPDU(uint8_t Tag, int Length = 0, const uint8_t *Data = NULL);
+   void SendTag(uint8_t Tag, uint16_t SessionId, uint32_t ResourceId = 0, int Status = -1);
+   void Poll(void);
+@@ -438,6 +439,8 @@
+ public:
+   cCiTransportConnection(cCamSlot *CamSlot, uint8_t Tcid);
+   virtual ~cCiTransportConnection();
++  void SetTsPostProcessor(cCiSession *CiSession);
++  bool TsPostProcess(uint8_t *TsPacket);
+   cCamSlot *CamSlot(void) { return camSlot; }
+   uint8_t Tcid(void) const { return tcid; }
+   void CreateConnection(void) { createConnectionRequested = true; }
+@@ -527,24 +530,7 @@
+ #define AOT_COMMS_RCV_LAST          0x9F8C05
+ #define AOT_COMMS_RCV_MORE          0x9F8C06
+ 
+-class cCiSession {
+-private:
+-  uint16_t sessionId;
+-  uint32_t resourceId;
+-  cCiTransportConnection *tc;
+-protected:
+-  int GetTag(int &Length, const uint8_t **Data);
+-  const uint8_t *GetData(const uint8_t *Data, int &Length);
+-  void SendData(int Tag, int Length = 0, const uint8_t *Data = NULL);
+-  cCiTransportConnection *Tc(void) { return tc; }
+-public:
+-  cCiSession(uint16_t SessionId, uint32_t ResourceId, cCiTransportConnection *Tc);
+-  virtual ~cCiSession();
+-  uint16_t SessionId(void) { return sessionId; }
+-  uint32_t ResourceId(void) { return resourceId; }
+-  virtual bool HasUserIO(void) { return false; }
+-  virtual void Process(int Length = 0, const uint8_t *Data = NULL);
+-  };
++#define RESOURCE_CLASS_MASK         0xFFFF0000
+ 
+ cCiSession::cCiSession(uint16_t SessionId, uint32_t ResourceId, cCiTransportConnection *Tc)
+ {
+@@ -557,6 +543,16 @@
+ {
+ }
+ 
++void cCiSession::SetResourceId(uint32_t Id)
++{
++  resourceId = Id;
++}
++
++void cCiSession::SetTsPostProcessor(void)
++{
++  tc->SetTsPostProcessor(this);
++}
++
+ int cCiSession::GetTag(int &Length, const uint8_t **Data)
+ ///< Gets the tag at Data.
+ ///< Returns the actual tag, or AOT_NONE in case of error.
+@@ -580,7 +576,7 @@
+ 
+ void cCiSession::SendData(int Tag, int Length, const uint8_t *Data)
+ {
+-  uint8_t buffer[2048];
++  uint8_t buffer[MAX_TPDU_SIZE];
+   uint8_t *p = buffer;
+   *p++ = ST_SESSION_NUMBER;
+   *p++ = 0x02;
+@@ -597,7 +593,12 @@
+      tc->SendData(p - buffer, buffer);
+      }
+   else
+-     esyslog("ERROR: CAM %d: data length (%d) exceeds buffer size", Tc()->CamSlot()->SlotNumber(), Length);
++     esyslog("ERROR: CAM %d: data length (%d) exceeds buffer size", CamSlot()->SlotNumber(), Length);
++}
++
++cCamSlot *cCiSession::CamSlot(void)
++{
++  return Tc()->CamSlot();
+ }
+ 
+ void cCiSession::Process(int Length, const uint8_t *Data)
+@@ -617,7 +618,7 @@
+ cCiResourceManager::cCiResourceManager(uint16_t SessionId, cCiTransportConnection *Tc)
+ :cCiSession(SessionId, RI_RESOURCE_MANAGER, Tc)
+ {
+-  dbgprotocol("Slot %d: new Resource Manager (session id %d)\n", Tc->CamSlot()->SlotNumber(), SessionId);
++  dbgprotocol("Slot %d: new Resource Manager (session id %d)\n", CamSlot()->SlotNumber(), SessionId);
+   state = 0;
+ }
+ 
+@@ -627,39 +628,33 @@
+      int Tag = GetTag(Length, &Data);
+      switch (Tag) {
+        case AOT_PROFILE_ENQ: {
+-            dbgprotocol("Slot %d: <== Profile Enquiry (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
+-            uint32_t resources[] = { htonl(RI_RESOURCE_MANAGER),
+-                                     htonl(RI_APPLICATION_INFORMATION),
+-                                     htonl(RI_CONDITIONAL_ACCESS_SUPPORT),
+-                                     htonl(RI_DATE_TIME),
+-                                     htonl(RI_MMI)
+-                                   };
+-            dbgprotocol("Slot %d: ==> Profile (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
+-            SendData(AOT_PROFILE, sizeof(resources), (uint8_t*)resources);
++            dbgprotocol("Slot %d: <== Profile Enquiry (%d)\n", CamSlot()->SlotNumber(), SessionId());
++            dbgprotocol("Slot %d: ==> Profile (%d)\n", CamSlot()->SlotNumber(), SessionId());
++            SendData(AOT_PROFILE, CiResourceHandlers.NumIds() * sizeof(uint32_t), (uint8_t*)CiResourceHandlers.Ids());
+             state = 3;
+             }
+             break;
+        case AOT_PROFILE: {
+-            dbgprotocol("Slot %d: <== Profile (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
++            dbgprotocol("Slot %d: <== Profile (%d)\n", CamSlot()->SlotNumber(), SessionId());
+             if (state == 1) {
+                int l = 0;
+                const uint8_t *d = GetData(Data, l);
+                if (l > 0 && d)
+-                  esyslog("ERROR: CAM %d: resource manager: unexpected data", Tc()->CamSlot()->SlotNumber());
+-               dbgprotocol("Slot %d: ==> Profile Change (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
++                  esyslog("ERROR: CAM %d: resource manager: unexpected data", CamSlot()->SlotNumber());
++               dbgprotocol("Slot %d: ==> Profile Change (%d)\n", CamSlot()->SlotNumber(), SessionId());
+                SendData(AOT_PROFILE_CHANGE);
+                state = 2;
+                }
+             else {
+-               esyslog("ERROR: CAM %d: resource manager: unexpected tag %06X in state %d", Tc()->CamSlot()->SlotNumber(), Tag, state);
++               esyslog("ERROR: CAM %d: resource manager: unexpected tag %06X in state %d", CamSlot()->SlotNumber(), Tag, state);
+                }
+             }
+             break;
+-       default: esyslog("ERROR: CAM %d: resource manager: unknown tag %06X", Tc()->CamSlot()->SlotNumber(), Tag);
++       default: esyslog("ERROR: CAM %d: resource manager: unknown tag %06X", CamSlot()->SlotNumber(), Tag);
+        }
+      }
+   else if (state == 0) {
+-     dbgprotocol("Slot %d: ==> Profile Enq (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
++     dbgprotocol("Slot %d: ==> Profile Enq (%d)\n", CamSlot()->SlotNumber(), SessionId());
+      SendData(AOT_PROFILE_ENQ);
+      state = 1;
+      }
+@@ -667,25 +662,10 @@
+ 
+ // --- cCiApplicationInformation ---------------------------------------------
+ 
+-class cCiApplicationInformation : public cCiSession {
+-private:
+-  int state;
+-  uint8_t applicationType;
+-  uint16_t applicationManufacturer;
+-  uint16_t manufacturerCode;
+-  char *menuString;
+-public:
+-  cCiApplicationInformation(uint16_t SessionId, cCiTransportConnection *Tc);
+-  virtual ~cCiApplicationInformation();
+-  virtual void Process(int Length = 0, const uint8_t *Data = NULL);
+-  bool EnterMenu(void);
+-  const char *GetMenuString(void) { return menuString; }
+-  };
+-
+ cCiApplicationInformation::cCiApplicationInformation(uint16_t SessionId, cCiTransportConnection *Tc)
+ :cCiSession(SessionId, RI_APPLICATION_INFORMATION, Tc)
+ {
+-  dbgprotocol("Slot %d: new Application Information (session id %d)\n", Tc->CamSlot()->SlotNumber(), SessionId);
++  dbgprotocol("Slot %d: new Application Information (session id %d)\n", CamSlot()->SlotNumber(), SessionId);
+   state = 0;
+   menuString = NULL;
+ }
+@@ -701,7 +681,7 @@
+      int Tag = GetTag(Length, &Data);
+      switch (Tag) {
+        case AOT_APPLICATION_INFO: {
+-            dbgprotocol("Slot %d: <== Application Info (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
++            dbgprotocol("Slot %d: <== Application Info (%d)\n", CamSlot()->SlotNumber(), SessionId());
+             int l = 0;
+             const uint8_t *d = GetData(Data, l);
+             if ((l -= 1) < 0) break;
+@@ -714,15 +694,15 @@
+             d += 2;
+             free(menuString);
+             menuString = GetString(l, &d);
+-            isyslog("CAM %d: %s, %02X, %04X, %04X", Tc()->CamSlot()->SlotNumber(), menuString, applicationType, applicationManufacturer, manufacturerCode);
++            isyslog("CAM %d: %s, %02X, %04X, %04X", CamSlot()->SlotNumber(), menuString, applicationType, applicationManufacturer, manufacturerCode);
+             state = 2;
+             }
+             break;
+-       default: esyslog("ERROR: CAM %d: application information: unknown tag %06X", Tc()->CamSlot()->SlotNumber(), Tag);
++       default: esyslog("ERROR: CAM %d: application information: unknown tag %06X", CamSlot()->SlotNumber(), Tag);
+        }
+      }
+   else if (state == 0) {
+-     dbgprotocol("Slot %d: ==> Application Info Enq (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
++     dbgprotocol("Slot %d: ==> Application Info Enq (%d)\n", CamSlot()->SlotNumber(), SessionId());
+      SendData(AOT_APPLICATION_INFO_ENQ);
+      state = 1;
+      }
+@@ -731,7 +711,7 @@
+ bool cCiApplicationInformation::EnterMenu(void)
+ {
+   if (state == 2) {
+-     dbgprotocol("Slot %d: ==> Enter Menu (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
++     dbgprotocol("Slot %d: ==> Enter Menu (%d)\n", CamSlot()->SlotNumber(), SessionId());
+      SendData(AOT_ENTER_MENU);
+      return true;
+      }
+@@ -953,7 +933,7 @@
+ cCiConditionalAccessSupport::cCiConditionalAccessSupport(uint16_t SessionId, cCiTransportConnection *Tc)
+ :cCiSession(SessionId, RI_CONDITIONAL_ACCESS_SUPPORT, Tc)
+ {
+-  dbgprotocol("Slot %d: new Conditional Access Support (session id %d)\n", Tc->CamSlot()->SlotNumber(), SessionId);
++  dbgprotocol("Slot %d: new Conditional Access Support (session id %d)\n", CamSlot()->SlotNumber(), SessionId);
+   state = 0; // inactive
+   caSystemIds[numCaSystemIds = 0] = 0;
+   repliesToQuery = false;
+@@ -965,7 +945,7 @@
+      int Tag = GetTag(Length, &Data);
+      switch (Tag) {
+        case AOT_CA_INFO: {
+-            dbgprotocol("Slot %d: <== Ca Info (%d)", Tc()->CamSlot()->SlotNumber(), SessionId());
++            dbgprotocol("Slot %d: <== Ca Info (%d)", CamSlot()->SlotNumber(), SessionId());
+             cString Ids;
+             numCaSystemIds = 0;
+             int l = 0;
+@@ -979,7 +959,7 @@
+                   if (numCaSystemIds < MAXCASYSTEMIDS)
+                      caSystemIds[numCaSystemIds++] = id;
+                   else {
+-                     esyslog("ERROR: CAM %d: too many CA system IDs!", Tc()->CamSlot()->SlotNumber());
++                     esyslog("ERROR: CAM %d: too many CA system IDs!", CamSlot()->SlotNumber());
+                      break;
+                      }
+                   }
+@@ -989,17 +969,17 @@
+                timer.Set(QUERY_WAIT_TIME); // WORKAROUND: Alphacrypt 3.09 doesn't reply to QUERY immediately after reset
+                state = 2; // got ca info
+                }
+-            dsyslog("CAM %d: system ids:%s", Tc()->CamSlot()->SlotNumber(), *Ids ? *Ids : " none");
++            dsyslog("CAM %d: system ids:%s", CamSlot()->SlotNumber(), *Ids ? *Ids : " none");
+             }
+             break;
+        case AOT_CA_PMT_REPLY: {
+-            dbgprotocol("Slot %d: <== Ca Pmt Reply (%d)", Tc()->CamSlot()->SlotNumber(), SessionId());
++            dbgprotocol("Slot %d: <== Ca Pmt Reply (%d)", CamSlot()->SlotNumber(), SessionId());
+             if (!repliesToQuery) {
+-               dsyslog("CAM %d: replies to QUERY - multi channel decryption (MCD) possible", Tc()->CamSlot()->SlotNumber());
++               dsyslog("CAM %d: replies to QUERY - multi channel decryption (MCD) possible", CamSlot()->SlotNumber());
+                repliesToQuery = true;
+-               if (Tc()->CamSlot()->MtdAvailable()) {
+-                  dsyslog("CAM %d: supports multi transponder decryption (MTD)", Tc()->CamSlot()->SlotNumber());
+-                  Tc()->CamSlot()->MtdActivate(true);
++               if (CamSlot()->MtdAvailable()) {
++                  dsyslog("CAM %d: supports multi transponder decryption (MTD)", CamSlot()->SlotNumber());
++                  CamSlot()->MtdActivate(true);
+                   }
+                }
+             state = 5; // got ca pmt reply
+@@ -1051,11 +1031,11 @@
+             dbgprotocol("\n");
+             }
+             break;
+-       default: esyslog("ERROR: CAM %d: conditional access support: unknown tag %06X", Tc()->CamSlot()->SlotNumber(), Tag);
++       default: esyslog("ERROR: CAM %d: conditional access support: unknown tag %06X", CamSlot()->SlotNumber(), Tag);
+        }
+      }
+   else if (state == 0) {
+-     dbgprotocol("Slot %d: ==> Ca Info Enq (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
++     dbgprotocol("Slot %d: ==> Ca Info Enq (%d)\n", CamSlot()->SlotNumber(), SessionId());
+      SendData(AOT_CA_INFO_ENQ);
+      state = 1; // enquired ca info
+      }
+@@ -1066,7 +1046,7 @@
+      state = 3; // waiting for reply
+      }
+   else if (state == 3 && timer.TimedOut()) {
+-     dsyslog("CAM %d: doesn't reply to QUERY - only a single channel can be decrypted", Tc()->CamSlot()->SlotNumber());
++     dsyslog("CAM %d: doesn't reply to QUERY - only a single channel can be decrypted", CamSlot()->SlotNumber());
+      state = 4; // normal operation
+      }
+ }
+@@ -1074,12 +1054,45 @@
+ void cCiConditionalAccessSupport::SendPMT(cCiCaPmt *CaPmt)
+ {
+   if (CaPmt && state >= 2) {
+-     dbgprotocol("Slot %d: ==> Ca Pmt (%d) %d %d\n", Tc()->CamSlot()->SlotNumber(), SessionId(), CaPmt->ListManagement(), CaPmt->CmdId());
++     dbgprotocol("Slot %d: ==> Ca Pmt (%d) %d %d\n", CamSlot()->SlotNumber(), SessionId(), CaPmt->ListManagement(), CaPmt->CmdId());
+      SendData(AOT_CA_PMT, CaPmt->capmt.Length(), CaPmt->capmt.Data());
+      state = 4; // sent ca pmt
+      }
+ }
+ 
++// --- cCiHostControl --------------------------------------------------------
++
++class cCiHostControl : public cCiSession {
++public:
++  cCiHostControl(uint16_t SessionId, cCiTransportConnection *Tc);
++  virtual void Process(int Length = 0, const uint8_t *Data = NULL);
++  };
++
++cCiHostControl::cCiHostControl(uint16_t SessionId, cCiTransportConnection* Tc)
++:cCiSession(SessionId, RI_HOST_CONTROL, Tc)
++{
++  dbgprotocol("Slot %d: new Host Control (session id %d)\n", CamSlot()->SlotNumber(), SessionId);
++}
++
++void cCiHostControl::Process(int Length, const uint8_t* Data)
++{
++  if (Data) {
++     int Tag = GetTag(Length, &Data);
++     switch (Tag) {
++       case AOT_TUNE:
++            dbgprotocol("Slot %d: <== Host Control Tune (%d)\n", CamSlot()->SlotNumber(), SessionId());
++            break;
++       case AOT_REPLACE:
++            dbgprotocol("Slot %d: <== Host Control Replace (%d)\n", CamSlot()->SlotNumber(), SessionId());
++            break;
++       case AOT_CLEAR_REPLACE:
++            dbgprotocol("Slot %d: <== Host Control Clear Replace (%d)\n", CamSlot()->SlotNumber(), SessionId());
++            break;
++       default: esyslog("ERROR: CAM %d: Host Control: unknown tag %06X", CamSlot()->SlotNumber(), Tag);
++       }
++     }
++}
++
+ // --- cCiDateTime -----------------------------------------------------------
+ 
+ class cCiDateTime : public cCiSession {
+@@ -1097,7 +1110,7 @@
+ {
+   interval = 0;
+   lastTime = 0;
+-  dbgprotocol("Slot %d: new Date Time (session id %d)\n", Tc->CamSlot()->SlotNumber(), SessionId);
++  dbgprotocol("Slot %d: new Date Time (session id %d)\n", CamSlot()->SlotNumber(), SessionId);
+ }
+ 
+ void cCiDateTime::SendDateTime(void)
+@@ -1119,7 +1132,7 @@
+      bool OldDumpTPDUDataTransfer = DumpTPDUDataTransfer;
+      DumpTPDUDataTransfer &= DumpDateTime;
+      if (DumpDateTime)
+-        dbgprotocol("Slot %d: ==> Date Time (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
++        dbgprotocol("Slot %d: ==> Date Time (%d)\n", CamSlot()->SlotNumber(), SessionId());
+      SendData(AOT_DATE_TIME, 7, (uint8_t*)&T);
+      DumpTPDUDataTransfer = OldDumpTPDUDataTransfer;
+      }
+@@ -1136,12 +1149,12 @@
+             const uint8_t *d = GetData(Data, l);
+             if (l > 0)
+                interval = *d;
+-            dbgprotocol("Slot %d: <== Date Time Enq (%d), interval = %d\n", Tc()->CamSlot()->SlotNumber(), SessionId(), interval);
++            dbgprotocol("Slot %d: <== Date Time Enq (%d), interval = %d\n", CamSlot()->SlotNumber(), SessionId(), interval);
+             lastTime = time(NULL);
+             SendDateTime();
+             }
+             break;
+-       default: esyslog("ERROR: CAM %d: date time: unknown tag %06X", Tc()->CamSlot()->SlotNumber(), Tag);
++       default: esyslog("ERROR: CAM %d: date time: unknown tag %06X", CamSlot()->SlotNumber(), Tag);
+        }
+      }
+   else if (interval && time(NULL) - lastTime > interval) {
+@@ -1206,7 +1219,7 @@
+ cCiMMI::cCiMMI(uint16_t SessionId, cCiTransportConnection *Tc)
+ :cCiSession(SessionId, RI_MMI, Tc)
+ {
+-  dbgprotocol("Slot %d: new MMI (session id %d)\n", Tc->CamSlot()->SlotNumber(), SessionId);
++  dbgprotocol("Slot %d: new MMI (session id %d)\n", CamSlot()->SlotNumber(), SessionId);
+   menu = fetchedMenu = NULL;
+   enquiry = fetchedEnquiry = NULL;
+ }
+@@ -1233,11 +1246,11 @@
+   int Tag = GetTag(Length, Data);
+   if (Tag == AOT_TEXT_LAST) {
+      char *s = GetString(Length, Data);
+-     dbgprotocol("Slot %d: <== Text Last (%d) '%s'\n", Tc()->CamSlot()->SlotNumber(), SessionId(), s);
++     dbgprotocol("Slot %d: <== Text Last (%d) '%s'\n", CamSlot()->SlotNumber(), SessionId(), s);
+      return s;
+      }
+   else
+-     esyslog("ERROR: CAM %d: MMI: unexpected text tag: %06X", Tc()->CamSlot()->SlotNumber(), Tag);
++     esyslog("ERROR: CAM %d: MMI: unexpected text tag: %06X", CamSlot()->SlotNumber(), Tag);
+   return NULL;
+ }
+ 
+@@ -1247,7 +1260,7 @@
+      int Tag = GetTag(Length, &Data);
+      switch (Tag) {
+        case AOT_DISPLAY_CONTROL: {
+-            dbgprotocol("Slot %d: <== Display Control (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
++            dbgprotocol("Slot %d: <== Display Control (%d)\n", CamSlot()->SlotNumber(), SessionId());
+             int l = 0;
+             const uint8_t *d = GetData(Data, l);
+             if (l > 0) {
+@@ -1256,18 +1269,18 @@
+                       if (l == 2 && *++d == MM_HIGH_LEVEL) {
+                          struct tDisplayReply { uint8_t id; uint8_t mode; };
+                          tDisplayReply dr = { id : DRI_MMI_MODE_ACK, mode : MM_HIGH_LEVEL };
+-                         dbgprotocol("Slot %d: ==> Display Reply (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
++                         dbgprotocol("Slot %d: ==> Display Reply (%d)\n", CamSlot()->SlotNumber(), SessionId());
+                          SendData(AOT_DISPLAY_REPLY, 2, (uint8_t *)&dr);
+                          }
+                       break;
+-                 default: esyslog("ERROR: CAM %d: MMI: unsupported display control command %02X", Tc()->CamSlot()->SlotNumber(), *d);
++                 default: esyslog("ERROR: CAM %d: MMI: unsupported display control command %02X", CamSlot()->SlotNumber(), *d);
+                  }
+                }
+             }
+             break;
+        case AOT_LIST_LAST:
+        case AOT_MENU_LAST: {
+-            dbgprotocol("Slot %d: <== Menu Last (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
++            dbgprotocol("Slot %d: <== Menu Last (%d)\n", CamSlot()->SlotNumber(), SessionId());
+             delete menu;
+             menu = new cCiMenu(this, Tag == AOT_MENU_LAST);
+             int l = 0;
+@@ -1292,7 +1305,7 @@
+             }
+             break;
+        case AOT_ENQ: {
+-            dbgprotocol("Slot %d: <== Enq (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
++            dbgprotocol("Slot %d: <== Enq (%d)\n", CamSlot()->SlotNumber(), SessionId());
+             delete enquiry;
+             enquiry = new cCiEnquiry(this);
+             int l = 0;
+@@ -1319,10 +1332,10 @@
+                if (l > 1)
+                   delay = *d;
+                }
+-            dbgprotocol("Slot %d: <== Close MMI (%d)  id = %02X  delay = %d\n", Tc()->CamSlot()->SlotNumber(), SessionId(), id, delay);
++            dbgprotocol("Slot %d: <== Close MMI (%d)  id = %02X  delay = %d\n", CamSlot()->SlotNumber(), SessionId(), id, delay);
+             }
+             break;
+-       default: esyslog("ERROR: CAM %d: MMI: unknown tag %06X", Tc()->CamSlot()->SlotNumber(), Tag);
++       default: esyslog("ERROR: CAM %d: MMI: unknown tag %06X", CamSlot()->SlotNumber(), Tag);
+        }
+      }
+ }
+@@ -1351,13 +1364,13 @@
+ 
+ void cCiMMI::SendMenuAnswer(uint8_t Selection)
+ {
+-  dbgprotocol("Slot %d: ==> Menu Answ (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
++  dbgprotocol("Slot %d: ==> Menu Answ (%d)\n", CamSlot()->SlotNumber(), SessionId());
+   SendData(AOT_MENU_ANSW, 1, &Selection);
+ }
+ 
+ bool cCiMMI::SendAnswer(const char *Text)
+ {
+-  dbgprotocol("Slot %d: ==> Answ (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
++  dbgprotocol("Slot %d: ==> Answ (%d)\n", CamSlot()->SlotNumber(), SessionId());
+   struct tAnswer { uint8_t id; char text[256]; };//XXX
+   tAnswer answer;
+   answer.id = Text ? AI_ANSWER : AI_CANCEL;
+@@ -1369,7 +1382,7 @@
+ 
+ bool cCiMMI::SendCloseMMI(void)
+ {
+-  dbgprotocol("Slot %d: ==> Close MMI (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
++  dbgprotocol("Slot %d: ==> Close MMI (%d)\n", CamSlot()->SlotNumber(), SessionId());
+   SendData(AOT_CLOSE_MMI, 0);
+   return true;
+ }
+@@ -1468,6 +1481,82 @@
+      mmi->SendCloseMMI();
+ }
+ 
++// --- cCiResourceHandler ----------------------------------------------------
++
++cCiResourceHandler::cCiResourceHandler(void)
++{
++}
++
++cCiResourceHandler::~cCiResourceHandler()
++{
++}
++
++// --- cCiDefaultResourceHandler ---------------------------------------------
++
++class cCiDefaultResourceHandler : public cCiResourceHandler {
++public:
++  virtual const uint32_t *ResourceIds(void) const;
++  virtual cCiSession *GetNewCiSession(uint32_t ResourceId, uint16_t SessionId, cCiTransportConnection *Tc);
++  };
++
++const uint32_t *cCiDefaultResourceHandler::ResourceIds(void) const
++{
++  static uint32_t Ids[] = {
++    RI_RESOURCE_MANAGER,
++    RI_APPLICATION_INFORMATION,
++    RI_CONDITIONAL_ACCESS_SUPPORT,
++    RI_HOST_CONTROL,
++    RI_DATE_TIME,
++    RI_MMI,
++    0
++    };
++  return Ids;
++}
++
++cCiSession *cCiDefaultResourceHandler::GetNewCiSession(uint32_t ResourceId, uint16_t SessionId, cCiTransportConnection *Tc)
++{
++  switch (ResourceId) {
++    case RI_RESOURCE_MANAGER:           return new cCiResourceManager(SessionId, Tc); break;
++    case RI_APPLICATION_INFORMATION:    return new cCiApplicationInformation(SessionId, Tc); break;
++    case RI_CONDITIONAL_ACCESS_SUPPORT: return new cCiConditionalAccessSupport(SessionId, Tc); break;
++    case RI_HOST_CONTROL:               return new cCiHostControl(SessionId, Tc); break;
++    case RI_DATE_TIME:                  return new cCiDateTime(SessionId, Tc); break;
++    case RI_MMI:                        return new cCiMMI(SessionId, Tc); break;
++    default:                            return NULL;
++    }
++}
++
++// --- cCiResourceHandlers ---------------------------------------------------
++
++cCiResourceHandlers CiResourceHandlers;
++
++cCiResourceHandlers::cCiResourceHandlers(void)
++{
++  Register(new cCiDefaultResourceHandler);
++}
++
++void cCiResourceHandlers::Register(cCiResourceHandler *ResourceHandler)
++{
++  if (ResourceHandler) {
++     Add(ResourceHandler);
++     if (const uint32_t *r = ResourceHandler->ResourceIds()) {
++        while (*r) {
++              resourceIds.Append(htonl(*r));
++              r++;
++              }
++        }
++     }
++}
++
++cCiSession *cCiResourceHandlers::GetNewCiSession(uint32_t ResourceId, uint16_t SessionId, cCiTransportConnection *Tc)
++{
++  for (cCiResourceHandler *r = Last(); r; r = Prev(r)) {
++      if (cCiSession *CiSession = r->GetNewCiSession(ResourceId, SessionId, Tc))
++         return CiSession;
++      }
++  return NULL;
++}
++
+ // --- cCiTransportConnection (cont'd) ---------------------------------------
+ 
+ #define TC_POLL_TIMEOUT   300 // ms WORKAROUND: TC_POLL_TIMEOUT < 300ms doesn't work with DragonCAM
+@@ -1485,6 +1574,7 @@
+   alive.Set(TC_ALIVE_TIMEOUT);
+   for (int i = 0; i <= MAX_SESSIONS_PER_TC; i++) // sessions[0] is not used, but initialized anyway
+       sessions[i] = NULL;
++  tsPostProcessor = NULL;
+ }
+ 
+ cCiTransportConnection::~cCiTransportConnection()
+@@ -1493,6 +1583,18 @@
+       delete sessions[i];
+ }
+ 
++void cCiTransportConnection::SetTsPostProcessor(cCiSession *CiSession)
++{
++  tsPostProcessor = CiSession;
++}
++
++bool cCiTransportConnection::TsPostProcess(uint8_t *TsPacket)
++{
++  if (tsPostProcessor)
++     return tsPostProcessor->TsPostProcess(TsPacket);
++  return false;
++}
++
+ bool cCiTransportConnection::Ready(void)
+ {
+   cCiConditionalAccessSupport *cas = (cCiConditionalAccessSupport *)GetSessionByResourceId(RI_CONDITIONAL_ACCESS_SUPPORT);
+@@ -1559,11 +1661,16 @@
+ 
+ cCiSession *cCiTransportConnection::GetSessionByResourceId(uint32_t ResourceId)
+ {
++  cCiSession *CiSession = NULL;
+   for (int i = 1; i <= MAX_SESSIONS_PER_TC; i++) {
+-      if (sessions[i] && sessions[i]->ResourceId() == ResourceId)
+-         return sessions[i];
++      if (cCiSession *s = sessions[i]) {
++         if (s->ResourceId() == ResourceId)
++            return s; // prefer exact match
++         if ((s->ResourceId() & RESOURCE_CLASS_MASK) == (ResourceId & RESOURCE_CLASS_MASK))
++            CiSession = s;
++         }
+       }
+-  return NULL;
++  return CiSession;
+ }
+ 
+ void cCiTransportConnection::OpenSession(int Length, const uint8_t *Data)
+@@ -1574,17 +1681,11 @@
+      if (!GetSessionByResourceId(ResourceId)) {
+         for (int i = 1; i <= MAX_SESSIONS_PER_TC; i++) {
+             if (!sessions[i]) {
+-               switch (ResourceId) {
+-                 case RI_RESOURCE_MANAGER:           sessions[i] = new cCiResourceManager(i, this); break;
+-                 case RI_APPLICATION_INFORMATION:    sessions[i] = new cCiApplicationInformation(i, this); break;
+-                 case RI_CONDITIONAL_ACCESS_SUPPORT: sessions[i] = new cCiConditionalAccessSupport(i, this); break;
+-                 case RI_DATE_TIME:                  sessions[i] = new cCiDateTime(i, this); break;
+-                 case RI_MMI:                        sessions[i] = new cCiMMI(i, this); break;
+-                 case RI_HOST_CONTROL:               // not implemented
+-                 default: esyslog("ERROR: CAM %d: unknown resource identifier: %08X (%d/%d)", camSlot->SlotNumber(), ResourceId, camSlot->SlotIndex(), tcid);
+-                 }
++               sessions[i] = CiResourceHandlers.GetNewCiSession(ResourceId, i, this);
+                if (sessions[i])
+                   SendTag(ST_OPEN_SESSION_RESPONSE, sessions[i]->SessionId(), sessions[i]->ResourceId(), SS_OK);
++               else
++                  esyslog("ERROR: CAM %d: unknown resource identifier: %08X (%d/%d)", camSlot->SlotNumber(), ResourceId, camSlot->SlotIndex(), tcid);
+                return;
+                }
+             }
+@@ -2424,6 +2525,22 @@
+   return Data;
+ }
+ 
++bool cCamSlot::TsPostProcess(uchar *Data)
++{
++  return tc[1] ? tc[1]->TsPostProcess(Data) : false;
++}
++
++bool cCamSlot::Inject(uchar *Data, int Count)
++{
++  return true;
++}
++
++void cCamSlot::InjectEit(int Sid)
++{
++  cEitGenerator Eit(Sid);
++  Inject(Eit.Data(), Eit.Length());
++}
++
+ // --- cCamSlots -------------------------------------------------------------
+ 
+ cCamSlots CamSlots;
+diff -ruN vdr-2.3.4/ci.h vdr-2.3.5/ci.h
+--- vdr-2.3.4/ci.h	2017-04-10 11:17:56.000000000 +0200
++++ vdr-2.3.5/ci.h	2017-05-16 09:42:45.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.h 4.6 2017/04/10 09:17:56 kls Exp $
++ * $Id: ci.h 4.9 2017/05/16 07:42:45 kls Exp $
+  */
+ 
+ #ifndef __CI_H
+@@ -21,6 +21,99 @@
+ #define MAX_CONNECTIONS_PER_CAM_SLOT  8 // maximum possible value is 254
+ #define CAM_READ_TIMEOUT  50 // ms
+ 
++class cCiTransportConnection;
++class cCamSlot;
++
++// VDR's Common Interface functions implement only the features that are absolutely
++// necessary to control a CAM. If a plugin wants to implement additional functionality
++// (i.e. "resources"), it can do so by deriving from cCiResourceHandler, cCiSession
++// and (if necessary) from cCiApplicationInformation.
++
++class cCiSession {
++private:
++  uint16_t sessionId;
++  uint32_t resourceId;
++  cCiTransportConnection *tc;
++protected:
++  void SetTsPostProcessor(void);
++       ///< If this cCiSession implements the TsPostProcess() function, it shall call
++       ///< SetTsPostProcessor() to register itself as the TS post processor.
++  void SetResourceId(uint32_t Id);
++       ///< If this is a class that has been derived from an existing cCiSession class,
++       ///< but implements a different resource id, it shall call SetResourceId() with
++       ///< that Id.
++  int GetTag(int &Length, const uint8_t **Data);
++  const uint8_t *GetData(const uint8_t *Data, int &Length);
++  void SendData(int Tag, int Length = 0, const uint8_t *Data = NULL);
++  cCiTransportConnection *Tc(void) { return tc; }
++public:
++  cCiSession(uint16_t SessionId, uint32_t ResourceId, cCiTransportConnection *Tc);
++  virtual ~cCiSession();
++  uint16_t SessionId(void) { return sessionId; }
++  uint32_t ResourceId(void) { return resourceId; }
++  cCamSlot *CamSlot(void);
++  virtual bool HasUserIO(void) { return false; }
++  virtual void Process(int Length = 0, const uint8_t *Data = NULL);
++  virtual bool TsPostProcess(uint8_t *TsPacket) { return false; }
++       ///< If this cCiSession needs to do additional processing on TS packets (after
++       ///< the CAM has done the decryption), it shall implement TsPostProcess() and
++       ///< do whatever operations are necessary on the given TsPacket. This function
++       ///< is called once for each TS packet, and any and all operations must be
++       ///< finished upon return.
++       ///< A derived cCiSession that implements this function must call
++       ///< SetTsPostProcessor() to make it actually get called.
++       ///< Returns true if the TsPacket was in any way modified.
++  };
++
++class cCiApplicationInformation : public cCiSession {
++protected:
++  int state;
++  uint8_t applicationType;
++  uint16_t applicationManufacturer;
++  uint16_t manufacturerCode;
++  char *menuString;
++public:
++  cCiApplicationInformation(uint16_t SessionId, cCiTransportConnection *Tc);
++  virtual ~cCiApplicationInformation();
++  virtual void Process(int Length = 0, const uint8_t *Data = NULL);
++  bool EnterMenu(void);
++  const char *GetMenuString(void) { return menuString; }
++  };
++
++class cCiResourceHandler : public cListObject {
++public:
++  cCiResourceHandler(void);
++       ///< Creates a new resource handler, through which the available resources
++       ///< can be provides. A resource handler shall be allocated on the heap and
++       ///< registered with the global CiResourceHandlers, as in
++       ///< CiResourceHandlers.Register(new cMyResourceHandler);
++       ///< It will be automatically deleted at the end of the program.
++  virtual ~cCiResourceHandler();
++  virtual const uint32_t *ResourceIds(void) const = 0;
++       ///< Returns a pointer to an array of resource identifiers, where the
++       ///< last value is zero.
++  virtual cCiSession *GetNewCiSession(uint32_t ResourceId, uint16_t SessionId, cCiTransportConnection *Tc) = 0;
++       ///< Returns a new cCiSession, according to the given ResourceId.
++  };
++
++class cCiResourceHandlers : public cList<cCiResourceHandler> {
++private:
++  cVector<uint32_t> resourceIds;
++public:
++  cCiResourceHandlers(void);
++       ///< Creates the default list of resourceIds.
++  void Register(cCiResourceHandler *ResourceHandler);
++       ///< Adds the given ResourceHandler to the list of resource handlers and
++       ///< appends its ResourceIds to the global resourceIds.
++       ///< A plugin that implements additional CAM capabilities must call
++       ///< this function to register its resources.
++  const uint32_t *Ids(void) { return &resourceIds[0]; }
++  int NumIds(void) { return resourceIds.Size(); }
++  cCiSession *GetNewCiSession(uint32_t ResourceId, uint16_t SessionId, cCiTransportConnection *Tc);
++  };
++
++extern cCiResourceHandlers CiResourceHandlers;
++
+ class cCiMMI;
+ 
+ class cCiMenu {
+@@ -73,7 +166,6 @@
+   };
+ 
+ class cDevice;
+-class cCamSlot;
+ 
+ enum eModuleStatus { msNone, msReset, msPresent, msReady };
+ 
+@@ -377,6 +469,24 @@
+        ///< A derived class that implements this function will also need
+        ///< to set the WantsTsData parameter in the call to the base class
+        ///< constructor to true in order to receive the TS data.
++  virtual bool TsPostProcess(uchar *Data);
++       ///< If there is a cCiSession that needs to do additional processing on TS packets
++       ///< (after the CAM has done the decryption), this function will call its
++       ///< TsPostProcess() function to have it do whatever operations are necessary on
++       ///< the given TsPacket.
++       ///< Returns true if the TsPacket was in any way modified.
++  virtual bool Inject(uchar *Data, int Count);
++       ///< Sends all Count bytes of the given Data to the CAM, and returns true
++       ///< if this was possible. If the data can't be sent to the CAM completely,
++       ///< nothing shall be sent and the return value shall be false.
++       ///< No decrypted packet is returned by this function.
++       ///< Data is guaranteed to point to one or more complete TS packets.
++  virtual void InjectEit(int Sid);
++       ///< Injects a generated EIT with a "present event" for the given Sid into
++       ///< the TS data stream sent to the CAM. This only applies to CAM slots that
++       ///< have WantsTsData set to true in their constructor.
++       ///< The default implementation sends an EIT with the minimum event
++       ///< necessary to disable the CAMs parental rating prompt.
+   };
+ 
+ class cCamSlots : public cList<cCamSlot> {
+diff -ruN vdr-2.3.4/config.c vdr-2.3.5/config.c
+--- vdr-2.3.4/config.c	2017-02-14 12:02:48.000000000 +0100
++++ vdr-2.3.5/config.c	2017-05-21 12:25:26.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 4.5 2017/02/14 11:02:48 kls Exp $
++ * $Id: config.c 4.6 2017/05/21 10:25:26 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -640,7 +640,7 @@
+   else if (!strcasecmp(Name, "EPGLinger"))           EPGLinger          = atoi(Value);
+   else if (!strcasecmp(Name, "SVDRPTimeout"))        SVDRPTimeout       = atoi(Value);
+   else if (!strcasecmp(Name, "SVDRPPeering"))        SVDRPPeering       = atoi(Value);
+-  else if (!strcasecmp(Name, "SVDRPHostName"))     { if (!*SVDRPHostName) strn0cpy(SVDRPHostName, Value, sizeof(SVDRPHostName)); }
++  else if (!strcasecmp(Name, "SVDRPHostName"))     { if (*Value) strn0cpy(SVDRPHostName, Value, sizeof(SVDRPHostName)); }
+   else if (!strcasecmp(Name, "SVDRPdefaultHost"))    strn0cpy(SVDRPDefaultHost, Value, sizeof(SVDRPDefaultHost));
+   else if (!strcasecmp(Name, "ZapTimeout"))          ZapTimeout         = atoi(Value);
+   else if (!strcasecmp(Name, "ChannelEntryTimeout")) ChannelEntryTimeout= atoi(Value);
+@@ -771,7 +771,7 @@
+   Store("EPGLinger",          EPGLinger);
+   Store("SVDRPTimeout",       SVDRPTimeout);
+   Store("SVDRPPeering",       SVDRPPeering);
+-  Store("SVDRPHostName",      SVDRPHostName);
++  Store("SVDRPHostName",      strcmp(SVDRPHostName, GetHostName()) ? SVDRPHostName : "");
+   Store("SVDRPDefaultHost",   SVDRPDefaultHost);
+   Store("ZapTimeout",         ZapTimeout);
+   Store("ChannelEntryTimeout",ChannelEntryTimeout);
+diff -ruN vdr-2.3.4/config.h vdr-2.3.5/config.h
+--- vdr-2.3.4/config.h	2017-03-30 15:42:15.000000000 +0200
++++ vdr-2.3.5/config.h	2017-04-29 15:33:13.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 4.8 2017/03/30 13:42:15 kls Exp $
++ * $Id: config.h 4.9 2017/04/29 13:33:13 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.3.4"
+-#define VDRVERSNUM   20304  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.3.5"
++#define VDRVERSNUM   20305  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "2.3.4"
+-#define APIVERSNUM   20304  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "2.3.5"
++#define APIVERSNUM   20305  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-2.3.4/cutter.c vdr-2.3.5/cutter.c
+--- vdr-2.3.4/cutter.c	2015-08-09 14:24:28.000000000 +0200
++++ vdr-2.3.5/cutter.c	2017-05-21 11:45:06.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: cutter.c 4.2 2015/08/09 12:24:28 kls Exp $
++ * $Id: cutter.c 4.3 2017/05/21 09:45:06 kls Exp $
+  */
+ 
+ #include "cutter.h"
+@@ -500,7 +500,7 @@
+          TsSetContinuityCounter(p, counter[Pid]);
+          }
+       else
+-         counter[Pid] = TsGetContinuityCounter(p); // collect initial counters
++         counter[Pid] = TsContinuityCounter(p); // collect initial counters
+       // Adjust PTS:
+       int64_t Pts = TsGetPts(p, TS_SIZE);
+       if (Pts >= 0) {
+diff -ruN vdr-2.3.4/device.c vdr-2.3.5/device.c
+--- vdr-2.3.4/device.c	2017-04-17 16:47:42.000000000 +0200
++++ vdr-2.3.5/device.c	2017-05-18 11:27:55.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 4.15 2017/04/17 14:47:42 kls Exp $
++ * $Id: device.c 4.22 2017/05/18 09:27:55 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -293,6 +293,7 @@
+              // to their individual severity, where the one listed first will make the most
+              // difference, because it results in the most significant bit of the result.
+              uint32_t imp = 0;
++             imp <<= 1; imp |= (LiveView && NumUsableSlots && !HasInternalCam) ? !ChannelCamRelations.CamDecrypt(Channel->GetChannelID(), CamSlots.Get(j)->MasterSlotNumber()) || ndr : 0; // prefer CAMs that are known to decrypt this channel for live viewing, if we don't need to detach existing receivers
+              imp <<= 1; imp |= LiveView ? !device[i]->IsPrimaryDevice() || ndr : 0;                                  // prefer the primary device for live viewing if we don't need to detach existing receivers
+              imp <<= 1; imp |= !device[i]->Receiving() && (device[i] != cTransferControl::ReceiverDevice() || device[i]->IsPrimaryDevice()) || ndr; // use receiving devices if we don't need to detach existing receivers, but avoid primary device in local transfer mode
+              imp <<= 1; imp |= device[i]->Receiving();                                                               // avoid devices that are receiving
+@@ -749,7 +750,7 @@
+   return NULL;
+ }
+ 
+-bool cDevice::SignalStats(int &Valid, double *Strength, double *Cnr, double *BerPre, double *BerPost, double *Per) const
++bool cDevice::SignalStats(int &Valid, double *Strength, double *Cnr, double *BerPre, double *BerPost, double *Per, int *Status) const
+ {
+   return false;
+ }
+@@ -782,7 +783,7 @@
+ bool cDevice::SwitchChannel(const cChannel *Channel, bool LiveView)
+ {
+   if (LiveView) {
+-     isyslog("switching to channel %d (%s)", Channel->Number(), Channel->Name());
++     isyslog("switching to channel %d %s (%s)", Channel->Number(), *Channel->GetChannelID().ToString(), Channel->Name());
+      cControl::Shutdown(); // prevents old channel from being shown too long if GetDevice() takes longer
+      }
+   for (int i = 3; i--;) {
+@@ -833,6 +834,7 @@
+ 
+ eSetChannelResult cDevice::SetChannel(const cChannel *Channel, bool LiveView)
+ {
++  cMutexLock MutexLock(&mutexReceiver); // to avoid a race between SVDRP CHAN and HasProgramme()
+   cStatus::MsgChannelSwitch(this, 0, LiveView);
+ 
+   if (LiveView) {
+@@ -945,6 +947,7 @@
+ 
+ bool cDevice::HasProgramme(void) const
+ {
++  cMutexLock MutexLock(&mutexReceiver); // to avoid a race between SVDRP CHAN and HasProgramme()
+   return Replaying() || pidHandles[ptAudio].pid || pidHandles[ptVideo].pid;
+ }
+ 
+@@ -1651,7 +1654,8 @@
+ }
+ 
+ #define TS_SCRAMBLING_TIMEOUT     3 // seconds to wait until a TS becomes unscrambled
+-#define TS_SCRAMBLING_TIME_OK    10 // seconds before a Channel/CAM combination is marked as known to decrypt
++#define TS_SCRAMBLING_TIME_OK     3 // seconds before a Channel/CAM combination is marked as known to decrypt
++#define EIT_INJECTION_TIME       10 // seconds for which to inject EIT event
+ 
+ void cDevice::Action(void)
+ {
+@@ -1663,6 +1667,9 @@
+               if (b) {
+                  // Distribute the packet to all attached receivers:
+                  Lock();
++                 cCamSlot *cs = CamSlot();
++                 if (cs)
++                    cs->TsPostProcess(b);
+                  int Pid = TsPid(b);
+                  bool IsScrambled = TsIsScrambled(b);
+                  for (int i = 0; i < MAXRECEIVERS; i++) {
+@@ -1671,7 +1678,7 @@
+                         Receiver->Receive(b, TS_SIZE);
+                         // Check whether the TS packet is scrambled:
+                         if (Receiver->startScrambleDetection) {
+-                           if (cCamSlot *cs = CamSlot()) {
++                           if (cs) {
+                               int CamSlotNumber = cs->MasterSlotNumber();
+                               if (Receiver->lastScrambledPacket < Receiver->startScrambleDetection)
+                                  Receiver->lastScrambledPacket = Receiver->startScrambleDetection;
+@@ -1697,6 +1704,18 @@
+                                  }
+                               }
+                            }
++                        // Inject EIT event to avoid the CAMs parental rating prompt:
++                        if (Receiver->startEitInjection) {
++                           time_t Now = time(NULL);
++                           if (cCamSlot *cs = CamSlot()) {
++                              if (Now != Receiver->lastEitInjection) { // once per second
++                                 cs->InjectEit(Receiver->ChannelID().Sid());
++                                 Receiver->lastEitInjection = Now;
++                                 }
++                              }
++                           if (Now - Receiver->startEitInjection > EIT_INJECTION_TIME)
++                              Receiver->startEitInjection = 0;
++                           }
+                         }
+                      }
+                  Unlock();
+@@ -1755,6 +1774,10 @@
+          Unlock();
+          if (camSlot && Receiver->priority > MINPRIORITY) { // priority check to avoid an infinite loop with the CAM slot's caPidReceiver
+             camSlot->StartDecrypting();
++            if (camSlot->WantsTsData()) {
++               Receiver->lastEitInjection = 0;
++               Receiver->startEitInjection = time(NULL);
++               }
+             if (CamSlots.NumReadyMasterSlots() > 1) { // don't try different CAMs if there is only one
+                Receiver->startScrambleDetection = time(NULL);
+                Receiver->scramblingTimeout = TS_SCRAMBLING_TIMEOUT;
+diff -ruN vdr-2.3.4/device.h vdr-2.3.5/device.h
+--- vdr-2.3.4/device.h	2017-04-17 16:46:57.000000000 +0200
++++ vdr-2.3.5/device.h	2017-05-09 13:24:47.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 4.8 2017/04/17 14:46:57 kls Exp $
++ * $Id: device.h 4.9 2017/05/09 11:24:47 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -112,6 +112,14 @@
+ #define DTV_STAT_VALID_BERPRE    0x0004
+ #define DTV_STAT_VALID_BERPOST   0x0008
+ #define DTV_STAT_VALID_PER       0x0010
++#define DTV_STAT_VALID_STATUS    0x0020
++
++#define DTV_STAT_HAS_NONE        0x0000
++#define DTV_STAT_HAS_SIGNAL      0x0001
++#define DTV_STAT_HAS_CARRIER     0x0002
++#define DTV_STAT_HAS_VITERBI     0x0004
++#define DTV_STAT_HAS_SYNC        0x0008
++#define DTV_STAT_HAS_LOCK        0x0010
+ 
+ class cDevice : public cThread {
+   friend class cLiveSubtitle;
+@@ -291,13 +299,14 @@
+          ///< move the satellite dish to the requested position (only applies to DVB-S
+          ///< devices). If no positioner is involved, or this is not a DVB-S device,
+          ///< NULL will be returned.
+-  virtual bool SignalStats(int &Valid, double *Strength = NULL, double *Cnr = NULL, double *BerPre = NULL, double *BerPost = NULL, double *Per = NULL) const;
++  virtual bool SignalStats(int &Valid, double *Strength = NULL, double *Cnr = NULL, double *BerPre = NULL, double *BerPost = NULL, double *Per = NULL, int *Status = NULL) const;
+          ///< Returns statistics about the currently received signal (if available).
+          ///< Strength is the signal strength in dBm (typical range -100dBm...0dBm).
+          ///< Cnr is the carrier to noise ratio in dB (typical range 0dB...40dB).
+          ///< BerPre is the bit error rate before the forward error correction (FEC).
+          ///< BerPost is the bit error rate after the forward error correction (FEC).
+          ///< Per is the block error rate after the forward error correction (FEC).
++         ///< Status is the masked frontend status (signal/carrier/viterbi/sync/lock).
+          ///< Typical range for BerPre, BerPost and Per is 0...1.
+          ///< If any of the given pointers is not NULL, the value of the respective signal
+          ///< statistic is returned in it. Upon return, Valid holds a combination of
+diff -ruN vdr-2.3.4/dvbdevice.c vdr-2.3.5/dvbdevice.c
+--- vdr-2.3.4/dvbdevice.c	2017-04-20 16:42:35.000000000 +0200
++++ vdr-2.3.5/dvbdevice.c	2017-05-09 13:50:38.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 4.9 2017/04/20 14:42:35 kls Exp $
++ * $Id: dvbdevice.c 4.13 2017/05/09 11:50:38 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -349,7 +349,7 @@
+   void SetChannel(const cChannel *Channel);
+   bool Locked(int TimeoutMs = 0);
+   const cPositioner *Positioner(void) const { return positioner; }
+-  bool GetSignalStats(int &Valid, double *Strength = NULL, double *Cnr = NULL, double *BerPre = NULL, double *BerPost = NULL, double *Per = NULL) const;
++  bool GetSignalStats(int &Valid, double *Strength = NULL, double *Cnr = NULL, double *BerPre = NULL, double *BerPost = NULL, double *Per = NULL, int *Status = NULL) const;
+   int GetSignalStrength(void) const;
+   int GetSignalQuality(void) const;
+   };
+@@ -574,14 +574,29 @@
+                           }\
+                      }
+ 
+-bool cDvbTuner::GetSignalStats(int &Valid, double *Strength, double *Cnr, double *BerPre, double *BerPost, double *Per) const
++bool cDvbTuner::GetSignalStats(int &Valid, double *Strength, double *Cnr, double *BerPre, double *BerPost, double *Per, int *Status) const
+ {
+   ClearEventQueue();
++  fe_status_t FeStatus;
+   dtv_property Props[MAXFRONTENDCMDS];
+   dtv_properties CmdSeq;
+   memset(&Props, 0, sizeof(Props));
+   memset(&CmdSeq, 0, sizeof(CmdSeq));
+   CmdSeq.props = Props;
++  Valid = DTV_STAT_VALID_NONE;
++  if (ioctl(fd_frontend, FE_READ_STATUS, &FeStatus) != 0) {
++     esyslog("ERROR: frontend %d/%d: %m", adapter, frontend);
++     return false;
++     }
++  if (Status) {
++     *Status = DTV_STAT_HAS_NONE;
++     if (FeStatus & FE_HAS_SIGNAL)  *Status |= DTV_STAT_HAS_SIGNAL;
++     if (FeStatus & FE_HAS_CARRIER) *Status |= DTV_STAT_HAS_CARRIER;
++     if (FeStatus & FE_HAS_VITERBI) *Status |= DTV_STAT_HAS_VITERBI;
++     if (FeStatus & FE_HAS_SYNC)    *Status |= DTV_STAT_HAS_SYNC;
++     if (FeStatus & FE_HAS_LOCK)    *Status |= DTV_STAT_HAS_LOCK;
++     Valid |= DTV_STAT_VALID_STATUS;
++     }
+   if (Strength)   SETCMD(DTV_STAT_SIGNAL_STRENGTH, 0);
+   if (Cnr)        SETCMD(DTV_STAT_CNR, 0);
+   if (BerPre)   { SETCMD(DTV_STAT_PRE_ERROR_BIT_COUNT, 0);
+@@ -594,7 +609,6 @@
+      esyslog("ERROR: frontend %d/%d: %m", adapter, frontend);
+      return false;
+      }
+-  Valid = DTV_STAT_VALID_NONE;
+   int i = 0;
+   if (Strength) {
+      if (Props[i].u.st.len > 0) {
+@@ -659,6 +673,7 @@
+      }
+ #ifdef DEBUG_SIGNALSTATS
+   fprintf(stderr, "FE %d/%d: API5 %04X", adapter, frontend, Valid);
++  if ((Valid & DTV_STAT_VALID_STATUS)   != 0) fprintf(stderr, " STAT=%04X",     *Status);
+   if ((Valid & DTV_STAT_VALID_STRENGTH) != 0) fprintf(stderr, " STR=%1.1fdBm",  *Strength);
+   if ((Valid & DTV_STAT_VALID_CNR)      != 0) fprintf(stderr, " CNR=%1.1fdB",   *Cnr);
+   if ((Valid & DTV_STAT_VALID_BERPRE)   != 0) fprintf(stderr, " BERPRE=%1.1e",  *BerPre);
+@@ -844,13 +859,16 @@
+               // be considered low even if there haven't been any more uncorrected bocks
+               // for quite a while.
+               Unc = lastUncDelta;
+-              int t = time(NULL) - lastUncChange - 2;
+-              if (t > 0)
+-                 Unc >>= min(t, 32);
++              if (Unc > 0) {
++                 int t = time(NULL) - lastUncChange - 2;
++                 if (t > 0)
++                    Unc >>= min(t, int(sizeof(Unc) * 8 - 1));
++                 if (Unc == 0)
++                    lastUncDelta = 0;
+ #ifdef DEBUG_SIGNALQUALITY
+-              if (Unc > 0)
+                  fprintf(stderr, "FE %d/%d: API3 UNC = %u\n", adapter, frontend, Unc);
+ #endif
++                 }
+               break;
+               }
+            if (errno != EINTR) {
+@@ -1288,14 +1306,25 @@
+   "ISDBC",
+   "ATSC",
+   "ATSCMH",
+-  "DMBTH",
++  "DTMB",
+   "CMMB",
+   "DAB",
+   "DVB-T2",
+   "TURBO",
++  "DVB-C",
++  "DVB-C2",
+   NULL
+   };
+ 
++static const int DeliverySystemNamesMax = sizeof(DeliverySystemNames) / sizeof(DeliverySystemNames[0]) - 2; // -1 to get the maximum allowed index & -1 for the NULL => -2
++
++static const char *GetDeliverySystemName(int Index)
++{
++  if (Index > DeliverySystemNamesMax)
++     Index = 0;
++  return DeliverySystemNames[Index];
++};
++
+ cDvbDevice::cDvbDevice(int Adapter, int Frontend)
+ {
+   adapter = Adapter;
+@@ -1393,9 +1422,9 @@
+ {
+   if (dvbTuner) {
+      if (dvbTuner->FrontendType() != SYS_UNDEFINED)
+-        return DeliverySystemNames[dvbTuner->FrontendType()];
++        return GetDeliverySystemName(dvbTuner->FrontendType());
+      if (numDeliverySystems)
+-        return DeliverySystemNames[deliverySystems[0]]; // to have some reasonable default
++        return GetDeliverySystemName(deliverySystems[0]); // to have some reasonable default
+      }
+   return "";
+ }
+@@ -1526,7 +1555,7 @@
+   if (numDeliverySystems > 0) {
+      cString ds("");
+      for (int i = 0; i < numDeliverySystems; i++)
+-         ds = cString::sprintf("%s%s%s", *ds, i ? "," : "", DeliverySystemNames[deliverySystems[i]]);
++         ds = cString::sprintf("%s%s%s", *ds, i ? "," : "", GetDeliverySystemName(deliverySystems[i]));
+      cString ms("");
+      if (frontendInfo.caps & FE_CAN_QPSK)      { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(QPSK, ModulationValues)); }
+      if (frontendInfo.caps & FE_CAN_QAM_16)    { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(QAM_16, ModulationValues)); }
+@@ -1827,9 +1856,9 @@
+   return dvbTuner ? dvbTuner->Positioner() : NULL;
+ }
+ 
+-bool cDvbDevice::SignalStats(int &Valid, double *Strength, double *Cnr, double *BerPre, double *BerPost, double *Per) const
++bool cDvbDevice::SignalStats(int &Valid, double *Strength, double *Cnr, double *BerPre, double *BerPost, double *Per, int *Status) const
+ {
+-  return dvbTuner ? dvbTuner->GetSignalStats(Valid, Strength, Cnr, BerPre, BerPost, Per) : false;
++  return dvbTuner ? dvbTuner->GetSignalStats(Valid, Strength, Cnr, BerPre, BerPost, Per, Status) : false;
+ }
+ 
+ int cDvbDevice::SignalStrength(void) const
+diff -ruN vdr-2.3.4/dvbdevice.h vdr-2.3.5/dvbdevice.h
+--- vdr-2.3.4/dvbdevice.h	2017-04-17 16:44:43.000000000 +0200
++++ vdr-2.3.5/dvbdevice.h	2017-05-09 13:24:47.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 4.3 2017/04/17 14:44:43 kls Exp $
++ * $Id: dvbdevice.h 4.4 2017/05/09 11:24:47 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -244,7 +244,7 @@
+   virtual bool ProvidesEIT(void) const;
+   virtual int NumProvidedSystems(void) const;
+   virtual const cPositioner *Positioner(void) const;
+-  virtual bool SignalStats(int &Valid, double *Strength = NULL, double *Cnr = NULL, double *BerPre = NULL, double *BerPost = NULL, double *Per = NULL) const;
++  virtual bool SignalStats(int &Valid, double *Strength = NULL, double *Cnr = NULL, double *BerPre = NULL, double *BerPost = NULL, double *Per = NULL, int *Status = NULL) const;
+   virtual int SignalStrength(void) const;
+   virtual int SignalQuality(void) const;
+   virtual const cChannel *GetCurrentlyTunedTransponder(void) const;
+diff -ruN vdr-2.3.4/eit.c vdr-2.3.5/eit.c
+--- vdr-2.3.4/eit.c	2017-03-31 17:16:46.000000000 +0200
++++ vdr-2.3.5/eit.c	2017-05-03 10:58:41.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 4.2 2017/03/31 15:16:46 kls Exp $
++ * $Id: eit.c 4.3 2017/05/03 08:58:41 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -79,6 +79,7 @@
+ 
+   bool Empty = true;
+   bool Modified = false;
++  time_t LingerLimit = Now - Setup.EPGLinger * 60;
+   time_t SegmentStart = 0;
+   time_t SegmentEnd = 0;
+   struct tm t = { 0 };
+@@ -93,6 +94,9 @@
+       // Drop bogus events - but keep NVOD reference events, where all bits of the start time field are set to 1, resulting in a negative number.
+       if (StartTime == 0 || StartTime > 0 && Duration == 0)
+          continue;
++      // Ignore events that ended before the "EPG linger time":
++      if (StartTime + Duration < LingerLimit)
++         continue;
+       Empty = false;
+       if (!SegmentStart)
+          SegmentStart = StartTime;
+diff -ruN vdr-2.3.4/eit.h vdr-2.3.5/eit.h
+--- vdr-2.3.4/eit.h	2015-07-25 13:03:53.000000000 +0200
++++ vdr-2.3.5/eit.h	2017-05-08 23:10:29.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: eit.h 4.1 2015/07/25 11:03:53 kls Exp $
++ * $Id: eit.h 4.2 2017/05/08 21:10:29 kls Exp $
+  */
+ 
+ #ifndef __EIT_H
+@@ -15,7 +15,10 @@
+ 
+ class cSectionSyncerEntry : public cListObject, public cSectionSyncer {};
+ 
+-class cSectionSyncerHash : public cHash<cSectionSyncerEntry> {};
++class cSectionSyncerHash : public cHash<cSectionSyncerEntry> {
++public:
++  cSectionSyncerHash(void) : cHash(HASHSIZE, true) {};
++  };
+ 
+ class cEitFilter : public cFilter {
+ private:
+diff -ruN vdr-2.3.4/epg.c vdr-2.3.5/epg.c
+--- vdr-2.3.4/epg.c	2017-04-02 13:34:15.000000000 +0200
++++ vdr-2.3.5/epg.c	2017-05-09 14:16:36.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 4.4 2017/04/02 11:34:15 kls Exp $
++ * $Id: epg.c 4.6 2017/05/09 12:16:36 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -529,15 +529,14 @@
+   return true;
+ }
+ 
+-bool cEvent::Read(FILE *f, cSchedule *Schedule)
++bool cEvent::Read(FILE *f, cSchedule *Schedule, int &Line)
+ {
+   if (Schedule) {
+      cEvent *Event = NULL;
+      char *s;
+-     int line = 0;
+      cReadLine ReadLine;
+      while ((s = ReadLine.Read(f)) != NULL) {
+-           line++;
++           Line++;
+            char *t = skipspace(s + 1);
+            switch (*s) {
+              case 'E': if (!Event) {
+@@ -573,7 +572,7 @@
+              case 'c': // to keep things simple we react on 'c' here
+                        return true;
+              default:  if (Event && !Event->Parse(s)) {
+-                          esyslog("ERROR: EPG data problem in line %d", line);
++                          esyslog("ERROR: EPG data problem in line %d", Line);
+                           return false;
+                           }
+              }
+@@ -1098,7 +1097,7 @@
+ {
+   cEvent *Event;
+   while ((Event = events.First()) != NULL) {
+-        if (!Event->HasTimer() && Event->EndTime() + Setup.EPGLinger * 60 + 3600 < Time) // adding one hour for safety
++        if (!Event->HasTimer() && Event->EndTime() + Setup.EPGLinger * 60 < Time)
+            DelEvent(Event);
+         else
+            break;
+@@ -1141,9 +1140,11 @@
+ bool cSchedule::Read(FILE *f, cSchedules *Schedules)
+ {
+   if (Schedules) {
++     int Line = 0;
+      cReadLine ReadLine;
+      char *s;
+      while ((s = ReadLine.Read(f)) != NULL) {
++           Line++;
+            if (*s == 'C') {
+               s = skipspace(s + 1);
+               char *p = strchr(s, ' ');
+@@ -1153,7 +1154,7 @@
+                  tChannelID channelID = tChannelID::FromString(s);
+                  if (channelID.Valid()) {
+                     if (cSchedule *p = Schedules->AddSchedule(channelID)) {
+-                       if (!cEvent::Read(f, p))
++                       if (!cEvent::Read(f, p, Line))
+                           return false;
+                        p->Sort();
+                        }
+@@ -1165,7 +1166,7 @@
+                  }
+               }
+            else {
+-              esyslog("ERROR: unexpected tag while reading EPG data: %s", s);
++              esyslog("ERROR: unexpected tag in line %d while reading EPG data: %s", Line, s);
+               return false;
+               }
+            }
+diff -ruN vdr-2.3.4/epg.h vdr-2.3.5/epg.h
+--- vdr-2.3.4/epg.h	2017-04-02 13:22:21.000000000 +0200
++++ vdr-2.3.5/epg.h	2017-05-09 14:15:14.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.h 4.4 2017/04/02 11:22:21 kls Exp $
++ * $Id: epg.h 4.6 2017/05/09 12:15:14 kls Exp $
+  */
+ 
+ #ifndef __EPG_H
+@@ -141,7 +141,7 @@
+   cString ToDescr(void) const;
+   void Dump(FILE *f, const char *Prefix = "", bool InfoOnly = false) const;
+   bool Parse(char *s);
+-  static bool Read(FILE *f, cSchedule *Schedule);
++  static bool Read(FILE *f, cSchedule *Schedule, int &Line);
+   void FixEpgBugs(void);
+   };
+ 
+@@ -284,7 +284,7 @@
+   virtual bool DropOutdated(cSchedule *Schedule, time_t SegmentStart, time_t SegmentEnd, uchar TableID, uchar Version) { return false; }
+           ///< Takes a look at all EPG events between SegmentStart and SegmentEnd and
+           ///< drops outdated events.
+-  virtual bool BeginSegmentTransfer(const cChannel *Channel, bool Dummy) { return false; } // TODO remove obsolete Dummy
++  virtual bool BeginSegmentTransfer(const cChannel *Channel, bool Dummy) { return true; } // TODO remove obsolete Dummy
+           ///< Called directly after IgnoreChannel() before any other handler method is called.
+           ///< Designed to give handlers the possibility to prepare a database transaction.
+           ///< If any EPG handler returns false in this function, it is assumed that
+diff -ruN vdr-2.3.4/filter.c vdr-2.3.5/filter.c
+--- vdr-2.3.4/filter.c	2015-07-25 12:59:57.000000000 +0200
++++ vdr-2.3.5/filter.c	2017-05-07 17:20:45.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: filter.c 4.2 2015/07/25 10:59:57 kls Exp $
++ * $Id: filter.c 4.3 2017/05/07 15:20:45 kls Exp $
+  */
+ 
+ #include "filter.h"
+@@ -71,6 +71,15 @@
+   sticky = Sticky;
+ }
+ 
++cFilterData& cFilterData::operator= (const cFilterData &FilterData)
++{
++  pid = FilterData.pid;
++  tid = FilterData.tid;
++  mask = FilterData.mask;
++  sticky = FilterData.sticky;
++  return *this;
++}
++
+ bool cFilterData::Is(u_short Pid, u_char Tid, u_char Mask)
+ {
+   return pid == Pid && tid == Tid && mask == Mask;
+diff -ruN vdr-2.3.4/filter.h vdr-2.3.5/filter.h
+--- vdr-2.3.4/filter.h	2015-07-25 12:03:44.000000000 +0200
++++ vdr-2.3.5/filter.h	2017-05-07 17:18:48.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: filter.h 4.2 2015/07/25 10:03:44 kls Exp $
++ * $Id: filter.h 4.3 2017/05/07 15:18:48 kls Exp $
+  */
+ 
+ #ifndef __FILTER_H
+@@ -38,6 +38,7 @@
+   bool sticky;
+   cFilterData(void);
+   cFilterData(u_short Pid, u_char Tid, u_char Mask, bool Sticky);
++  cFilterData& operator= (const cFilterData &FilterData);
+   bool Is(u_short Pid, u_char Tid, u_char Mask);
+   bool Matches(u_short Pid, u_char Tid);
+   };
+diff -ruN vdr-2.3.4/libsi/Makefile vdr-2.3.5/libsi/Makefile
+--- vdr-2.3.4/libsi/Makefile	2015-02-11 11:24:54.000000000 +0100
++++ vdr-2.3.5/libsi/Makefile	2017-05-22 17:33:20.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a libsi
+ #
+-# $Id: Makefile 4.0 2015/02/11 10:24:54 kls Exp $
++# $Id: Makefile 4.1 2017/05/22 15:33:20 kls Exp $
+ 
+ ### The archiver options:
+ 
+@@ -18,7 +18,8 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
++	@echo CC libsi/$@
++	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
+ 
+ ### Dependencies:
+ 
+@@ -35,7 +36,8 @@
+ 	@:
+ 
+ libsi.a : $(OBJS)
+-	$(AR) $(ARFLAGS) $@ $(OBJS)
++	@echo AR libsi/$@
++	@$(AR) $(ARFLAGS) $@ $(OBJS)
+ 
+ clean:
+ 	@-rm -f $(OBJS) $(DEPFILE) *.a *.so *.tgz core* *~
+diff -ruN vdr-2.3.4/menu.c vdr-2.3.5/menu.c
+--- vdr-2.3.4/menu.c	2017-04-20 11:15:49.000000000 +0200
++++ vdr-2.3.5/menu.c	2017-05-21 15:18:26.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 4.25 2017/04/20 09:15:49 kls Exp $
++ * $Id: menu.c 4.29 2017/05/21 13:18:26 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -1328,7 +1328,7 @@
+   if (HasSubMenu())
+      return osContinue;
+   cTimer *Timer = new cTimer;
+-  if (*Setup.SVDRPDefaultHost)
++  if (Setup.SVDRPPeering && *Setup.SVDRPDefaultHost)
+      Timer->SetRemote(Setup.SVDRPDefaultHost);
+   return AddSubMenu(new cMenuEditTimer(Timer, true));
+ }
+@@ -1660,7 +1660,7 @@
+              return AddSubMenu(new cMenuEditTimer(Timer));
+           }
+        cTimer *Timer = new cTimer(item->event);
+-       if (*Setup.SVDRPDefaultHost)
++       if (Setup.SVDRPPeering && *Setup.SVDRPDefaultHost)
+           Timer->SetRemote(Setup.SVDRPDefaultHost);
+        if (cTimer *t = Timers->GetTimer(Timer)) {
+           delete Timer;
+@@ -1674,7 +1674,6 @@
+        if (!HandleRemoteModifications(Timer)) {
+           // must add the timer before HandleRemoteModifications to get proper log messages with timer ids
+           Timers->Del(Timer);
+-          delete Timer;
+           }
+      }
+      if (HasSubMenu())
+@@ -1692,7 +1691,7 @@
+   eOSState state = cOsdMenu::ProcessKey(Key);
+ 
+   if (state == osUnknown) {
+-     switch (Key) {
++     switch (int(Key)) {
+        case kRecord:
+        case kRed:    return Record();
+        case kYellow: state = osBack;
+@@ -1708,6 +1707,20 @@
+        case kBlue:   if (canSwitch)
+                         return Switch();
+                      break;
++       case kChanUp|k_Repeat:
++       case kChanUp:
++       case kChanDn|k_Repeat:
++       case kChanDn: if (!HasSubMenu()) {
++                        for (cOsdItem *item = First(); item; item = Next(item)) {
++                            if (((cMenuScheduleItem *)item)->channel->Number() == cDevice::CurrentChannel()) {
++                               SetCurrent(item);
++                               Display();
++                               SetHelpKeys();
++                               break;
++                               }
++                            }
++                        }
++                     break;
+        case kInfo:
+        case kOk:     if (Count()) {
+                         LOCK_TIMERS_READ;
+@@ -1944,7 +1957,7 @@
+              return AddSubMenu(new cMenuEditTimer(Timer));
+           }
+        cTimer *Timer = new cTimer(item->event);
+-       if (*Setup.SVDRPDefaultHost)
++       if (Setup.SVDRPPeering && *Setup.SVDRPDefaultHost)
+           Timer->SetRemote(Setup.SVDRPDefaultHost);
+        if (cTimer *t = Timers->GetTimer(Timer)) {
+           delete Timer;
+@@ -1958,7 +1971,6 @@
+        if (!HandleRemoteModifications(Timer)) {
+           // must add the timer before HandleRemoteModifications to get proper log messages with timer ids
+           Timers->Del(Timer);
+-          delete Timer;
+           }
+      }
+      if (HasSubMenu())
+@@ -1995,7 +2007,7 @@
+   eOSState state = cOsdMenu::ProcessKey(Key);
+ 
+   if (state == osUnknown) {
+-     switch (Key) {
++     switch (int(Key)) {
+        case k0:      return Number();
+        case kRecord:
+        case kRed:    return Record();
+@@ -2025,6 +2037,15 @@
+        case kBlue:   if (canSwitch)
+                         return Switch();
+                      break;
++       case kChanUp|k_Repeat:
++       case kChanUp:
++       case kChanDn|k_Repeat:
++       case kChanDn: if (!HasSubMenu()) {
++                        LOCK_CHANNELS_READ;
++                        if (const cChannel *Channel = Channels->GetByNumber(cDevice::CurrentChannel()))
++                           Set(Channel, true);
++                        }
++                     break;
+        case kInfo:
+        case kOk:     if (Count()) {
+                         LOCK_TIMERS_READ;
+@@ -2243,7 +2264,7 @@
+      SetHasHotkeys(ciMenu->Selectable());
+      GenerateTitle(ciMenu->TitleText());
+      dsyslog("CAM %d: '%s'", camSlot->SlotNumber(), ciMenu->TitleText());
+-     if (*ciMenu->SubTitleText()) {
++     if (!isempty(ciMenu->SubTitleText())) {
+         dsyslog("CAM %d: '%s'", camSlot->SlotNumber(), ciMenu->SubTitleText());
+         AddMultiLineItem(ciMenu->SubTitleText());
+         offset = Count();
+@@ -2252,7 +2273,7 @@
+          Add(new cOsdItem(hk(ciMenu->Entry(i)), osUnknown, ciMenu->Selectable()));
+          dsyslog("CAM %d: '%s'", camSlot->SlotNumber(), ciMenu->Entry(i));
+          }
+-     if (*ciMenu->BottomText()) {
++     if (!isempty(ciMenu->BottomText())) {
+         AddMultiLineItem(ciMenu->BottomText());
+         dsyslog("CAM %d: '%s'", camSlot->SlotNumber(), ciMenu->BottomText());
+         }
+@@ -5185,7 +5206,7 @@
+      int Priority = Timer ? Timer->Priority() : Pause ? Setup.PausePriority : Setup.DefaultPriority;
+      cDevice *device = cDevice::GetDevice(Channel, Priority, false);
+      if (device) {
+-        dsyslog("switching device %d to channel %d (%s)", device->DeviceNumber() + 1, Channel->Number(), Channel->Name());
++        dsyslog("switching device %d to channel %d %s (%s)", device->DeviceNumber() + 1, Channel->Number(), *Channel->GetChannelID().ToString(), Channel->Name());
+         if (!device->SwitchChannel(Channel, false)) {
+            ShutdownHandler.RequestEmergencyExit();
+            return false;
+diff -ruN vdr-2.3.4/mtd.c vdr-2.3.5/mtd.c
+--- vdr-2.3.4/mtd.c	2017-04-26 10:33:54.000000000 +0200
++++ vdr-2.3.5/mtd.c	2017-05-01 11:19:52.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: mtd.c 1.10 2017/04/26 08:33:54 kls Exp $
++ * $Id: mtd.c 1.11 2017/05/01 09:19:52 kls Exp $
+  */
+ 
+ #include "mtd.h"
+@@ -64,22 +64,20 @@
+         if (int Skipped = TS_SYNC(Data, Count))
+            return Used + Skipped;
+         int Pid = TsPid(Data);
+-        if (Pid != CATPID) { // the original CAT with mapped PIDs must be skipped here!
+ #ifdef KEEPPIDS
+-           int Index = 0;
++        int Index = 0;
+ #else
+-           int Index = (Pid >> UNIQ_PID_SHIFT) - 1;
++        int Index = (Pid >> UNIQ_PID_SHIFT) - 1;
+ #endif // KEEPPIDS
+-           if (Index >= 0 && Index < camSlots.Size()) {
+-              int w = camSlots[Index]->PutData(Data, TS_SIZE);
+-              if (w == 0)
+-                 break;
+-              else if (w != TS_SIZE)
+-                 esyslog("ERROR: incomplete MTD packet written (%d) in PID %d (%04X)", Index + 1, Pid, Pid);
+-              }
+-           else if (Index >= 0) // we silently ignore Index -1 (i.e. MTD number 0), since there are several hundred empty TS packets when switching to an encrypted channel for the first time since startup
+-              esyslog("ERROR: invalid MTD number (%d) in PID %d (%04X)", Index + 1, Pid, Pid);
++        if (Index >= 0 && Index < camSlots.Size()) {
++           int w = camSlots[Index]->PutData(Data, TS_SIZE);
++           if (w == 0)
++              break;
++           else if (w != TS_SIZE)
++              esyslog("ERROR: incomplete MTD packet written (%d) in PID %d (%04X)", Index + 1, Pid, Pid);
+            }
++        else if (Index >= 0) // anything with Index -1 (i.e. MTD number 0) is either garbage or an actual CAT or EIT, which need not be returned to the device
++           esyslog("ERROR: invalid MTD number (%d) in PID %d (%04X)", Index + 1, Pid, Pid);
+         Data += TS_SIZE;
+         Count -= TS_SIZE;
+         Used += TS_SIZE;
+@@ -329,6 +327,11 @@
+   return d;
+ }
+ 
++void cMtdCamSlot::InjectEit(int Sid)
++{
++  MasterSlot()->InjectEit(mtdMapper->RealToUniqSid(Sid));
++}
++
+ int cMtdCamSlot::PutData(const uchar *Data, int Count)
+ {
+   int Free = mtdBuffer->Free();
+diff -ruN vdr-2.3.4/mtd.h vdr-2.3.5/mtd.h
+--- vdr-2.3.4/mtd.h	2017-04-26 11:17:08.000000000 +0200
++++ vdr-2.3.5/mtd.h	2017-05-01 11:19:21.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: mtd.h 1.7 2017/04/26 09:17:08 kls Exp $
++ * $Id: mtd.h 1.8 2017/05/01 09:19:21 kls Exp $
+  */
+ 
+ #ifndef __MTD_H
+@@ -172,6 +172,7 @@
+   virtual void StartDecrypting(void);
+   virtual void StopDecrypting(void);
+   virtual uchar *Decrypt(uchar *Data, int &Count);
++  virtual void InjectEit(int Sid);
+   int PutData(const uchar *Data, int Count);
+   int PutCat(const uchar *Data, int Count);
+   // The following functions shall not be called for a cMtdCamSlot:
+diff -ruN vdr-2.3.4/newplugin vdr-2.3.5/newplugin
+--- vdr-2.3.4/newplugin	2015-09-10 13:11:14.000000000 +0200
++++ vdr-2.3.5/newplugin	2017-05-22 17:34:01.000000000 +0200
+@@ -12,7 +12,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: newplugin 4.1 2015/09/10 11:11:14 kls Exp $
++# $Id: newplugin 4.2 2017/05/22 15:34:01 kls Exp $
+ 
+ $PLUGIN_NAME = $ARGV[0] || die "Usage: newplugin <name>\n";
+ 
+@@ -121,7 +121,8 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	\$(CXX) \$(CXXFLAGS) -c \$(DEFINES) \$(INCLUDES) -o \$\@ \$<
++	\@echo CC \$\@
++	\@\$(CXX) \$(CXXFLAGS) -c \$(DEFINES) \$(INCLUDES) -o \$\@ \$<
+ 
+ ### Dependencies:
+ 
+@@ -141,13 +142,16 @@
+ I18Npot   = \$(PODIR)/\$(PLUGIN).pot
+ 
+ %.mo: %.po
+-	msgfmt -c -o \$\@ \$<
++	\@echo MO \$\@
++	\@msgfmt -c -o \$\@ \$<
+ 
+ \$(I18Npot): \$(wildcard *.c)
+-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-\$(PLUGIN) --package-version=\$(VERSION) --msgid-bugs-address='<see README>' -o \$\@ `ls \$^`
++	\@echo GT \$\@
++	\@xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-\$(PLUGIN) --package-version=\$(VERSION) --msgid-bugs-address='<see README>' -o \$\@ `ls \$^`
+ 
+ %.po: \$(I18Npot)
+-	msgmerge -U --no-wrap --no-location --backup=none -q -N \$\@ \$<
++	\@echo PO \$\@
++	\@msgmerge -U --no-wrap --no-location --backup=none -q -N \$\@ \$<
+ 	\@touch \$\@
+ 
+ \$(I18Nmsgs): \$(DESTDIR)\$(LOCDIR)/%/LC_MESSAGES/vdr-\$(PLUGIN).mo: \$(PODIR)/%.mo
+@@ -161,7 +165,8 @@
+ ### Targets:
+ 
+ \$(SOFILE): \$(OBJS)
+-	\$(CXX) \$(CXXFLAGS) \$(LDFLAGS) -shared \$(OBJS) -o \$\@
++	\@echo LD \$\@
++	\@\$(CXX) \$(CXXFLAGS) \$(LDFLAGS) -shared \$(OBJS) -o \$\@
+ 
+ install-lib: \$(SOFILE)
+ 	install -D \$^ \$(DESTDIR)\$(LIBDIR)/\$^.\$(APIVERSION)
+diff -ruN vdr-2.3.4/receiver.c vdr-2.3.5/receiver.c
+--- vdr-2.3.4/receiver.c	2017-04-01 17:55:38.000000000 +0200
++++ vdr-2.3.5/receiver.c	2017-05-01 10:49:20.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: receiver.c 4.3 2017/04/01 15:55:38 kls Exp $
++ * $Id: receiver.c 4.4 2017/05/01 08:49:20 kls Exp $
+  */
+ 
+ #include "receiver.h"
+@@ -19,6 +19,8 @@
+   lastScrambledPacket = 0;
+   startScrambleDetection = 0;
+   scramblingTimeout = 0;
++  startEitInjection = 0;
++  lastEitInjection = 0;
+   SetPids(Channel);
+ }
+ 
+diff -ruN vdr-2.3.4/receiver.h vdr-2.3.5/receiver.h
+--- vdr-2.3.4/receiver.h	2017-04-01 17:55:27.000000000 +0200
++++ vdr-2.3.5/receiver.h	2017-05-01 10:48:34.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: receiver.h 4.2 2017/04/01 15:55:27 kls Exp $
++ * $Id: receiver.h 4.3 2017/05/01 08:48:34 kls Exp $
+  */
+ 
+ #ifndef __RECEIVER_H
+@@ -25,6 +25,8 @@
+   time_t lastScrambledPacket;
+   time_t startScrambleDetection;
+   int scramblingTimeout;
++  time_t startEitInjection;
++  time_t lastEitInjection;
+   bool WantsPid(int Pid);
+ protected:
+   cDevice *Device(void) { return device; }
+diff -ruN vdr-2.3.4/remux.c vdr-2.3.5/remux.c
+--- vdr-2.3.4/remux.c	2017-04-24 16:59:39.000000000 +0200
++++ vdr-2.3.5/remux.c	2017-04-29 14:25:09.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 4.6 2017/04/24 14:59:39 kls Exp $
++ * $Id: remux.c 4.7 2017/04/29 12:25:09 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -940,6 +940,93 @@
+   return patVersion >= 0 && pmtVersion >= 0;
+ }
+ 
++// --- cEitGenerator ---------------------------------------------------------
++
++cEitGenerator::cEitGenerator(int Sid)
++{
++  counter = 0;
++  version = 0;
++  if (Sid)
++     Generate(Sid);
++}
++
++uint16_t cEitGenerator::YMDtoMJD(int Y, int M, int D)
++{
++  int L = (M < 3) ? 1 : 0;
++  return 14956 + D + int((Y - L) * 365.25) + int((M + 1 + L * 12) * 30.6001);
++}
++
++uchar *cEitGenerator::AddParentalRatingDescriptor(uchar *p, uchar ParentalRating)
++{
++  *p++ = SI::ParentalRatingDescriptorTag;
++  *p++ = 0x04; // descriptor length
++  *p++ = 'D';  // country code
++  *p++ = 'E';
++  *p++ = 'U';
++  *p++ = ParentalRating;
++  return p;
++}
++
++uchar *cEitGenerator::Generate(int Sid)
++{
++  uchar *PayloadStart;
++  uchar *SectionStart;
++  uchar *DescriptorsStart;
++  memset(eit, 0xFF, sizeof(eit));
++  struct tm tm_r;
++  time_t t = time(NULL) - 3600; // let's have the event start one hour in the past
++  tm *tm = localtime_r(&t, &tm_r);
++  uint16_t MJD = YMDtoMJD(tm->tm_year, tm->tm_mon + 1, tm->tm_mday);
++  uchar *p = eit;
++  // TS header:
++  *p++ = TS_SYNC_BYTE;
++  *p++ = TS_PAYLOAD_START;
++  *p++ = EITPID;
++  *p++ = 0x10 | (counter++ & 0x0F); // continuity counter
++  *p++ = 0x00; // pointer field (payload unit start indicator is set)
++  // payload:
++  PayloadStart = p;
++  *p++ = 0x4E; // TID present/following event on this transponder
++  *p++ = 0xF0;
++  *p++ = 0x00; // section length
++  SectionStart = p;
++  *p++ = Sid >> 8;
++  *p++ = Sid & 0xFF;
++  *p++ = 0xC1 | (version << 1);
++  *p++ = 0x00; // section number
++  *p++ = 0x00; // last section number
++  *p++ = 0x00; // transport stream id
++  *p++ = 0x00; // ...
++  *p++ = 0x00; // original network id
++  *p++ = 0x00; // ...
++  *p++ = 0x00; // segment last section number
++  *p++ = 0x4E; // last table id
++  *p++ = 0x00; // event id
++  *p++ = 0x01; // ...
++  *p++ = MJD >> 8; // start time
++  *p++ = MJD & 0xFF;  // ...
++  *p++ = tm->tm_hour; // ...
++  *p++ = tm->tm_min;  // ...
++  *p++ = tm->tm_sec;  // ...
++  *p++ = 0x24; // duration (one day, should cover everything)
++  *p++ = 0x00; // ...
++  *p++ = 0x00; // ...
++  *p++ = 0x90; // running status, free/CA mode
++  *p++ = 0x00; // descriptors loop length
++  DescriptorsStart = p;
++  p = AddParentalRatingDescriptor(p);
++  // fill in lengths:
++  *(SectionStart - 1) = p - SectionStart + 4; // +4 = length of CRC
++  *(DescriptorsStart - 1) = p - DescriptorsStart;
++  // checksum
++  int crc = SI::CRC32::crc32((char *)PayloadStart, p - PayloadStart, 0xFFFFFFFF);
++  *p++ = crc >> 24;
++  *p++ = crc >> 16;
++  *p++ = crc >> 8;
++  *p++ = crc;
++  return eit;
++}
++
+ // --- cTsToPes --------------------------------------------------------------
+ 
+ cTsToPes::cTsToPes(void)
+diff -ruN vdr-2.3.4/remux.h vdr-2.3.5/remux.h
+--- vdr-2.3.4/remux.h	2017-03-26 15:06:37.000000000 +0200
++++ vdr-2.3.5/remux.h	2017-05-21 11:44:52.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 4.3 2017/03/26 13:06:37 kls Exp $
++ * $Id: remux.h 4.5 2017/05/21 09:44:52 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+@@ -51,6 +51,7 @@
+ 
+ #define PATPID 0x0000 // PAT PID (constant 0)
+ #define CATPID 0x0001 // CAT PID (constant 1)
++#define EITPID 0x0012 // EIT PID (constant 18)
+ #define MAXPID 0x2000 // for arrays that use a PID as the index
+ 
+ #define PTSTICKS  90000 // number of PTS ticks per second
+@@ -94,7 +95,7 @@
+   return p[3] & TS_SCRAMBLING_CONTROL;
+ }
+ 
+-inline uchar TsGetContinuityCounter(const uchar *p)
++inline uchar TsContinuityCounter(const uchar *p)
+ {
+   return p[3] & TS_CONT_CNT_MASK;
+ }
+@@ -120,11 +121,6 @@
+   return 0;
+ }
+ 
+-inline int TsContinuityCounter(const uchar *p)
+-{
+-  return p[3] & TS_CONT_CNT_MASK;
+-}
+-
+ inline int64_t TsGetPcr(const uchar *p)
+ {
+   if (TsHasAdaptationField(p)) {
+@@ -431,6 +427,22 @@
+   uint16_t AncillaryPageId(int i) const { return (0 <= i && i < MAXSPIDS) ? ancillaryPageIds[i] : uint16_t(0); }
+   };
+ 
++// EIT Generator:
++
++class cEitGenerator {
++private:
++  uchar eit[TS_SIZE];
++  int counter;
++  int version;
++  uint16_t YMDtoMJD(int Y, int M, int D);
++  uchar *AddParentalRatingDescriptor(uchar *p, uchar ParentalRating = 0);
++public:
++  cEitGenerator(int Sid = 0);
++  uchar *Generate(int Sid);
++  uchar *Data(void) { return eit; }
++  int Length(void) { return sizeof(eit); }
++  };
++
+ // TS to PES converter:
+ // Puts together the payload of several TS packets that form one PES
+ // packet.
+diff -ruN vdr-2.3.4/svdrp.c vdr-2.3.5/svdrp.c
+--- vdr-2.3.4/svdrp.c	2017-04-22 13:57:31.000000000 +0200
++++ vdr-2.3.5/svdrp.c	2017-05-18 17:51:24.000000000 +0200
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 4.17 2017/04/22 11:57:31 kls Exp $
++ * $Id: svdrp.c 4.18 2017/05/18 15:51:24 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -384,6 +384,8 @@
+      SVDRPClientPoller.Del(file, false);
+      file.Close();
+      socket.Close();
++     LOCK_TIMERS_WRITE;
++     Timers->DelRemoteTimers(serverName);
+      }
+ }
+ 
+diff -ruN vdr-2.3.4/tools.c vdr-2.3.5/tools.c
+--- vdr-2.3.4/tools.c	2016-12-23 15:03:40.000000000 +0100
++++ vdr-2.3.5/tools.c	2017-05-09 10:32:54.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 4.5 2016/12/23 14:03:40 kls Exp $
++ * $Id: tools.c 4.6 2017/05/09 08:32:54 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -2312,9 +2312,10 @@
+ 
+ // --- cHashBase -------------------------------------------------------------
+ 
+-cHashBase::cHashBase(int Size)
++cHashBase::cHashBase(int Size, bool OwnObjects)
+ {
+   size = Size;
++  ownObjects = OwnObjects;
+   hashTable = (cList<cHashObject>**)calloc(size, sizeof(cList<cHashObject>*));
+ }
+ 
+@@ -2348,6 +2349,13 @@
+ void cHashBase::Clear(void)
+ {
+   for (int i = 0; i < size; i++) {
++      if (ownObjects) {
++         cList<cHashObject> *list = hashTable[i];
++         if (list) {
++            for (cHashObject *hob = list->First(); hob; hob = list->Next(hob))
++                delete hob->object;
++            }
++         }
+       delete hashTable[i];
+       hashTable[i] = NULL;
+       }
+diff -ruN vdr-2.3.4/tools.h vdr-2.3.5/tools.h
+--- vdr-2.3.4/tools.h	2017-03-16 17:04:43.000000000 +0100
++++ vdr-2.3.5/tools.h	2017-05-22 13:07:04.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 4.6 2017/03/16 16:04:43 kls Exp $
++ * $Id: tools.h 4.10 2017/05/22 11:07:04 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -51,10 +51,14 @@
+ #define CHECK(s) { if ((s) < 0) LOG_ERROR; } // used for 'ioctl()' calls
+ #define FATALERRNO (errno && errno != EAGAIN && errno != EINTR)
+ 
+-#ifndef __STL_CONFIG_H // in case some plugin needs to use the STL
++#ifndef _STL_ALGOBASE_H // in case some plugin needs to use the STL
+ template<class T> inline T min(T a, T b) { return a <= b ? a : b; }
+ template<class T> inline T max(T a, T b) { return a >= b ? a : b; }
++#endif
++#ifndef __STL_CONFIG_H // in case some plugin needs to use the STL
+ template<class T> inline int sgn(T a) { return a < 0 ? -1 : a > 0 ? 1 : 0; }
++#endif
++#ifndef _MOVE_H // in case some plugin needs to use the STL
+ template<class T> inline void swap(T &a, T &b) { T t = a; a = b; b = t; }
+ #endif
+ 
+@@ -479,6 +483,8 @@
+   friend class cListGarbageCollector;
+ private:
+   cListObject *prev, *next;
++  cListObject(const cListObject &ListObject) { abort(); } // no copy constructor!
++  cListObject& operator= (const cListObject &ListObject) { abort(); return *this; } // no assignment operator!
+ public:
+   cListObject(void);
+   virtual ~cListObject();
+@@ -825,9 +831,14 @@
+ private:
+   cList<cHashObject> **hashTable;
+   int size;
++  bool ownObjects;
+   unsigned int hashfn(unsigned int Id) const { return Id % size; }
+ protected:
+-  cHashBase(int Size);
++  cHashBase(int Size, bool OwnObjects);
++       ///< Creates a new hash of the given Size. If OwnObjects is true, the
++       ///< hash takes ownership of the objects given in the calls to Add(),
++       ///< and deletes them when Clear() is called or the hash is destroyed
++       ///< (unless the object has been removed from the hash by calling Del()).
+ public:
+   virtual ~cHashBase();
+   void Add(cListObject *Object, unsigned int Id);
+@@ -841,7 +852,7 @@
+ 
+ template<class T> class cHash : public cHashBase {
+ public:
+-  cHash(int Size = HASHSIZE) : cHashBase(Size) {}
++  cHash(int Size = HASHSIZE, bool OwnObjects = false) : cHashBase(Size, OwnObjects) {}
+   T *Get(unsigned int Id) const { return (T *)cHashBase::Get(Id); }
+ };
+ 
+diff -ruN vdr-2.3.4/vdr.c vdr-2.3.5/vdr.c
+--- vdr-2.3.4/vdr.c	2017-04-03 14:35:37.000000000 +0200
++++ vdr-2.3.5/vdr.c	2017-05-21 14:31:37.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 4.12 2017/04/03 12:35:37 kls Exp $
++ * $Id: vdr.c 4.14 2017/05/21 12:31:37 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -1151,7 +1151,7 @@
+                        if (!Device->IsTunedToTransponder(Timer->Channel())) {
+                           if (Device == cDevice::ActualDevice() && !Device->IsPrimaryDevice())
+                              cDevice::PrimaryDevice()->StopReplay(); // stop transfer mode
+-                          dsyslog("switching device %d to channel %d (%s)", Device->DeviceNumber() + 1, Timer->Channel()->Number(), Timer->Channel()->Name());
++                          dsyslog("switching device %d to channel %d %s (%s)", Device->DeviceNumber() + 1, Timer->Channel()->Number(), *Timer->Channel()->GetChannelID().ToString(), Timer->Channel()->Name());
+                           if (Device->SwitchChannel(Timer->Channel(), false))
+                              Device->SetOccupied(TIMERDEVICETIMEOUT);
+                           }
+@@ -1282,7 +1282,6 @@
+                   }
+                else
+                   cDevice::SwitchChannel(NORMALKEY(key) == kChanUp ? 1 : -1);
+-               key = kNone; // nobody else needs to see these keys
+                break;
+           // Volume control:
+           case kVolUp|k_Repeat:

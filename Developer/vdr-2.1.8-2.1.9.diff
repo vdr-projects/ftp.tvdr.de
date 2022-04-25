@@ -1,0 +1,5108 @@
+diff -ruN vdr-2.1.8/CONTRIBUTORS vdr-2.1.9/CONTRIBUTORS
+--- vdr-2.1.8/CONTRIBUTORS	2015-02-01 14:49:10.000000000 +0100
++++ vdr-2.1.9/CONTRIBUTORS	2015-02-08 11:08:47.000000000 +0100
+@@ -1195,6 +1195,7 @@
+  doesn't set the data's version numbers as required by the DVB standard
+  for the "binary skip" patch
+  for adding support for LCN (Logical Channel Numbers)
++ for suggesting to change the naming of "binary skip mode" to "adaptive skip mode"
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1728,6 +1729,8 @@
+  for reporting that the video stream type was set to 2 even if the vpid was 0
+  for updates to 'sources.conf'
+  for reporting a wrong initialization of Setup.PositionerSwing
++ for updating sources.conf to reflect the fact that Astra 4A and SES5 are actually in
++ two separate positions
+ 
+ Milos Kapoun <m.kapoun@cra.cz>
+  for suggesting to skip code table info in SI data
+@@ -2412,6 +2415,12 @@
+  for suggesting to replace "Schnitt" with "Bearbeitung" in the German OSD texts
+  for reporting a superfluous call to the skin's SetRecording() function after renaming
+  a recording
++ for suggesting to add a function to remove the name of a recording and replace it
++ with the last element of the recording's folder path name
++ for reporting a bug in setting an empty recording name or folder to a blank in the
++ "Edit recording" menu
++ for suggesting to add a confirmation before renaming a recording to its folder name
++ for reporting a problem with data loss in case renaming a recording fails
+ 
+ Pekka Mauno <pekka.mauno@iki.fi>
+  for fixing cSchedule::GetFollowingEvent() in case there is currently no present
+@@ -2830,6 +2839,7 @@
+  for reporting an incompatible change from DTV_DVBT2_PLP_ID to DTV_STREAM_ID in DVB API 5.8
+  for reporting a missing template for DVBDIR in Make.config.template
+  for suggesting to add ARGSDIR to the ONEDIR section of Make.config.template
++ for suggesting to change the naming of "binary skip mode" to "adaptive skip mode"
+ 
+ Marcel Unbehaun <frostworks@gmx.de>
+  for adding cRecordingInfo::GetEvent()
+@@ -2909,6 +2919,7 @@
+  for fixing learning keyboard remote control codes
+  for making VDR read command line options from *.conf files in /etc/vdr/conf.d
+  for adding a missing backslash to the help text of the SVDRP command MOVR
++ for fixing a memory leak in case of broken Extended Event Descriptors
+ 
+ Alex Lasnier <alex@fepg.org>
+  for adding tuning support for ATSC devices
+@@ -3118,6 +3129,7 @@
+ Christian Richter <cr@crichter.net>
+  for extending the interface to the script that gets called for recordings, so that in
+  the "edited" case it also provides the name of the original recording
++ for suggesting to add SDNOTIFY to Make.config.template
+ 
+ Christian Kaiser <chr-kaiser@arcor.de>
+  for adding DeleteEvent() to the EPG handler interface
+@@ -3167,6 +3179,8 @@
+  changed after VDR has been started
+  for reporting that the change "Fixed some compiler warnings with Clang 3.4.1" caused
+  ci.c to no longer compile with older versions of gcc
++ for suggesting to make the "Select folder" menu add the folder names of all existing
++ recordings to any names that have been predefined in "folders.conf"
+ 
+ Peter M�nster <pmlists@free.fr>
+  for fixing 'make install' to not overwrite existing configuration files
+@@ -3213,6 +3227,9 @@
+  for reporting a problem with switching back to live viewing after replay in a setup
+  with device bonding
+  for reporting a problem with handling overlapping pending timers
++ for fixing the German translation of "Binary skip timeout (s)"
++ for reporting a bug in switching channels in the Schedule menu after going through
++ various Now and Schedule menus for different channels
+ 
+ Marek Nazarko <mnazarko@gmail.com>
+  for translating OSD texts to the Polish language
+@@ -3284,6 +3301,8 @@
+  for adding handling for DTS audio tracks to cPatPmtParser::ParsePmt()
+  for adding support for PGS subtitles
+  for adding cOsdProvider::OsdSizeChanged()
++ for suggesting to change the German translations if the texts related to "binary
++ skipping"
+ 
+ Eike Sauer <EikeSauer@t-online.de>
+  for reporting a problem with channels that need more than 5 TS packets for detecting
+@@ -3340,3 +3359,9 @@
+ Martin Schirrmacher <schirrmie@gmail.com>
+  for suggesting to provide a way for skin plugins to get informed about the currently
+  used sort mode of a menu
++
++Mario Fenneis <admin@mediastreambox.at>
++ for translating OSD texts to the Hungarian language
++
++Stefan Herdler <herdler@gmx.de>
++ for fixing cMarks::GetNextBegin() and cMarks::GetNextEnd()
+diff -ruN vdr-2.1.8/HISTORY vdr-2.1.9/HISTORY
+--- vdr-2.1.8/HISTORY	2015-02-01 14:48:37.000000000 +0100
++++ vdr-2.1.9/HISTORY	2015-02-08 12:39:17.000000000 +0100
+@@ -8384,7 +8384,7 @@
+ - Now returning from removing deleted recordings after at most 10 seconds, or if the
+   user presses a remote control key, to keep the system from getting unresponsive
+   when removing a huge number of files (reported by Dieter Ferdinand).
+-- Fixed generating the index file of an existing recording in case at the of a TS file
++- Fixed generating the index file of an existing recording in case at the end of a TS file
+   there is less data in the buffer than needed by the frame detector. In such a case
+   it was possible that frames were missed, and there was most likely a distortion
+   when replaying that part of a recording. This is mostly a problem for recordings that
+@@ -8405,7 +8405,7 @@
+ - Now returning from removing deleted recordings after at most 10 seconds, or if the
+   user presses a remote control key, to keep the system from getting unresponsive
+   when removing a huge number of files (reported by Dieter Ferdinand).
+-- Fixed generating the index file of an existing recording in case at the of a TS file
++- Fixed generating the index file of an existing recording in case at the end of a TS file
+   there is less data in the buffer than needed by the frame detector. In such a case
+   it was possible that frames were missed, and there was most likely a distortion
+   when replaying that part of a recording. This is mostly a problem for recordings that
+@@ -8452,3 +8452,72 @@
+ - The function cDvbPlayer::Goto() now automatically calls Play() if Still is false.
+ - Added support for LCN (Logical Channel Numbers), which plugins may use to sort
+   channels (thanks to Rolf Ahrenberg).
++
++2015-02-08: Version 2.1.9
++
++- Fixed a memory leak in case of broken Extended Event Descriptors (thanks to Lars
++  Hanisch).
++- Fixed the German translation of "Binary skip timeout (s)" (thanks to Matthias
++  Senzel).
++- Fixed the German translation of "VDR will shut down later - press Power to force".
++- Fixed the Finnish translation of "Binary skip timeout (s)" (thanks to Rolf
++  Ahrenberg).
++- Updated the Lithuanian OSD texts (thanks to Valdemaras Pipiras).
++- Added SDNOTIFY to Make.config.template (suggested by Christian Richter). Also
++  added NO_KBD and BIDI.
++- Added code from the "jumpplay" patch that makes the recording still be considered
++  unviewed when stopping replay within RESUMEBACKUP seconds of the first mark.
++- The new option "Setup/Replay/Alternate behavior for adaptive skipping" can be used
++  to make adaptive skipping only halve the skip distance when the direction changes.
++  That way you can reach the desired point in a recording even if you make one too
++  many skips in a certain direction (see MANUAL for details).
++- Fixed cCamSlot::Assign(), so that it actually ignores the value of Query if Device
++  is NULL (as described in the header file).
++- Added a missing VDRDIR="$(CWD)" to the clean-plugins target of the Makefile, to
++  avoid error messages regarding the missing vdr.pc file.
++- Updated the Finnish OSD texts (thanks to Rolf Ahrenberg).
++- Updated the Estonian OSD texts (thanks to Arthur Konovalov).
++- Updated the Ukrainian OSD texts (thanks to Yarema Aka Knedlyk).
++- Updated the Romanian OSD texts (thanks to Lucian Muresan).
++- Updated the Hungarian OSD texts (thanks to Istv�n F�ley).
++- Fixed switching channels in the Schedule menu after going through various Now and
++  Schedule menus for different channels (reported by Matthias Senzel).
++- Fixed setting the Blue button in the Schedule/Now/Next menus, so that it only shows
++  "Switch" if the selected event is on a different channel.
++- Added "NORDIG" to the list of "DVB/Standard compliance" options and using it to
++  restrict the LCN (Logical Channel Numbers) parsing to networks that actually use
++  this non-standard feature (thanks to Rolf Ahrenberg).
++- In the "Edit recording" menu the '0' key can now be used on the "Name:" field to
++  remove the name of the recording and replace it with the last element of the
++  recording's folder path name (suggested by Christoph Haubrich). See MANUAL, section
++  "Managing folders" for details.
++- Updated the Italian OSD texts (thanks to Nino Gerbino).
++- The "Select folder" menu now adds the folder names of all existing recordings to
++  any names that have been predefined in "folders.conf" (suggested by S�ren Moch).
++- Updated the Italian OSD texts (thanks to Diego Pierotto).
++- Fixed the German translations of "latitude" and "longitude" (they were swapped).
++- Updated the Hungarian OSD texts (thanks to Mario Fenneis).
++- Modified runvdr.template to improve compatibility with the "bash" and "dash" shells.
++- Changed the German translations if the texts related to "binary skipping" (based
++  on a suggestion by Thomas Reufer).
++- Updated sources.conf to reflect the fact that Astra 4A and SES5 are actually in
++  two separate positions (thanks to Arthur Konovalov).
++- Fixed cMarks::GetNextBegin() and cMarks::GetNextEnd() (thanks to Stefan Herdler).
++  The behavior of these two functions is now exacly as described in the header file.
++  Editing marks that are placed at exactly the same offset in a recording are now
++  preserved in the cutting process.
++- Changed the naming of "binary skip mode" to "adaptive skip mode" (suggested by
++  Rolf Ahrenberg and Derek Kelly).
++- cDvbPlayer and cReplayControl now use the same list of editing marks. This avoids
++  inconsistent behavior with the "Skip edited parts" or "Pause replay at last mark"
++  functions when the editing marks are manipulated during replay.
++- Fixed setting an empty recording name or folder to a blank in the "Edit recording"
++  menu (reported by Christoph Haubrich).
++- Added a confirmation before renaming a recording to its folder name (suggested
++  by Christoph Haubrich).
++- Modified EntriesOnSameFileSystem(), so that it returns 'true' if either of the given
++  files doesn't exist (to avoid any actions that might be triggered if files are on
++  different file system), and changed handling the 'error' variable in cDirCopier, so
++  that it is initialized to 'true' and will only be set to 'false' if the entire
++  copy process has been successful (problem reported by Christoph Haubrich).
++- Added the UPDATE-2.2.0 file.
+diff -ruN vdr-2.1.8/MANUAL vdr-2.1.9/MANUAL
+--- vdr-2.1.8/MANUAL	2015-01-29 16:55:21.000000000 +0100
++++ vdr-2.1.9/MANUAL	2015-02-06 16:23:03.000000000 +0100
+@@ -363,18 +363,19 @@
+   - 0       Toggles an editing mark. If the mark indicator shows a red triangle,
+             the current mark is deleted. Otherwise a new mark is set at the
+             current position.
+-  - 1, 3    Move an editing mark back and forward in "binary" mode. Pressing
++  - 1, 3    Move an editing mark back and forward in "adaptive" mode. Pressing
+             either of these keys for the first time moves the mark 120 seconds
+-            in the given direction (configurable via "Setup/Replay/Binary skip
+-            initial value"). Further presses of the same key keep moving
+-            the mark by the same value. Once the other key is pressed, the value
+-            is divided by 2 (hence the name "binary") with every further press
+-            of either key. Pressing '1' and '3' alternatingly divides the
+-            distance all the way down to a single I-frame. That way a particular
+-            place in a recording (for instance the beginning or end of a
+-            commercial break) can be found very quickly. If none of these two
+-            keys is pressed for a while (configurable via "Setup/Replay/Binary
+-            skip timeout") the distance falls back to the initial value.
++            in the given direction (configurable via "Setup/Replay/Initial
++            duration for adaptive skipping"). Further presses of the same key
++            keep moving the mark by the same value. Once the other key is
++            pressed, the value is divided by 2 (hence the name "adaptive") with
++            every further press of either key. Pressing '1' and '3'
++            alternatingly divides the distance all the way down to a single
++            I-frame. That way a particular place in a recording (for instance
++            the beginning or end of a commercial break) can be found very
++            quickly. If none of these two keys is pressed for a while
++            (configurable via "Setup/Replay/Reset timeout for adaptive
++            skipping") the distance falls back to the initial value.
+             If replay is not in Pause mode, or if there is no mark at the
+             current position, the skip is performed without moving any mark.
+   - 4, 6    Move an editing mark back and forward by one I-frame. You need to
+@@ -540,8 +541,16 @@
+   the selected recording (if there are any and the recording is not currently
+   being cut). To directly edit the folder or name of the recording, position the
+   cursor to the respective line and press the Right key to start editing (press
+-  Ok to confirm the edit, or Back to return to the previous value). Once you are
+-  finished with editing the recording properties, press Ok to confirm the changes.
++  Ok to confirm the edit, or Back to return to the previous value). If you want
++  to remove the name of the recording and make the folder name the actual
++  recording's name, you can position the cursor to the "Name:" field and press
++  the '0' key. This will take the last element of the recording's folder path
++  and make it the actual name of the recording. You can do this in turn until
++  the recording is moved all the way up to the root of the video directory.
++  Note that, in case you inadvertently pressed the '0' key, you can leave the
++  "Edit recording" menu with the "Back" key and any changes you have made so far
++  will not be applied. Once you are finished with editing the recording
++  properties, press Ok to confirm the changes.
+ 
+ * Parameters in the "Setup" menu
+ 
+@@ -743,6 +752,7 @@
+                          Defines the standard compliance mode:
+                          0 = DVB
+                          1 = ANSI/SCTE
++                         2 = NORDIG
+ 
+   Video format = 4:3     The video format (or aspect ratio) of the tv set in use
+                          (4:3 or 16:9). Applies only to SD output devices.
+@@ -981,8 +991,6 @@
+                          automatically skipped during replay. This includes jumping
+                          to the first mark if replay starts at the beginning of the
+                          recording, and stopping at the last mark.
+-                         In order to work, this option must be enabled before starting
+-                         replay.
+ 
+   Pause replay at last mark = no
+                          If enabled, replay of a recording will go into Pause mode
+@@ -990,21 +998,33 @@
+                          the actual position at which the pause occurs may be a couple
+                          of frames before the last "end" mark, depending on how much
+                          data is buffered by your output device.
+-                         In order to work, this option must be enabled before starting
+-                         replay.
+ 
+-  Binary skip initial value (s) = 120
++  Initial duration for adaptive skipping (s) = 120
+                          Defines the number of seconds to jump from the current replay
+                          position in either direction, when pressing the '1' or '3'
+-                         key for the first time after the "Binary skip timeout".
++                         key for the first time after the "Reset timeout for adaptive
++                         skipping".
+                          The valid range is 10...600.
+ 
+-  Binary skip timeout (s) = 3
++  Reset timeout for adaptive skipping (s) = 3
+                          Defines the number of seconds after which pressing the
+-                         '1' or '3' key falls back to the "Binary skip initial value".
++                         '1' or '3' key falls back to the "Initial duration for adaptive
++                         skipping".
+                          The valid range is 0...10. Setting the timeout to 0 disables
+-                         the binary mode and makes '1' and '3' always skip the number
+-                         of seconds configured as the initial value.
++                         the adaptive mode and makes '1' and '3' always skip the number
++                         of seconds configured as the initial duration.
++
++  Alternate behavior for adaptive skipping = no
++                         When skipping in adaptive mode with the '1' and '3' keys, the
++                         distance of the skip is halved with every key press after the
++                         first change of direction. While this allows for locating a
++                         particular position in a recording very fast, once you make
++                         one step too many in the current direction you have no chance
++                         of ever reaching the desired point any more. You will have to
++                         wait for the timeout to occur and start adaptive skipping anew.
++                         If this option is set to 'yes', the skip distance will only be
++                         halved if the direction actually changes. That way, even if
++                         you missed the target point, you can still back up to it.
+ 
+   Resume ID = 0          Defines an additional ID that can be used in a multi user
+                          environment, so that every user has his/her own resume
+diff -ruN vdr-2.1.8/Make.config.template vdr-2.1.9/Make.config.template
+--- vdr-2.1.8/Make.config.template	2015-01-30 16:18:47.000000000 +0100
++++ vdr-2.1.9/Make.config.template	2015-02-02 10:07:07.000000000 +0100
+@@ -6,7 +6,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Make.config.template 3.2 2015/01/30 15:18:47 kls Exp $
++# $Id: Make.config.template 3.3 2015/02/02 09:07:07 kls Exp $
+ 
+ ### The C compiler and options:
+ 
+@@ -67,12 +67,20 @@
+ #PLGCFG = $(CONFDIR)/plugins.mk
+ 
+ ### The remote control:
+-
+ LIRC_DEVICE = /var/run/lirc/lircd
+ 
++### Define if you don't want keyboard remote control:
++#NO_KBD = 1
++
+ ### Define if you want vdr to not run as root:
+ #VDR_USER = vdr
+ 
++### Define if you want to compile in 'bidi' support:
++#BIDI = 1
++
++### Define if you want 'systemd' notification:
++#SDNOTIFY = 1
++
+ ### Fallback for plugins with old makefiles:
+ ifdef PLUGIN
+ CFLAGS   += -fPIC
+diff -ruN vdr-2.1.8/Makefile vdr-2.1.9/Makefile
+--- vdr-2.1.8/Makefile	2015-01-01 14:52:07.000000000 +0100
++++ vdr-2.1.9/Makefile	2015-02-02 15:47:24.000000000 +0100
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 3.4 2015/01/01 13:52:07 kls Exp $
++# $Id: Makefile 3.5 2015/02/02 14:47:24 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -250,7 +250,7 @@
+ 	if [ -n "$$failed" ] ; then echo; echo "*** failed plugins:$$failed"; echo; exit 1; fi
+ 
+ clean-plugins:
+-	@for i in `ls $(PLUGINDIR)/src | grep -v '[^a-z0-9]'`; do $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" clean; done
++	@for i in `ls $(PLUGINDIR)/src | grep -v '[^a-z0-9]'`; do $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" VDRDIR="$(CWD)" clean; done
+ 	@-rm -f $(PLUGINDIR)/lib/lib*-*.so.$(APIVERSION)
+ 
+ # Install the files (note that 'install-pc' must be first!):
+diff -ruN vdr-2.1.8/PLUGINS/src/dvbhddevice/po/et_EE.po vdr-2.1.9/PLUGINS/src/dvbhddevice/po/et_EE.po
+--- vdr-2.1.8/PLUGINS/src/dvbhddevice/po/et_EE.po	1970-01-01 01:00:00.000000000 +0100
++++ vdr-2.1.9/PLUGINS/src/dvbhddevice/po/et_EE.po	2015-02-08 13:07:28.217766641 +0100
+@@ -0,0 +1,128 @@
++# VDR plugin language source file
++# Copyright (C) 2011 Andreas Regel
++# This file is distributed under the same license as the dvbhddevice package.
++# Arthur Konovalov, 2015
++#
++msgid ""
++msgstr ""
++"Project-Id-Version: vdr-dvbhddevice 0.0.4\n"
++"Report-Msgid-Bugs-To: <see README>\n"
++"POT-Creation-Date: 2014-09-21 14:01+0200\n"
++"PO-Revision-Date: 2011-04-25 21:44+0200\n"
++"Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
++"Language-Team: Estonian <vdr@linuxtv.org>\n"
++"Language: et\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++
++msgid "HD Full Featured DVB device"
++msgstr "Täisfunktsionaalne HD DVB seade"
++
++msgid "Video Conversion"
++msgstr "Video konverteerimine"
++
++msgid "TV on"
++msgstr "TV sisse"
++
++msgid "TV off"
++msgstr "TV välja"
++
++msgid "Automatic"
++msgstr "automaatne"
++
++msgid "Letterbox 16/9"
++msgstr "letterbox 16:9"
++
++msgid "Letterbox 14/9"
++msgstr "letterbox 14:9"
++
++msgid "Pillarbox"
++msgstr "pillarbox"
++
++msgid "CentreCutOut"
++msgstr "center cut out"
++
++msgid "Always 16/9"
++msgstr "alati 16:9"
++
++msgid "Zoom 16/9"
++msgstr "suum 16/9"
++
++msgid "Off"
++msgstr "väljas"
++
++msgid "Frame rate"
++msgstr "kaadrisagedus"
++
++msgid "HD Only"
++msgstr "ainult HD-resolutsioon"
++
++msgid "Always"
++msgstr "alati"
++
++msgid "Disabled"
++msgstr "keelatud"
++
++msgid "Analogue only"
++msgstr "ainult analoog"
++
++msgid "HDMI only"
++msgstr "ainult HDMI"
++
++msgid "Follow resolution"
++msgstr "vastavalt resolutsioonile"
++
++msgid "none"
++msgstr "ei"
++
++msgid "Resolution"
++msgstr "Resolutsioon"
++
++msgid "Video Mode Adaption"
++msgstr "Videorežiimi sobitus"
++
++msgid "TV format"
++msgstr "TV külgsuhe"
++
++msgid "Analogue Video"
++msgstr "Analoogvideo"
++
++msgid "Audio Delay (ms)"
++msgstr "Heli viide (ms)"
++
++msgid "Audio Downmix"
++msgstr "Heli downmix"
++
++msgid "A/V Sync Shift (ms)"
++msgstr "A/V-sünkro nihe (ms)"
++
++msgid "OSD Size"
++msgstr "Ekraanimenüü suurus"
++
++msgid "HDMI CEC"
++msgstr "HDMI CEC"
++
++msgid "CEC: Switch TV on"
++msgstr "CEC: TV sisselülitus"
++
++msgid "CEC: Switch TV off"
++msgstr "CEC: TV väljalülitus"
++
++msgid "Remote Control Protocol"
++msgstr "Kaugjuhtimispuldi protokoll"
++
++msgid "Remote Control Address"
++msgstr "Kaugjuhtimispuldi aadress"
++
++msgid "High Level OSD"
++msgstr "Kõrgema taseme ekraanimenüü"
++
++msgid "Allow True Color OSD"
++msgstr "True Color ekraanimenüü"
++
++msgid "True Color format"
++msgstr "True Color formaat"
++
++msgid "Hide mainmenu entry"
++msgstr "Peita peamenüü valikus"
+diff -ruN vdr-2.1.8/PLUGINS/src/dvbhddevice/po/fi_FI.po vdr-2.1.9/PLUGINS/src/dvbhddevice/po/fi_FI.po
+--- vdr-2.1.8/PLUGINS/src/dvbhddevice/po/fi_FI.po	2014-10-03 15:10:39.000000000 +0200
++++ vdr-2.1.9/PLUGINS/src/dvbhddevice/po/fi_FI.po	2015-02-08 13:07:28.233767363 +0100
+@@ -122,7 +122,7 @@
+ msgstr "Salli tosivärit kuvaruutunäytölle"
+ 
+ msgid "True Color format"
+-msgstr ""
++msgstr "Näytä tosivärit muodossa"
+ 
+ msgid "Hide mainmenu entry"
+ msgstr "Piilota valinta päävalikosta"
+diff -ruN vdr-2.1.8/PLUGINS/src/dvbhddevice/po/uk_UA.po vdr-2.1.9/PLUGINS/src/dvbhddevice/po/uk_UA.po
+--- vdr-2.1.8/PLUGINS/src/dvbhddevice/po/uk_UA.po	1970-01-01 01:00:00.000000000 +0100
++++ vdr-2.1.9/PLUGINS/src/dvbhddevice/po/uk_UA.po	2015-02-08 13:07:28.268768942 +0100
+@@ -0,0 +1,129 @@
++# VDR language source file.
++# Copyright (C) 2011 Andreas Regel
++# This file is distributed under the same license as the dvbhddevice package.
++# Yarema Aka Knedlyk <yupadmin@gmail.com>, 2015
++#
++msgid ""
++msgstr ""
++"Project-Id-Version: vdr-dvbhddevice 0.0.4\n"
++"Report-Msgid-Bugs-To: <see README>\n"
++"POT-Creation-Date: 2015-02-03 13:28+0100\n"
++"PO-Revision-Date: 2015-02-01 23:31+0100\n"
++"Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
++"Language-Team: Ukrainian <vdr@linuxtv.org>\n"
++"Language: uk\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"X-Generator: Poedit 1.7.3\n"
++
++msgid "HD Full Featured DVB device"
++msgstr "HD Full Featured DVB device"
++
++msgid "Video Conversion"
++msgstr "Конвертація відео"
++
++msgid "TV on"
++msgstr "Вкл ТБ"
++
++msgid "TV off"
++msgstr "Викл ТБ"
++
++msgid "Automatic"
++msgstr "Автоматично"
++
++msgid "Letterbox 16/9"
++msgstr "Конверт 16:9"
++
++msgid "Letterbox 14/9"
++msgstr "Конверт 14:9"
++
++msgid "Pillarbox"
++msgstr "Pillarbox"
++
++msgid "CentreCutOut"
++msgstr "Вірізання від центру"
++
++msgid "Always 16/9"
++msgstr "Завжди 16:9"
++
++msgid "Zoom 16/9"
++msgstr "Допасувати до 16:9"
++
++msgid "Off"
++msgstr "Викл"
++
++msgid "Frame rate"
++msgstr "Частота кадрів"
++
++msgid "HD Only"
++msgstr "Тільки HD"
++
++msgid "Always"
++msgstr "Завжди"
++
++msgid "Disabled"
++msgstr "Відключено"
++
++msgid "Analogue only"
++msgstr "Тільки аналоговий"
++
++msgid "HDMI only"
++msgstr "Тільки HDMI"
++
++msgid "Follow resolution"
++msgstr "Відносно розд. здатн."
++
++msgid "none"
++msgstr "немає"
++
++msgid "Resolution"
++msgstr "Розд. здатність"
++
++msgid "Video Mode Adaption"
++msgstr "Адаптація відео режиму"
++
++msgid "TV format"
++msgstr "Формат ТБ"
++
++msgid "Analogue Video"
++msgstr "Аналогове відео"
++
++msgid "Audio Delay (ms)"
++msgstr "Затримка аудіо (мс)"
++
++msgid "Audio Downmix"
++msgstr "Міксування аудіо"
++
++msgid "A/V Sync Shift (ms)"
++msgstr "А/В зсув синхронізації (мс)"
++
++msgid "OSD Size"
++msgstr "Розмір OSD"
++
++msgid "HDMI CEC"
++msgstr "HDMI CEC"
++
++msgid "CEC: Switch TV on"
++msgstr "CEC: включити ТБ"
++
++msgid "CEC: Switch TV off"
++msgstr "CEC: виключити ТБ"
++
++msgid "Remote Control Protocol"
++msgstr "Протокол пульта"
++
++msgid "Remote Control Address"
++msgstr "Адрес пульта"
++
++msgid "High Level OSD"
++msgstr "High Level OSD"
++
++msgid "Allow True Color OSD"
++msgstr "Включити True Color OSD"
++
++msgid "True Color format"
++msgstr "Формат True Color"
++
++msgid "Hide mainmenu entry"
++msgstr "Приховати в головному меню"
+diff -ruN vdr-2.1.8/PLUGINS/src/hello/po/et_EE.po vdr-2.1.9/PLUGINS/src/hello/po/et_EE.po
+--- vdr-2.1.8/PLUGINS/src/hello/po/et_EE.po	2013-03-11 12:47:26.000000000 +0100
++++ vdr-2.1.9/PLUGINS/src/hello/po/et_EE.po	2015-02-08 13:07:30.376863994 +0100
+@@ -1,7 +1,7 @@
+ # VDR plugin language source file.
+ # Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Arthur Konovalov <kasjas@hot.ee>, 2004
++# Arthur Konovalov <artlov@gmail.com>, 2004, 2015
+ #
+ msgid ""
+ msgstr ""
+@@ -9,27 +9,27 @@
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+-"Last-Translator: Arthur Konovalov <kasjas@hot.ee>\n"
++"Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
+ "Language-Team: Estonian <vdr@linuxtv.org>\n"
+ "Language: et\n"
+ "MIME-Version: 1.0\n"
+-"Content-Type: text/plain; charset=ISO-8859-13\n"
++"Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
+ msgid "A friendly greeting"
+-msgstr ""
++msgstr "Sõbralik tervitus"
+ 
+ msgid "Hello"
+-msgstr ""
++msgstr "Tere"
+ 
+ msgid "Greeting time (s)"
+-msgstr ""
++msgstr "Tervituse kestus (s)"
+ 
+ msgid "Use alternate greeting"
+-msgstr ""
++msgstr "Vahelduv tervitus"
+ 
+ msgid "Howdy folks!"
+-msgstr ""
++msgstr "Kuidas käsi käib?"
+ 
+ msgid "Hello world!"
+-msgstr ""
++msgstr "Tere, maailm!"
+diff -ruN vdr-2.1.8/PLUGINS/src/pictures/po/et_EE.po vdr-2.1.9/PLUGINS/src/pictures/po/et_EE.po
+--- vdr-2.1.8/PLUGINS/src/pictures/po/et_EE.po	1970-01-01 01:00:00.000000000 +0100
++++ vdr-2.1.9/PLUGINS/src/pictures/po/et_EE.po	2015-02-08 13:07:35.606099774 +0100
+@@ -0,0 +1,33 @@
++# VDR plugin language source file.
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
++# This file is distributed under the same license as the VDR package.
++# Arthur Konovalov <artlov@gmail.com>, 2015
++#
++msgid ""
++msgstr ""
++"Project-Id-Version: vdr-pictures 0.1.3\n"
++"Report-Msgid-Bugs-To: <see README>\n"
++"POT-Creation-Date: 2012-12-18 12:57+0100\n"
++"PO-Revision-Date: 2008-01-12 17:41+0100\n"
++"Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
++"Language-Team: Estonian <vdr@linuxtv.org>\n"
++"Language: et\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgid "Pictures"
++msgstr "Pildid"
++
++msgid "A simple picture viewer"
++msgstr "Lihtne pildivaatur"
++
++msgid "Picture directory"
++msgstr "Pildikaust"
++
++msgid "Slide show delay (s)"
++msgstr "Slaidiseanssi viide (s)"
++
++msgid "No picture directory has been defined!"
++msgstr "Pildikaust on määramata!"
+diff -ruN vdr-2.1.8/PLUGINS/src/skincurses/HISTORY vdr-2.1.9/PLUGINS/src/skincurses/HISTORY
+--- vdr-2.1.8/PLUGINS/src/skincurses/HISTORY	2014-01-05 11:55:18.000000000 +0100
++++ vdr-2.1.9/PLUGINS/src/skincurses/HISTORY	2015-02-08 11:19:45.000000000 +0100
+@@ -122,3 +122,7 @@
+ 2014-01-01: Version 2.1.1
+ 
+ - Avoiding unnecessary pkg-config warnings in plugin Makefiles.
++
++2015-02-08: Version 2.1.2
++
++- Added a missing trailing blank in some translations.
+diff -ruN vdr-2.1.8/PLUGINS/src/skincurses/po/de_DE.po vdr-2.1.9/PLUGINS/src/skincurses/po/de_DE.po
+--- vdr-2.1.8/PLUGINS/src/skincurses/po/de_DE.po	2013-03-11 12:49:36.000000000 +0100
++++ vdr-2.1.9/PLUGINS/src/skincurses/po/de_DE.po	2015-02-08 13:07:37.841200549 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: vdr-skincurses 0.1.12\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+-"POT-Creation-Date: 2012-12-18 14:04+0100\n"
++"POT-Creation-Date: 2015-02-08 11:16+0100\n"
+ "PO-Revision-Date: 2007-08-15 16:07+0200\n"
+ "Last-Translator: Klaus Schmidinger <vdr@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
+@@ -22,8 +22,9 @@
+ msgid "Key$Mute"
+ msgstr "Stumm"
+ 
++#. TRANSLATORS: note the trailing blank!
+ msgid "Volume "
+-msgstr "Lautst�rke"
++msgstr "Lautst�rke "
+ 
+ msgid "Text mode"
+ msgstr "Text-Modus"
+diff -ruN vdr-2.1.8/PLUGINS/src/skincurses/po/et_EE.po vdr-2.1.9/PLUGINS/src/skincurses/po/et_EE.po
+--- vdr-2.1.8/PLUGINS/src/skincurses/po/et_EE.po	1970-01-01 01:00:00.000000000 +0100
++++ vdr-2.1.9/PLUGINS/src/skincurses/po/et_EE.po	2015-02-08 13:07:37.745196222 +0100
+@@ -0,0 +1,30 @@
++# VDR plugin language source file.
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
++# This file is distributed under the same license as the VDR package.
++# Arthur Konovalov <artlov@gmail.com>, 2015
++#
++msgid ""
++msgstr ""
++"Project-Id-Version: vdr-skincurses 0.1.12\n"
++"Report-Msgid-Bugs-To: <see README>\n"
++"POT-Creation-Date: 2015-02-08 11:16+0100\n"
++"PO-Revision-Date: 2007-08-14 20:48+0300\n"
++"Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
++"Language-Team: Estonian <vdr@linuxtv.org>\n"
++"Language: et\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++
++msgid "A text only skin"
++msgstr "Tekstipõhine kest"
++
++msgid "Key$Mute"
++msgstr "Hääletu"
++
++#. TRANSLATORS: note the trailing blank!
++msgid "Volume "
++msgstr "Helitugevus "
++
++msgid "Text mode"
++msgstr "Tekst"
+diff -ruN vdr-2.1.8/PLUGINS/src/skincurses/po/fi_FI.po vdr-2.1.9/PLUGINS/src/skincurses/po/fi_FI.po
+--- vdr-2.1.8/PLUGINS/src/skincurses/po/fi_FI.po	2013-03-17 15:07:35.000000000 +0100
++++ vdr-2.1.9/PLUGINS/src/skincurses/po/fi_FI.po	2015-02-08 13:07:37.762196987 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: vdr-skincurses 0.1.12\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+-"POT-Creation-Date: 2012-12-18 14:04+0100\n"
++"POT-Creation-Date: 2015-02-08 11:16+0100\n"
+ "PO-Revision-Date: 2007-08-14 20:48+0300\n"
+ "Last-Translator: Rolf Ahrenberg <Rolf.Ahrenberg@sci.fi>\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
+@@ -22,6 +22,7 @@
+ msgid "Key$Mute"
+ msgstr "Mykistys"
+ 
++#. TRANSLATORS: note the trailing blank!
+ msgid "Volume "
+ msgstr "Äänenvoimakkuus "
+ 
+diff -ruN vdr-2.1.8/PLUGINS/src/skincurses/po/it_IT.po vdr-2.1.9/PLUGINS/src/skincurses/po/it_IT.po
+--- vdr-2.1.8/PLUGINS/src/skincurses/po/it_IT.po	2013-03-11 12:49:41.000000000 +0100
++++ vdr-2.1.9/PLUGINS/src/skincurses/po/it_IT.po	2015-02-08 13:07:37.777197665 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: vdr-skincurses 0.1.12\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+-"POT-Creation-Date: 2012-12-18 14:04+0100\n"
++"POT-Creation-Date: 2015-02-08 11:16+0100\n"
+ "PO-Revision-Date: 2008-01-27 20:35+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
+@@ -22,6 +22,7 @@
+ msgid "Key$Mute"
+ msgstr "Muto"
+ 
++#. TRANSLATORS: note the trailing blank!
+ msgid "Volume "
+ msgstr "Volume "
+ 
+diff -ruN vdr-2.1.8/PLUGINS/src/skincurses/po/lt_LT.po vdr-2.1.9/PLUGINS/src/skincurses/po/lt_LT.po
+--- vdr-2.1.8/PLUGINS/src/skincurses/po/lt_LT.po	2013-03-11 12:49:44.000000000 +0100
++++ vdr-2.1.9/PLUGINS/src/skincurses/po/lt_LT.po	2015-02-08 13:07:37.795198475 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: vdr-skincurses 0.1.12\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+-"POT-Creation-Date: 2012-12-18 14:04+0100\n"
++"POT-Creation-Date: 2015-02-08 11:16+0100\n"
+ "PO-Revision-Date: 2010-02-22 18:18+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian <vdr@linuxtv.org>\n"
+@@ -22,6 +22,7 @@
+ msgid "Key$Mute"
+ msgstr "Išjungti garsą"
+ 
++#. TRANSLATORS: note the trailing blank!
+ msgid "Volume "
+ msgstr "Garsas "
+ 
+diff -ruN vdr-2.1.8/PLUGINS/src/skincurses/po/ru_RU.po vdr-2.1.9/PLUGINS/src/skincurses/po/ru_RU.po
+--- vdr-2.1.8/PLUGINS/src/skincurses/po/ru_RU.po	2013-03-11 12:49:46.000000000 +0100
++++ vdr-2.1.9/PLUGINS/src/skincurses/po/ru_RU.po	2015-02-08 13:07:37.810199152 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: vdr-skincurses 0.1.12\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+-"POT-Creation-Date: 2012-12-18 14:04+0100\n"
++"POT-Creation-Date: 2015-02-08 11:16+0100\n"
+ "PO-Revision-Date: 2008-03-14 00:21+0100\n"
+ "Last-Translator: Alexander Gross <Bikalexander@gmail.com>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
+@@ -23,8 +23,9 @@
+ msgid "Key$Mute"
+ msgstr "����. ���������"
+ 
++#. TRANSLATORS: note the trailing blank!
+ msgid "Volume "
+-msgstr "���������"
++msgstr "��������� "
+ 
+ msgid "Text mode"
+ msgstr "����� ������"
+diff -ruN vdr-2.1.8/PLUGINS/src/skincurses/po/sk_SK.po vdr-2.1.9/PLUGINS/src/skincurses/po/sk_SK.po
+--- vdr-2.1.8/PLUGINS/src/skincurses/po/sk_SK.po	2013-03-11 12:49:48.000000000 +0100
++++ vdr-2.1.9/PLUGINS/src/skincurses/po/sk_SK.po	2015-02-08 13:07:37.826199872 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: vdr-skincurses 0.1.12\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+-"POT-Creation-Date: 2012-12-18 14:04+0100\n"
++"POT-Creation-Date: 2015-02-08 11:16+0100\n"
+ "PO-Revision-Date: 2009-09-30 12:52+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak <vdr@linuxtv.org>\n"
+@@ -22,8 +22,9 @@
+ msgid "Key$Mute"
+ msgstr "Stlmi� zvuk"
+ 
++#. TRANSLATORS: note the trailing blank!
+ msgid "Volume "
+-msgstr "Hlasitos�"
++msgstr "Hlasitos� "
+ 
+ msgid "Text mode"
+ msgstr "Textov� re�im"
+diff -ruN vdr-2.1.8/PLUGINS/src/skincurses/skincurses.c vdr-2.1.9/PLUGINS/src/skincurses/skincurses.c
+--- vdr-2.1.8/PLUGINS/src/skincurses/skincurses.c	2014-01-05 11:56:27.000000000 +0100
++++ vdr-2.1.9/PLUGINS/src/skincurses/skincurses.c	2015-02-08 11:19:00.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: skincurses.c 3.1 2014/01/05 10:56:27 kls Exp $
++ * $Id: skincurses.c 3.2 2015/02/08 10:19:00 kls Exp $
+  */
+ 
+ #include <ncurses.h>
+@@ -12,7 +12,7 @@
+ #include <vdr/skins.h>
+ #include <vdr/videodir.h>
+ 
+-static const char *VERSION        = "2.1.1";
++static const char *VERSION        = "2.1.2";
+ static const char *DESCRIPTION    = trNOOP("A text only skin");
+ static const char *MAINMENUENTRY  = NULL;
+ 
+@@ -614,6 +614,7 @@
+      osd->DrawText(0, 0, tr("Key$Mute"), clrGreen, clrBackground, &Font);
+      }
+   else {
++     // TRANSLATORS: note the trailing blank!
+      const char *Prompt = tr("Volume ");
+      int l = Utf8StrLen(Prompt);
+      int p = (ScOsdWidth - l) * Current / Total;
+diff -ruN vdr-2.1.8/UPDATE-2.2.0 vdr-2.1.9/UPDATE-2.2.0
+--- vdr-2.1.8/UPDATE-2.2.0	1970-01-01 01:00:00.000000000 +0100
++++ vdr-2.1.9/UPDATE-2.2.0	2015-02-08 12:36:28.000000000 +0100
+@@ -0,0 +1,388 @@
++This is a summary of the changes in VDR 2.2.0 since the last stable
++version 2.0.0. It only contains things that are of actual importance
++to the user and doesn't mention the many fixes and improvements that
++have been made "behind the scenes".
++
++See the file HISTORY for a detailed list of all changes.
++
++Support for steerable satellite dishes:
++
++- Added basic support for positioners to control steerable satellite dishes.
++  + Supports GotoN (aka "DiSEqC 1.2") and GotoX (aka "USALS").
++  + The new DiSEqC command code 'P' can be used to instruct a positioner to move the
++    dish to the required satellite position. When a 'P' code is processed, further
++    execution of the remaining DiSEqC sequence (if any) is postponed until the positioner
++    has reached the new satellite position.
++  + The new special source value of "S360E" can be used in diseqc.conf to indicate that
++    an entry using a positioner can move the dish to any requested position within its
++    range. Think of it as "full circle".
++  + The devices a particular cDiseqc or cScr applies to are now stored directly in each
++    cDiseqc or cScr, respectively.
++  + A plugin can implement a custom positioner control (see PLUGINS.html, section "Positioners").
++  + The new function cSkinDisplayChannel::SetPositioner() can be implemented by skins to
++    show the user a progress display when the dish is being moved. The default implementation
++    calls SetMessage() with a string indicating the new position the dish is being moved to.
++    The LCARS skin shows a progress bar indicating the movement of the dish.
++  + The new parameters "Site latitude", "Site longitude", "Positioner speed", and
++    "Positioner swing" in the "Setup/LNB" menu can be used to configure the necessary
++    values for a steerable dish.
++  + The cDvbTuner now has a new status tsPositioning, in which it waits until a steerable
++    dish has reached its target position. Parsing SI data is paused until the target
++    position has been reached.
++- Changed the sign of the satellite position value in cSource to reflect the standard
++  of western values being negative. The new member function cSource::Position() can be
++  used to retrieve the orbital position of a satellite.
++
++Conditional Access:
++
++- The new function cCamSlot::Decrypt() can be used by derived classes to implement a
++  CAM slot that can be freely assigned to any device, without being directly inserted
++  into the full TS data stream in hardware. A derived class that implements Decrypt()
++  will also need to set the new parameter WantsTsData in the call to the cCamSlot
++  base class constructor to true, in order to receive all the TS packets that
++  contain data necessary for decrypting.
++- Many member functions of cCamSlot have been made virtual to allow for easier
++  implementation of derived classes.
++- cDvbDevice::GetTSPacket() now calls CamSlot()->Decrypt() in order to allow CAM slots
++  that can be freely assigned to any device access to the TS data stream.
++- Improved locking for CAM slots and made the pure functions of cCiAdapter have
++  default implementations, to fix a possible crash with CI adapters and CAM slots
++  that are implemented in a plugin.
++- Added logging the supported system ids of a CAM.
++- Now waiting explicitly until all CAM slots are ready before switching to the
++  initial channel when VDR is started. This is necessary in case CI adapters are
++  used that are not physically connected to a dedicated device. The respective checks
++  in cDvbDevice have been removed to avoid redundancy.
++- Now unassigning CAMs from their devices when they are no longer used.
++- Now making sure the primary device goes into transfer mode for live viewing if the
++  CAM wants to receive the TS data.
++- Added a log message in case a receiver is detached from its device because the
++  assigned CAM can't decrypt the channel.
++- The pid of the PMT in which the CA descriptors of a given channel are broadcast
++  is now stored together with the CA descriptors and can be retrieved by calling
++  GetPmtPid() (this information is only required to receive encrypted channels
++  with the OctopusNet receiver via the 'satip' plugin).
++- Modified the CAM API so that it is possible to implement CAMs that can be freely
++  assigned to any devices.
++- The Yellow button in the "Setup/CAM" menu can now be used to put the selected
++  CAM into a mode where it remains assigned to a device that is tuned to the current
++  channel until the smart card it contains is activated and the CAM thus starts to
++  descramble (see MANUAL, section "Setup/CAM" for details).
++- Fixed cCamSlot::Assign(), so that it actually ignores the value of Query if Device
++  is NULL (as described in the header file).
++
++Satellite Channel Routing:
++
++- Added support for "Satellite Channel Routing" (SCR) according to EN50607, also
++  known as "JESS".
++
++Subtitles:
++
++- Improved displaying DVB subtitles.
++- The debug output now goes into an HTML file named dbg-log.htm and shows the actual
++  bitmaps (dbg-nnn.jpg) used to display the subtitles. That way it is much easier to
++  see what's actually going on.
++- The new function cOsd::DrawScaledBitmap() is now used for drawing subtitles.
++  This function can be reimplemented by high level OSDs which may be able to do
++  the scaling in hardware or otherwise more efficiently.
++- Fixed (well, actually worked around) a problem with subtitles not being displayed
++  because the broadcaster doesn't set the data's version numbers as required by the
++  DVB standard.
++- Added support for PGS subtitles.
++
++Plugins:
++
++- A plugin can implement a custom positioner control (see PLUGINS.html, section "Positioners").
++- The new menu category mcRecordingEdit is now used to mark menus that edit recording
++  properties.
++- The Recordings menu can now be called with a cRecordingFilter, which allows the
++  caller to have it display only a certain subset of the recordings.
++- cDevice::TrickSpeed() now has an additional parameter named Forward, which indicates
++  the direction in which replay is being done. This information may be necessary for
++  some output devices in order to properly implement trick modes. Authors of plugins
++  that implement output devices will need to add this parameter to their derived cDevice
++  class, regardless of whether they will make use of it or not.
++- Avoiding unnecessary pkg-config warnings in plugin Makefiles.
++  Plugin authors may want to apply the following change to their Makefile:
++  -PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
++  +PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
++- The new function cStatus::ChannelChange() can be implemented by plugins to be
++  informed about changes to the parameters of a channel that may require a retune.
++  This may, for instance, be useful for plugins that implement live streaming, so that
++  they can react on changes to a channel's PIDs or CA descriptors.
++- The new function cOsd::DrawScaledBitmap() is now used for drawing subtitles.
++  This function can be reimplemented by high level OSDs which may be able to do
++  the scaling in hardware or otherwise more efficiently.
++- Use of the function cOsd::GetBitmap() outside of derived classes is now deprecated,
++  and it may be made 'protected' in a future version, since it doesn't work with
++  TrueColor OSDs. Plugin authors may want to modify their code so that it
++  works without this function.
++- Modified the descriptions of several threads, so that the important information
++  (like device or frontend numbers) is within the first 15 characters of the
++  string, because only these are displayed in thread listings. Plugin authors may
++  want to do the same.
++- Plugins can now implement the function SetMenuSortMode() in their skin objects
++  derived from cSkinDisplayMenu, to get informed about the currently used sort
++  mode, if applicable.
++- Added cOsdProvider::OsdSizeChanged(), which plugins that implement an output device
++  can call to signal a change in the OSD that requires a redraw of the currently
++  displayed object.
++
++Skins:
++
++- The new function cSkinDisplayChannel::SetPositioner() can be implemented by skins to
++  show the user a progress display when the dish is being moved. The default implementation
++  calls SetMessage() with a string indicating the new position the dish is being moved to.
++  The LCARS skin shows a progress bar indicating the movement of the dish.
++- The LCARS skin now shows the source value of the current channel in its channel display.
++- Plugins can now implement the function SetMenuSortMode() in their skin objects
++  derived from cSkinDisplayMenu, to get informed about the currently used sort
++  mode, if applicable.
++
++Remote control:
++
++- Revised the section on "Learning the remote control keys" in the INSTALL file to
++  avoid the impression that there actually is a default remote.conf file, and to
++  not use any alphabetic keys for special functions, so that they remain available
++  for textual input.
++- The LIRC remote control now connects to the socket even if it doesn't yet exist when
++  VDR is started.
++- Added handling UTF-8 'umlaut' characters to cKbdRemote.
++
++Devices:
++
++- The cDvbTuner now has a new status tsPositioning, in which it waits until a steerable
++  dish has reached its target position. Parsing SI data is paused until the target
++  position has been reached.
++- cDevice::IsPrimaryDevice() now also checks whether the primary device actually has
++  a decoder and returns false otherwise. This should improve device allocation on
++  systems that are only used as a receiver and don't actually display anything.
++- All bonded devices (except for the master) now turn off their LNB power completely
++  to avoid problems when receiving vertically polarized transponders.
++- cDevice::TrickSpeed() now has an additional parameter named Forward, which indicates
++  the direction in which replay is being done. This information may be necessary for
++  some output devices in order to properly implement trick modes. Authors of plugins
++  that implement output devices will need to add this parameter to their derived cDevice
++  class, regardless of whether they will make use of it or not.
++- Now checking whether the primary device actually has a decoder before retuning the
++  current channel after a change in its parameters. This fixes broken recordings on
++  the primary device on "headless" systems.
++- Refactored setup parameter handling for output devices:
++  + The function cDevice::GetVideoSystem() has been deprecated and will be removed
++    in a future version. In order to check whether a particular plugin needs to be
++    modified if this function is removed, you can comment out the line
++    #define DEPRECATED_VIDEOSYSTEM
++    in device.h.
++  + Handling the "video (display) format" (things like 16:9, 4:3, pan&scan, letterbox
++    etc) shall now be done by the individual output devices, because the types and
++    numbers of parameters are too device specific. The Setup/DVB parameters
++    "Video format" and "Video display format" are still there for now and can be used
++    by SD devices. HD devices, however, shall not use these parameters (any more),
++    but rather implement their own setup menu with the necessary parameters for
++    controlling output.
++  + The dvbhdffdevice plugin has been modified accordingly.
++  + Made it clear that cDevice::SetDigitalAudioDevice() merely tells the output device
++    that the current audio track is Dolby Digital. This function was only used by the
++    original "full featured" DVB cards - do not use it for new developments!
++    If an output device has several ways of replaying audio (like HDMI or analog jack)
++    it shall implement the proper options in its plugin's SetupMenu() function.
++- Added support for "Pilot", "T2-System-Id" and "SISO/MISO" parameters.
++- Added subsystem id support for DVB devices connected via USB.
++
++DiSEqC:
++
++- The new DiSEqC command code 'P' can be used to instruct a positioner to move the
++  dish to the required satellite position. When a 'P' code is processed, further
++  execution of the remaining DiSEqC sequence (if any) is postponed until the positioner
++  has reached the new satellite position.
++
++EPG:
++
++- Added Begin/EndSegmentTransfer() to the EPG handler interface.
++
++OSD:
++
++- In the "Select folder" menu pressing Ok now selects the folder, even if this is a
++  folder that contains sub folders (marked with "..."). To open such a folder you
++  can press the Red key.
++- The Recordings menu now remembers the last recording the cursor was positioned on,
++  independent of the last replayed recording. When a replay ends, however, the cursor
++  will initially be positioned to the last replayed recording again when the menu
++  is opened.
++- Added cOsdProvider::OsdSizeChanged(), which plugins that implement an output device
++  can call to signal a change in the OSD that requires a redraw of the currently
++  displayed object.
++- The "Select folder" menu now adds the folder names of all existing recordings to
++  any names that have been predefined in "folders.conf".
++- Fixed an inconsistent behavior between opening the Recordings menu manually via the
++  main menu and by pressing the Recordings key. In the latter case it automatically
++  opened all sub folders to position the cursor to the last replayed recording, which
++  is unexpected at this point. You can still navigate to
++  the last replayed recording (if any) by pressing Ok repeatedly in the Recordings
++  menu.
++
++Channels:
++
++- Channels that are no longer contained in the current SDT of a transponder are now
++  marked with the keyword OBSOLETE in their name and provider fields. That way you can
++  identify obsolete channels when you switch to them, and you can get the complete
++  overview of all obsolete channels by sorting the Channels list by provider (by
++  pressing the 0 key twice). Automatic deletion of obsolete channels may follow later.
++- Added support for LCN (Logical Channel Numbers), which plugins may use to sort
++  channels.
++- Added "NORDIG" to the list of "DVB/Standard compliance" options and using it to
++  restrict the LCN (Logical Channel Numbers) parsing to networks that actually use
++  this non-standard feature.
++
++Recordings:
++
++- The code for distributing recordings over several video directories has been
++  removed. VDR now by default assumes that the video directory is one big disk.
++  Distributing the video directory over several disks was a useful feature in times
++  when disks were still relatively small, but it also caused serious problems in case
++  one of the disks failed. Nowadays hard disks come in sizes measured in terabytes,
++  and tools like "mhddfs" can be used to combine several disks to form one large volume.
++  A recommended method for a relatively safe disk setup in a VDR system is to use two
++  1TB (or larger) disks and use them as a RAID-1 (mirrored). That way, if one disk
++  fails, you can replace it without data loss.
++- If you absolutely need to use several separate disks to store recordings, you can
++  write a plugin that uses the new cVideoDirectory API to implement the necessary
++  functionality (see PLUGINS.html, section "The video directory"). You can copy the
++  respective code from previous versions of videodir.c.
++  IMPORTANT NOTE: If you write a plugin that implements a distributed video directory,
++  =============== be sure to make cVideoDirectory::Rename() follow symbolic links!
++                  This functionality was never implemented in VDR and it therefore
++                  used a workaround in cutter.c. See the section marked with
++                  // XXX this can be removed once RenameVideoFile() follows symlinks
++                  in previous versions of cutter.c.
++  + CloseVideoFile() is obsolete and has been removed.
++  + The functions OpenVideoFile(), RenameVideoFile(), RemoveVideoFile(), VideoFileSpaceAvailable(),
++    VideoDiskSpace(), RemoveEmptyVideoDirectories(), IsOnVideoDirectoryFileSystem() and
++    PrefixVideoFileName() are now static members of cVideoDirectory and need to be called
++    with the proper prefix.
++  + The name of the video directory is now available through cVideoDirectory::Name().
++- Added renaming and moving recordings and folders, editing a recording's priority and
++  lifetime, and queueing cutting jobs.
++  + The "Recording info" menu now has a new Blue button named "Edit", which opens a
++    dialog in which several properties of the selected recording can be changed. It can
++    be renamed or moved into another folder and its priority and lifetime can be
++    modified.
++    The new blue "Edit" button in the "Recordings" menu opens a dialog in which a folder
++    can be renamed or moved. See MANUAL, section "Managing folders".
++  + In the "Edit recording" menu the Yellow button ("Delete marks") allows you to delete
++    all editing marks of the selected recording.
++  + cCutter is no longer a static class. Cutting requests should now be invoked by
++    calling RecordingsHandler.Add(ruCut, FileName). See the new cRecordingsHandler
++    class in recording.h.
++  + Cutting jobs are now placed in a queue (together with any move or copy jobs) and
++    are processed one by one.
++  + The new SVDRP command MOVR can be used to rename a recording
++  + Note that in several places in the source code a "copy" operation is mentioned,
++    however there is no user interface for this, yet.
++- The function cRecordings::MBperMinute() now only takes into account recordings with
++  less than 5 seconds per megabyte, in an attempt to filter out radio recordings
++  The result of this function was way off any realistic
++  value in case there are many radio recordings in the video directory.
++- When cutting a recording it is now checked whether there is already an edited
++  version of this recording (with the same name, but starting with '%'), and the
++  user is prompted for confirmation to overwrite it.
++- Fixed numbering frames. Previously they were numbered starting from 1, while it
++  is apparently standard to number them from 0. Any existing recordings with editing
++  marks (which will now be off by one) can still be cut with all VDR versions from
++  1.7.32, because these will automatically adjust editing marks to I-frames.
++  Users of stable releases shouldn't notice any problems.
++- Now returning from removing deleted recordings after at most 10 seconds, or if the
++  user presses a remote control key, to keep the system from getting unresponsive
++  when removing a huge number of files.
++- Fixed generating the index file of an existing recording in case at the end of a TS file
++  there is less data in the buffer than needed by the frame detector. In such a case
++  it was possible that frames were missed, and there was most likely a distortion
++  when replaying that part of a recording. This is mostly a problem for recordings that
++  consist of more than one *.ts file. Single file recordings could only lose some
++  frames at their very end, which probably doesn't matter. At any rate, if you have
++  generated an index file with VDR version 2.0.6, 2.1.5 or 2.1.6, you may want to
++  do so again with this version to make sure the index is OK.
++- Added the new command line option --updindex, which can be used to update an
++  incomplete index of a recording.
++- In the "Edit recording" menu the '0' key can now be used on the "Name:" field to
++  remove the name of the recording and replace it with the last element of the
++  recording's folder path name. See MANUAL, section "Managing folders" for details.
++
++Replay:
++
++- The new option "Setup/Replay/Pause replay when jumping to a mark" can be used to
++  turn off pausing replay when jumping to an editing mark with the '9' key.
++- The new option "Setup/Replay/Skip edited parts" can be used to automatically skip
++  the edited parts of a recording during replay, without the need to actually cut
++  the recording.
++- The new option "Setup/Replay/Pause replay at last mark" can be used to make replay
++  go into Pause mode when it has reached the last "end" mark.
++- The '8' key for testing an edited sequence now also jumps to the next *end*
++  mark if "Setup/Replay/Skip edited parts" is active. This allows for testing edits
++  in recordings that have actually been cut, as well as recordings that have not
++  been cut, in case "Skip edited parts" is enabled.
++- A recording is now still considered unviewed when stopping replay within 10 seconds
++  of the first mark.
++- The keys '1' and '3' can now be used in replay mode to position an editing mark
++  in "adaptive" mode. See MANUAL, section "Editing a Recording".
++- The new option "Setup/Replay/Alternate behavior for adaptive skipping" can be used
++  to make adaptive skipping only halve the skip distance when the direction changes.
++  That way you can reach the desired point in a recording even if you make one too
++  many skips in a certain direction (see MANUAL for details).
++
++SVDRP:
++
++- The new SVDRP command MOVR can be used to rename a recording
++
++Audio:
++
++- Added the new parameters "Setup/Miscellaneous/Volume steps" and
++  ".../Volume linearize". See the MANUAL for details.
++- Added handling for DTS audio tracks to cPatPmtParser::ParsePmt().
++
++Misc:
++
++- Reverted the change from version 1.5.7 that made all logging go to LOG_ERR.
++- The Yellow button in the main menu no longer acts as "Pause" if "Pause key handling"
++  is set to "do not pause live video".
++- Added code for parsing LCN and AVC descriptors to libsi.
++- Changes in the teletext PID no longer cause retuning (and thus interrupting a
++  recording).
++- Made it clear that the Data parameter in cDevice::StillPicture() may point to a
++  series of packets, not just a single one.
++- Changed '%a' to the POSIX compliant '%m' in all scanf() calls.
++- cTSBuffer now provides the number of available bytes in its Get() function.
++- The script given to VDR with the '-r' option is now also called after the recording
++  process has actually started.
++- Updated 'sources.conf'.
++- Increased MIN_TS_PACKETS_FOR_FRAME_DETECTOR to 100 and introduced counting the number
++  of actual video TS packets in cTsPayload in order to be able to record channels that
++  sometimes need many TS packets for detecting frame borders.
++- Improved PAT/PMT scanning to speed up initial tuning to encrypted channels on
++  transponders with many PAT entries.
++- The SDT is now only parsed *after* the NIT has been read, and it explicitly uses
++  the source value derived from the NIT. This should prevent new channels from being
++  created with the wrong source.
++- Added support for systemd. To activate this you need to add "SDNOTIFY=1" to the
++  'make' call.
++- No longer logging an error message in DirSizeMB() if the given directory doesn't
++  exist. This avoids lots of log entries in case several VDRs use the same video
++  directory and one of them has already physically removed a recording directory,
++  while the others still have it in their list of deleted recordings.
++- VDR now reads command line options from *.conf files in /etc/vdr/conf.d.
++  See vdr.1 and vdr.5 for details.
++- Added the functions IndexOf(), InsertUnique(), AppendUnique() and RemoveElement()
++  to the cVector class.
++- Added functions to set and retrieve the priority of a cReceiver.
++- Changed the German weekday names from "MonDieMitDonFreSamSon" to
++  "Mo.Di.Mi.Do.Fr.Sa.So.".
++- Added the channel name to log messages that reference a channel.
++- Added ARGSDIR to the ONEDIR section of Make.config.template.
++- Added SDNOTIFY, NO_KBD and BIDI to Make.config.template.
++- Modified runvdr.template to improve compatibility with the "bash" and "dash" shells.
++- Updated sources.conf to reflect the fact that Astra 4A and SES5 are actually in
++  two separate positions.
++- Fixed cMarks::GetNextBegin() and cMarks::GetNextEnd(). The behavior of these two
++  functions is now exacly as described in the header file. Editing marks that are
++  placed at exactly the same offset in a recording are now preserved in the cutting
++  process.
+diff -ruN vdr-2.1.8/ci.c vdr-2.1.9/ci.c
+--- vdr-2.1.8/ci.c	2015-01-30 13:24:53.000000000 +0100
++++ vdr-2.1.9/ci.c	2015-02-02 14:57:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 3.18 2015/01/30 12:24:53 kls Exp $
++ * $Id: ci.c 3.19 2015/02/02 13:57:39 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -1776,7 +1776,7 @@
+      if (ciAdapter->Assign(Device, true)) {
+         if (!Device && assignedDevice)
+            assignedDevice->SetCamSlot(NULL);
+-        if (!Query) {
++        if (!Query || !Device) {
+            StopDecrypting();
+            source = transponder = 0;
+            if (ciAdapter->Assign(Device)) {
+diff -ruN vdr-2.1.8/config.c vdr-2.1.9/config.c
+--- vdr-2.1.8/config.c	2015-01-29 10:01:30.000000000 +0100
++++ vdr-2.1.9/config.c	2015-02-06 11:10:22.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 3.6 2015/01/29 09:01:30 kls Exp $
++ * $Id: config.c 3.8 2015/02/06 10:10:22 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -473,8 +473,9 @@
+   PauseOnMarkJump = 1;
+   SkipEdited = 0;
+   PauseAtLastMark = 0;
+-  BinarySkipInitial = 120;
+-  BinarySkipTimeout = 3;
++  AdaptiveSkipInitial = 120;
++  AdaptiveSkipTimeout = 3;
++  AdaptiveSkipAlternate = 0;
+   ResumeID = 0;
+   CurrentChannel = -1;
+   CurrentVolume = MAXVOLUME;
+@@ -691,8 +692,9 @@
+   else if (!strcasecmp(Name, "PauseOnMarkJump"))     PauseOnMarkJump    = atoi(Value);
+   else if (!strcasecmp(Name, "SkipEdited"))          SkipEdited         = atoi(Value);
+   else if (!strcasecmp(Name, "PauseAtLastMark"))     PauseAtLastMark    = atoi(Value);
+-  else if (!strcasecmp(Name, "BinarySkipInitial"))   BinarySkipInitial  = atoi(Value);
+-  else if (!strcasecmp(Name, "BinarySkipTimeout"))   BinarySkipTimeout  = atoi(Value);
++  else if (!strcasecmp(Name, "AdaptiveSkipInitial")) AdaptiveSkipInitial= atoi(Value);
++  else if (!strcasecmp(Name, "AdaptiveSkipTimeout")) AdaptiveSkipTimeout= atoi(Value);
++  else if (!strcasecmp(Name, "AdaptiveSkipAlternate")) AdaptiveSkipAlternate = atoi(Value);
+   else if (!strcasecmp(Name, "ResumeID"))            ResumeID           = atoi(Value);
+   else if (!strcasecmp(Name, "CurrentChannel"))      CurrentChannel     = atoi(Value);
+   else if (!strcasecmp(Name, "CurrentVolume"))       CurrentVolume      = atoi(Value);
+@@ -813,8 +815,9 @@
+   Store("PauseOnMarkJump",    PauseOnMarkJump);
+   Store("SkipEdited",         SkipEdited);
+   Store("PauseAtLastMark",    PauseAtLastMark);
+-  Store("BinarySkipInitial",  BinarySkipInitial);
+-  Store("BinarySkipTimeout",  BinarySkipTimeout);
++  Store("AdaptiveSkipInitial",AdaptiveSkipInitial);
++  Store("AdaptiveSkipTimeout",AdaptiveSkipTimeout);
++  Store("AdaptiveSkipAlternate", AdaptiveSkipAlternate);
+   Store("ResumeID",           ResumeID);
+   Store("CurrentChannel",     CurrentChannel);
+   Store("CurrentVolume",      CurrentVolume);
+diff -ruN vdr-2.1.8/config.h vdr-2.1.9/config.h
+--- vdr-2.1.8/config.h	2015-01-27 11:50:11.000000000 +0100
++++ vdr-2.1.9/config.h	2015-02-06 10:53:50.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 3.13 2015/01/27 10:50:11 kls Exp $
++ * $Id: config.h 3.17 2015/02/06 09:53:50 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.1.8"
+-#define VDRVERSNUM   20108  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.1.9"
++#define VDRVERSNUM   20109  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "2.1.8"
+-#define APIVERSNUM   20108  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "2.1.9"
++#define APIVERSNUM   20109  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+@@ -65,6 +65,7 @@
+ 
+ #define STANDARD_DVB       0
+ #define STANDARD_ANSISCTE  1
++#define STANDARD_NORDIG    2
+ 
+ typedef uint32_t in_addr_t; //XXX from /usr/include/netinet/in.h (apparently this is not defined on systems with glibc < 2.2)
+ 
+@@ -336,8 +337,9 @@
+   int PauseOnMarkJump;
+   int SkipEdited;
+   int PauseAtLastMark;
+-  int BinarySkipInitial;
+-  int BinarySkipTimeout;
++  int AdaptiveSkipInitial;
++  int AdaptiveSkipTimeout;
++  int AdaptiveSkipAlternate;
+   int ResumeID;
+   int CurrentChannel;
+   int CurrentVolume;
+diff -ruN vdr-2.1.8/dvbplayer.c vdr-2.1.9/dvbplayer.c
+--- vdr-2.1.8/dvbplayer.c	2015-02-01 11:45:41.000000000 +0100
++++ vdr-2.1.9/dvbplayer.c	2015-02-06 16:08:51.000000000 +0100
+@@ -4,13 +4,12 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.c 3.3 2015/02/01 10:45:41 kls Exp $
++ * $Id: dvbplayer.c 3.5 2015/02/06 15:08:51 kls Exp $
+  */
+ 
+ #include "dvbplayer.h"
+ #include <math.h>
+ #include <stdlib.h>
+-#include "recording.h"
+ #include "remux.h"
+ #include "ringbuffer.h"
+ #include "thread.h"
+@@ -211,7 +210,7 @@
+   cNonBlockingFileReader *nonBlockingFileReader;
+   cRingBufferFrame *ringBuffer;
+   cPtsIndex ptsIndex;
+-  cMarks marks;
++  cMarks *marks;
+   cFileName *fileName;
+   cIndexFile *index;
+   cUnbufferedFile *replayFile;
+@@ -240,6 +239,7 @@
+ public:
+   cDvbPlayer(const char *FileName, bool PauseLive);
+   virtual ~cDvbPlayer();
++  void SetMarks(cMarks *Marks);
+   bool Active(void) { return cThread::Running(); }
+   void Pause(void);
+   void Play(void);
+@@ -265,6 +265,7 @@
+ {
+   nonBlockingFileReader = NULL;
+   ringBuffer = NULL;
++  marks = NULL;
+   index = NULL;
+   cRecording Recording(FileName);
+   framesPerSecond = Recording.FramesPerSecond();
+@@ -297,8 +298,6 @@
+      }
+   else if (PauseLive)
+      framesPerSecond = cRecording(FileName).FramesPerSecond(); // the fps rate might have changed from the default
+-  if (Setup.SkipEdited || Setup.PauseAtLastMark)
+-     marks.Load(FileName, framesPerSecond, isPesRecording);
+ }
+ 
+ cDvbPlayer::~cDvbPlayer()
+@@ -309,6 +308,12 @@
+   delete index;
+   delete fileName;
+   delete ringBuffer;
++  // don't delete marks here, we don't own them!
++}
++
++void cDvbPlayer::SetMarks(cMarks *Marks)
++{
++  marks = Marks;
+ }
+ 
+ void cDvbPlayer::TrickSpeed(int Increment)
+@@ -377,6 +382,12 @@
+   if (index) {
+      int Index = ptsIndex.FindIndex(DeviceGetSTC());
+      if (Index >= 0) {
++        if (Setup.SkipEdited && marks) {
++           marks->Lock();
++           if (marks->First() && abs(Index - marks->First()->Position()) <= int(round(RESUMEBACKUP * framesPerSecond)))
++              Index = 0; // when stopping within RESUMEBACKUP seconds of the first mark the recording shall still be considered unviewed
++           marks->Unlock();
++           }
+         Index -= int(round(RESUMEBACKUP * framesPerSecond));
+         if (Index > 0)
+            Index = index->GetNextIFrame(Index, false);
+@@ -407,9 +418,10 @@
+   readIndex = Resume();
+   if (readIndex > 0)
+      isyslog("resuming replay at index %d (%s)", readIndex, *IndexToHMSF(readIndex, true, framesPerSecond));
+-  else if (Setup.SkipEdited) {
+-     if (marks.First() && index) {
+-        int Index = marks.First()->Position();
++  else if (Setup.SkipEdited && marks) {
++     marks->Lock();
++     if (marks->First() && index) {
++        int Index = marks->First()->Position();
+         uint16_t FileNumber;
+         off_t FileOffset;
+         if (index->Get(Index, &FileNumber, &FileOffset) && NextFile(FileNumber, FileOffset)) {
+@@ -417,6 +429,7 @@
+            readIndex = Index;
+            }
+         }
++     marks->Unlock();
+      }
+ 
+   nonBlockingFileReader = new cNonBlockingFileReader;
+@@ -486,11 +499,11 @@
+                       off_t FileOffset;
+                       if (index->Get(readIndex + 1, &FileNumber, &FileOffset, &readIndependent, &Length) && NextFile(FileNumber, FileOffset)) {
+                          readIndex++;
+-                         if (Setup.SkipEdited || Setup.PauseAtLastMark) {
+-                            marks.Update();
+-                            cMark *m = marks.Get(readIndex);
++                         if ((Setup.SkipEdited || Setup.PauseAtLastMark) && marks) {
++                            marks->Lock();
++                            cMark *m = marks->Get(readIndex);
+                             if (m && (m->Index() & 0x01) != 0) { // we're at an end mark
+-                               m = marks.GetNextBegin(m);
++                               m = marks->GetNextBegin(m);
+                                int Index = -1;
+                                if (m)
+                                   Index = m->Position(); // skip to next begin mark
+@@ -506,6 +519,7 @@
+                                   CutIn = true;
+                                   }
+                                }
++                            marks->Unlock();
+                             }
+                          }
+                       else
+@@ -929,6 +943,12 @@
+   Stop();
+ }
+ 
++void cDvbPlayerControl::SetMarks(cMarks *Marks)
++{
++  if (player)
++     player->SetMarks(Marks);
++}
++
+ bool cDvbPlayerControl::Active(void)
+ {
+   return player && player->Active();
+diff -ruN vdr-2.1.8/dvbplayer.h vdr-2.1.9/dvbplayer.h
+--- vdr-2.1.8/dvbplayer.h	2015-02-01 12:20:54.000000000 +0100
++++ vdr-2.1.9/dvbplayer.h	2015-02-06 13:27:39.000000000 +0100
+@@ -4,13 +4,14 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.h 3.1 2015/02/01 11:20:54 kls Exp $
++ * $Id: dvbplayer.h 3.2 2015/02/06 12:27:39 kls Exp $
+  */
+ 
+ #ifndef __DVBPLAYER_H
+ #define __DVBPLAYER_H
+ 
+ #include "player.h"
++#include "recording.h"
+ #include "thread.h"
+ 
+ class cDvbPlayer;
+@@ -25,6 +26,7 @@
+        // file of the recording is long enough to allow the player to display
+        // the first frame in still picture mode.
+   virtual ~cDvbPlayerControl();
++  void SetMarks(cMarks *Marks);
+   bool Active(void);
+   void Stop(void);
+        // Stops the current replay session (if any).
+diff -ruN vdr-2.1.8/eit.c vdr-2.1.9/eit.c
+--- vdr-2.1.8/eit.c	2014-02-08 15:20:27.000000000 +0100
++++ vdr-2.1.9/eit.c	2015-02-01 15:55:27.000000000 +0100
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 3.5 2014/02/08 14:20:27 kls Exp $
++ * $Id: eit.c 3.6 2015/02/01 14:55:27 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -136,8 +136,8 @@
+                     UseExtendedEventDescriptor = true;
+                     }
+                  if (UseExtendedEventDescriptor) {
+-                    ExtendedEventDescriptors->Add(eed);
+-                    d = NULL; // so that it is not deleted
++                    if (ExtendedEventDescriptors->Add(eed))
++                       d = NULL; // so that it is not deleted
+                     }
+                  if (eed->getDescriptorNumber() == eed->getLastDescriptorNumber())
+                     UseExtendedEventDescriptor = false;
+diff -ruN vdr-2.1.8/libsi/si.c vdr-2.1.9/libsi/si.c
+--- vdr-2.1.8/libsi/si.c	2013-10-30 11:16:18.000000000 +0100
++++ vdr-2.1.9/libsi/si.c	2015-02-01 15:55:27.000000000 +0100
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.c 3.1 2013/10/30 10:16:18 kls Exp $
++ *   $Id: si.c 3.2 2015/02/01 14:55:27 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -198,17 +198,18 @@
+       }
+ }
+ 
+-void DescriptorGroup::Add(GroupDescriptor *d) {
++bool DescriptorGroup::Add(GroupDescriptor *d) {
+    if (!array) {
+       length=d->getLastDescriptorNumber()+1;
+       array=new GroupDescriptor*[length]; //numbering is zero-based
+       for (int i=0;i<length;i++)
+          array[i]=0;
+    } else if (length != d->getLastDescriptorNumber()+1)
+-      return; //avoid crash in case of misuse
++      return false; //avoid crash in case of misuse
+    if (length <= d->getDescriptorNumber())
+-      return; // see http://www.vdr-portal.de/board60-linux/board14-betriebssystem/board69-c-t-vdr/p1025777-segfault-mit-vdr-1-7-21/#post1025777
++      return false; // see http://www.vdr-portal.de/board60-linux/board14-betriebssystem/board69-c-t-vdr/p1025777-segfault-mit-vdr-1-7-21/#post1025777
+    array[d->getDescriptorNumber()]=d;
++   return true;
+ }
+ 
+ bool DescriptorGroup::isComplete() {
+diff -ruN vdr-2.1.8/libsi/si.h vdr-2.1.9/libsi/si.h
+--- vdr-2.1.8/libsi/si.h	2014-02-08 15:11:32.000000000 +0100
++++ vdr-2.1.9/libsi/si.h	2015-02-01 15:55:27.000000000 +0100
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.h 3.2 2014/02/08 14:11:32 kls Exp $
++ *   $Id: si.h 3.3 2015/02/01 14:55:27 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -483,7 +483,7 @@
+ public:
+    DescriptorGroup(bool deleteOnDesctruction=true);
+    ~DescriptorGroup();
+-   void Add(GroupDescriptor *d);
++   bool Add(GroupDescriptor *d);
+    void Delete();
+    int getLength() { return length; }
+    GroupDescriptor **getDescriptors() { return array; }
+diff -ruN vdr-2.1.8/menu.c vdr-2.1.9/menu.c
+--- vdr-2.1.8/menu.c	2015-02-01 11:42:11.000000000 +0100
++++ vdr-2.1.9/menu.c	2015-02-07 16:56:26.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 3.35 2015/02/01 10:42:11 kls Exp $
++ * $Id: menu.c 3.46 2015/02/07 15:56:26 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -766,8 +766,48 @@
+      }
+ }
+ 
++#define FOLDERDELIMCHARSUBST 0x01
++static void AddRecordingFolders(cList<cNestedItem> *List, char *Path)
++{
++  if (Path) {
++     char *p = strchr(Path, FOLDERDELIMCHARSUBST);
++     if (p)
++        *p++ = 0;
++     cNestedItem *Folder;
++     for (Folder = List->First(); Folder; Folder = List->Next(Folder)) {
++         if (strcmp(Path, Folder->Text()) == 0)
++            break;
++         }
++     if (!Folder)
++        List->Add(Folder = new cNestedItem(Path));
++     if (p) {
++        Folder->SetSubItems(true);
++        AddRecordingFolders(Folder->SubItems(), p);
++        }
++     }
++  else {
++     cThreadLock RecordingsLock(&Recordings);
++     cStringList Dirs;
++     for (cRecording *Recording = Recordings.First(); Recording; Recording = Recordings.Next(Recording)) {
++         cString Folder = Recording->Folder();
++         strreplace((char *)*Folder, FOLDERDELIMCHAR, FOLDERDELIMCHARSUBST); // makes sure parent folders come before subfolders
++         if (Dirs.Find(Folder) < 0)
++            Dirs.Append(strdup(Folder));
++         }
++     Dirs.Sort();
++     for (int i = 0; i < Dirs.Size(); i++) {
++         char *s = Dirs[i];
++         if (*s)
++            AddRecordingFolders(&Folders, s);
++         }
++     }
++}
++
+ void cMenuFolder::Set(const char *CurrentFolder)
+ {
++  static int RecordingsState = -1;
++  if (list == &Folders && Recordings.StateChanged(RecordingsState))
++     AddRecordingFolders(&Folders, NULL);
+   firstFolder = NULL;
+   Clear();
+   if (!isempty(dir)) {
+@@ -1377,6 +1417,7 @@
+ class cMenuWhatsOn : public cOsdMenu {
+ private:
+   bool now;
++  bool canSwitch;
+   int helpKeys;
+   int timerState;
+   eOSState Record(void);
+@@ -1401,7 +1442,8 @@
+ {
+   SetMenuCategory(Now ? mcScheduleNow : mcScheduleNext);
+   now = Now;
+-  helpKeys = -1;
++  canSwitch = false;
++  helpKeys = 0;
+   timerState = 0;
+   Timers.Modified(timerState);
+   for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+@@ -1434,16 +1476,27 @@
+ void cMenuWhatsOn::SetHelpKeys(void)
+ {
+   cMenuScheduleItem *item = (cMenuScheduleItem *)Get(Current());
++  canSwitch = false;
+   int NewHelpKeys = 0;
+   if (item) {
+      if (item->timerMatch == tmFull)
+-        NewHelpKeys = 2;
++        NewHelpKeys |= 0x02; // "Timer"
+      else
+-        NewHelpKeys = 1;
++        NewHelpKeys |= 0x01; // "Record"
++     if (now)
++        NewHelpKeys |= 0x04; // "Next"
++     else
++        NewHelpKeys |= 0x08; // "Now"
++     if (cChannel *Channel = Channels.GetByChannelID(item->event->ChannelID(), true)) {
++        if (Channel->Number() != cDevice::CurrentChannel()) {
++           NewHelpKeys |= 0x10; // "Switch"
++           canSwitch = true;
++           }
++        }
+      }
+   if (NewHelpKeys != helpKeys) {
+      const char *Red[] = { NULL, tr("Button$Record"), tr("Button$Timer") };
+-     SetHelp(Red[NewHelpKeys], now ? tr("Button$Next") : tr("Button$Now"), tr("Button$Schedule"), tr("Button$Switch"));
++     SetHelp(Red[NewHelpKeys & 0x03], now ? tr("Button$Next") : tr("Button$Now"), tr("Button$Schedule"), canSwitch ? tr("Button$Switch") : NULL);
+      helpKeys = NewHelpKeys;
+      }
+ }
+@@ -1519,10 +1572,12 @@
+                           }
+                      }
+                      break;
+-       case kBlue:   return Switch();
++       case kBlue:   if (canSwitch)
++                        return Switch();
++                     break;
+        case kInfo:
+        case kOk:     if (Count())
+-                        return AddSubMenu(new cMenuEvent(((cMenuScheduleItem *)Get(Current()))->event, true, true));
++                        return AddSubMenu(new cMenuEvent(((cMenuScheduleItem *)Get(Current()))->event, canSwitch, true));
+                      break;
+        default:      break;
+        }
+@@ -1543,7 +1598,7 @@
+   cSchedulesLock schedulesLock;
+   const cSchedules *schedules;
+   bool now, next;
+-  int otherChannel;
++  bool canSwitch;
+   int helpKeys;
+   int timerState;
+   eOSState Number(void);
+@@ -1566,8 +1621,8 @@
+ {
+   SetMenuCategory(mcSchedule);
+   now = next = false;
+-  otherChannel = 0;
+-  helpKeys = -1;
++  canSwitch = false;
++  helpKeys = 0;
+   timerState = 0;
+   Timers.Modified(timerState);
+   cMenuScheduleItem::SetSortMode(cMenuScheduleItem::ssmAllThis);
+@@ -1673,16 +1728,23 @@
+ void cMenuSchedule::SetHelpKeys(void)
+ {
+   cMenuScheduleItem *item = (cMenuScheduleItem *)Get(Current());
++  canSwitch = false;
+   int NewHelpKeys = 0;
+   if (item) {
+      if (item->timerMatch == tmFull)
+-        NewHelpKeys = 2;
++        NewHelpKeys |= 0x02; // "Timer"
+      else
+-        NewHelpKeys = 1;
++        NewHelpKeys |= 0x01; // "Record"
++     if (cChannel *Channel = Channels.GetByChannelID(item->event->ChannelID(), true)) {
++        if (Channel->Number() != cDevice::CurrentChannel()) {
++           NewHelpKeys |= 0x10; // "Switch"
++           canSwitch = true;
++           }
++        }
+      }
+   if (NewHelpKeys != helpKeys) {
+      const char *Red[] = { NULL, tr("Button$Record"), tr("Button$Timer") };
+-     SetHelp(Red[NewHelpKeys], tr("Button$Now"), tr("Button$Next"));
++     SetHelp(Red[NewHelpKeys & 0x03], tr("Button$Now"), tr("Button$Next"), canSwitch ? tr("Button$Switch") : NULL);
+      helpKeys = NewHelpKeys;
+      }
+ }
+@@ -1748,9 +1810,12 @@
+ 
+ eOSState cMenuSchedule::Switch(void)
+ {
+-  if (otherChannel) {
+-     if (Channels.SwitchTo(otherChannel))
+-        return osEnd;
++  cMenuScheduleItem *item = (cMenuScheduleItem *)Get(Current());
++  if (item) {
++     if (cChannel *Channel = Channels.GetByChannelID(item->event->ChannelID(), true)) {
++        if (Channels.SwitchTo(Channel->Number()))
++           return osEnd;
++        }
+      }
+   Skins.Message(mtError, tr("Can't switch channel!"));
+   return osContinue;
+@@ -1784,12 +1849,12 @@
+        case kYellow: if (schedules)
+                         return AddSubMenu(new cMenuWhatsOn(schedules, false, cMenuWhatsOn::CurrentChannel()));
+                      break;
+-       case kBlue:   if (Count() && otherChannel)
++       case kBlue:   if (canSwitch)
+                         return Switch();
+                      break;
+        case kInfo:
+        case kOk:     if (Count())
+-                        return AddSubMenu(new cMenuEvent(((cMenuScheduleItem *)Get(Current()))->event, otherChannel, true));
++                        return AddSubMenu(new cMenuEvent(((cMenuScheduleItem *)Get(Current()))->event, canSwitch, true));
+                      break;
+        default:      break;
+        }
+@@ -1802,10 +1867,6 @@
+         if (channel) {
+            cMenuScheduleItem::SetSortMode(cMenuScheduleItem::ssmAllThis);
+            PrepareScheduleAllThis(NULL, channel);
+-           if (channel->Number() != cDevice::CurrentChannel()) {
+-              otherChannel = channel->Number();
+-              SetHelp(Count() ? tr("Button$Record") : NULL, tr("Button$Now"), tr("Button$Next"), tr("Button$Switch"));
+-              }
+            Display();
+            }
+         }
+@@ -2190,8 +2251,10 @@
+ 
+ eOSState cMenuPathEdit::ApplyChanges(void)
+ {
+-  if (!*name)
++  if (!*name) {
+      *name = ' '; // name must not be empty!
++     name[1] = 0;
++     }
+   cString NewPath = *folder ? cString::sprintf("%s%c%s", folder, FOLDERDELIMCHAR, name) : name;
+   NewPath.CompactChars(FOLDERDELIMCHAR);
+   if (strcmp(NewPath, path)) {
+@@ -2239,6 +2302,7 @@
+   int priority;
+   int lifetime;
+   cMenuEditStrItem *folderItem;
++  cMenuEditStrItem *nameItem;
+   const char *buttonFolder;
+   const char *buttonAction;
+   const char *buttonDeleteMarks;
+@@ -2251,6 +2315,7 @@
+   eOSState SetFolder(void);
+   eOSState Folder(void);
+   eOSState Action(void);
++  eOSState RemoveName(void);
+   eOSState DeleteMarks(void);
+   eOSState ApplyChanges(void);
+ public:
+@@ -2270,6 +2335,7 @@
+   priority = recording->Priority();
+   lifetime = recording->Lifetime();
+   folderItem = NULL;
++  nameItem = NULL;
+   buttonFolder = NULL;
+   buttonAction = NULL;
+   buttonDeleteMarks = NULL;
+@@ -2287,7 +2353,7 @@
+   cOsdItem *p;
+   Add(p = folderItem = new cMenuEditStrItem(tr("Folder"), folder, sizeof(folder)));
+   p->SetSelectable(!recordingIsInUse);
+-  Add(p = new cMenuEditStrItem(tr("Name"), name, sizeof(name)));
++  Add(p = nameItem = new cMenuEditStrItem(tr("Name"), name, sizeof(name)));
+   p->SetSelectable(!recordingIsInUse);
+   Add(p = new cMenuEditIntItem(tr("Priority"), &priority, 0, MAXPRIORITY));
+   p->SetSelectable(!recordingIsInUse);
+@@ -2366,6 +2432,24 @@
+   return osContinue;
+ }
+ 
++eOSState cMenuRecordingEdit::RemoveName(void)
++{
++  if (Get(Current()) == nameItem) {
++     if (Interface->Confirm(tr("Rename recording to folder name?"))) {
++        char *s = strrchr(folder, FOLDERDELIMCHAR);
++        if (s)
++           *s++ = 0;
++        else
++           s = folder;
++        strn0cpy(name, s, sizeof(name));
++        if (s == folder)
++           *s = 0;
++        Set();
++        }
++     }
++  return osContinue;
++}
++
+ eOSState cMenuRecordingEdit::DeleteMarks(void)
+ {
+   if (buttonDeleteMarks && Interface->Confirm(tr("Delete editing marks for this recording?"))) {
+@@ -2387,8 +2471,10 @@
+         }
+      Modified = true;
+      }
+-  if (!*name)
++  if (!*name) {
+      *name = ' '; // name must not be empty!
++     name[1] = 0;
++     }
+   cString NewName = *folder ? cString::sprintf("%s%c%s", folder, FOLDERDELIMCHAR, name) : name;
+   NewName.CompactChars(FOLDERDELIMCHAR);
+   if (strcmp(NewName, recording->Name())) {
+@@ -2414,6 +2500,7 @@
+   eOSState state = cOsdMenu::ProcessKey(Key);
+   if (state == osUnknown) {
+      switch (Key) {
++       case k0:      return RemoveName();
+        case kRed:    return buttonFolder ? Folder() : osContinue;
+        case kGreen:  return buttonAction ? Action() : osContinue;
+        case kYellow: return buttonDeleteMarks ? DeleteMarks() : osContinue;
+@@ -3181,7 +3268,7 @@
+   void Setup(void);
+   const char *videoDisplayFormatTexts[3];
+   const char *updateChannelsTexts[6];
+-  const char *standardComplianceTexts[2];
++  const char *standardComplianceTexts[3];
+ public:
+   cMenuSetupDVB(void);
+   virtual eOSState ProcessKey(eKeys Key);
+@@ -3207,6 +3294,7 @@
+   updateChannelsTexts[5] = tr("add new transponders");
+   standardComplianceTexts[0] = "DVB";
+   standardComplianceTexts[1] = "ANSI/SCTE";
++  standardComplianceTexts[2] = "NORDIG";
+ 
+   SetSection(tr("DVB"));
+   SetHelp(NULL, tr("Button$Audio"), tr("Button$Subtitles"), NULL);
+@@ -3220,7 +3308,7 @@
+   Clear();
+ 
+   Add(new cMenuEditIntItem( tr("Setup.DVB$Primary DVB interface"), &data.PrimaryDVB, 1, cDevice::NumDevices()));
+-  Add(new cMenuEditStraItem(tr("Setup.DVB$Standard compliance"),   &data.StandardCompliance, 2, standardComplianceTexts));
++  Add(new cMenuEditStraItem(tr("Setup.DVB$Standard compliance"),   &data.StandardCompliance, 3, standardComplianceTexts));
+   Add(new cMenuEditBoolItem(tr("Setup.DVB$Video format"),          &data.VideoFormat, "4:3", "16:9"));
+   if (data.VideoFormat == 0)
+      Add(new cMenuEditStraItem(tr("Setup.DVB$Video display format"), &data.VideoDisplayFormat, 3, videoDisplayFormatTexts));
+@@ -3639,8 +3727,9 @@
+   Add(new cMenuEditBoolItem(tr("Setup.Replay$Pause replay when jumping to a mark"), &data.PauseOnMarkJump));
+   Add(new cMenuEditBoolItem(tr("Setup.Replay$Skip edited parts"), &data.SkipEdited));
+   Add(new cMenuEditBoolItem(tr("Setup.Replay$Pause replay at last mark"), &data.PauseAtLastMark));
+-  Add(new cMenuEditIntItem( tr("Setup.Replay$Binary skip initial value (s)"), &data.BinarySkipInitial, 10, 600));
+-  Add(new cMenuEditIntItem( tr("Setup.Replay$Binary skip timeout (s)"), &data.BinarySkipTimeout, 0, 10));
++  Add(new cMenuEditIntItem( tr("Setup.Replay$Initial duration for adaptive skipping (s)"), &data.AdaptiveSkipInitial, 10, 600));
++  Add(new cMenuEditIntItem( tr("Setup.Replay$Reset timeout for adaptive skipping (s)"), &data.AdaptiveSkipTimeout, 0, 10));
++  Add(new cMenuEditBoolItem(tr("Setup.Replay$Alternate behavior for adaptive skipping"), &data.AdaptiveSkipAlternate));
+   Add(new cMenuEditIntItem(tr("Setup.Replay$Resume ID"), &data.ResumeID, 0, 99));
+ }
+ 
+@@ -4980,9 +5069,9 @@
+   return Result;
+ }
+ 
+-// --- cBinarySkipper --------------------------------------------------------
++// --- cAdaptiveSkipper ------------------------------------------------------
+ 
+-cBinarySkipper::cBinarySkipper(void)
++cAdaptiveSkipper::cAdaptiveSkipper(void)
+ {
+   initialValue = NULL;
+   currentValue = 0;
+@@ -4990,14 +5079,14 @@
+   lastKey = kNone;
+ }
+ 
+-void cBinarySkipper::Initialize(int *InitialValue, double FramesPerSecond)
++void cAdaptiveSkipper::Initialize(int *InitialValue, double FramesPerSecond)
+ {
+   initialValue = InitialValue;
+   framesPerSecond = FramesPerSecond;
+   currentValue = 0;
+ }
+ 
+-int cBinarySkipper::GetValue(eKeys Key)
++int cAdaptiveSkipper::GetValue(eKeys Key)
+ {
+   if (!initialValue)
+      return 0;
+@@ -5007,9 +5096,12 @@
+      }
+   else if (Key != lastKey) {
+      currentValue /= 2;
+-     lastKey = kNone; // once the direction has changed, every further call halves the value
++     if (Setup.AdaptiveSkipAlternate)
++        lastKey = Key; // only halve the value when the direction is changed
++     else
++        lastKey = kNone; // once the direction has changed, every further call halves the value
+      }
+-  timeout.Set(Setup.BinarySkipTimeout * 1000);
++  timeout.Set(Setup.AdaptiveSkipTimeout * 1000);
+   return max(currentValue, 1);
+ }
+ 
+@@ -5034,7 +5126,8 @@
+   cRecording Recording(fileName);
+   cStatus::MsgReplaying(this, Recording.Name(), Recording.FileName(), true);
+   marks.Load(fileName, Recording.FramesPerSecond(), Recording.IsPesRecording());
+-  binarySkipper.Initialize(&Setup.BinarySkipInitial, Recording.FramesPerSecond());
++  SetMarks(&marks);
++  adaptiveSkipper.Initialize(&Setup.AdaptiveSkipInitial, Recording.FramesPerSecond());
+   SetTrackDescriptions(false);
+   if (Setup.ProgressDisplayTime)
+      ShowTimed(Setup.ProgressDisplayTime);
+@@ -5303,10 +5396,15 @@
+   int Current, Total;
+   if (GetIndex(Current, Total, true)) {
+      lastCurrent = -1; // triggers redisplay
+-     if (cMark *m = marks.Get(Current))
++     if (cMark *m = marks.Get(Current)) {
++        marks.Lock();
+         marks.Del(m);
++        marks.Unlock();
++        }
+      else {
++        marks.Lock();
+         marks.Add(Current);
++        marks.Unlock();
+         bool Play, Forward;
+         int Speed;
+         if (Setup.PauseOnMarkSet || GetReplayMode(Play, Forward, Speed) && !Play) {
+@@ -5510,9 +5608,9 @@
+         case kMarkMoveForward|k_Repeat:
+         case kMarkMoveForward: MarkMove(+1, true); break;
+         case kMarkSkipBack|k_Repeat:
+-        case kMarkSkipBack:    MarkMove(-binarySkipper.GetValue(RAWKEY(Key)), false); break;
++        case kMarkSkipBack:    MarkMove(-adaptiveSkipper.GetValue(RAWKEY(Key)), false); break;
+         case kMarkSkipForward|k_Repeat:
+-        case kMarkSkipForward: MarkMove(+binarySkipper.GetValue(RAWKEY(Key)), false); break;
++        case kMarkSkipForward: MarkMove(+adaptiveSkipper.GetValue(RAWKEY(Key)), false); break;
+         case kEditCut:         EditCut(); break;
+         case kEditTest:        EditTest(); break;
+         default: {
+diff -ruN vdr-2.1.8/menu.h vdr-2.1.9/menu.h
+--- vdr-2.1.8/menu.h	2015-01-27 12:38:20.000000000 +0100
++++ vdr-2.1.9/menu.h	2015-02-06 10:47:30.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 3.7 2015/01/27 11:38:20 kls Exp $
++ * $Id: menu.h 3.8 2015/02/06 09:47:30 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -270,7 +270,7 @@
+   static bool StateChanged(int &State);
+   };
+ 
+-class cBinarySkipper {
++class cAdaptiveSkipper {
+ private:
+   int *initialValue;
+   int currentValue;
+@@ -278,7 +278,7 @@
+   eKeys lastKey;
+   cTimeMs timeout;
+ public:
+-  cBinarySkipper(void);
++  cAdaptiveSkipper(void);
+   void Initialize(int *InitialValue, double FramesPerSecond);
+   int GetValue(eKeys Key);
+   };
+@@ -286,7 +286,7 @@
+ class cReplayControl : public cDvbPlayerControl {
+ private:
+   cSkinDisplayReplay *displayReplay;
+-  cBinarySkipper binarySkipper;
++  cAdaptiveSkipper adaptiveSkipper;
+   cMarks marks;
+   bool marksModified;
+   bool visible, modeOnly, shown, displayFrames;
+diff -ruN vdr-2.1.8/nit.c vdr-2.1.9/nit.c
+--- vdr-2.1.8/nit.c	2015-02-01 14:46:00.000000000 +0100
++++ vdr-2.1.9/nit.c	2015-02-04 10:13:54.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: nit.c 3.4 2015/02/01 13:46:00 kls Exp $
++ * $Id: nit.c 3.5 2015/02/04 09:13:54 kls Exp $
+  */
+ 
+ #include "nit.h"
+@@ -357,39 +357,41 @@
+                    }
+                  }
+                  break;
+-            case SI::LogicalChannelDescriptorTag: {
+-                 SI::LogicalChannelDescriptor *lcd = (SI::LogicalChannelDescriptor *)d;
+-                 SI::LogicalChannelDescriptor::LogicalChannel LogicalChannel;
+-                 for (SI::Loop::Iterator it4; lcd->logicalChannelLoop.getNext(LogicalChannel, it4); ) {
+-                     int lcn = LogicalChannel.getLogicalChannelNumber();
+-                     int sid = LogicalChannel.getServiceId();
+-                     if (LogicalChannel.getVisibleServiceFlag()) {
+-                        for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+-                            if (!Channel->GroupSep() && Channel->Sid() == sid && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+-                               Channel->SetLcn(lcn);
+-                               break;
++            case SI::LogicalChannelDescriptorTag:
++                 if (Setup.StandardCompliance == STANDARD_NORDIG) {
++                    SI::LogicalChannelDescriptor *lcd = (SI::LogicalChannelDescriptor *)d;
++                    SI::LogicalChannelDescriptor::LogicalChannel LogicalChannel;
++                    for (SI::Loop::Iterator it4; lcd->logicalChannelLoop.getNext(LogicalChannel, it4); ) {
++                        int lcn = LogicalChannel.getLogicalChannelNumber();
++                        int sid = LogicalChannel.getServiceId();
++                        if (LogicalChannel.getVisibleServiceFlag()) {
++                           for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
++                               if (!Channel->GroupSep() && Channel->Sid() == sid && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
++                                  Channel->SetLcn(lcn);
++                                  break;
++                                  }
+                                }
+-                            }
++                           }
+                         }
+-                     }
+-                 }
++                    }
+                  break;
+-            case SI::HdSimulcastLogicalChannelDescriptorTag: {
+-                 SI::HdSimulcastLogicalChannelDescriptor *lcd = (SI::HdSimulcastLogicalChannelDescriptor *)d;
+-                 SI::HdSimulcastLogicalChannelDescriptor::HdSimulcastLogicalChannel HdSimulcastLogicalChannel;
+-                 for (SI::Loop::Iterator it4; lcd->hdSimulcastLogicalChannelLoop.getNext(HdSimulcastLogicalChannel, it4); ) {
+-                     int lcn = HdSimulcastLogicalChannel.getLogicalChannelNumber();
+-                     int sid = HdSimulcastLogicalChannel.getServiceId();
+-                     if (HdSimulcastLogicalChannel.getVisibleServiceFlag()) {
+-                        for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+-                            if (!Channel->GroupSep() && Channel->Sid() == sid && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+-                               Channel->SetLcn(lcn);
+-                               break;
++            case SI::HdSimulcastLogicalChannelDescriptorTag:
++                 if (Setup.StandardCompliance == STANDARD_NORDIG) {
++                    SI::HdSimulcastLogicalChannelDescriptor *lcd = (SI::HdSimulcastLogicalChannelDescriptor *)d;
++                    SI::HdSimulcastLogicalChannelDescriptor::HdSimulcastLogicalChannel HdSimulcastLogicalChannel;
++                    for (SI::Loop::Iterator it4; lcd->hdSimulcastLogicalChannelLoop.getNext(HdSimulcastLogicalChannel, it4); ) {
++                        int lcn = HdSimulcastLogicalChannel.getLogicalChannelNumber();
++                        int sid = HdSimulcastLogicalChannel.getServiceId();
++                        if (HdSimulcastLogicalChannel.getVisibleServiceFlag()) {
++                           for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
++                               if (!Channel->GroupSep() && Channel->Sid() == sid && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
++                                  Channel->SetLcn(lcn);
++                                  break;
++                                  }
+                                }
+-                            }
++                           }
+                         }
+-                     }
+-                 }
++                    }
+                  break;
+             default: ;
+             }
+diff -ruN vdr-2.1.8/po/ar.po vdr-2.1.9/po/ar.po
+--- vdr-2.1.8/po/ar.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/ar.po	2015-02-08 13:07:17.503283521 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2008-10-16 11:16-0400\n"
+ "Last-Translator: Osama Alrawab <alrawab@hotmail.com>\n"
+ "Language-Team: Arabic <ar@li.org>\n"
+@@ -800,6 +800,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1245,10 +1248,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/ca_ES.po vdr-2.1.9/po/ca_ES.po
+--- vdr-2.1.8/po/ca_ES.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/ca_ES.po	2015-02-08 13:07:16.975259712 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Catalan <vdr@linuxtv.org>\n"
+@@ -799,6 +799,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1244,10 +1247,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/cs_CZ.po vdr-2.1.9/po/cs_CZ.po
+--- vdr-2.1.8/po/cs_CZ.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/cs_CZ.po	2015-02-08 13:07:17.430280230 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2010-05-06 11:00+0200\n"
+ "Last-Translator: Aleš Juřík <ajurik@quick.cz>\n"
+ "Language-Team: Czech <vdr@linuxtv.org>\n"
+@@ -799,6 +799,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1244,10 +1247,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/da_DK.po vdr-2.1.9/po/da_DK.po
+--- vdr-2.1.8/po/da_DK.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/da_DK.po	2015-02-08 13:07:17.087264763 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish <vdr@linuxtv.org>\n"
+@@ -796,6 +796,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1241,10 +1244,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/de_DE.po vdr-2.1.9/po/de_DE.po
+--- vdr-2.1.8/po/de_DE.po	2015-01-30 13:15:16.000000000 +0100
++++ vdr-2.1.9/po/de_DE.po	2015-02-08 13:07:17.802297004 +0100
+@@ -1,13 +1,13 @@
+ # VDR language source file.
+ # Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Klaus Schmidinger <vdr@tvdr.de>, 2000-2008
++# Klaus Schmidinger <vdr@tvdr.de>, 2000-2015
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2010-01-16 16:46+0100\n"
+ "Last-Translator: Klaus Schmidinger <vdr@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
+@@ -796,6 +796,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr "Fehler beim Hinzuf�gen der Aufnahme zur Schnittwarteschlange"
+ 
++msgid "Rename recording to folder name?"
++msgstr "Aufnahme in Ordnername umbenennen?"
++
+ msgid "Delete editing marks for this recording?"
+ msgstr "Schnittmarken f�r diese Aufnahme l�schen?"
+ 
+@@ -1079,7 +1082,7 @@
+ msgstr "Antennen-Positionierer benutzen"
+ 
+ msgid "Setup.LNB$Site latitude (degrees)"
+-msgstr "Standort L�ngengrad"
++msgstr "Standort Breitengrad"
+ 
+ msgid "South"
+ msgstr "S�d"
+@@ -1088,7 +1091,7 @@
+ msgstr "Nord"
+ 
+ msgid "Setup.LNB$Site longitude (degrees)"
+-msgstr "Standort Breitengrad"
++msgstr "Standort L�ngengrad"
+ 
+ msgid "West"
+ msgstr "West"
+@@ -1241,11 +1244,14 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr "Pause an der letzten Schnittmarke"
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
+-msgstr "Anfangswert f�r bin�res Springen (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr "Anfangswert beim Halbieren der Sprungweite (s)"
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
++msgstr "Zeitlimit beim Halbieren der Sprungweite (s)"
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
+-msgstr "Zeitlimit f�r bin�res Springen (ms)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
++msgstr "Sprungweite nur bei Richtungswechsel halbieren"
+ 
+ msgid "Setup.Replay$Resume ID"
+ msgstr "Wiedergabe-ID"
+@@ -1519,7 +1525,7 @@
+ msgstr "Aufzeichnung gestartet"
+ 
+ msgid "VDR will shut down later - press Power to force"
+-msgstr "VDR schaltet sp�ter aus - Power zum erzwingen"
++msgstr "VDR schaltet sp�ter aus - Power zum Erzwingen"
+ 
+ msgid "Press any key to cancel shutdown"
+ msgstr "Taste dr�cken, um Ausschalten abzubrechen"
+diff -ruN vdr-2.1.8/po/el_GR.po vdr-2.1.9/po/el_GR.po
+--- vdr-2.1.8/po/el_GR.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/el_GR.po	2015-02-08 13:07:17.256272383 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek <vdr@linuxtv.org>\n"
+@@ -796,6 +796,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1241,10 +1244,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/es_ES.po vdr-2.1.9/po/es_ES.po
+--- vdr-2.1.8/po/es_ES.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/es_ES.po	2015-02-08 13:07:16.879255383 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Spanish <vdr@linuxtv.org>\n"
+@@ -797,6 +797,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1242,10 +1245,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/et_EE.po vdr-2.1.9/po/et_EE.po
+--- vdr-2.1.8/po/et_EE.po	2015-01-30 14:40:46.000000000 +0100
++++ vdr-2.1.9/po/et_EE.po	2015-02-08 13:07:16.943258268 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
+ "Language-Team: Estonian <vdr@linuxtv.org>\n"
+@@ -20,7 +20,7 @@
+ msgstr "*** Kehtetu kanal ***"
+ 
+ msgid "CAM activated!"
+-msgstr ""
++msgstr "CAM aktiveeritud!"
+ 
+ msgid "Channel not available!"
+ msgstr "Kanal ei ole kättesaadav!"
+@@ -796,6 +796,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr "Salvestuse lõikamiseks lisamine ebaõnnestus!"
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr "Kustutada selle salvestuse markerid?"
+ 
+@@ -1113,16 +1116,16 @@
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " (activating)"
+-msgstr ""
++msgstr " (aktiveerimine)"
+ 
+ msgid "CAM"
+ msgstr "CAM"
+ 
+ msgid "Button$Cancel activation"
+-msgstr ""
++msgstr "Aktiveerimise tühistamine"
+ 
+ msgid "Button$Activate"
+-msgstr ""
++msgstr "Aktiveeri"
+ 
+ msgid "Button$Menu"
+ msgstr "Menüü"
+@@ -1137,7 +1140,7 @@
+ msgstr "Ei saa avada CAM menüüd!"
+ 
+ msgid "Can't activate CAM!"
+-msgstr ""
++msgstr "Ei saa CAM'i aktiveerida!"
+ 
+ msgid "CAM is in use - really reset?"
+ msgstr "CAM on kasutuses - taaskäivitada?"
+@@ -1230,21 +1233,24 @@
+ msgstr "Edenemiseriba kuvamise aeg (s)"
+ 
+ msgid "Setup.Replay$Pause replay when setting mark"
+-msgstr "Taasesituse peatamine markeri seadmisel"
++msgstr "Paus markeri seadmisel"
+ 
+ msgid "Setup.Replay$Pause replay when jumping to a mark"
+-msgstr ""
++msgstr "Paus markerile siirdamisel"
+ 
+ msgid "Setup.Replay$Skip edited parts"
+-msgstr ""
++msgstr "Redigeeritud osade vahelejätmine"
+ 
+ msgid "Setup.Replay$Pause replay at last mark"
++msgstr "Paus viimasel markeril"
++
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+@@ -1287,7 +1293,7 @@
+ msgstr "Helitugevuse samm"
+ 
+ msgid "Setup.Miscellaneous$Volume linearize"
+-msgstr "Helitugevuse lineariseerimine"
++msgstr "Helitugevuse lineaarsus"
+ 
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Kanalite ringkerimine"
+@@ -1322,7 +1328,7 @@
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " Stop replaying"
+-msgstr " Lõpetada taasesitamine"
++msgstr " Lõpetada taasesitus"
+ 
+ msgid "Button$Pause"
+ msgstr "Paus"
+@@ -1331,7 +1337,7 @@
+ msgstr "Stopp"
+ 
+ msgid "Button$Resume"
+-msgstr "Jätkata"
++msgstr "Jätkamine"
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " Cancel editing"
+diff -ruN vdr-2.1.8/po/fi_FI.po vdr-2.1.9/po/fi_FI.po
+--- vdr-2.1.8/po/fi_FI.po	2015-02-01 12:34:57.000000000 +0100
++++ vdr-2.1.9/po/fi_FI.po	2015-02-08 13:07:17.118266161 +0100
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Matti Lehtimäki <matti.lehtimaki@gmail.com>\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
+@@ -800,6 +800,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr "Tallenteen lisääminen leikkausjonoon epäonnistui!"
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr "Poistetaanko muokkausmerkinnät tallenteelta?"
+ 
+@@ -1245,11 +1248,14 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr "Pysäytä toisto viimeiseen merkkiin"
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
+-msgstr "Binäärihypyn oletuspituus (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr "Mukautuvan hypyn oletuskesto (s)"
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
++msgstr "Mukautuvan hypyn nollausviive (s)"
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
+-msgstr "Binäärihypyn odotusaika (ms)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
++msgstr "Käytä vaihtoehtoista mukautuvaa hyppyä"
+ 
+ msgid "Setup.Replay$Resume ID"
+ msgstr "Tallenteen paluutunniste"
+diff -ruN vdr-2.1.8/po/fr_FR.po vdr-2.1.9/po/fr_FR.po
+--- vdr-2.1.8/po/fr_FR.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/fr_FR.po	2015-02-08 13:07:17.357276938 +0100
+@@ -17,7 +17,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2013-02-24 12:56+0100\n"
+ "Last-Translator: Dominique Plu <dplu@free.fr>\n"
+ "Language-Team: French <vdr@linuxtv.org>\n"
+@@ -806,6 +806,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1251,10 +1254,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/hr_HR.po vdr-2.1.9/po/hr_HR.po
+--- vdr-2.1.8/po/hr_HR.po	2015-01-30 13:14:55.000000000 +0100
++++ vdr-2.1.9/po/hr_HR.po	2015-02-08 13:07:17.705292630 +0100
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian <vdr@linuxtv.org>\n"
+@@ -798,6 +798,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1243,10 +1246,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/hu_HU.po vdr-2.1.9/po/hu_HU.po
+--- vdr-2.1.8/po/hu_HU.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/hu_HU.po	2015-02-08 15:07:17.000000000 +0100
+@@ -4,30 +4,31 @@
+ # Istvan Koenigsberger <istvnko@hotmail.com>, 2002, 2003, 2006
+ # Guido Josten <guido.josten@t-online.de>, 2002, 2003, 2006
+ # Thomas Günther <tom@toms-cafe.de>, 2007
+-# István Füley <ifuley@tigercomp.ro>, 2007, 2012, 2013
++# István Füley <ifuley@tigercomp.ro>, 2007, 2012, 2013, 2015
++# Mario Fenneis <admin@mediastreambox.at>, 2015
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2015-01-30 13:14+0100\n"
+-"PO-Revision-Date: 2013-03-01 19:22+0200\n"
++"PO-Revision-Date: 2015-02-03 11:35+0200\n"
+ "Last-Translator: István Füley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian <vdr@linuxtv.org>\n"
+ "Language: hu\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"X-Generator: Poedit 1.5.5\n"
++"X-Generator: Poedit 1.6.11\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Érvénytelen csatorna ***"
+ 
+ msgid "CAM activated!"
+-msgstr ""
++msgstr "CAM aktiválva!"
+ 
+ msgid "Channel not available!"
+-msgstr "Az adó nem elérhető"
++msgstr "A csatorna nem elérhető!"
+ 
+ msgid "Can't start Transfer Mode!"
+ msgstr "Transfer-Mode nem indítható!"
+@@ -69,7 +70,7 @@
+ msgstr "Sávszélesség"
+ 
+ msgid "Transmission"
+-msgstr "Átvitel"
++msgstr "Transmission"
+ 
+ msgid "Guard"
+ msgstr "Guard"
+@@ -84,22 +85,22 @@
+ msgstr "Stream azonosító"
+ 
+ msgid "Pilot"
+-msgstr ""
++msgstr "Pilot"
+ 
+ msgid "T2SystemId"
+-msgstr ""
++msgstr "T2 rendszer azonosító"
+ 
+ msgid "SISO/MISO"
+-msgstr ""
++msgstr "SISO/MISO"
+ 
+ msgid "Starting EPG scan"
+-msgstr "EPG adatok aktualizálása"
++msgstr "EPG adatok frissítése"
+ 
+ msgid "Content$Movie/Drama"
+ msgstr "Film/Dráma"
+ 
+ msgid "Content$Detective/Thriller"
+-msgstr "Nyomozó/Thriller"
++msgstr "Nyomozó/Krimi"
+ 
+ msgid "Content$Adventure/Western/War"
+ msgstr "Kaland/Western/Háborús"
+@@ -117,7 +118,7 @@
+ msgstr "Romantikus film"
+ 
+ msgid "Content$Serious/Classical/Religious/Historical Movie/Drama"
+-msgstr "Komolyzenei/Klasszikus/Vallási/Történelmi film/Dráma"
++msgstr "Komoly/Klasszikus/Vallási/Történelmi film/Dráma"
+ 
+ msgid "Content$Adult Movie/Drama"
+ msgstr "Felnőtt tartalom/Dráma"
+@@ -159,7 +160,7 @@
+ msgstr "Sporthíradó"
+ 
+ msgid "Content$Football/Soccer"
+-msgstr "Fotball/Labdarúgás"
++msgstr "Futball/Labdarúgás"
+ 
+ msgid "Content$Tennis/Squash"
+ msgstr "Tenisz/Squash"
+@@ -180,13 +181,13 @@
+ msgstr "Télisportok"
+ 
+ msgid "Content$Equestrian"
+-msgstr "Biliárd"
++msgstr "Lovassport"
+ 
+ msgid "Content$Martial Sports"
+ msgstr "Közdősport"
+ 
+ msgid "Content$Children's/Youth Programme"
+-msgstr "Gyerekprogram/Fiataloknak"
++msgstr "Gyerek/Ifjúsági"
+ 
+ msgid "Content$Pre-school Children's Programme"
+ msgstr "Óvodáskorú gyerekeknek"
+@@ -228,10 +229,10 @@
+ msgstr "Művészet/Kultúra"
+ 
+ msgid "Content$Performing Arts"
+-msgstr "Előadás"
++msgstr "Előadóművészet"
+ 
+ msgid "Content$Fine Arts"
+-msgstr "Belle arte"
++msgstr "Képzőművészet"
+ 
+ msgid "Content$Religion"
+ msgstr "Vallás"
+@@ -246,7 +247,7 @@
+ msgstr "Film/Mozi"
+ 
+ msgid "Content$Experimental Film/Video"
+-msgstr "Amatőr film/video"
++msgstr "Avantgárd/Videó"
+ 
+ msgid "Content$Broadcasting/Press"
+ msgstr "Közvetítés/Sajtó"
+@@ -279,16 +280,16 @@
+ msgstr "Természet/Állatok/Környezet"
+ 
+ msgid "Content$Technology/Natural Sciences"
+-msgstr "Technológia/Természettudomány"
++msgstr "Technika/Természettudomány"
+ 
+ msgid "Content$Medicine/Physiology/Psychology"
+-msgstr "Gyógyászat/Pszichológia/Orvostan"
++msgstr "Gyógyászat/Fiziológia/Pszichológia"
+ 
+ msgid "Content$Foreign Countries/Expeditions"
+-msgstr "Idegen országok/Expedíciók"
++msgstr "Külföld/Expedíciók"
+ 
+ msgid "Content$Social/Spiritual Sciences"
+-msgstr "Társadalmi/Lélektudomány"
++msgstr "Társadalmi/Lélektudományok"
+ 
+ msgid "Content$Further Education"
+ msgstr "Továbbképzés"
+@@ -297,7 +298,7 @@
+ msgstr "Nyelvek"
+ 
+ msgid "Content$Leisure/Hobbies"
+-msgstr "Hobbi"
++msgstr "Szabadidő/Hobbi"
+ 
+ msgid "Content$Tourism/Travel"
+ msgstr "Turizmus/Utazás"
+@@ -306,7 +307,7 @@
+ msgstr "Kézműves"
+ 
+ msgid "Content$Motoring"
+-msgstr "Motor"
++msgstr "Autók, Motorok"
+ 
+ msgid "Content$Fitness & Health"
+ msgstr "Fitness és egészség"
+@@ -379,7 +380,7 @@
+ msgstr "('Le' megnyomása a befejezéshez)"
+ 
+ msgid "(press 'Menu' to skip this key)"
+-msgstr "A Menü gombot nyomni ennek a gombnak a kihagyásához"
++msgstr "('Menü' megnyomása ennek a gombnak a kihagyásához)"
+ 
+ msgid "Learning Remote Control Keys"
+ msgstr "Távirányító betanítása"
+@@ -463,7 +464,7 @@
+ msgstr "Csatorna-"
+ 
+ msgid "Key$PrevChannel"
+-msgstr "Az előző adás"
++msgstr "Az előző csatorna"
+ 
+ msgid "Key$Volume+"
+ msgstr "Hangerő+"
+@@ -472,7 +473,7 @@
+ msgstr "Hangerő-"
+ 
+ msgid "Key$Mute"
+-msgstr "Csend"
++msgstr "Néma üzemmód"
+ 
+ msgid "Key$Audio"
+ msgstr "Hang"
+@@ -535,7 +536,7 @@
+ msgstr "Kódolt"
+ 
+ msgid "Edit channel"
+-msgstr "Csatornák beállítása"
++msgstr "Csatorna szerkesztése"
+ 
+ msgid "Name"
+ msgstr "Név"
+@@ -580,13 +581,13 @@
+ msgstr "Sid"
+ 
+ msgid "Nid"
+-msgstr ""
++msgstr "Nid"
+ 
+ msgid "Tid"
+-msgstr ""
++msgstr "Tid"
+ 
+ msgid "Channel settings are not unique!"
+-msgstr "Az adóbeállítások nem egyértelműek"
++msgstr "A csatornabeállítások nem egyértelműek!"
+ 
+ msgid "Channels"
+ msgstr "Csatornák"
+@@ -601,10 +602,10 @@
+ msgstr "Törölni"
+ 
+ msgid "Button$Mark"
+-msgstr "Megjelölni"
++msgstr "Kijelölni"
+ 
+ msgid "Channel is being used by a timer!"
+-msgstr "Az adót az időzítő használja!"
++msgstr "A csatornát az időzítő használja!"
+ 
+ msgid "Delete channel?"
+ msgstr "Csatorna törlése?"
+@@ -623,7 +624,7 @@
+ 
+ #, c-format
+ msgid "Folder name must not contain '%c'!"
+-msgstr "A könyvtár neve nem tartalmazhatja: '%c'!"
++msgstr "A könyvtár neve nem tartalmazhat '%c'!"
+ 
+ msgid "Button$Open"
+ msgstr "Kinyitni"
+@@ -635,10 +636,10 @@
+ msgstr "Töröljem a könyvtárat?"
+ 
+ msgid "Edit timer"
+-msgstr "Időzítő megváltoztatása"
++msgstr "Időzítő szerkesztése"
+ 
+ msgid "Active"
+-msgstr "Aktiv"
++msgstr "Aktív"
+ 
+ msgid "Channel"
+ msgstr "Csatorna"
+@@ -662,7 +663,7 @@
+ msgstr "Élettartam"
+ 
+ msgid "File"
+-msgstr "File"
++msgstr "Fájl"
+ 
+ msgid "Button$Folder"
+ msgstr "Könyvtár"
+@@ -695,7 +696,7 @@
+ msgstr "Felvétel folyamatban van - biztos töröljem?"
+ 
+ msgid "Event"
+-msgstr "Esemény"
++msgstr "Adás"
+ 
+ msgid "Button$Timer"
+ msgstr "Időzítő"
+@@ -707,10 +708,10 @@
+ msgstr "Átkapcsolni"
+ 
+ msgid "What's on now?"
+-msgstr "Most adásban"
++msgstr "Most adásban?"
+ 
+ msgid "What's on next?"
+-msgstr "Mi következik?"
++msgstr "Következik?"
+ 
+ msgid "Button$Next"
+ msgstr "Következő"
+@@ -722,7 +723,7 @@
+ msgstr "Műsorújság"
+ 
+ msgid "Can't switch channel!"
+-msgstr "Az adót nem lehet elkapcsolni"
++msgstr "A csatornát nem lehet elkapcsolni!"
+ 
+ #, c-format
+ msgid "Schedule - %s"
+@@ -733,10 +734,10 @@
+ msgstr "Ez az adás - %s"
+ 
+ msgid "This event - all channels"
+-msgstr "Ez az adás - összes adón"
++msgstr "Ez az adás - összes csatornák"
+ 
+ msgid "All events - all channels"
+-msgstr "Az összes adás - az összes adón"
++msgstr "Az összes adás - összes csatornák"
+ 
+ #, c-format
+ msgid "Please enter %d digits!"
+@@ -746,77 +747,77 @@
+ msgstr "A CAM nem válaszol!"
+ 
+ msgid "Edit path"
+-msgstr ""
++msgstr "Elérés szerkesztése"
+ 
+ msgid "Folder"
+-msgstr ""
++msgstr "Könyvtár"
+ 
+ msgid "This folder is currently in use - no changes are possible!"
+-msgstr ""
++msgstr "Ez a könyvtár használatban van - szerkesztés nem lehetséges!"
+ 
+ #, c-format
+ msgid "Move entire folder containing %d recordings?"
+-msgstr ""
++msgstr "A teljes könytár %d felvételt tartalmaz, áthelyezzem?"
+ 
+ msgid "Error while moving folder!"
+-msgstr ""
++msgstr "Hiba a könyvtár áthelyezése közben!"
+ 
+ msgid "Edit recording"
+-msgstr ""
++msgstr "Felvétel szerkesztése"
+ 
+ msgid "This recording is currently in use - no changes are possible!"
+-msgstr ""
++msgstr "A felvétel használatban van - szerkesztés nem lehetséges!"
+ 
+ msgid "Button$Cancel cutting"
+-msgstr ""
++msgstr "Vágás mégse"
+ 
+ msgid "Button$Stop cutting"
+-msgstr ""
++msgstr "Vágás leállítása"
+ 
+ msgid "Button$Cancel moving"
+-msgstr ""
++msgstr "Áthelyezés mégse"
+ 
+ msgid "Button$Stop moving"
+-msgstr ""
++msgstr "Áthelyezés leállítása"
+ 
+ msgid "Button$Cancel copying"
+-msgstr ""
++msgstr "Másolás mégse"
+ 
+ msgid "Button$Stop copying"
+-msgstr ""
++msgstr "Másolása leállítása"
+ 
+ msgid "Button$Cut"
+-msgstr ""
++msgstr "Vágás"
+ 
+ msgid "Button$Delete marks"
+-msgstr ""
++msgstr "Vágópontok törlése"
+ 
+ msgid "Recording vanished!"
+-msgstr ""
++msgstr "A felvétel eltűnt!"
+ 
+ msgid "Edited version already exists - overwrite?"
+-msgstr ""
++msgstr "A szerkesztett változat már létezik - felülírjam?"
+ 
+ msgid "Error while queueing recording for cutting!"
+-msgstr ""
++msgstr "Hiba a felvétel vágásra előkészítése közben!"
+ 
+ msgid "Delete editing marks for this recording?"
+-msgstr ""
++msgstr "Töröljem a felvétel vágópontjait?"
+ 
+ msgid "Error while deleting editing marks!"
+-msgstr ""
++msgstr "Hiba a vágópontok törlése közben!"
+ 
+ msgid "Error while changing priority/lifetime!"
+-msgstr ""
++msgstr "Hiba a prioritás/élettartam változtatása közben!"
+ 
+ msgid "Error while changing folder/name!"
+-msgstr ""
++msgstr "Hiba a könyvtár/név változtatása közben!"
+ 
+ msgid "Recording info"
+ msgstr "Felvétel infó"
+ 
+ msgid "Button$Play"
+-msgstr "Lejátszani"
++msgstr "Lejátszás"
+ 
+ msgid "Button$Rewind"
+ msgstr "Vissza az elejére"
+@@ -831,13 +832,13 @@
+ msgstr "Felvétel törlése?"
+ 
+ msgid "Recording is being edited - really delete?"
+-msgstr "A felvétel szerkesztés alatt - biztos törölni?"
++msgstr "A felvétel szerkesztés alatt - biztos töröljem?"
+ 
+ msgid "Error while deleting recording!"
+ msgstr "Hiba a felvétel törlésénél!"
+ 
+ msgid "Recording commands"
+-msgstr "Parancsok a felvett filmekhez"
++msgstr "Parancsok a felvételekhez"
+ 
+ msgid "never"
+ msgstr "soha"
+@@ -873,7 +874,7 @@
+ msgstr "Magasság (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+-msgstr "Információ feltűntetésének időtartama"
++msgstr "Információ feltüntetésének időtartama (mp)"
+ 
+ msgid "Setup.OSD$Use small font"
+ msgstr "Kisbetűt használni"
+@@ -909,10 +910,10 @@
+ msgstr "Fent"
+ 
+ msgid "Setup.OSD$Channel info time (s)"
+-msgstr "Adásinformáció feltűntetésének időtartama (s)"
++msgstr "Adásinformáció feltűntetésének időtartama (mp)"
+ 
+ msgid "Setup.OSD$Info on channel switch"
+-msgstr "Információ az adó váltásánál"
++msgstr "Információ a csatorna váltásánál"
+ 
+ msgid "Setup.OSD$Timeout requested channel info"
+ msgstr "A lekérdezett adásinformáció bezárása"
+@@ -936,7 +937,7 @@
+ msgstr "Könyvtárakat rendezd előre"
+ 
+ msgid "Setup.OSD$Number keys for characters"
+-msgstr "Számgombok a betűkön"
++msgstr "Betűk a számgombokon"
+ 
+ msgid "Setup.OSD$Color key 0"
+ msgstr "Színes gomb 0"
+@@ -963,7 +964,7 @@
+ msgstr "Hibaelhárítás szintje"
+ 
+ msgid "Setup.EPG$EPG linger time (min)"
+-msgstr "Eltelt EPG adatok kijelzése (perc)"
++msgstr "Eltelt EPG adatok kijelzése (p)"
+ 
+ msgid "Setup.EPG$Set system time"
+ msgstr "Óra állítása TP időhöz"
+@@ -986,7 +987,7 @@
+ msgstr "letterbox"
+ 
+ msgid "center cut out"
+-msgstr "képközép kivágás"
++msgstr "teljeskitöltés"
+ 
+ msgid "no"
+ msgstr "nem"
+@@ -1001,7 +1002,7 @@
+ msgstr "nevek és PIDek"
+ 
+ msgid "add new channels"
+-msgstr "új adók hozzáadása"
++msgstr "új csatornák hozzáadása"
+ 
+ msgid "add new transponders"
+ msgstr "új transponderek hozzáadása"
+@@ -1016,22 +1017,22 @@
+ msgstr "Feliratok"
+ 
+ msgid "Setup.DVB$Primary DVB interface"
+-msgstr "Első DVB interface"
++msgstr "Elsődleges DVB eszköz"
+ 
+ msgid "Setup.DVB$Standard compliance"
+ msgstr "Vételi norma"
+ 
+ msgid "Setup.DVB$Video format"
+-msgstr "Video formátum"
++msgstr "Videó formátum"
+ 
+ msgid "Setup.DVB$Video display format"
+-msgstr "Képernyőformátum"
++msgstr "Megjelenítő formátum"
+ 
+ msgid "Setup.DVB$Use Dolby Digital"
+ msgstr "Dolby-Digital hangot használni"
+ 
+ msgid "Setup.DVB$Update channels"
+-msgstr "Adók aktualizálása"
++msgstr "Csatornák frissítése"
+ 
+ msgid "Setup.DVB$Audio languages"
+ msgstr "Hangsáv nyelvek"
+@@ -1074,37 +1075,37 @@
+ 
+ #, c-format
+ msgid "Setup.LNB$Device %d connected to sat cable"
+-msgstr "Fejkábel a %d. tunerhez"
++msgstr "Fejkábel a %d. tunerhez csatlakoztatva"
+ 
+ msgid "Setup.LNB$own"
+ msgstr "saját"
+ 
+ msgid "Setup.LNB$Use dish positioner"
+-msgstr ""
++msgstr "Forgató használata"
+ 
+ msgid "Setup.LNB$Site latitude (degrees)"
+-msgstr ""
++msgstr "Szélesség (fok)"
+ 
+ msgid "South"
+-msgstr ""
++msgstr "Dél"
+ 
+ msgid "North"
+-msgstr ""
++msgstr "Észak"
+ 
+ msgid "Setup.LNB$Site longitude (degrees)"
+-msgstr ""
++msgstr "Hosszúság (fok)"
+ 
+ msgid "West"
+-msgstr ""
++msgstr "Nyugat"
+ 
+ msgid "East"
+-msgstr ""
++msgstr "Kelet"
+ 
+ msgid "Setup.LNB$Max. positioner swing (degrees)"
+-msgstr ""
++msgstr "Forgató maximális intervalluma (fok)"
+ 
+ msgid "Setup.LNB$Positioner speed (degrees/s)"
+-msgstr ""
++msgstr "Forgató sebessége (fok/mp)"
+ 
+ msgid "CAM reset"
+ msgstr "CAM újraindítás"
+@@ -1117,16 +1118,16 @@
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " (activating)"
+-msgstr ""
++msgstr " (aktiválás)"
+ 
+ msgid "CAM"
+ msgstr "CAM"
+ 
+ msgid "Button$Cancel activation"
+-msgstr ""
++msgstr "Aktiválás mégse"
+ 
+ msgid "Button$Activate"
+-msgstr ""
++msgstr "Aktiválás"
+ 
+ msgid "Button$Menu"
+ msgstr "Menü"
+@@ -1141,7 +1142,7 @@
+ msgstr "A CAM menü nem nyitható"
+ 
+ msgid "Can't activate CAM!"
+-msgstr ""
++msgstr "CAM aktiválás sikertelen!"
+ 
+ msgid "CAM is in use - really reset?"
+ msgstr "CAM használatban - valóban újraindítjuk?"
+@@ -1168,16 +1169,16 @@
+ msgstr "Felvétel"
+ 
+ msgid "Setup.Recording$Margin at start (min)"
+-msgstr "Időeltolás a kezdésnél (perc)"
++msgstr "Időeltolás a kezdésnél (p)"
+ 
+ msgid "Setup.Recording$Margin at stop (min)"
+-msgstr "Időeltolás a befejezésnél (perc)"
++msgstr "Időeltolás a befejezésnél (p)"
+ 
+ msgid "Setup.Recording$Default priority"
+ msgstr "Alapértelmezett prioritás"
+ 
+ msgid "Setup.Recording$Default lifetime (d)"
+-msgstr "Alapértelmezett élettartam"
++msgstr "Alapértelmezett élettartam (n)"
+ 
+ msgid "Setup.Recording$Pause key handling"
+ msgstr "A szünet gomb működése"
+@@ -1186,7 +1187,7 @@
+ msgstr "Időeltolás prioritása"
+ 
+ msgid "Setup.Recording$Pause lifetime (d)"
+-msgstr "Időeltolás élettartama"
++msgstr "Időeltolás élettartama (n)"
+ 
+ msgid "Setup.Recording$Use episode name"
+ msgstr "Epizódnév"
+@@ -1198,22 +1199,22 @@
+ msgstr "Időeltolás VPS-nél (mp)"
+ 
+ msgid "Setup.Recording$Mark instant recording"
+-msgstr "Direktfelvétel megjelölése"
++msgstr "Egygombos felvétel megjelölése"
+ 
+ msgid "Setup.Recording$Name instant recording"
+-msgstr "Direktfelvétel megnevezése"
++msgstr "Egygombos felvétel megnevezése"
+ 
+ msgid "Setup.Recording$Instant rec. time (min)"
+-msgstr "Direktfelvétel időtartama (perc)"
++msgstr "Egygombos felvétel időtartama (p)"
+ 
+ msgid "Setup.Recording$present event"
+ msgstr "Most futó műsor"
+ 
+ msgid "Setup.Recording$Max. video file size (MB)"
+-msgstr "Max. video file méret (MB)"
++msgstr "Max. videó fájl méret (MB)"
+ 
+ msgid "Setup.Recording$Split edited files"
+-msgstr "Feldolgozott file-ok felosztása"
++msgstr "Feldolgozott fájlok felosztása"
+ 
+ msgid "Setup.Recording$Delete timeshift recording"
+ msgstr "Időeltolásos felvétel törlése"
+@@ -1237,22 +1238,25 @@
+ msgstr "A visszajátszás megállítása vágópont kijelölésnél"
+ 
+ msgid "Setup.Replay$Pause replay when jumping to a mark"
+-msgstr ""
++msgstr "Szünet a lejátszásban, mikor egy vágópontra ugrik"
+ 
+ msgid "Setup.Replay$Skip edited parts"
+-msgstr ""
++msgstr "Vágott részek kihagyása"
+ 
+ msgid "Setup.Replay$Pause replay at last mark"
+-msgstr ""
++msgstr "Utolsó vágópontnál szünet a lejátszásban"
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
+-msgstr ""
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr "Felezett ugrás kezdeti értéke (mp)"
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
+-msgstr ""
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
++msgstr "Felezett ugrás időkorláta (mp)"
++
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
++msgstr "Felezett ugrás csak irányváltoztatásnál"
+ 
+ msgid "Setup.Replay$Resume ID"
+-msgstr "Lejátszás ID"
++msgstr "Lejátszás azonosító"
+ 
+ msgid "Miscellaneous"
+ msgstr "Egyéb"
+@@ -1261,22 +1265,22 @@
+ msgstr "VDR leáll ha nem következik felvétel (p)"
+ 
+ msgid "Setup.Miscellaneous$Min. user inactivity (min)"
+-msgstr "VDR leáll használat nélkül (perc)"
++msgstr "VDR leáll használat nélkül (p)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP timeout (s)"
+-msgstr "SVDRP szétkapcsol használat nélkül(s)"
++msgstr "SVDRP szétkapcsol használat nélkül(mp)"
+ 
+ msgid "Setup.Miscellaneous$Zap timeout (s)"
+-msgstr "Adásváltás ideje (s)"
++msgstr "Adásváltás ideje (mp)"
+ 
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+-msgstr "Csatornaváltás timeout (ms)"
++msgstr "Csatornaváltás timeout (emp)"
+ 
+ msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
+-msgstr "Távirányító ismétlés késleltetése (ms)"
++msgstr "Távirányító ismétlés késleltetése (emp)"
+ 
+ msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
+-msgstr "Távirányító ismétlés deltája (ms)"
++msgstr "Távirányító ismétlés deltája (emp)"
+ 
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Csatorna induláskor"
+@@ -1288,10 +1292,10 @@
+ msgstr "Hangerő indulásnál"
+ 
+ msgid "Setup.Miscellaneous$Volume steps"
+-msgstr ""
++msgstr "Hangerőállítás léptéke"
+ 
+ msgid "Setup.Miscellaneous$Volume linearize"
+-msgstr ""
++msgstr "Hangerő linearizálása"
+ 
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Csatornalista görgetése"
+@@ -1303,7 +1307,7 @@
+ msgstr "Vészleállítás"
+ 
+ msgid "Plugins"
+-msgstr "Plugins"
++msgstr "Pluginok"
+ 
+ msgid "This plugin has no setup parameters!"
+ msgstr "Ennek a plugin-nak nincs setup-paramétere!"
+@@ -1342,13 +1346,13 @@
+ msgstr " Vágást megszakítani"
+ 
+ msgid "Stop recording?"
+-msgstr "Felvétel befejezni?"
++msgstr "Felvételt befejezni?"
+ 
+ msgid "Cancel editing?"
+ msgstr "Vágást befejezni?"
+ 
+ msgid "No audio available!"
+-msgstr "Hang nem lehetséges!"
++msgstr "Hang nem elérhetö!"
+ 
+ msgid "No subtitles"
+ msgstr "Felirat ki"
+@@ -1360,7 +1364,7 @@
+ msgstr "Nincs elegendő hely a felvételre"
+ 
+ msgid "No free DVB device to record!"
+-msgstr "Nincs szabad DVB kártya a felvételhez!"
++msgstr "Nincs szabad DVB eszköz a felvételhez!"
+ 
+ msgid "Pausing live video..."
+ msgstr "Az élő adás megállítva..."
+@@ -1406,10 +1410,10 @@
+ msgstr "Plugin"
+ 
+ msgid "Up/Dn for new location - OK to move"
+-msgstr "Fel/Le egy új opcióért - aztán OK"
++msgstr "Fel/Le egy új pozícióért - aztán OK"
+ 
+ msgid "Channel locked (recording)!"
+-msgstr "Az adó blokkolva (felvétel)!"
++msgstr "A csatorna blokkolva (felvétel)!"
+ 
+ msgid "Low disk space!"
+ msgstr "A merevlemez majdnem tele!"
+@@ -1434,7 +1438,7 @@
+ 
+ #, c-format
+ msgid "Recording in %ld minutes, shut down anyway?"
+-msgstr "Felvétel %ld perc mulva kezdődik - mégis kikapcsolni?"
++msgstr "Felvétel %ld perc múlva kezdődik - mégis kikapcsolni?"
+ 
+ msgid "shut down anyway?"
+ msgstr "mégis kikapcsolni?"
+@@ -1479,7 +1483,7 @@
+ 
+ #, c-format
+ msgid "Moving dish to %.1f..."
+-msgstr ""
++msgstr "Antenna forgatása  %.1f..."
+ 
+ msgid "ST:TNG Panels"
+ msgstr "ST:TNG Konzol"
+@@ -1529,7 +1533,7 @@
+ msgstr "Nyomj egy gombot a leállás megszakításához"
+ 
+ msgid "Switching primary DVB..."
+-msgstr "Elsődleges DVB kártya váltása folyamatban..."
++msgstr "Elsődleges DVB eszköz váltása folyamatban..."
+ 
+ msgid "Editing process failed!"
+ msgstr "Vágás sikertelen!"
+diff -ruN vdr-2.1.8/po/it_IT.po vdr-2.1.9/po/it_IT.po
+--- vdr-2.1.8/po/it_IT.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/it_IT.po	2015-02-08 13:07:17.188269318 +0100
+@@ -4,30 +4,29 @@
+ # Alberto Carraro <bertocar@tin.it>, 2001
+ # Antonio Ospite <ospite@studenti.unina.it>, 2003, 2006
+ # Sean Carlos <seanc@libero.it>, 2005
+-# Nino Gerbino <ngerb@interfree.it>, 2006
+-# Diego Pierotto <vdr-italian@tiscali.it>, 2007-2010, 2012, 2013
++# Nino Gerbino <ngerb@interfree.it>, 2006, 2015
++# Diego Pierotto <vdr-italian@tiscali.it>, 2007-2010, 2012, 2013, 2015
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
+-"PO-Revision-Date: 2015-01-19 20:19+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
++"PO-Revision-Date: 2015-02-05 00:09+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
+ "Language: it\n"
+ "MIME-Version: 1.0\n"
+-"Content-Type: text/plain; charset=utf-8\n"
++"Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"X-Poedit-Language: Italian\n"
+-"X-Poedit-Country: ITALY\n"
+-"X-Poedit-SourceCharset: utf-8\n"
++"X-Poedit-SourceCharset: UTF-8\n"
++"X-Generator: Poedit 1.5.4\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Canale NON valido ***"
+ 
+ msgid "CAM activated!"
+-msgstr ""
++msgstr "CAM attivata!"
+ 
+ msgid "Channel not available!"
+ msgstr "Canale non disponibile!"
+@@ -803,6 +802,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr "Errore durante l'accodamento della registrazione per il taglio!"
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr "Eliminare i marcatori di modifica della registrazione?"
+ 
+@@ -1120,16 +1122,16 @@
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " (activating)"
+-msgstr ""
++msgstr "(attivazione)"
+ 
+ msgid "CAM"
+ msgstr "Accesso condizionato CAM"
+ 
+ msgid "Button$Cancel activation"
+-msgstr ""
++msgstr "Annulla attivazione"
+ 
+ msgid "Button$Activate"
+-msgstr ""
++msgstr "Attiva"
+ 
+ msgid "Button$Menu"
+ msgstr "Menu"
+@@ -1144,7 +1146,7 @@
+ msgstr "Impossibile aprire il menu CAM!"
+ 
+ msgid "Can't activate CAM!"
+-msgstr ""
++msgstr "Impossibile attivare CAM!"
+ 
+ msgid "CAM is in use - really reset?"
+ msgstr "La CAM è in uso - vuoi reimpostarla?"
+@@ -1237,21 +1239,24 @@
+ msgstr "Mostra tempo elaborazione (s)"
+ 
+ msgid "Setup.Replay$Pause replay when setting mark"
+-msgstr "Pausa riproduzione durante impostazione segni"
++msgstr "Pausa riproduzione durante impostazione marcatori"
+ 
+ msgid "Setup.Replay$Pause replay when jumping to a mark"
+-msgstr ""
++msgstr "Pausa riproduzione se si passa ad un marcatore"
+ 
+ msgid "Setup.Replay$Skip edited parts"
+-msgstr ""
++msgstr "Salta parti modificate"
+ 
+ msgid "Setup.Replay$Pause replay at last mark"
++msgstr "Pausa riproduzione all'ultimo marcatore"
++
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/lt_LT.po vdr-2.1.9/po/lt_LT.po
+--- vdr-2.1.8/po/lt_LT.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/lt_LT.po	2015-02-08 13:07:17.291273962 +0100
+@@ -1,13 +1,13 @@
+ # VDR language source file.
+ # Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Valdemaras Pipiras <varas@ambernet.lt>, 2009, 2010, 2013.
++# Valdemaras Pipiras <varas@ambernet.lt>, 2009, 2010, 2013, 2015.
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2010-10-30 11:55+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian <vdr@linuxtv.org>\n"
+@@ -20,7 +20,7 @@
+ msgstr "*** Blogi kanalo nustatymai ***"
+ 
+ msgid "CAM activated!"
+-msgstr ""
++msgstr "Dekodavimo modulis aktyvuotas!"
+ 
+ msgid "Channel not available!"
+ msgstr "Kanalas neegzistuoja!"
+@@ -80,13 +80,13 @@
+ msgstr "StreamId"
+ 
+ msgid "Pilot"
+-msgstr ""
++msgstr "Pilotas"
+ 
+ msgid "T2SystemId"
+-msgstr ""
++msgstr "T2 Sistemos ID"
+ 
+ msgid "SISO/MISO"
+-msgstr ""
++msgstr "SISO/MISO"
+ 
+ msgid "Starting EPG scan"
+ msgstr "Pradedamas EPG skanavimas"
+@@ -573,13 +573,13 @@
+ msgstr "CA (dekodavimo sistema)"
+ 
+ msgid "Sid"
+-msgstr "Serviso id"
++msgstr "Serviso id (Sid)"
+ 
+ msgid "Nid"
+-msgstr ""
++msgstr "Tinklo id (Nid)"
+ 
+ msgid "Tid"
+-msgstr ""
++msgstr "Tid"
+ 
+ msgid "Channel settings are not unique!"
+ msgstr "Kanalų nustatymai neunikalūs!"
+@@ -742,71 +742,74 @@
+ msgstr "Dekodavimo modulis (CAM) neveikia!"
+ 
+ msgid "Edit path"
+-msgstr ""
++msgstr "Koreguoti kelią"
+ 
+ msgid "Folder"
+-msgstr ""
++msgstr "Katalogas"
+ 
+ msgid "This folder is currently in use - no changes are possible!"
+-msgstr ""
++msgstr "Šis katalogas šiuo metu naudojamas, tad šiuo metu negalimi jokie pakeitimai!"
+ 
+ #, c-format
+ msgid "Move entire folder containing %d recordings?"
+-msgstr ""
++msgstr "Perkelti šį katalogą kurio viduje yra %d įrašų?"
+ 
+ msgid "Error while moving folder!"
+-msgstr ""
++msgstr "Klaida perkeliant katalogą!"
+ 
+ msgid "Edit recording"
+-msgstr ""
++msgstr "Koreguoti įrašus"
+ 
+ msgid "This recording is currently in use - no changes are possible!"
+-msgstr ""
++msgstr "Šis įrašas šiuo metu naudojamas, tad šiuo metu negalimi jokie pakeitimai!"
+ 
+ msgid "Button$Cancel cutting"
+-msgstr ""
++msgstr "Button$Atšaukti karpymą"
+ 
+ msgid "Button$Stop cutting"
+-msgstr ""
++msgstr "Button$Sustabdyti karpymą"
+ 
+ msgid "Button$Cancel moving"
+-msgstr ""
++msgstr "Button$Atšaukti perkėlimą"
+ 
+ msgid "Button$Stop moving"
+-msgstr ""
++msgstr "Button$Sustabdyti perkėlimą"
+ 
+ msgid "Button$Cancel copying"
+-msgstr ""
++msgstr "Button$Atšaukti kopijavimą"
+ 
+ msgid "Button$Stop copying"
+-msgstr ""
++msgstr "Button$Sustabdyti kopijavimą"
+ 
+ msgid "Button$Cut"
+-msgstr ""
++msgstr "Button$Iškirpti"
+ 
+ msgid "Button$Delete marks"
+-msgstr ""
++msgstr "Button$Ištrinti žymes"
+ 
+ msgid "Recording vanished!"
+-msgstr ""
++msgstr "Įrašai išvalyti!"
+ 
+ msgid "Edited version already exists - overwrite?"
+-msgstr ""
++msgstr "Tokia koreguota versija jau yra, vistiek perašyti?"
+ 
+ msgid "Error while queueing recording for cutting!"
++msgstr "Klaida sustatant įrašus į karpymo eilę!"
++
++msgid "Rename recording to folder name?"
+ msgstr ""
+ 
+ msgid "Delete editing marks for this recording?"
+-msgstr ""
++msgstr "Ar tikrai ištrinti šio įrašo koregavimo žymes?"
+ 
+ msgid "Error while deleting editing marks!"
+-msgstr ""
++msgstr "Klaida trinant koregavimo žymes!"
+ 
+ msgid "Error while changing priority/lifetime!"
+-msgstr ""
++msgstr "Klaida keičiant prioritetą/galiojimo laiką!"
+ 
+ msgid "Error while changing folder/name!"
+-msgstr ""
++msgstr "Klaida keičiant katalogą/pavadinimą!"
+ 
+ msgid "Recording info"
+ msgstr "Informacija apie įrašus"
+@@ -1076,31 +1079,31 @@
+ msgstr "savas"
+ 
+ msgid "Setup.LNB$Use dish positioner"
+-msgstr ""
++msgstr "Setup.LNB$Naudoti pozicionierių"
+ 
+ msgid "Setup.LNB$Site latitude (degrees)"
+-msgstr ""
++msgstr "Setup.LNB$Vitovės platuma (laipsniais)"
+ 
+ msgid "South"
+-msgstr ""
++msgstr "Pietūs"
+ 
+ msgid "North"
+-msgstr ""
++msgstr "Šiaurė"
+ 
+ msgid "Setup.LNB$Site longitude (degrees)"
+-msgstr ""
++msgstr "Setup.LNB$Vietovės ilgima (laipsniais)"
+ 
+ msgid "West"
+-msgstr ""
++msgstr "Vakarai"
+ 
+ msgid "East"
+-msgstr ""
++msgstr "Rytai"
+ 
+ msgid "Setup.LNB$Max. positioner swing (degrees)"
+-msgstr ""
++msgstr "Maksimalus pozicionieriaus pasukimas (laipsniais)"
+ 
+ msgid "Setup.LNB$Positioner speed (degrees/s)"
+-msgstr ""
++msgstr "Pozicionieriaus kreitis (laipsniais/s)"
+ 
+ msgid "CAM reset"
+ msgstr "Dekodavimo modulis (CAM) perkrautas"
+@@ -1113,16 +1116,16 @@
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " (activating)"
+-msgstr ""
++msgstr " (aktyvuojama)"
+ 
+ msgid "CAM"
+ msgstr "Dekodavimo modulis (CAM)"
+ 
+ msgid "Button$Cancel activation"
+-msgstr ""
++msgstr "Button$Atšaukti aktyvaciją"
+ 
+ msgid "Button$Activate"
+-msgstr ""
++msgstr "Button$Aktyvuoti"
+ 
+ msgid "Button$Menu"
+ msgstr "Meniu"
+@@ -1137,7 +1140,7 @@
+ msgstr "Negali atidaryti dekodavimo modulio meniu!"
+ 
+ msgid "Can't activate CAM!"
+-msgstr ""
++msgstr "Negali aktyvuoti dekodavimo modulio!"
+ 
+ msgid "CAM is in use - really reset?"
+ msgstr "Dekodavimo modulis šiuo metu naudojamas - tikrai perkrauti?"
+@@ -1233,18 +1236,21 @@
+ msgstr "Pristabdyti pakartojimą kai vyksta žymėjimas"
+ 
+ msgid "Setup.Replay$Pause replay when jumping to a mark"
+-msgstr ""
++msgstr "Setup.Replay$Pristabdyti pakartojim1 kol pereinama prie žymės"
+ 
+ msgid "Setup.Replay$Skip edited parts"
+-msgstr ""
++msgstr "Setup.Replay$Praleisti koreguotas dalis"
+ 
+ msgid "Setup.Replay$Pause replay at last mark"
++msgstr "Setup.Replay$Pristabdyti pakartojimą pasiekus paskutinę žymę"
++
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+@@ -1284,10 +1290,10 @@
+ msgstr "Garsas įjungimo metu"
+ 
+ msgid "Setup.Miscellaneous$Volume steps"
+-msgstr ""
++msgstr "Setup.Miscellaneous$Garso reguliavimo žingsniai"
+ 
+ msgid "Setup.Miscellaneous$Volume linearize"
+-msgstr ""
++msgstr "Setup.Miscellaneous$Garso lygiavimas"
+ 
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Kanalų pridengimas"
+@@ -1475,7 +1481,7 @@
+ 
+ #, c-format
+ msgid "Moving dish to %.1f..."
+-msgstr ""
++msgstr "Lėkštė sukama į %.1f..."
+ 
+ msgid "ST:TNG Panels"
+ msgstr "ST:TNG Skydeliai"
+diff -ruN vdr-2.1.8/po/mk_MK.po vdr-2.1.9/po/mk_MK.po
+--- vdr-2.1.8/po/mk_MK.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/mk_MK.po	2015-02-08 13:07:17.467281897 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2012-11-19 15:18+0100\n"
+ "Last-Translator: Dimitar Petrovski <dimeptr@gmail.com>\n"
+ "Language-Team: Macedonian <en@li.org>\n"
+@@ -797,6 +797,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1242,10 +1245,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/nl_NL.po vdr-2.1.9/po/nl_NL.po
+--- vdr-2.1.8/po/nl_NL.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/nl_NL.po	2015-02-08 13:07:17.222270850 +0100
+@@ -12,7 +12,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2008-02-26 17:20+0100\n"
+ "Last-Translator: Cedric Dewijs <cedric.dewijs@telfort.nl>\n"
+ "Language-Team: Dutch <vdr@linuxtv.org>\n"
+@@ -801,6 +801,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1246,10 +1249,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/nn_NO.po vdr-2.1.9/po/nn_NO.po
+--- vdr-2.1.8/po/nn_NO.po	2015-01-30 13:14:55.000000000 +0100
++++ vdr-2.1.9/po/nn_NO.po	2015-02-08 13:07:17.667290917 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian Nynorsk <vdr@linuxtv.org>\n"
+@@ -797,6 +797,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1242,10 +1245,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/pl_PL.po vdr-2.1.9/po/pl_PL.po
+--- vdr-2.1.8/po/pl_PL.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/pl_PL.po	2015-02-08 13:07:16.805252046 +0100
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2008-03-09 12:59+0100\n"
+ "Last-Translator: Marek Nazarko <mnazarko@gmail.com>\n"
+ "Language-Team: Polish <vdr@linuxtv.org>\n"
+@@ -798,6 +798,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1243,10 +1246,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/pt_PT.po vdr-2.1.9/po/pt_PT.po
+--- vdr-2.1.8/po/pt_PT.po	2015-01-30 13:14:53.000000000 +0100
++++ vdr-2.1.9/po/pt_PT.po	2015-02-08 13:07:16.770250469 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2010-03-28 22:49+0100\n"
+ "Last-Translator: Cris Silva <hudokkow@gmail.com>\n"
+ "Language-Team: Portuguese <vdr@linuxtv.org>\n"
+@@ -797,6 +797,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1242,10 +1245,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/ro_RO.po vdr-2.1.9/po/ro_RO.po
+--- vdr-2.1.8/po/ro_RO.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/ro_RO.po	2015-02-08 13:07:16.911256826 +0100
+@@ -2,14 +2,14 @@
+ # Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paul Lacatus <paul@campina.iiruc.ro>, 2002
+-# Lucian Muresan <lucianm@users.sourceforge.net>, 2004-2006, 2008, 2010-2013
++# Lucian Muresan <lucianm@users.sourceforge.net>, 2004-2006, 2008, 2010-2015
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
+-"PO-Revision-Date: 2015-01-21 22:34+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
++"PO-Revision-Date: 2015-02-06 23:15+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+ "Language-Team: Romanian <vdr@linuxtv.org>\n"
+ "Language: ro\n"
+@@ -22,7 +22,7 @@
+ msgstr "*** Canal invalid ***"
+ 
+ msgid "CAM activated!"
+-msgstr ""
++msgstr "CAM activat!"
+ 
+ msgid "Channel not available!"
+ msgstr "Canal indisponibil"
+@@ -798,6 +798,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr "Eroare la punerea în coada pentru tăiere!"
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr "Șterg marcajele de editare pentru această înregistrare?"
+ 
+@@ -1115,16 +1118,16 @@
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " (activating)"
+-msgstr ""
++msgstr " (activez)"
+ 
+ msgid "CAM"
+ msgstr "CAM"
+ 
+ msgid "Button$Cancel activation"
+-msgstr ""
++msgstr "Anulează activarea"
+ 
+ msgid "Button$Activate"
+-msgstr ""
++msgstr "Activează"
+ 
+ msgid "Button$Menu"
+ msgstr "Meniu"
+@@ -1139,7 +1142,7 @@
+ msgstr "Nu pot deschide meniul CAM"
+ 
+ msgid "Can't activate CAM!"
+-msgstr ""
++msgstr "Nu pot activa CAM-ul!"
+ 
+ msgid "CAM is in use - really reset?"
+ msgstr "CAM-ul este in folosinţă - totuşi resetez?"
+@@ -1235,19 +1238,22 @@
+ msgstr "Pauză la punerea marcajului de editare"
+ 
+ msgid "Setup.Replay$Pause replay when jumping to a mark"
+-msgstr ""
++msgstr "Pauză după săritura la marcaj"
+ 
+ msgid "Setup.Replay$Skip edited parts"
+-msgstr ""
++msgstr "Săritură peste părțile editate"
+ 
+ msgid "Setup.Replay$Pause replay at last mark"
+-msgstr ""
++msgstr "Pauză la ultimul marcaj"
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
+-msgstr ""
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr "Durata inițială (s) pentru săritul adaptiv al marcajelor"
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
+-msgstr ""
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
++msgstr "Timeout (s) de resetare pentru săritul adaptiv al marcajelor"
++
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
++msgstr "Strategie alternativă pentru săritul adaptiv al marcajelor"
+ 
+ msgid "Setup.Replay$Resume ID"
+ msgstr "Identificator continuare"
+diff -ruN vdr-2.1.8/po/ru_RU.po vdr-2.1.9/po/ru_RU.po
+--- vdr-2.1.8/po/ru_RU.po	2015-01-30 13:14:55.000000000 +0100
++++ vdr-2.1.9/po/ru_RU.po	2015-02-08 13:07:17.736294028 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2013-03-10 17:13+0100\n"
+ "Last-Translator: Oleg Roitburd <oroitburd@gmail.com>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
+@@ -797,6 +797,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1242,10 +1245,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/sk_SK.po vdr-2.1.9/po/sk_SK.po
+--- vdr-2.1.8/po/sk_SK.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/sk_SK.po	2015-02-08 13:07:17.543285324 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2013-03-04 21:24+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak <vdr@linuxtv.org>\n"
+@@ -796,6 +796,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1241,10 +1244,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/sl_SI.po vdr-2.1.9/po/sl_SI.po
+--- vdr-2.1.8/po/sl_SI.po	2015-01-30 13:14:55.000000000 +0100
++++ vdr-2.1.9/po/sl_SI.po	2015-02-08 13:07:17.769295515 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2013-03-04 12:46+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian <vdr@linuxtv.org>\n"
+@@ -797,6 +797,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1242,10 +1245,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/sr_RS.po vdr-2.1.9/po/sr_RS.po
+--- vdr-2.1.8/po/sr_RS.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/sr_RS.po	2015-02-08 13:07:16.846253895 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2013-03-16 15:05+0100\n"
+ "Last-Translator: Zoran Turalija <zoran.turalija@gmail.com>\n"
+ "Language-Team: Serbian <vdr@linuxtv.org>\n"
+@@ -797,6 +797,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1242,10 +1245,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/sv_SE.po vdr-2.1.9/po/sv_SE.po
+--- vdr-2.1.8/po/sv_SE.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/sv_SE.po	2015-02-08 13:07:17.325275494 +0100
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2013-02-18 17:04+0100\n"
+ "Last-Translator: Richard Lithvall <r-vdr@boomer.se>\n"
+ "Language-Team: Swedish <vdr@linuxtv.org>\n"
+@@ -800,6 +800,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1245,10 +1248,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/tr_TR.po vdr-2.1.9/po/tr_TR.po
+--- vdr-2.1.8/po/tr_TR.po	2015-01-30 13:14:55.000000000 +0100
++++ vdr-2.1.9/po/tr_TR.po	2015-02-08 13:07:17.011261336 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay Yolge�en <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish <vdr@linuxtv.org>\n"
+@@ -796,6 +796,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1241,10 +1244,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/po/uk_UA.po vdr-2.1.9/po/uk_UA.po
+--- vdr-2.1.8/po/uk_UA.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/uk_UA.po	2015-02-08 13:07:17.153267738 +0100
+@@ -7,21 +7,21 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
+-"PO-Revision-Date: 2013-02-09 16:00+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
++"PO-Revision-Date: 2015-02-01 23:31+0100\n"
+ "Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian <vdr@linuxtv.org>\n"
+ "Language: uk\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"X-Generator: Poedit 1.5.4\n"
++"X-Generator: Poedit 1.7.3\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Неправильний канал ***"
+ 
+ msgid "CAM activated!"
+-msgstr ""
++msgstr "CAM активовано!"
+ 
+ msgid "Channel not available!"
+ msgstr "Канал недоступний!"
+@@ -78,19 +78,19 @@
+ msgstr "Крен"
+ 
+ msgid "StreamId"
+-msgstr "StreamId"
++msgstr "Id потоку"
+ 
+ msgid "Pilot"
+-msgstr ""
++msgstr "Пілот"
+ 
+ msgid "T2SystemId"
+-msgstr ""
++msgstr "T2SystemId"
+ 
+ msgid "SISO/MISO"
+-msgstr ""
++msgstr "SISO/MISO"
+ 
+ msgid "Starting EPG scan"
+-msgstr "Починаю EPG-сканування"
++msgstr "Початок сканування EPG"
+ 
+ msgid "Content$Movie/Drama"
+ msgstr "Фільм/Драма"
+@@ -249,7 +249,7 @@
+ msgstr "Трансляція/Преса"
+ 
+ msgid "Content$New Media"
+-msgstr "Нові медія"
++msgstr "Нові медіа"
+ 
+ msgid "Content$Arts/Culture Magazine"
+ msgstr "Мистецтво/Культурний журнал"
+@@ -424,7 +424,7 @@
+ msgstr "Інфо"
+ 
+ msgid "Key$Play/Pause"
+-msgstr "Програвати/Пауза"
++msgstr "Програвання/Пауза"
+ 
+ msgid "Key$Play"
+ msgstr "Програвання"
+@@ -577,10 +577,10 @@
+ msgstr "Sid"
+ 
+ msgid "Nid"
+-msgstr ""
++msgstr "Nid"
+ 
+ msgid "Tid"
+-msgstr ""
++msgstr "Tid"
+ 
+ msgid "Channel settings are not unique!"
+ msgstr "Настройки каналу не єдині!"
+@@ -604,7 +604,7 @@
+ msgstr "Канал зайнятий таймером!"
+ 
+ msgid "Delete channel?"
+-msgstr "Видалити канал?"
++msgstr "Вилучити канал?"
+ 
+ msgid "Edit folder"
+ msgstr "Редагувати теку"
+@@ -719,7 +719,7 @@
+ msgstr "Програма"
+ 
+ msgid "Can't switch channel!"
+-msgstr "Неможливо переключити канал!"
++msgstr "Неможливо перемкнути канал!"
+ 
+ #, c-format
+ msgid "Schedule - %s"
+@@ -743,71 +743,74 @@
+ msgstr "CAM не відповідає!"
+ 
+ msgid "Edit path"
+-msgstr ""
++msgstr "Редагувати шлях"
+ 
+ msgid "Folder"
+-msgstr ""
++msgstr "Тека"
+ 
+ msgid "This folder is currently in use - no changes are possible!"
+-msgstr ""
++msgstr "Ця тека зараз використовується - не дозволено жодних змін!"
+ 
+ #, c-format
+ msgid "Move entire folder containing %d recordings?"
+-msgstr ""
++msgstr "Перемістити цілу теку, що містить %d записів?"
+ 
+ msgid "Error while moving folder!"
+-msgstr ""
++msgstr "Помилка перенесення теки!"
+ 
+ msgid "Edit recording"
+-msgstr ""
++msgstr "Редагувати запис"
+ 
+ msgid "This recording is currently in use - no changes are possible!"
+-msgstr ""
++msgstr "Цей запис зараз використовується - не дозволено жодних змін!"
+ 
+ msgid "Button$Cancel cutting"
+-msgstr ""
++msgstr "Відмінити обрізання"
+ 
+ msgid "Button$Stop cutting"
+-msgstr ""
++msgstr "Зупинити обрізання"
+ 
+ msgid "Button$Cancel moving"
+-msgstr ""
++msgstr "Відмінити перенесення"
+ 
+ msgid "Button$Stop moving"
+-msgstr ""
++msgstr "Зупинити перенесення"
+ 
+ msgid "Button$Cancel copying"
+-msgstr ""
++msgstr "Відмінити копіювання"
+ 
+ msgid "Button$Stop copying"
+-msgstr ""
++msgstr "Зупинити копіювання"
+ 
+ msgid "Button$Cut"
+-msgstr ""
++msgstr "Обрізання"
+ 
+ msgid "Button$Delete marks"
+-msgstr ""
++msgstr "Вилучити мітки"
+ 
+ msgid "Recording vanished!"
+-msgstr ""
++msgstr "Запис зник!"
+ 
+ msgid "Edited version already exists - overwrite?"
+-msgstr ""
++msgstr "Вже існує редагована версія - перезаписати?"
+ 
+ msgid "Error while queueing recording for cutting!"
++msgstr "Помилка перешуковування запису для обрізання!"
++
++msgid "Rename recording to folder name?"
+ msgstr ""
+ 
+ msgid "Delete editing marks for this recording?"
+-msgstr ""
++msgstr "Вилучити мітки редагування для цього запису?"
+ 
+ msgid "Error while deleting editing marks!"
+-msgstr ""
++msgstr "Помилка вилучення міток редагування!"
+ 
+ msgid "Error while changing priority/lifetime!"
+-msgstr ""
++msgstr "Помилка при зміні пріоритету/тривалості!"
+ 
+ msgid "Error while changing folder/name!"
+-msgstr ""
++msgstr "Помилка при зміні теки/назви!"
+ 
+ msgid "Recording info"
+ msgstr "Про запис"
+@@ -831,7 +834,7 @@
+ msgstr "Запис редагується - дійсно вилучити?"
+ 
+ msgid "Error while deleting recording!"
+-msgstr "Помилка видалення запису!"
++msgstr "Помилка вилучення запису!"
+ 
+ msgid "Recording commands"
+ msgstr "Команди запису"
+@@ -840,7 +843,7 @@
+ msgstr "ніколи"
+ 
+ msgid "skin dependent"
+-msgstr "згідно з стилем"
++msgstr "згідно зі стилем"
+ 
+ msgid "always"
+ msgstr "завжди"
+@@ -1077,31 +1080,31 @@
+ msgstr "власне"
+ 
+ msgid "Setup.LNB$Use dish positioner"
+-msgstr ""
++msgstr "Використання позиціонеру тарілки"
+ 
+ msgid "Setup.LNB$Site latitude (degrees)"
+-msgstr ""
++msgstr "Широта (градуси)"
+ 
+ msgid "South"
+-msgstr ""
++msgstr "Південь"
+ 
+ msgid "North"
+-msgstr ""
++msgstr "Північ"
+ 
+ msgid "Setup.LNB$Site longitude (degrees)"
+-msgstr ""
++msgstr "Довгота (градуси)"
+ 
+ msgid "West"
+-msgstr ""
++msgstr "Захід"
+ 
+ msgid "East"
+-msgstr ""
++msgstr "Схід"
+ 
+ msgid "Setup.LNB$Max. positioner swing (degrees)"
+-msgstr ""
++msgstr "Макс. кут позиціонера (градуси)"
+ 
+ msgid "Setup.LNB$Positioner speed (degrees/s)"
+-msgstr ""
++msgstr "Швидкість позиціонера (градуси/с)"
+ 
+ msgid "CAM reset"
+ msgstr "Перезавантаження CAM"
+@@ -1114,16 +1117,16 @@
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " (activating)"
+-msgstr ""
++msgstr " (активування)"
+ 
+ msgid "CAM"
+ msgstr "CAM (Умовний доступ)"
+ 
+ msgid "Button$Cancel activation"
+-msgstr ""
++msgstr "Відмінити активацію"
+ 
+ msgid "Button$Activate"
+-msgstr ""
++msgstr "Активувати"
+ 
+ msgid "Button$Menu"
+ msgstr "Меню"
+@@ -1138,7 +1141,7 @@
+ msgstr "Меню CAM-модуля недоступне!"
+ 
+ msgid "Can't activate CAM!"
+-msgstr ""
++msgstr "Не можу активувати CAM!"
+ 
+ msgid "CAM is in use - really reset?"
+ msgstr "CAM використовується - дійсно перезапустити?"
+@@ -1222,10 +1225,10 @@
+ msgstr "Багатошвидкісний режим"
+ 
+ msgid "Setup.Replay$Show replay mode"
+-msgstr "Віображати режим перегляду"
++msgstr "Показати режим перегляду"
+ 
+ msgid "Setup.Replay$Show remaining time"
+-msgstr "Показати час що зашився"
++msgstr "Показати час що залишився"
+ 
+ msgid "Setup.Replay$Progress display time (s)"
+ msgstr "Час показу індикатора (с)"
+@@ -1234,18 +1237,21 @@
+ msgstr "Пауза програвання при встановленні мітки"
+ 
+ msgid "Setup.Replay$Pause replay when jumping to a mark"
+-msgstr ""
++msgstr "Призупинити програвання при перескакуванні до мітки"
+ 
+ msgid "Setup.Replay$Skip edited parts"
+-msgstr ""
++msgstr "Пропустити редаговані частини"
+ 
+ msgid "Setup.Replay$Pause replay at last mark"
++msgstr "Призупинити програвання на останній мітці"
++
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+@@ -1261,13 +1267,13 @@
+ msgstr "Мін. час очікування вводу (хв)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP timeout (s)"
+-msgstr "Затримкка обриву з'єднання SVDRP (сек)"
++msgstr "Затримка обриву з'єднання SVDRP (сек)"
+ 
+ msgid "Setup.Miscellaneous$Zap timeout (s)"
+ msgstr "Затримка переключання каналу (сек)"
+ 
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+-msgstr "Затримка часу для впровадження каналу (ms)"
++msgstr "Затримка часу для впровадження каналу (мс)"
+ 
+ msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
+ msgstr "Затримка повтору кнопок пульта (мс)"
+@@ -1285,10 +1291,10 @@
+ msgstr "Гучність при включенні"
+ 
+ msgid "Setup.Miscellaneous$Volume steps"
+-msgstr ""
++msgstr "Кроки гучності"
+ 
+ msgid "Setup.Miscellaneous$Volume linearize"
+-msgstr ""
++msgstr "Лінеаризована гучність"
+ 
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Кінець каналів"
+@@ -1363,7 +1369,7 @@
+ msgstr "Режим відкладеного перегляду..."
+ 
+ msgid "Delete timeshift recording?"
+-msgstr "Видалити запис з часовим зсувом?"
++msgstr "Вилучити запис з часовим зсувом?"
+ 
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+@@ -1476,7 +1482,7 @@
+ 
+ #, c-format
+ msgid "Moving dish to %.1f..."
+-msgstr ""
++msgstr "Повертання тарілки до %.1f..."
+ 
+ msgid "ST:TNG Panels"
+ msgstr "ST:TNG панелі"
+diff -ruN vdr-2.1.8/po/zh_CN.po vdr-2.1.9/po/zh_CN.po
+--- vdr-2.1.8/po/zh_CN.po	2015-01-30 13:14:54.000000000 +0100
++++ vdr-2.1.9/po/zh_CN.po	2015-02-08 13:07:17.392278515 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-01-30 13:14+0100\n"
++"POT-Creation-Date: 2015-02-07 17:08+0100\n"
+ "PO-Revision-Date: 2013-03-04 14:52+0800\n"
+ "Last-Translator: NFVDR <nfvdr@live.com>\n"
+ "Language-Team: Chinese (simplified) <nfvdr@live.com>\n"
+@@ -798,6 +798,9 @@
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
++msgid "Rename recording to folder name?"
++msgstr ""
++
+ msgid "Delete editing marks for this recording?"
+ msgstr ""
+ 
+@@ -1243,10 +1246,13 @@
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip initial value (s)"
++msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
++msgstr ""
++
++msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+ msgstr ""
+ 
+-msgid "Setup.Replay$Binary skip timeout (s)"
++msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr ""
+ 
+ msgid "Setup.Replay$Resume ID"
+diff -ruN vdr-2.1.8/recording.c vdr-2.1.9/recording.c
+--- vdr-2.1.8/recording.c	2015-01-25 16:39:24.000000000 +0100
++++ vdr-2.1.9/recording.c	2015-02-07 16:28:02.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 3.24 2015/01/25 15:39:24 kls Exp $
++ * $Id: recording.c 3.27 2015/02/07 15:28:02 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -1676,7 +1676,7 @@
+ {
+   dirNameSrc = DirNameSrc;
+   dirNameDst = DirNameDst;
+-  error = false;
++  error = true; // prepare for the worst!
+   suspensionLogged = false;
+ }
+ 
+@@ -1790,6 +1790,7 @@
+               else {
+                  // We're done:
+                  dsyslog("done copying directory '%s' to '%s'", *dirNameSrc, *dirNameDst);
++                 error = false;
+                  return;
+                  }
+               }
+@@ -1802,7 +1803,6 @@
+      }
+   else
+      esyslog("ERROR: can't access '%s'", *dirNameDst);
+-  error = true;
+ }
+ 
+ void cDirCopier::Stop(void)
+@@ -2059,6 +2059,7 @@
+ 
+ bool cMarks::Load(const char *RecordingFileName, double FramesPerSecond, bool IsPesRecording)
+ {
++  cMutexLock MutexLock(this);
+   recordingFileName = RecordingFileName;
+   fileName = AddDirectory(RecordingFileName, IsPesRecording ? MARKSFILESUFFIX ".vdr" : MARKSFILESUFFIX);
+   framesPerSecond = FramesPerSecond;
+@@ -2071,6 +2072,7 @@
+ 
+ bool cMarks::Update(void)
+ {
++  cMutexLock MutexLock(this);
+   time_t t = time(NULL);
+   if (t > nextUpdate && *fileName) {
+      time_t LastModified = LastModifiedTime(fileName);
+@@ -2102,6 +2104,7 @@
+ 
+ bool cMarks::Save(void)
+ {
++  cMutexLock MutexLock(this);
+   if (cConfig<cMark>::Save()) {
+      lastFileTime = LastModifiedTime(fileName);
+      return true;
+@@ -2111,6 +2114,7 @@
+ 
+ void cMarks::Align(void)
+ {
++  cMutexLock MutexLock(this);
+   cIndexFile IndexFile(recordingFileName, false, isPesRecording);
+   for (cMark *m = First(); m; m = Next(m)) {
+       int p = IndexFile.GetClosestIFrame(m->Position());
+@@ -2123,6 +2127,7 @@
+ 
+ void cMarks::Sort(void)
+ {
++  cMutexLock MutexLock(this);
+   for (cMark *m1 = First(); m1; m1 = Next(m1)) {
+       for (cMark *m2 = Next(m1); m2; m2 = Next(m2)) {
+           if (m2->Position() < m1->Position()) {
+@@ -2135,6 +2140,7 @@
+ 
+ void cMarks::Add(int Position)
+ {
++  cMutexLock MutexLock(this);
+   cConfig<cMark>::Add(new cMark(Position, NULL, framesPerSecond));
+   Sort();
+ }
+@@ -2169,7 +2175,7 @@
+ cMark *cMarks::GetNextBegin(cMark *EndMark)
+ {
+   cMark *BeginMark = EndMark ? Next(EndMark) : First();
+-  if (BeginMark) {
++  if (BeginMark && EndMark && BeginMark->Position() == EndMark->Position()) {
+      while (cMark *NextMark = Next(BeginMark)) {
+            if (BeginMark->Position() == NextMark->Position()) { // skip Begin/End at the same position
+               if (!(BeginMark = Next(NextMark)))
+@@ -2187,7 +2193,7 @@
+   if (!BeginMark)
+      return NULL;
+   cMark *EndMark = Next(BeginMark);
+-  if (EndMark) {
++  if (EndMark && BeginMark && BeginMark->Position() == EndMark->Position()) {
+      while (cMark *NextMark = Next(EndMark)) {
+            if (EndMark->Position() == NextMark->Position()) { // skip End/Begin at the same position
+               if (!(EndMark = Next(NextMark)))
+@@ -2202,6 +2208,7 @@
+ 
+ int cMarks::GetNumSequences(void)
+ {
++  cMutexLock MutexLock(this);
+   int NumSequences = 0;
+   if (cMark *BeginMark = GetNextBegin()) {
+      while (cMark *EndMark = GetNextEnd(BeginMark)) {
+diff -ruN vdr-2.1.8/recording.h vdr-2.1.9/recording.h
+--- vdr-2.1.8/recording.h	2015-01-31 14:34:44.000000000 +0100
++++ vdr-2.1.9/recording.h	2015-02-07 15:29:14.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 3.6 2015/01/31 13:34:44 kls Exp $
++ * $Id: recording.h 3.8 2015/02/07 14:29:14 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -350,7 +350,7 @@
+   bool Save(FILE *f);
+   };
+ 
+-class cMarks : public cConfig<cMark> {
++class cMarks : public cConfig<cMark>, public cMutex {
+ private:
+   cString recordingFileName;
+   cString fileName;
+@@ -369,6 +369,11 @@
+   void Align(void);
+   void Sort(void);
+   void Add(int Position);
++       ///< If this cMarks object is used by multiple threads, the caller must Lock()
++       ///< it before calling Add() and Unlock() it afterwards. The same applies to
++       ///< calls to Del(), or any of the functions that return a "cMark *", in case
++       ///< an other thread might modifiy the list while the returned pointer is
++       ///< considered valid.
+   cMark *Get(int Position);
+   cMark *GetPrev(int Position);
+   cMark *GetNext(int Position);
+diff -ruN vdr-2.1.8/runvdr.template vdr-2.1.9/runvdr.template
+--- vdr-2.1.8/runvdr.template	2011-04-17 14:34:30.000000000 +0200
++++ vdr-2.1.9/runvdr.template	2015-02-05 11:28:53.000000000 +0100
+@@ -20,7 +20,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: runvdr.template 3.0 2011/04/17 12:34:30 kls Exp $
++# $Id: runvdr.template 3.1 2015/02/05 10:28:53 kls Exp $
+ 
+ VDRPRG="./vdr"
+ 
+@@ -43,19 +43,21 @@
+ 
+ # Detect whether the DVB driver is already loaded
+ # and return 0 if it *is* loaded, 1 if not:
+-function DriverLoaded()
++DriverLoaded()
+ {
+   return 1
+ }
+ 
+ # Load all DVB driver modules needed for your hardware:
+-function LoadDriver()
++LoadDriver()
+ {
++  return 0
+ }
+ 
+ # Unload all DVB driver modules loaded in LoadDriver():
+-function UnloadDriver()
++UnloadDriver()
+ {
++  return 0
+ }
+ 
+ # Load driver if it hasn't been loaded already:
+diff -ruN vdr-2.1.8/sources.conf vdr-2.1.9/sources.conf
+--- vdr-2.1.8/sources.conf	2014-01-07 09:59:09.000000000 +0100
++++ vdr-2.1.9/sources.conf	2015-02-05 12:00:31.000000000 +0100
+@@ -21,7 +21,8 @@
+ 
+ S3E     Eutelsat 3A/3D & Rascom 1R
+ S4E     Eutelsat 4B
+-S4.8E   Astra 4A & SES 5
++S4.8E   Astra 4A
++S5E     SES 5
+ S7E     Eutelsat 7A
+ S9E     Eutelsat 9A/Ka-Sat 9A
+ S10E    Eutelsat 10A
+diff -ruN vdr-2.1.8/tools.c vdr-2.1.9/tools.c
+--- vdr-2.1.8/tools.c	2014-03-22 15:22:55.000000000 +0100
++++ vdr-2.1.9/tools.c	2015-02-07 16:09:17.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 3.3 2014/03/22 14:22:55 kls Exp $
++ * $Id: tools.c 3.4 2015/02/07 15:09:17 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -404,7 +404,7 @@
+      }
+   else
+      LOG_ERROR_STR(File1);
+-  return false;
++  return true; // we only return false if both files actually exist and are in different file systems!
+ }
+ 
+ int FreeDiskSpaceMB(const char *Directory, int *UsedMB)
+diff -ruN vdr-2.1.8/tools.h vdr-2.1.9/tools.h
+--- vdr-2.1.8/tools.h	2015-01-14 10:09:06.000000000 +0100
++++ vdr-2.1.9/tools.h	2015-02-07 16:12:26.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 3.6 2015/01/14 09:09:06 kls Exp $
++ * $Id: tools.h 3.7 2015/02/07 15:12:26 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -234,6 +234,9 @@
+ cString itoa(int n);
+ cString AddDirectory(const char *DirName, const char *FileName);
+ bool EntriesOnSameFileSystem(const char *File1, const char *File2);
++    ///< Checks whether the given files are on the same file system. If either of the
++    ///< files doesn't exist, this function returns *true* to avoid any actions that might be
++    ///< triggered if files are on different file system.
+ int FreeDiskSpaceMB(const char *Directory, int *UsedMB = NULL);
+ bool DirectoryOk(const char *DirName, bool LogErrors = false);
+ bool MakeDirs(const char *FileName, bool IsDirectory = false);

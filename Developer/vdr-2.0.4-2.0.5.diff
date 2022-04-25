@@ -1,0 +1,388 @@
+diff -ruN vdr-2.0.4/CONTRIBUTORS vdr-2.0.5/CONTRIBUTORS
+--- vdr-2.0.4/CONTRIBUTORS	2013-10-21 11:01:53.000000000 +0200
++++ vdr-2.0.5/CONTRIBUTORS	2013-12-25 12:41:06.000000000 +0100
+@@ -2136,6 +2136,9 @@
+  pressed in string input fields
+  for fixing missing ',' in the Italian and Polish OSD texts
+  for pointing out that "Menu button closes" should actually be "Menu key closes"
++ for fixing a missing initialization in the c'tor of cSkinLCARSDisplayChannel
++ for reporting some uninitialized item area coordinates in cSkinLCARSDisplayMenu
++ for reporting a problem with the video directory not being set correctly with --edit
+ 
+ Patrick Rother <krd-vdr@gulu.net>
+  for reporting a bug in defining timers that only differ in the day of week
+@@ -2847,6 +2850,11 @@
+  for reporting an invalid line in channels.conf.terr
+  for fixing handling '/' and '~' in recording file names in case DirectoryEncoding is
+  used
++ for making the LIRC remote control connect to the socket even if it doesn't yet exist
++ when VDR is started
++ for reporting a possible crash if the recordings list is updated externally while the
++ Recordings menu is open
++ for reporting a missing closing ')' in the help entry of the --vfat option
+ 
+ Alex Lasnier <alex@fepg.org>
+  for adding tuning support for ATSC devices
+diff -ruN vdr-2.0.4/HISTORY vdr-2.0.5/HISTORY
+--- vdr-2.0.4/HISTORY	2013-10-23 10:59:34.000000000 +0200
++++ vdr-2.0.5/HISTORY	2014-01-07 10:28:31.000000000 +0100
+@@ -7853,3 +7853,19 @@
+   is unexpected at this point (reported by Helmut Auer). You can still navigate to
+   the last replayed recording (if any) by pressing Ok repeatedly in the Recordings
+   menu.
++
++2014-01-07: Version 2.0.5
++
++- The LIRC remote control now connects to the socket even if it doesn't yet exist when
++  VDR is started (thanks to Lars Hanisch).
++- Fixed a missing initialization in the c'tor of cSkinLCARSDisplayChannel (thanks to
++  Marko Mäkelä).
++- Fixed uninitialized item area coordinates in cSkinLCARSDisplayMenu (reported by
++  Marko Mäkelä).
++- Fixed a possible crash if the recordings list is updated externally while the
++  Recordings menu is open (reported by Lars Hanisch).
++- Added a missing closing ')' in the help and man page entry of the --vfat option
++  (reported by Lars Hanisch).
++- Fixed setting the name of the video directory to avoid a crash when using --genindex,
++  and also to use the correct directory with --edit (the latter reported by Marko
++  Mäkelä).
+diff -ruN vdr-2.0.4/config.h vdr-2.0.5/config.h
+--- vdr-2.0.4/config.h	2013-09-07 12:25:10.000000000 +0200
++++ vdr-2.0.5/config.h	2013-10-29 17:06:45.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.76.1.4 2013/09/07 10:25:10 kls Exp $
++ * $Id: config.h 2.76.1.5 2013/10/29 16:06:45 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,8 +22,8 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.0.4"
+-#define VDRVERSNUM   20004  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.0.5"
++#define VDRVERSNUM   20005  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+diff -ruN vdr-2.0.4/lirc.c vdr-2.0.5/lirc.c
+--- vdr-2.0.4/lirc.c	2013-08-22 11:36:49.000000000 +0200
++++ vdr-2.0.5/lirc.c	2013-10-29 17:06:20.000000000 +0100
+@@ -6,7 +6,7 @@
+  *
+  * LIRC support added by Carsten Koch <Carsten.Koch@icem.de>  2000-06-16.
+  *
+- * $Id: lirc.c 2.5.1.1 2013/08/22 09:36:49 kls Exp $
++ * $Id: lirc.c 2.5.1.2 2013/10/29 16:06:20 kls Exp $
+  */
+ 
+ #include "lirc.h"
+@@ -21,11 +21,9 @@
+ {
+   addr.sun_family = AF_UNIX;
+   strcpy(addr.sun_path, DeviceName);
+-  if (Connect()) {
+-     Start();
+-     return;
+-     }
+-  f = -1;
++  if (!Connect())
++     f = -1;
++  Start();
+ }
+ 
+ cLircRemote::~cLircRemote()
+@@ -67,14 +65,15 @@
+   bool repeat = false;
+   int timeout = -1;
+ 
+-  while (Running() && f >= 0) {
++  while (Running()) {
+ 
+-        bool ready = cFile::FileReady(f, timeout);
++        bool ready = f >= 0 && cFile::FileReady(f, timeout);
+         int ret = ready ? safe_read(f, buf, sizeof(buf)) : -1;
+ 
+-        if (ready && ret <= 0 ) {
++        if (f < 0 || ready && ret <= 0) {
+            esyslog("ERROR: lircd connection broken, trying to reconnect every %.1f seconds", float(RECONNECTDELAY) / 1000);
+-           close(f);
++           if (f >= 0)
++              close(f);
+            f = -1;
+            while (Running() && f < 0) {
+                  cCondWait::SleepMs(RECONNECTDELAY);
+diff -ruN vdr-2.0.4/recording.c vdr-2.0.5/recording.c
+--- vdr-2.0.4/recording.c	2013-08-21 15:58:35.000000000 +0200
++++ vdr-2.0.5/recording.c	2013-12-25 11:55:32.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.91.1.2 2013/08/21 13:58:35 kls Exp $
++ * $Id: recording.c 2.91.1.3 2013/12/25 10:55:32 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -72,6 +72,7 @@
+ int InstanceId = 0;
+ 
+ cRecordings DeletedRecordings(true);
++static cRecordings VanishedRecordings;
+ 
+ // --- cRemoveDeletedRecordingsThread ----------------------------------------
+ 
+@@ -216,6 +217,14 @@
+      }
+ }
+ 
++// --- Clear vanished recordings ---------------------------------------------
++
++void ClearVanishedRecordings(void)
++{
++  cThreadLock RecordingsLock(&Recordings); // yes, it *is* Recordings!
++  VanishedRecordings.Clear();
++}
++
+ // --- cResumeFile -----------------------------------------------------------
+ 
+ cResumeFile::cResumeFile(const char *FileName, bool IsPesRecording)
+@@ -1233,6 +1242,7 @@
+ :cThread("video directory scanner")
+ {
+   deleted = Deleted;
++  initial = true;
+   lastUpdate = 0;
+   state = 0;
+ }
+@@ -1264,8 +1274,9 @@
+   ScanVideoDir(VideoDirectory, Foreground);
+ }
+ 
+-void cRecordings::ScanVideoDir(const char *DirName, bool Foreground, int LinkLevel)
++void cRecordings::ScanVideoDir(const char *DirName, bool Foreground, int LinkLevel, int DirLevel)
+ {
++  // Find any new recordings:
+   cReadDir d(DirName);
+   struct dirent *e;
+   while ((Foreground || Running()) && (e = d.Next()) != NULL) {
+@@ -1284,25 +1295,41 @@
+               }
+            if (S_ISDIR(st.st_mode)) {
+               if (endswith(buffer, deleted ? DELEXT : RECEXT)) {
+-                 cRecording *r = new cRecording(buffer);
+-                 if (r->Name()) {
+-                    r->NumFrames(); // initializes the numFrames member
+-                    r->FileSizeMB(); // initializes the fileSizeMB member
+-                    if (deleted)
+-                       r->deleted = time(NULL);
+-                    Lock();
+-                    Add(r);
+-                    ChangeState();
+-                    Unlock();
++                 if (deleted || initial || !GetByName(buffer)) {
++                    cRecording *r = new cRecording(buffer);
++                    if (r->Name()) {
++                       r->NumFrames(); // initializes the numFrames member
++                       r->FileSizeMB(); // initializes the fileSizeMB member
++                       if (deleted)
++                          r->deleted = time(NULL);
++                       Lock();
++                       Add(r);
++                       ChangeState();
++                       Unlock();
++                       }
++                    else
++                       delete r;
+                     }
+-                 else
+-                    delete r;
+                  }
+               else
+-                 ScanVideoDir(buffer, Foreground, LinkLevel + Link);
++                 ScanVideoDir(buffer, Foreground, LinkLevel + Link, DirLevel + 1);
+               }
+            }
+         }
++  // Handle any vanished recordings:
++  if (!deleted && !initial && DirLevel == 0) {
++     for (cRecording *recording = First(); recording; ) {
++         cRecording *r = recording;
++         recording = Next(recording);
++         if (access(r->FileName(), F_OK) != 0) {
++            Lock();
++            Del(r, false);
++            VanishedRecordings.Add(r);
++            ChangeState();
++            Unlock();
++            }
++         }
++     }
+ }
+ 
+ bool cRecordings::StateChanged(int &State)
+@@ -1343,6 +1370,7 @@
+ cRecording *cRecordings::GetByName(const char *FileName)
+ {
+   if (FileName) {
++     LOCK_THREAD;
+      for (cRecording *recording = First(); recording; recording = Next(recording)) {
+          if (strcmp(recording->FileName(), FileName) == 0)
+             return recording;
+diff -ruN vdr-2.0.4/recording.h vdr-2.0.5/recording.h
+--- vdr-2.0.4/recording.h	2013-03-04 15:01:23.000000000 +0100
++++ vdr-2.0.5/recording.h	2013-12-25 11:54:05.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 2.46 2013/03/04 14:01:23 kls Exp $
++ * $Id: recording.h 2.46.1.1 2013/12/25 10:54:05 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -26,6 +26,7 @@
+ extern int InstanceId;
+ 
+ void RemoveDeletedRecordings(void);
++void ClearVanishedRecordings(void);
+ void AssertFreeDiskSpace(int Priority = 0, bool Force = false);
+      ///< The special Priority value -1 means that we shall get rid of any
+      ///< deleted recordings faster than normal (because we're cutting).
+@@ -160,11 +161,12 @@
+ private:
+   static char *updateFileName;
+   bool deleted;
++  bool initial;
+   time_t lastUpdate;
+   int state;
+   const char *UpdateFileName(void);
+   void Refresh(bool Foreground = false);
+-  void ScanVideoDir(const char *DirName, bool Foreground = false, int LinkLevel = 0);
++  void ScanVideoDir(const char *DirName, bool Foreground = false, int LinkLevel = 0, int DirLevel = 0);
+ protected:
+   void Action(void);
+ public:
+@@ -199,6 +201,8 @@
+        ///< this value is unknown.
+   };
+ 
++/// Any access to Recordings that loops through the list of recordings
++/// needs to hold a thread lock on this object!
+ extern cRecordings Recordings;
+ extern cRecordings DeletedRecordings;
+ 
+diff -ruN vdr-2.0.4/skinlcars.c vdr-2.0.5/skinlcars.c
+--- vdr-2.0.4/skinlcars.c	2013-05-19 14:08:52.000000000 +0200
++++ vdr-2.0.5/skinlcars.c	2013-11-16 14:28:19.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinlcars.c 2.21.1.1 2013/05/19 12:08:52 kls Exp $
++ * $Id: skinlcars.c 2.21.1.3 2013/11/16 13:28:19 kls Exp $
+  */
+ 
+ // "Star Trek: The Next Generation"(R) is a registered trademark of Paramount Pictures,
+@@ -837,6 +837,15 @@
+   ys03 = ys04 - Gap;
+   ys05 = yb15;
+ 
++  // The item area (just to have them initialized, actual setting will be done in SetMenuCategory():
++
++  xi00 = 0;
++  xi01 = 0;
++  xi02 = 0;
++  xi03 = 1;
++  yi00 = 0;
++  yi01 = 1;
++
+   // The color buttons in submenus:
+   xb00 = xa06;
+   xb15 = xa07;
+@@ -1710,6 +1719,7 @@
+   frameColor = Theme.Color(clrReplayFrameBg);
+   lastCurrentWidth = 0;
+   lastTotalWidth = 0;
++  memset(&lastTrackId, 0, sizeof(lastTrackId));
+   int d = 5 * lineHeight;
+   xp00 = 0;
+   xp01 = xp00 + d / 2;
+diff -ruN vdr-2.0.4/vdr.1 vdr-2.0.5/vdr.1
+--- vdr-2.0.4/vdr.1	2013-03-15 11:44:54.000000000 +0100
++++ vdr-2.0.5/vdr.1	2013-12-25 12:05:27.000000000 +0100
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.1 2.17 2013/03/15 10:44:54 kls Exp $
++.\" $Id: vdr.1 2.17.1.1 2013/12/25 11:05:27 kls Exp $
+ .\"
+ .TH vdr 1 "31 Mar 2013" "2.0" "Video Disk Recorder"
+ .SH NAME
+@@ -201,7 +201,7 @@
+ Allow coredumps if -u is given (only for debugging).
+ .TP
+ .BI \-\-vfat
+-For backwards compatibility (same as \-\-dirnames= 250,40,1.
++For backwards compatibility (same as \-\-dirnames= 250,40,1).
+ .TP
+ .BI \-v\  dir ,\ \-\-video= dir
+ Use \fIdir\fR as video directory.
+diff -ruN vdr-2.0.4/vdr.c vdr-2.0.5/vdr.c
+--- vdr-2.0.4/vdr.c	2013-10-16 11:46:36.000000000 +0200
++++ vdr-2.0.5/vdr.c	2013-12-25 12:40:37.000000000 +0100
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 2.57.1.1 2013/10/16 09:46:36 kls Exp $
++ * $Id: vdr.c 2.57.1.4 2013/12/25 11:40:37 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -223,6 +223,7 @@
+   VdrUser = VDR_USER;
+ #endif
+ 
++  SetVideoDirectory(VideoDirectory);
+   cPluginManager PluginManager(DEFAULTPLUGINDIR);
+ 
+   static struct option long_options[] = {
+@@ -443,6 +444,7 @@
+           case 'v': VideoDirectory = optarg;
+                     while (optarg && *optarg && optarg[strlen(optarg) - 1] == '/')
+                           optarg[strlen(optarg) - 1] = 0;
++                    SetVideoDirectory(VideoDirectory);
+                     break;
+           case 'w': if (isnumber(optarg)) {
+                        int t = atoi(optarg);
+@@ -540,7 +542,7 @@
+                "  -v DIR,   --video=DIR    use DIR as video directory (default: %s)\n"
+                "  -V,       --version      print version information and exit\n"
+                "            --vfat         for backwards compatibility (same as\n"
+-               "                           --dirnames=250,40,1\n"
++               "                           --dirnames=250,40,1)\n"
+                "  -w SEC,   --watchdog=SEC activate the watchdog timer with a timeout of SEC\n"
+                "                           seconds (default: %d); '0' disables the watchdog\n"
+                "\n",
+@@ -663,7 +665,6 @@
+ 
+   // Directories:
+ 
+-  SetVideoDirectory(VideoDirectory);
+   if (!ConfigDirectory)
+      ConfigDirectory = DEFAULTCONFDIR;
+   cPlugin::SetConfigDirectory(ConfigDirectory);
+@@ -1360,6 +1361,7 @@
+ 
+            // Disk housekeeping:
+            RemoveDeletedRecordings();
++           ClearVanishedRecordings();
+            cSchedules::Cleanup();
+            // Plugins housekeeping:
+            PluginManager.Housekeeping();

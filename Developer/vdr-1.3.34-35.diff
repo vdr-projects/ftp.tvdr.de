@@ -1,0 +1,2139 @@
+diff -ruN vdr-1.3.34/CONTRIBUTORS vdr-1.3.35/CONTRIBUTORS
+--- vdr-1.3.34/CONTRIBUTORS	2005-10-02 10:49:05.000000000 +0200
++++ vdr-1.3.35/CONTRIBUTORS	2005-10-31 14:14:26.000000000 +0100
+@@ -920,6 +920,7 @@
+  for reporting a problem with duplicate recordings with the same file name
+  for suggesting to implement the command line option '--vfat'
+  for reporting a leftover 'summary.vdr' in vdr.5
++ for adding more error messages and line numbers when reading EPG data and info.vdr
+ 
+ Alexander Damhuis <ad@phonedation.de>
+  for reporting problems when deleting a timer that is currently recording
+@@ -1024,6 +1025,7 @@
+ Christoph Hermanns <christoph.hermanns@gmx.de>
+  for reporting a bug in handling the "Red" button in the "Schedules" menu in case
+  there are no events listed for a particular channel
++ for reporting a leftover 'summary.vdr' in vdr.1
+ 
+ Oskar Signell <oskar@signell.net>
+  for pointing out a problem with setting an editing mark while in "Pause" mode,
+@@ -1234,6 +1236,7 @@
+  for fixing handling EPG data for time shifted events
+  for fixing detecting short channel names for "Kabel Deutschland"
+  for reporting that the FATALERRNO macro needs to check for a non-zero errno value
++ for reporting missing mutex locks in cCiMenu::Abort() and cCiEnquiry::Abort()
+ 
+ Jürgen Schmitz <j.schmitz@web.de>
+  for reporting a bug in displaying the current channel when switching via the SVDRP
+@@ -1343,6 +1346,7 @@
+  pages
+  for a patch that was used to add the command line options '--lirc', '--rcu' and
+  '--no-kbd'
++ for adding '__attribute__' to functions that use printf() like parameters
+ 
+ Sean Carlos <seanc@libero.it>
+  for translating OSD texts to the Italian language
+@@ -1502,3 +1506,20 @@
+  for fixing handling color buttons in cMenuEditStrItem
+  for making the '.update' file in the video directory be touched when a recording is
+  added or deleted, so that other VDR instances can update their lists
++
++Philip Prindeville <philipp_subx@redfish-solutions.com>
++ for updates to 'sources.conf'
++
++Enrico Scholz <enrico.scholz@informatik.tu-chemnitz.de>
++ for making VDR use use daemon() instead of fork() to run in daemon mode
++ for fixing a possible endless loop in a menu with no selectable items if
++ Setup.MenuScrollWrap is true (thanks to Enrico Scholz).
++
++Nicolas Huillard <nhuillard@e-dition.fr>
++ for translating OSD texts to the French language
++
++Patrick Fischer <patrick_fischer@gmx.de>
++ for reporting an error in the cFilter example in PLUGINS.html
++
++Ralf Müller <ralf@bj-ig.de>
++ for a patch that was used to implement cUnbufferedFile
+diff -ruN vdr-1.3.34/HISTORY vdr-1.3.35/HISTORY
+--- vdr-1.3.34/HISTORY	2005-10-03 14:31:33.000000000 +0200
++++ vdr-1.3.35/HISTORY	2005-10-31 14:13:18.000000000 +0100
+@@ -3885,3 +3885,30 @@
+ - The character 0x8A in CAM menu strings is now mapped to a real newline.
+ - The 'sub-title' and 'bottom text' in the CAM menu can now consist of several lines.
+ - Improved the CAM enquiry menu.
++
++2005-10-31: Version 1.3.35
++
++- Updated 'sources.conf' (thanks to Philip Prindeville).
++- Now using daemon() instead of fork() to run VDR in daemon mode (thanks to
++  Enrico Scholz).
++- Fixed a possible endless loop in a menu with no selectable items if
++  Setup.MenuScrollWrap is true (thanks to Enrico Scholz).
++- Making sure no item is displayed as "current" if Up, Down, Left or Right is
++  pressed in a menu with no selectable items.
++- Added '__attribute__' to functions that use printf() like parameters (thanks
++  to Darren Salt).
++- Updated the Finnish OSD texts (thanks to Rolf Ahrenberg).
++- Fixed a leftover 'summary.vdr' in vdr.1 (reported by Christoph Hermanns).
++- Added more error messages and line numbers when reading EPG data and info.vdr
++  (thanks to Peter Bieringer).
++- Updated the Danish OSD texts (thanks to Mogens Elneff).
++- Updated the Estonian OSD texts (thanks to Arthur Konovalov).
++- Added missing mutex locks to cCiMenu::Abort() and cCiEnquiry::Abort() (reported
++  by Marco Schlüßler).
++- Fixed lock handling in CAM communication to avoid problems with multiple CAMs
++  per device or CAMs with more than one smart card.
++- Updated the Greek OSD texts (thanks to Dimitrios Dimitrakos).
++- Updated the French OSD texts (thanks to Nicolas Huillard).
++- Fixed the cFilter example in PLUGINS.html (reported by Patrick Fischer).
++- The new class cUnbufferedFile is used for the recording files to avoid
++  trashing the file system cache (based on a patch by Ralf Müller).
+diff -ruN vdr-1.3.34/PLUGINS.html vdr-1.3.35/PLUGINS.html
+--- vdr-1.3.34/PLUGINS.html	2005-09-09 17:14:04.000000000 +0200
++++ vdr-1.3.35/PLUGINS.html	2005-10-30 15:05:11.000000000 +0100
+@@ -1447,7 +1447,7 @@
+ which it shall receive data, as in
+ 
+ <p><table><tr><td bgcolor=#F0F0F0><pre>
+-cMyFilter Filter;
++cMyFilter *Filter = new cMyFilter();
+ 
+ cDevice::ActualDevice()-&gt;AttachFilter(Filter);
+ </pre></td></tr></table><p>
+diff -ruN vdr-1.3.34/channels.conf vdr-1.3.35/channels.conf
+--- vdr-1.3.34/channels.conf	2005-10-03 15:17:04.000000000 +0200
++++ vdr-1.3.35/channels.conf	2005-11-01 17:12:16.000000000 +0100
+@@ -8,12 +8,12 @@
+ NDR FS MV;ARD:12109:hC34:S19.2E:27500:2401:2402=deu:2404:0:28224:1:1073:0
+ SR SÜDWEST Fernsehen;ARD:12265:hC34:S19.2E:27500:1301:1302=deu:1304:0:28486:1:1093:0
+ WDR Köln;ARD:11836:hC34:S19.2E:27500:601:602=deu:604:0:28111:1:1101:0
+-BR-alpha;ARD:11836:hC34:S19.2E:27500:701:702=deu;703:704:0:28112:1:1101:0
++BR-alpha;ARD:11836:hC34:S19.2E:27500:701:702=deu:704:0:28112:1:1101:0
+ SÜDWEST Ferns. BW;ARD:11836:hC34:S19.2E:27500:801:802=deu:804:0:28113:1:1101:0
+ Phoenix;ARD:11836:hC34:S19.2E:27500:901:902=deu:904:0:28114:1:1101:0
+ ZDF;ZDFvision:11953:hC34:S19.2E:27500:110:120=deu,121=2ch;125=dd:130:0:28006:1:1079:0
+ 3sat;ZDFvision:11953:hC34:S19.2E:27500:210:220=deu,221=2ch;225=dd:230:0:28007:1:1079:0
+-KiKa;ZDFvision:11953:hC34:S19.2E:27500:310:320:330:0:28008:1:1079:0
++KiKa;ZDFvision:11953:hC34:S19.2E:27500:310:320=deu:330:0:28008:1:1079:0
+ arte;ARD:11836:hC34:S19.2E:27500:401:402=deu,403=fra:404:0:28109:1:1101:0
+ ORF1;ORF:12692:hC56:S19.2E:22000:160:161=deu;163=deu:165:1762,D05,1702,1801:13001:1:1117:0
+ ORF2;ORF:12692:hC56:S19.2E:22000:500:501=deu;503=deu:505:1762,D05,1702,1801:13002:1:1117:0
+@@ -27,8 +27,8 @@
+ DSF;BetaDigital:12480:vC34:S19.2E:27500:1023:1024=deu:39:0:900:133:33:0
+ HSE24,HSE24;BetaDigital:12480:vC34:S19.2E:27500:1279:1280=deu:37:0:40:133:33:0
+ Bloomberg TV Germany;Bloomberg:12551:vC56:S19.2E:22000:162:99=deu:0:0:12160:1:1108:0
+-EURONEWS;CSAT:11817:vC34:S19.2E:27500:163:92=fra,93=eng,94=ita,95=esl,98=por,99=deu,91=rus:0:0:8004:1:1070:0
+-rbb Brandenburg;ARD:12109:hC34:S19.2E:27500:501:502=deu:504:0:28205:1:1073:0
++EURONEWS;CSAT:11817:vC34:S19.2E:27500:163:92=fra,93=eng,94=ita,95=esl,91=rus,98=por,99=deu:0:0:8004:1:1070:0
++rbb Brandenburg;ARD:12109:hC34:S19.2E:27500:601:602=deu:604:0:28205:1:1073:0
+ Sky News:11597:vC56:S19.2E:22000:305+131:306=eng:0:0:28707:1:1026:0
+ Veronica/JETIX;CANALDIGITAAL:12574:hC56:S19.2E:22000:518+8190:92=dut:38:622,100:5020:53:1109:0
+ BVN;CANALDIGITAAL:12574:hC56:S19.2E:22000:515+8190:96=dut:36:0:5025:53:1109:0
+@@ -45,13 +45,13 @@
+ rbb Berlin;ARD:12109:hC34:S19.2E:27500:601:602=deu:604:0:28206:1:1073:0
+ :Premiere World
+ PREMIERE START,START;PREMIERE:11797:hC34:S19.2E:27500:255:256=deu:32:1:8:133:2:0
+-PREMIERE 1,PREM 1;PREMIERE:11797:hC34:S19.2E:27500:511:512=deu;515=deu:32:1:10:133:2:0
+-PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu;1795=deu:32:1:11:133:2:0
++PREMIERE 1,PREM 1;PREMIERE:11797:hC34:S19.2E:27500:511:512=deu,513=deu;515=deu:32:1:10:133:2:0
++PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu,1793=deu;1795=deu:32:1:11:133:2:0
+ PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu,2305=deu:32:1:43:133:2:0
+ PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu,769=deu:32:1801,1722,1702:9:133:2:0
+ PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu,1281=deu:32:1722,1702,1801:29:133:2:0
+ PREMIERE 6,PREM 6;PREMIERE:11797:hC34:S19.2E:27500:1535:1536=deu:32:1:41:133:2:0
+-PREMIERE 7,PREM 7;PREMIERE:11797:hC34:S19.2E:27500:1023:1024=deu:32:1801,1722,1702:20:133:2:0
++PREMIERE 7,PREM 7;PREMIERE:11797:hC34:S19.2E:27500:1023:1024=deu:32:1801,1702,1722:20:133:2:0
+ DISNEY CHANNEL,DISNEY;PREMIERE:11758:hC34:S19.2E:27500:2559:2560=deu:32:1722,1801,1702:34:133:17:0
+ :Premiere Direkt
+ PREMIERE DIREKT,DIREKT;PREMIERE:12031:hC34:S19.2E:27500:2815:2816=deu,2817=deu;2819=deu:0:0:18:133:4:0
+@@ -89,7 +89,7 @@
+ TELE 5;BetaDigital:12480:vC34:S19.2E:27500:1535:1536=deu:38:0:51:133:33:0
+ :@201 Sky
+ Sky One;BSkyB:12226:hC23:S28.2E:27500:515+8190:643=eng:579:960,961:4705:2:2027:0
+-Sky Mix;BSkyB:12226:hC23:S28.2E:27500:514+8190:642=eng,662=NAR:578:960,961:5104:2:2027:0
++Sky Two;BSkyB:12226:hC23:S28.2E:27500:514+8190:642=eng,662=NAR:578:960,961:5104:2:2027:0
+ ITV2;BSkyB:10758:vC56:S28.2E:22000:2314:2315=eng,2363=NAR:2317:960,961:10070:2:2044:0
+ Sci-Fi;BSkyB:12148:hC23:S28.2E:27500:512+8190:640=eng:576:960,961:4905:2:2023:0
+ Paramount;BSkyB:12187:hC23:S28.2E:27500:2313+2304:2326=eng,2327=NAR:2315:960,961:5904:2:2025:0
+diff -ruN vdr-1.3.34/ci.c vdr-1.3.35/ci.c
+--- vdr-1.3.34/ci.c	2005-10-03 14:58:22.000000000 +0200
++++ vdr-1.3.35/ci.c	2005-10-30 14:04:10.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 1.36 2005/10/03 12:58:22 kls Exp $
++ * $Id: ci.c 1.38 2005/10/30 13:04:10 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -156,7 +156,7 @@
+   uint8_t Status(void);
+   int Write(int fd);
+   int Read(int fd);
+-  void Dump(bool Outgoing);
++  void Dump(int fd, bool Outgoing);
+   };
+ 
+ cTPDU::cTPDU(uint8_t Slot, uint8_t Tcid, uint8_t Tag, int Length, const uint8_t *Data)
+@@ -207,9 +207,9 @@
+ 
+ int cTPDU::Write(int fd)
+ {
+-  Dump(true);
++  Dump(fd, true);
+   if (size)
+-     return write(fd, data, size) == size ? OK : ERROR;
++     return safe_write(fd, data, size) == size ? OK : ERROR;
+   esyslog("ERROR: attemp to write TPDU with zero size");
+   return ERROR;
+ }
+@@ -222,20 +222,20 @@
+      size = 0;
+      return ERROR;
+      }
+-  Dump(false);
++  Dump(fd, false);
+   return OK;
+ }
+ 
+-void cTPDU::Dump(bool Outgoing)
++void cTPDU::Dump(int fd, bool Outgoing)
+ {
+   if (DumpTPDUDataTransfer) {
+ #define MAX_DUMP 256
+-     fprintf(stderr, "%s ", Outgoing ? "-->" : "<--");
++     fprintf(stderr, "%2d %s ", fd, Outgoing ? "-->" : "<--");
+      for (int i = 0; i < size && i < MAX_DUMP; i++)
+          fprintf(stderr, "%02X ", data[i]);
+      fprintf(stderr, "%s\n", size >= MAX_DUMP ? "..." : "");
+      if (!Outgoing) {
+-        fprintf(stderr, "   ");
++        fprintf(stderr, "      ");
+         for (int i = 0; i < size && i < MAX_DUMP; i++)
+             fprintf(stderr, "%2c ", isprint(data[i]) ? data[i] : '.');
+         fprintf(stderr, "%s\n", size >= MAX_DUMP ? "..." : "");
+@@ -1048,12 +1048,12 @@
+ cCiMMI::~cCiMMI()
+ {
+   if (fetchedMenu) {
+-     cMutexLock MutexLock(&fetchedMenu->mutex);
++     cMutexLock MutexLock(fetchedMenu->mutex);
+      fetchedMenu->mmi = NULL;
+      }
+   delete menu;
+   if (fetchedEnquiry) {
+-     cMutexLock MutexLock(&fetchedEnquiry->mutex);
++     cMutexLock MutexLock(fetchedEnquiry->mutex);
+      fetchedEnquiry->mmi = NULL;
+      }
+   delete enquiry;
+@@ -1227,7 +1227,7 @@
+ 
+ cCiMenu::~cCiMenu()
+ {
+-  cMutexLock MutexLock(&mutex);
++  cMutexLock MutexLock(mutex);
+   if (mmi)
+      mmi->Menu(true);
+   free(titleText);
+@@ -1254,7 +1254,8 @@
+ 
+ bool cCiMenu::Select(int Index)
+ {
+-  cMutexLock MutexLock(&mutex);
++  cMutexLock MutexLock(mutex);
++  dbgprotocol("%d: ==> Select %d\n", mmi ? mmi->SessionId() : -1, Index);
+   if (mmi && -1 <= Index && Index < numEntries)
+      return mmi->SendMenuAnswer(Index + 1);
+   return false;
+@@ -1267,6 +1268,7 @@
+ 
+ bool cCiMenu::Abort(void)
+ {
++  cMutexLock MutexLock(mutex);
+   return mmi && mmi->SendCloseMMI();
+ }
+ 
+@@ -1282,7 +1284,7 @@
+ 
+ cCiEnquiry::~cCiEnquiry()
+ {
+-  cMutexLock MutexLock(&mutex);
++  cMutexLock MutexLock(mutex);
+   if (mmi)
+      mmi->Enquiry(true);
+   free(text);
+@@ -1290,7 +1292,7 @@
+ 
+ bool cCiEnquiry::Reply(const char *s)
+ {
+-  cMutexLock MutexLock(&mutex);
++  cMutexLock MutexLock(mutex);
+   return mmi ? mmi->SendAnswer(s) : false;
+ }
+ 
+@@ -1301,6 +1303,7 @@
+ 
+ bool cCiEnquiry::Abort(void)
+ {
++  cMutexLock MutexLock(mutex);
+   return mmi && mmi->SendCloseMMI();
+ }
+ 
+@@ -1617,8 +1620,12 @@
+   cMutexLock MutexLock(&mutex);
+   for (int Slot = 0; Slot < numSlots; Slot++) {
+       cCiMMI *mmi = (cCiMMI *)GetSessionByResourceId(RI_MMI, Slot);
+-      if (mmi)
+-         return mmi->Menu();
++      if (mmi) {
++         cCiMenu *Menu = mmi->Menu();
++         if (Menu)
++            Menu->mutex = &mutex;
++         return Menu;
++         }
+       }
+   return NULL;
+ }
+@@ -1628,8 +1635,12 @@
+   cMutexLock MutexLock(&mutex);
+   for (int Slot = 0; Slot < numSlots; Slot++) {
+       cCiMMI *mmi = (cCiMMI *)GetSessionByResourceId(RI_MMI, Slot);
+-      if (mmi)
+-         return mmi->Enquiry();
++      if (mmi) {
++         cCiEnquiry *Enquiry = mmi->Enquiry();
++         if (Enquiry)
++            Enquiry->mutex = &mutex;
++         return Enquiry;
++         }
+       }
+   return NULL;
+ }
+diff -ruN vdr-1.3.34/ci.h vdr-1.3.35/ci.h
+--- vdr-1.3.34/ci.h	2005-10-03 14:49:52.000000000 +0200
++++ vdr-1.3.35/ci.h	2005-10-30 13:31:14.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.h 1.17 2005/10/03 12:49:52 kls Exp $
++ * $Id: ci.h 1.18 2005/10/30 12:31:14 kls Exp $
+  */
+ 
+ #ifndef __CI_H
+@@ -17,11 +17,12 @@
+ class cCiMMI;
+ 
+ class cCiMenu {
++  friend class cCiHandler;
+   friend class cCiMMI;
+ private:
+   enum { MAX_CIMENU_ENTRIES = 64 }; ///< XXX is there a specified maximum?
+   cCiMMI *mmi;
+-  cMutex mutex;
++  cMutex *mutex;
+   bool selectable;
+   char *titleText;
+   char *subTitleText;
+@@ -45,10 +46,11 @@
+   };
+ 
+ class cCiEnquiry {
++  friend class cCiHandler;
+   friend class cCiMMI;
+ private:
+   cCiMMI *mmi;
+-  cMutex mutex;
++  cMutex *mutex;
+   char *text;
+   bool blind;
+   int expectedLength;
+diff -ruN vdr-1.3.34/config.h vdr-1.3.35/config.h
+--- vdr-1.3.34/config.h	2005-10-01 12:41:33.000000000 +0200
++++ vdr-1.3.35/config.h	2005-10-08 10:48:38.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.230 2005/10/01 10:41:33 kls Exp $
++ * $Id: config.h 1.231 2005/10/08 08:48:38 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -19,8 +19,8 @@
+ #include "i18n.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.3.34"
+-#define VDRVERSNUM   10334  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.3.35"
++#define VDRVERSNUM   10335  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+diff -ruN vdr-1.3.34/cutter.c vdr-1.3.35/cutter.c
+--- vdr-1.3.34/cutter.c	2005-08-14 12:51:54.000000000 +0200
++++ vdr-1.3.35/cutter.c	2005-10-31 13:26:44.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: cutter.c 1.10 2005/08/14 10:51:54 kls Exp $
++ * $Id: cutter.c 1.11 2005/10/31 12:26:44 kls Exp $
+  */
+ 
+ #include "cutter.h"
+@@ -18,7 +18,7 @@
+ class cCuttingThread : public cThread {
+ private:
+   const char *error;
+-  int fromFile, toFile;
++  cUnbufferedFile *fromFile, *toFile;
+   cFileName *fromFileName, *toFileName;
+   cIndexFile *fromIndex, *toIndex;
+   cMarks fromMarks, toMarks;
+@@ -34,7 +34,7 @@
+ :cThread("video cutting")
+ {
+   error = NULL;
+-  fromFile = toFile = -1;
++  fromFile = toFile = NULL;
+   fromFileName = toFileName = NULL;
+   fromIndex = toIndex = NULL;
+   if (fromMarks.Load(FromFileName) && fromMarks.Count()) {
+@@ -64,7 +64,7 @@
+   if (Mark) {
+      fromFile = fromFileName->Open();
+      toFile = toFileName->Open();
+-     if (fromFile < 0 || toFile < 0)
++     if (!fromFile || !toFile)
+         return;
+      int Index = Mark->position;
+      Mark = fromMarks.Next(Mark);
+@@ -92,7 +92,7 @@
+                  fromFile = fromFileName->SetOffset(FileNumber, FileOffset);
+                  CurrentFileNumber = FileNumber;
+                  }
+-              if (fromFile >= 0) {
++              if (fromFile) {
+                  int len = ReadFrame(fromFile, buffer,  Length, sizeof(buffer));
+                  if (len < 0) {
+                     error = "ReadFrame";
+@@ -131,7 +131,7 @@
+                  cutIn = false;
+                  }
+               }
+-           if (safe_write(toFile, buffer, Length) < 0) {
++           if (toFile->Write(buffer, Length) < 0) {
+               error = "safe_write";
+               break;
+               }
+diff -ruN vdr-1.3.34/dvbplayer.c vdr-1.3.35/dvbplayer.c
+--- vdr-1.3.34/dvbplayer.c	2005-08-29 17:43:30.000000000 +0200
++++ vdr-1.3.35/dvbplayer.c	2005-10-31 13:33:48.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.c 1.40 2005/08/29 15:43:30 kls Exp $
++ * $Id: dvbplayer.c 1.41 2005/10/31 12:33:48 kls Exp $
+  */
+ 
+ #include "dvbplayer.h"
+@@ -74,7 +74,7 @@
+ 
+ class cNonBlockingFileReader : public cThread {
+ private:
+-  int f;
++  cUnbufferedFile *f;
+   uchar *buffer;
+   int wanted;
+   int length;
+@@ -86,14 +86,14 @@
+   cNonBlockingFileReader(void);
+   ~cNonBlockingFileReader();
+   void Clear(void);
+-  int Read(int FileHandle, uchar *Buffer, int Length);
++  int Read(cUnbufferedFile *File, uchar *Buffer, int Length);
+   bool Reading(void) { return buffer; }
+   };
+ 
+ cNonBlockingFileReader::cNonBlockingFileReader(void)
+ :cThread("non blocking file reader")
+ {
+-  f = -1;
++  f = NULL;
+   buffer = NULL;
+   wanted = length = 0;
+   hasData = false;
+@@ -110,7 +110,7 @@
+ void cNonBlockingFileReader::Clear(void)
+ {
+   Lock();
+-  f = -1;
++  f = NULL;
+   free(buffer);
+   buffer = NULL;
+   wanted = length = 0;
+@@ -119,7 +119,7 @@
+   newSet.Signal();
+ }
+ 
+-int cNonBlockingFileReader::Read(int FileHandle, uchar *Buffer, int Length)
++int cNonBlockingFileReader::Read(cUnbufferedFile *File, uchar *Buffer, int Length)
+ {
+   if (hasData && buffer) {
+      if (buffer != Buffer) {
+@@ -131,7 +131,7 @@
+      return length;
+      }
+   if (!buffer) {
+-     f = FileHandle;
++     f = File;
+      buffer = Buffer;
+      wanted = Length;
+      length = 0;
+@@ -146,8 +146,8 @@
+ {
+   while (Running()) {
+         Lock();
+-        if (!hasData && f >= 0 && buffer) {
+-           int r = safe_read(f, buffer + length, wanted - length);
++        if (!hasData && f && buffer) {
++           int r = f->Read(buffer + length, wanted - length);
+            if (r >= 0) {
+               length += r;
+               if (!r || length == wanted) // r == 0 means EOF
+@@ -181,7 +181,7 @@
+   cBackTrace *backTrace;
+   cFileName *fileName;
+   cIndexFile *index;
+-  int replayFile;
++  cUnbufferedFile *replayFile;
+   bool eof;
+   bool firstPacket;
+   ePlayModes playMode;
+@@ -237,7 +237,7 @@
+   isyslog("replay %s", FileName);
+   fileName = new cFileName(FileName, false);
+   replayFile = fileName->Open();
+-  if (replayFile < 0)
++  if (!replayFile)
+      return;
+   ringBuffer = new cRingBufferFrame(PLAYERBUFSIZE);
+   // Create the index file:
+@@ -302,10 +302,10 @@
+ {
+   if (FileNumber > 0)
+      replayFile = fileName->SetOffset(FileNumber, FileOffset);
+-  else if (replayFile >= 0 && eof)
++  else if (replayFile && eof)
+      replayFile = fileName->NextFile();
+   eof = false;
+-  return replayFile >= 0;
++  return replayFile != NULL;
+ }
+ 
+ int cDvbPlayer::Resume(void)
+@@ -342,7 +342,7 @@
+ void cDvbPlayer::Activate(bool On)
+ {
+   if (On) {
+-     if (replayFile >= 0)
++     if (replayFile)
+         Start();
+      }
+   else
+@@ -376,7 +376,7 @@
+            // Read the next frame from the file:
+ 
+            if (playMode != pmStill && playMode != pmPause) {
+-              if (!readFrame && (replayFile >= 0 || readIndex >= 0)) {
++              if (!readFrame && (replayFile || readIndex >= 0)) {
+                  if (!nonBlockingFileReader->Reading()) {
+                     if (playMode == pmFast || (playMode == pmSlow && playDir == pdBackward)) {
+                        uchar FileNumber;
+diff -ruN vdr-1.3.34/epg.c vdr-1.3.35/epg.c
+--- vdr-1.3.34/epg.c	2005-09-09 17:14:11.000000000 +0200
++++ vdr-1.3.35/epg.c	2005-10-09 14:57:55.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 1.37 2005/09/09 15:14:11 kls Exp $
++ * $Id: epg.c 1.38 2005/10/09 12:57:55 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -285,8 +285,10 @@
+   if (Schedule) {
+      cEvent *Event = NULL;
+      char *s;
++     int line = 0;
+      cReadLine ReadLine;
+      while ((s = ReadLine.Read(f)) != NULL) {
++           line++;
+            char *t = skipspace(s + 1);
+            switch (*s) {
+              case 'E': if (!Event) {
+@@ -316,8 +318,10 @@
+                        break;
+              case 'c': // to keep things simple we react on 'c' here
+                        return true;
+-             default:  if (Event && !Event->Parse(s))
++             default:  if (Event && !Event->Parse(s)) {
++                          esyslog("ERROR: EPG data problem in line %d", line);
+                           return false;
++                          }
+              }
+            }
+      esyslog("ERROR: unexpected end of file while reading EPG data");
+diff -ruN vdr-1.3.34/i18n.c vdr-1.3.35/i18n.c
+--- vdr-1.3.34/i18n.c	2005-10-03 14:27:15.000000000 +0200
++++ vdr-1.3.35/i18n.c	2005-10-30 14:37:57.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.213 2005/10/03 12:27:15 kls Exp $
++ * $Id: i18n.c 1.218 2005/10/30 13:37:57 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -12,7 +12,7 @@
+  * Italian     Alberto Carraro <bertocar@tin.it>, Antonio Ospite <ospite@studenti.unina.it>, Sean Carlos <seanc@libero.it>
+  * Dutch       Arnold Niessen <niessen@iae.nl> <arnold.niessen@philips.com>, Hans Dingemans <hans.dingemans@tacticalops.nl>
+  * Portuguese  Paulo Lopes <pmml@netvita.pt>
+- * French      Jean-Claude Repetto <jc@repetto.org>, Olivier Jacques <jacquesolivier@hotmail.com>, Gregoire Favre <greg@magma.unil.ch>
++ * French      Jean-Claude Repetto <jc@repetto.org>, Olivier Jacques <jacquesolivier@hotmail.com>, Gregoire Favre <greg@magma.unil.ch>, Nicolas Huillard <nhuillard@e-dition.fr>
+  * Norwegian   Jørgen Tvedt <pjtvedt@online.no>, Truls Slevigen <truls@slevigen.no>
+  * Finnish     Hannu Savolainen <hannu@opensound.com>, Jaakko Hyvätti <jaakko@hyvatti.iki.fi>, Niko Tarnanen <niko.tarnanen@hut.fi>, Rolf Ahrenberg <rahrenbe@cc.hut.fi>
+  * Polish      Michael Rakowski <mrak@gmx.de>
+@@ -218,7 +218,7 @@
+     "Timers",
+     "Programmation",
+     "Timere",
+-    "Ajastin",
++    "Ajastimet",
+     "Timery",
+     "Timer",
+     "×ñïíïäéáêüðôçò",
+@@ -258,19 +258,19 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Infos sur l'enregistrement",
+     "",// TODO
+     "Tallenteen tiedot",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "ÅããñáöÞ",
+     "Inspelning",
+     "Detaliile înregistrãrii",
+     "",// TODO
+     "",// TODO
+     "¸ÝäÞ Þ ×ÐßØáØ",
+     "",// TODO
+-    "",// TODO
++    "Salvestuse info",
+     "Optagelses info",
+   },
+   { "Setup",
+@@ -323,7 +323,7 @@
+     "",// TODO
+     "Commandes d'enregistrement",
+     "",// TODO
+-    "Tallennuskomennot",
++    "Tallennekomennot",
+     "Rozkazy Nagran",
+     "Órdenes de grabación",
+     "ÅíôïëÝò ãéÜ åããñáöÝò",
+@@ -426,12 +426,12 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "Info",
+     "",//TODO
+     "Tiedot",
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "Ðëçñïöïñßåò",
+     "Info",
+     "Info",
+     "",//TODO
+@@ -537,7 +537,7 @@
+     "Uusi",
+     "Nowy",
+     "Nuevo",
+-    "ÍÝï",
++    "NÝï",
+     "Ny",
+     "Nou",
+     "Új",
+@@ -910,7 +910,7 @@
+     "Inserisci",
+     "Invoegen",
+     "",// TODO
+-    "Insért",
++    "Insérer",
+     "",// TODO
+     "Lisää",
+     "Wstawiac",
+@@ -975,7 +975,7 @@
+     "",//TODO
+     "Réinitialisation",
+     "",//TODO
+-    "Alusta",
++    "Nollaa",
+     "Reset",
+     "Reiniciar",
+     "ÅðáíáöïñÜ",
+@@ -999,7 +999,7 @@
+     "Päivitä",
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "ÓÜñùóç",
+     "Skanna",
+     "Cãutare canale",
+     "",//TODO
+@@ -1081,7 +1081,7 @@
+     "Timer activo - têm a certeza que quer apagar?",
+     "Enregistrement en cours - confirmez la suppression",
+     "Timer gjør opptak - vil du slette likevel?",
+-    "Ajastettu tallennus käynnissä - keskeytetäänkö?",
++    "Ajastettu tallennus käynnissä - poistetaanko silti?",
+     "Nagrywanie w trakcie - napewno usunac?",
+     "¿Timer activo - de verdad eliminarlo?",
+     "×ñïíïäéáêüðôçò óÝ åîÝëéîç - ÄéáãñáöÞ óßãïõñá?",
+@@ -1123,7 +1123,7 @@
+     "no interface primário",
+     "sur la carte primaire",
+     "på første enhet",
+-    "päävastaanottimella",
++    "ensisijaisella sovittimella",
+     "na pierwszym interfejsie",
+     "en interface primario",
+     "óôÞí êýñéá êÜñôá",
+@@ -1231,7 +1231,7 @@
+     "Tallennus alkaa %d min kuluttua - sammutetaanko?",
+     "Nagrywanie za %d minut - mimo to wylaczyc?",
+     "Grabando en %d minutos, ¿de verdad apagar?",
+-    "ÁíáìÝíåôáé åããñáöÞ óÝ %d ëåðôÜ - ÔåëéêÜ íá ôåñìáôéóôåé?",
++    "ÁíáìÝíåôáé åããñáöÞ óÝ %d ëåðôÜ - ÔåëéêÜ íá ôåñìáôéóôåß?",
+     "Inspelning startar om %d minuter, vill du avsluta?",
+     "Înregistrez peste %d minute - închid, totuºi?",
+     "Felvétel %d perc mulva kezdödik - mégis kikapcsolni?",
+@@ -1397,7 +1397,7 @@
+     "Ppid",
+     "Ppid",
+     "Ppid",
+-    "Aikatieto-PID",
++    "PCR-PID",
+     "Ppid",
+     "Ppid",
+     "Ppid",
+@@ -1523,7 +1523,7 @@
+     "Encriptação",
+     "Cryptage",
+     "Kortleser",
+-    "Salaus",
++    "Salaus (CA)",
+     "CA",
+     "CA",
+     "CA",
+@@ -1607,7 +1607,7 @@
+     "CoderateH",
+     "CoderateH",
+     "CoderateH",
+-    "Yläsuojaustaso",
++    "Suojaustaso (HP)",
+     "CoderateH",
+     "CoderateH",
+     "CoderateH",
+@@ -1628,7 +1628,7 @@
+     "CoderateL",
+     "CoderateL",
+     "CoderateL",
+-    "Alasuojaustaso",
++    "Suojaustaso (LP)",
+     "CoderateL",
+     "CoderateL",
+     "CoderateL",
+@@ -1670,7 +1670,7 @@
+     "Transmission",
+     "Transmission",
+     "Transmission",
+-    "Lähetystila",
++    "Transmissio",
+     "Transmisja",
+     "Transmission",
+     "Transmission",
+@@ -1715,7 +1715,7 @@
+     "Hierarkia",
+     "Hierachia",
+     "Hierarchy",
+-    "Hierarchy",
++    "Éåñáñ÷åßá",
+     "Hierarchy",
+     "Ierarhie",
+     "Hierarchy",
+@@ -1842,7 +1842,7 @@
+     "VPS",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "VPS",
+     "VPS",
+     "VPS",
+     "",// TODO
+@@ -2071,7 +2071,7 @@
+     "Nenhuma placa DVB disponivel para gravar!",
+     "Pas de carte DVB disponible pour l'enregistrement!",
+     "Ingen ledige DVB enheter for opptak!",
+-    "Ei vapaata vastaanotinta tallennukselle!",
++    "Ei vapaata DVB-viritintä tallennukselle!",
+     "Brak wolnej karty DVB do nagrywania!",
+     "¡No hay dispositivo DVB disponible para grabar!",
+     "ÁíåðÜñêåéá DVB ÊÜñôáò ãéÜ åããñáöÞ!",
+@@ -2281,18 +2281,18 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
++    "Avataan CA-moduulin valikkoa...",
+     "",//TODO
+     "",//TODO
+     "",//TODO
++    "Åßóïäïò CAM Ìåíïý",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
+-    "",//TODO
+-    "",//TODO
+-    "",//TODO
++    "CAM-menüü avamine...",
++    "Åbner CAM menu...",
+   },
+   { "Can't open CAM menu!",
+     "CAM-Menü kann nicht geöffnet werden!",
+@@ -2302,7 +2302,7 @@
+     "",//TODO
+     "Impossible d'ouvrir le menu CAM!",
+     "",//TODO
+-    "Salausmoduulin valikko ei saatavilla",
++    "CA-moduulin valikko ei saatavilla",
+     "CAM-Menu niedostepne!",
+     "¡No pudeo acceder al menú de la CAM!",
+     "Áäýíáôç ç ðñüóâáóç óôü CAM ìåíïý!",
+@@ -2323,18 +2323,18 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
++    "CA-moduuli palautetaan alkutilaan...",
+     "",//TODO
+     "",//TODO
+     "",//TODO
++    "ÅðáíáöïñÜ CAM",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
+-    "",//TODO
+-    "",//TODO
+-    "",//TODO
++    "CAM mooduli taaskäivitus...",
++    "Nulstiller CAM...",
+   },
+   { "Can't reset CAM!",
+     "CAM-Reset fehlgeschlagen!",
+@@ -2344,7 +2344,7 @@
+     "",//TODO
+     "Impossible de réinitialiser la CAM!",
+     "",//TODO
+-    "Salausmoduulin alustus epäonnistui!",
++    "CA-moduulin palautus alkutilaan epäonnistui!",
+     "Nieudany CAM-Reset!",
+     "¡No puedo reiniciar la CAM!",
+     "Áäýíáôï íá ãßíåé åðáíáöïñÜ óôü CAM",
+@@ -2365,7 +2365,7 @@
+     "",//TODO
+     "La CAM a été réinitialisée",
+     "",//TODO
+-    "Salausmoduuli alustettu",
++    "CA-moduuli palautettu alkutilaan",
+     "CAM-Reset wykonany",
+     "CAM reiniciada",
+     "Óôï CAM Ýãéíå åðáíáöïñÜ",
+@@ -2386,18 +2386,18 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
++    "Syötä %d numeroa!",
+     "",//TODO
+     "",//TODO
+     "",//TODO
++    "Ðáñáêáëü ðëçêôñïëïãÞóåôå %d íïýìåñá",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
+-    "",//TODO
+-    "",//TODO
+-    "",//TODO
++    "Palun sisesta %d numbrit!",
++    "Indtast venligst %d cifre!",
+   },
+   { "No audio available!",
+     "Kein Audio verfügbar!",
+@@ -2410,7 +2410,7 @@
+     "Äänen kieli ei ole valittavissa!",
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "ÁíåðÜñêåéá Þ÷ïõ",
+     "Ljud saknas!"
+     "Lipseºte sunetul!",
+     "",//TODO
+@@ -2513,7 +2513,7 @@
+     "CICAM",
+     "Accès conditionnel",
+     "CICAM",
+-    "CI-moduuli",
++    "CICAM",
+     "CICAM",
+     "CICAM",
+     "CICAM",
+@@ -2685,7 +2685,7 @@
+     "Ulkoasu",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "ÅðéöÜíåéá",
+     "Skin",
+     "Skin",
+     "",// TODO
+@@ -2706,7 +2706,7 @@
+     "Teema",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "ÈÝìá",
+     "Tema",
+     "Temã",
+     "",// TODO
+@@ -2727,7 +2727,7 @@
+     "Vaakakeskitys",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "ÁñéóôåñÜ",
+     "Vänster",
+     "Stânga",
+     "",// TODO
+@@ -2748,7 +2748,7 @@
+     "Pystykeskitys",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "ÅðÜíù",
+     "Övre",
+     "Sus",
+     "",// TODO
+@@ -2832,7 +2832,7 @@
+     "Käytä pieniä kirjasimia",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "×ñéóçìïðïßçóç ìéêñüí ãñáììáôïóåéñþí",
+     "Använd liten font",
+     "Utilizare fonturi mici",
+     "",// TODO
+@@ -2853,7 +2853,7 @@
+     "ei koskaan",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "ÐïôÝ"
+     "aldrig",
+     "niciodatã",
+     "",// TODO
+@@ -2869,12 +2869,12 @@
+     "in base alla superficie",
+     "skin afhankelijk",
+     "",// TODO
+-    "Dépend du skin",
++    "dépend du skin",
+     "",// TODO
+     "ulkoasun mukaan",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "ÅîáñôÜôå áðü ôÞí åðéöÜíåéá",
+     "skin beroende",
+     "dep. de skin",
+     "",// TODO
+@@ -2895,7 +2895,7 @@
+     "aina",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "ðÜíôá",
+     "alltid",
+     "întotdeauna",
+     "",// TODO
+@@ -2937,7 +2937,7 @@
+     "Kanavatiedon esitysaika (s)",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "÷ñüíïò Ýíäåéêóçò ðëçñïöïñßùí êáíáëéïý óå (ä)",
+     "Kanal information (s)",
+     "Durata afiºãrii info-canal (s)",
+     "",// TODO
+@@ -2974,7 +2974,7 @@
+     "Scorri pagina nel menu",
+     "Scrollen per pagina",
+     "Scroll da página no menu",
+-    "Scrolling par pages",
++    "Défilement par pages",
+     "Rask rulling i menyer",
+     "Valikoiden vieritys sivuttain",
+     "Przesuwac stronami",
+@@ -2995,12 +2995,12 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Défilement rotatif",
+     "",// TODO
+     "Valikoiden vieritys ympäri",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Êßëéóç ãýñù-ãýñù",
+     "Rulla texten",
+     "Derulare circularã",
+     "",// TODO
+@@ -3039,7 +3039,7 @@
+     "Directorias de gravação",
+     "Dossiers d'enregistrements",
+     "Kataloger til opptak",
+-    "Tallennehakemistot",
++    "Näytä tallennehakemistot",
+     "Wykaz nagran",
+     "Gracaciones en directorios",
+     "ÖÜêåëïé åããñáöþí",
+@@ -3100,12 +3100,12 @@
+     "Visualizzazione dati vecchi (min)",
+     "Oude EPG data tonen (min)",
+     "",// TODO
+-    "Montrer l'EPG plus vieux de m min",
++    "Montrer l'EPG périmé (min)",
+     "",// TODO
+     "Vanha tieto näkyy (min)",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "¸íäåéêóç îåðåñáóìÝíïí ðëçñïöïñéþí (ëåðôÜ)",
+     "Visa gammal information (min)",
+     "Date EPG expirate cel mult (min)",
+     "",// TODO
+@@ -3123,7 +3123,7 @@
+     "Ajustar relógio do sistema",
+     "Ajuster l'heure du système",
+     "Juster system-klokken",
+-    "Aseta kellonaika",
++    "Tahdista kellonaika",
+     "Ustawianie czasu",
+     "Ajustar reloj de sistema",
+     "Óõíôïíéóìüò þñáò õðïëïãéóôÞ",
+@@ -3168,7 +3168,7 @@
+     "Suosikkikielet",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Ðñïôéíüìåíåò ãëþóåò",
+     "Önskade språk",
+     "Limbi preferate",
+     "",// TODO
+@@ -3189,7 +3189,7 @@
+     "Suosikkikieli",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Ðñïôéíüìåíç ãëþóá",
+     "Önskat språk",
+     "Limba preferatã",
+     "",// TODO
+@@ -3207,7 +3207,7 @@
+     "Interface DVB primário",
+     "Carte DVB primaire",
+     "Hoved DVB-enhet",
+-    "Päävastaanotin",
++    "Ensisijainen DVB-sovitin",
+     "Pierwotny interfejs DVB",
+     "Primer interface DVB",
+     "Êýñéá DVB êÜñôá",
+@@ -3226,12 +3226,12 @@
+     "",//TODO
+     "Video display format",
+     "",//TODO
+-    "",//TODO
++    "Format d'affichage",
+     "",//TODO
+     "Näyttömuoto",
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "ÌïñöÞ Ýíäåéêóçò Âßíôåï",
+     "Format för video display",
+     "Formatul redãrii video",
+     "",//TODO
+@@ -3315,7 +3315,7 @@
+     "Kuvasuhde",
+     "Format telewizyjny",
+     "Formato Vídeo",
+-    "Ó÷Þìá ïèüíçò",
++    "ÌïñöÞ ïèüíçò",
+     "Video format",
+     "Format video",
+     "Video formátum",
+@@ -3336,7 +3336,7 @@
+     "Käytä Dolby Digital -ääntä",
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "×ñçóéìïðïßçóç Þ÷ïõ Dolby Digital",
+     "Använd Dolby Digital",
+     "Sunet Dolby Digital",
+     "",//TODO
+@@ -3357,7 +3357,7 @@
+     "Päivitä kanavat",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "áíáíÝïóç êáíáëéþí",
+     "Uppdatera kanaler",
+     "Actualizare canale",
+     "",// TODO
+@@ -3373,12 +3373,12 @@
+     "solo nomi",
+     "alleen namen",
+     "",// TODO
+-    "Seulement les noms",
++    "noms uniquement",
+     "",// TODO
+     "vain nimet",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "ìüíï üíïìá",
+     "bara namn",
+     "doar numele",
+     "",// TODO
+@@ -3394,12 +3394,12 @@
+     "nomi e PIDs",
+     "namen en PIDs",
+     "",// TODO
+-    "Noms et PIDs",
++    "noms et PIDs",
+     "",// TODO
+     "nimet ja PID:it",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "üíïìá êáß PID",
+     "namn och PID",
+     "nume si PID-uri",
+     "",// TODO
+@@ -3415,12 +3415,12 @@
+     "aggiungere canali nuovi",
+     "nieuwe kanalen toevoegen",
+     "",// TODO
+-    "Ajouter les nouvelles chaînes",
+-    "",// TODO
+-    "lisää uudet kanavat",
++    "ajouter chaînes",
+     "",// TODO
++    "uudet kanavat",
+     "",// TODO
+     "",// TODO
++    "ðñïóèÞêç íÝïí êáíáëéþí",
+     "lägg till nya kanaler",
+     "adãugare canale noi",
+     "",// TODO
+@@ -3436,12 +3436,12 @@
+     "aggiungere transponder nuovi",
+     "nieuwe transponders toevoegen",
+     "",// TODO
+-    "Ajouter les nouveaux transpondeurs",
+-    "",// TODO
+-    "lisää uudet transponderit",
++    "ajouter transpondeurs",
+     "",// TODO
++    "uudet transponderit",
+     "",// TODO
+     "",// TODO
++    "ðñïóèÞêç íÝïí transponder",
+     "lägg till nya transponders",
+     "adãugare transpondere noi",
+     "",// TODO
+@@ -3457,12 +3457,12 @@
+     "",//TODO
+     "Audio talen",
+     "",//TODO
+-    "",//TODO
++    "Langues audio",
+     "",//TODO
+     "Äänen kielet",
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "Ãëþóåò Þ÷ïõ",
+     "Antal ljudspråk",
+     "Limbi sunet",
+     "",//TODO
+@@ -3478,12 +3478,12 @@
+     "",//TODO
+     "Audio taal",
+     "",//TODO
+-    "",//TODO
++    "Langue audio",
+     "",//TODO
+     "Äänen kieli",
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "Ãëþóá Þ÷ïõ",
+     "Ljudspråk",
+     "Limba sunetului",
+     "",//TODO
+@@ -3501,7 +3501,7 @@
+     "Limite de bandas LNB (MHz)",
+     "Limite de bandes LNB (MHz)",
+     "LO-grensefrekvens (MHz)",
+-    "LNB rajataajuus (MHz)",
++    "LNB-rajataajuus (MHz)",
+     "SLOF (MHz)",
+     "SLOF (MHz)",
+     "SLOF (MHz)",
+@@ -3522,7 +3522,7 @@
+     "Frequência base LNB (MHz)",
+     "Fréquence basse LNB (MHz)",
+     "LO-frekvens i lavbåndet (MHz)",
+-    "LNB alempi taajuus (MHz)",
++    "LNB-alataajuus (MHz)",
+     "Dolna czestotliwosc LNB (MHz)",
+     "Frecuencia baja LNB (MHz)",
+     "ÊÜôù LNB-Óõ÷íüôçôá (MHz)",
+@@ -3543,7 +3543,7 @@
+     "Frequência alta LNB (MHz)",
+     "Fréquence haute LNB (MHz)",
+     "LO-frekvens i høybåndet (MHz)",
+-    "LNB ylempi taajuus (MHz)",
++    "LNB-ylätaajuus (MHz)",
+     "Gorna czestotliwosc LNB (MHz)",
+     "Frecuencia alta LNB (MHz)",
+     "¢íù LNB-Óõ÷íüôçôá (MHz)",
+@@ -3564,7 +3564,7 @@
+     "Utilizar DiSEqC",
+     "Utiliser le DiSEqC",
+     "Bruk DiSEqC",
+-    "DiSEqC käytössä",
++    "Käytä DiSEqC-kytkintä",
+     "Uzywac DiSEqC",
+     "Utilizar DiSEqC",
+     "Åíåñãïðïßçóç DiSEqC",
+@@ -3585,7 +3585,7 @@
+     "CICAM DVB",
+     "Accès conditionnel",
+     "CICAM DVB",
+-    "CI-moduuli DVB",
++    "CICAM DVB",
+     "CICAM DVB",
+     "CICAM DVB",
+     "CICAM DVB",
+@@ -3648,7 +3648,7 @@
+     "Limite Primário",
+     "Limite primaire",
+     "Prioritetsgrense HovedDVB",
+-    "Päävastaanottimen prioriteetti",
++    "Ensisijaisen sovittimen prioriteettiraja",
+     "Pierwotny limit",
+     "Límite primario",
+     "Ðñïôåýïí üñéï",
+@@ -3777,7 +3777,7 @@
+     "Käytä VPS-toimintoa",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "×ñÞóç VPS",
+     "Använd VPS",
+     "Utilizeazã VPS",
+     "",// TODO
+@@ -3798,7 +3798,7 @@
+     "VPS-toiminnon aloitusmarginaali (s)",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Ðåñéèüñéï VPS (ä)",
+     "VPS marginal (s)",
+     "Marjã de timp la utilizare VPS (s)",
+     "",// TODO
+@@ -3921,7 +3921,7 @@
+     "Modo de multi-speed",
+     "Mode multi-vitesses",
+     "Multispeed modus",
+-    "Moninopeustila",
++    "Käytä toiston moninopeustilaa",
+     "Tryb wielopredkosciowy",
+     "Modo multi-velocidad",
+     "Ìåèïäïò ðïëëáðëÞò ôá÷ýôçôáò",
+@@ -4026,7 +4026,7 @@
+     "Timeout SVDRP (s)",
+     "Temps maxi SVDRP (s)",
+     "Ubrukt SVDRP-levetid (s)",
+-    "SVDRP odotusaika (s)",
++    "SVDRP-komennon odotusaika (s)",
+     "Min. brak aktywnosci SVDRP (s)",
+     "SVDRP Timeout (s)",
+     "SVDRP äéáêïðÞ (ä)",
+@@ -4045,7 +4045,7 @@
+     "Timeout Zapping",
+     "Zap timeout (s)",
+     "",// TODO
+-    "Prise en compte dernière chaîne (s)",
++    "Prise en compte chaîne (s)",
+     "",// TODO
+     "Kanavavalinnan odotusaika (s)",
+     "",// TODO
+@@ -4915,7 +4915,7 @@
+     "Ääni",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "¹÷ïò",
+     "Ljud",
+     "Sunet",
+     "",// TODO
+@@ -5228,7 +5228,7 @@
+     "A mudar interface DVB primário...",
+     "Changement de carte DVB primaire...",
+     "Bytter første DVB-enhet...",
+-    "Vaihdetaan päävastaanottimelle...",
++    "Vaihdetaan ensisijaista DVB-sovitinta...",
+     "Pierwszy interfejs DVB przelacza...",
+     "Cambio al interface DVB primario...",
+     "Ç êýñéá DVB êÜñôá áëëÜæåé...",
+@@ -5373,12 +5373,12 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Mise à jour du guide des programmes",
+     "",// TODO
+     "Ohjelmaoppaan päivitys aloitettu",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Áñ÷Þ óÜñùóç EPG",
+     "Påbörjar EPG skanning",
+     "Pornesc achiziþia EPG",
+     "",// TODO
+@@ -5415,12 +5415,12 @@
+     "VDR Classico",
+     "VDR Klassiek",
+     "",// TODO
+-    "",// TODO
++    "VDR Classique",// TODO
+     "",// TODO
+     "Klassinen VDR",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Êëáóéêü VDR",
+     "Klassisk VDR",
+     "VDR clasic",
+     "",// TODO
+@@ -5436,12 +5436,12 @@
+     "Consolles ST:TNG",
+     "ST:TNG Consoles",
+     "",// TODO
+-    "",// TODO
++    "Consoles ST:TNG",
+     "",// TODO
+     "ST:TNG konsoli",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "ÌïñöÝò ST:TNG",
+     "ST:TNG konsoll",
+     "Cons. ST:TNG",
+     "",// TODO
+@@ -5457,19 +5457,19 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Sans titre",
+     "",// TODO
+     "Ei esitystä",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Ï÷é ôßôëï",
+     "ingen titel",
+     "Fãrã titlu",
+     "",// TODO
+     "",// TODO
+     "±Õ× ÝÐ×ÒÐÝØï",
+     "Bez titla",
+-    "",// TODO
++    "Pealkiri puudub",
+     "Ingen titel",
+   },
+   { NULL }
+diff -ruN vdr-1.3.34/menu.c vdr-1.3.35/menu.c
+--- vdr-1.3.34/menu.c	2005-10-03 14:53:51.000000000 +0200
++++ vdr-1.3.35/menu.c	2005-10-09 13:22:03.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.374 2005/10/03 12:53:51 kls Exp $
++ * $Id: menu.c 1.375 2005/10/09 11:22:03 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -230,7 +230,7 @@
+   };
+ 
+ cMenuEditChannel::cMenuEditChannel(cChannel *Channel, bool New)
+-:cOsdMenu(tr("Edit channel"), 14)
++:cOsdMenu(tr("Edit channel"), 16)
+ {
+   channel = Channel;
+   if (channel) {
+diff -ruN vdr-1.3.34/osdbase.c vdr-1.3.35/osdbase.c
+--- vdr-1.3.34/osdbase.c	2005-10-02 17:00:40.000000000 +0200
++++ vdr-1.3.35/osdbase.c	2005-10-09 12:56:26.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osdbase.c 1.22 2005/10/02 15:00:40 kls Exp $
++ * $Id: osdbase.c 1.24 2005/10/09 10:56:26 kls Exp $
+  */
+ 
+ #include "osdbase.h"
+@@ -242,8 +242,8 @@
+ {
+   cOsdItem *item = Get(current);
+   if (item) {
+-     displayMenu->SetItem(item->Text(), current - first, Current, item->Selectable());
+-     if (Current)
++     displayMenu->SetItem(item->Text(), current - first, Current && item->Selectable(), item->Selectable());
++     if (Current && item->Selectable())
+         cStatus::MsgOsdCurrentItem(item->Text());
+      if (!Current)
+         item->SetFresh(true); // leaving the current item resets 'fresh'
+@@ -268,14 +268,16 @@
+   int tmpCurrent = current;
+   int lastOnScreen = first + displayMenuItems - 1;
+   int last = Count() - 1;
++  if (last < 0)
++     return;
+   while (--tmpCurrent != current) {
+         if (tmpCurrent < 0) {
+            if (Setup.MenuScrollWrap)
+-              tmpCurrent = last;
++              tmpCurrent = last + 1;
+            else
+               return;
+            }
+-        if (SelectableItem(tmpCurrent))
++        else if (SelectableItem(tmpCurrent))
+            break;
+         }
+   if (first <= tmpCurrent && tmpCurrent <= lastOnScreen)
+@@ -298,14 +300,16 @@
+   int tmpCurrent = current;
+   int lastOnScreen = first + displayMenuItems - 1;
+   int last = Count() - 1;
++  if (last < 0)
++     return;
+   while (++tmpCurrent != current) {
+         if (tmpCurrent > last) {
+            if (Setup.MenuScrollWrap)
+-              tmpCurrent = 0;
++              tmpCurrent = -1;
+            else
+               return;
+            }
+-        if (SelectableItem(tmpCurrent))
++        else if (SelectableItem(tmpCurrent))
+            break;
+         }
+   if (first <= tmpCurrent && tmpCurrent <= lastOnScreen)
+diff -ruN vdr-1.3.34/recorder.c vdr-1.3.35/recorder.c
+--- vdr-1.3.34/recorder.c	2005-08-14 12:53:28.000000000 +0200
++++ vdr-1.3.35/recorder.c	2005-10-31 13:35:29.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.c 1.15 2005/08/14 10:53:28 kls Exp $
++ * $Id: recorder.c 1.16 2005/10/31 12:35:29 kls Exp $
+  */
+ 
+ #include <stdarg.h>
+@@ -28,7 +28,7 @@
+   cIndexFile *index;
+   uchar pictureType;
+   int fileSize;
+-  int recordFile;
++  cUnbufferedFile *recordFile;
+   time_t lastDiskSpaceCheck;
+   bool RunningLowOnDiskSpace(void);
+   bool NextFile(void);
+@@ -50,7 +50,7 @@
+   lastDiskSpaceCheck = time(NULL);
+   fileName = new cFileName(FileName, true);
+   recordFile = fileName->Open();
+-  if (recordFile < 0)
++  if (!recordFile)
+      return;
+   // Create the index file:
+   index = new cIndexFile(FileName, true);
+@@ -81,13 +81,13 @@
+ 
+ bool cFileWriter::NextFile(void)
+ {
+-  if (recordFile >= 0 && pictureType == I_FRAME) { // every file shall start with an I_FRAME
++  if (recordFile && pictureType == I_FRAME) { // every file shall start with an I_FRAME
+      if (fileSize > MEGABYTE(Setup.MaxVideoFileSize) || RunningLowOnDiskSpace()) {
+         recordFile = fileName->NextFile();
+         fileSize = 0;
+         }
+      }
+-  return recordFile >= 0;
++  return recordFile != NULL;
+ }
+ 
+ void cFileWriter::Action(void)
+@@ -102,7 +102,7 @@
+            if (NextFile()) {
+               if (index && pictureType != NO_PICTURE)
+                  index->Write(pictureType, fileName->Number(), fileSize);
+-              if (safe_write(recordFile, p, Count) < 0) {
++              if (recordFile->Write(p, Count) < 0) {
+                  LOG_ERROR_STR(fileName->Name());
+                  break;
+                  }
+diff -ruN vdr-1.3.34/recording.c vdr-1.3.35/recording.c
+--- vdr-1.3.34/recording.c	2005-10-01 12:29:02.000000000 +0200
++++ vdr-1.3.35/recording.c	2005-10-31 13:27:58.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 1.120 2005/10/01 10:29:02 kls Exp $
++ * $Id: recording.c 1.122 2005/10/31 12:27:58 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -264,7 +264,9 @@
+   if (ownEvent) {
+      cReadLine ReadLine;
+      char *s;
++     int line = 0;
+      while ((s = ReadLine.Read(f)) != NULL) {
++           ++line;
+            char *t = skipspace(s + 1);
+            switch (*s) {
+              case 'C': {
+@@ -275,8 +277,10 @@
+                             channelID = tChannelID::FromString(t);
+                        }
+                        break;
+-             default: if (!ownEvent->Parse(s))
++             default: if (!ownEvent->Parse(s)) {
++                         esyslog("ERROR: EPG data problem in line %d", line);
+                          return false;
++                         }
+                       break;
+              }
+            }
+@@ -478,7 +482,8 @@
+      asprintf(&InfoFileName, "%s%s", fileName, INFOFILESUFFIX);
+      FILE *f = fopen(InfoFileName, "r");
+      if (f) {
+-        info->Read(f);
++        if (!info->Read(f))
++           esyslog("ERROR: EPG data problem in file %s", InfoFileName);
+         fclose(f);
+         }
+      else if (errno != ENOENT)
+@@ -1253,7 +1258,7 @@
+ 
+ cFileName::cFileName(const char *FileName, bool Record, bool Blocking)
+ {
+-  file = -1;
++  file = NULL;
+   fileNumber = 0;
+   record = Record;
+   blocking = Blocking;
+@@ -1274,21 +1279,21 @@
+   free(fileName);
+ }
+ 
+-int cFileName::Open(void)
++cUnbufferedFile *cFileName::Open(void)
+ {
+-  if (file < 0) {
++  if (!file) {
+      int BlockingFlag = blocking ? 0 : O_NONBLOCK;
+      if (record) {
+         dsyslog("recording to '%s'", fileName);
+         file = OpenVideoFile(fileName, O_RDWR | O_CREAT | BlockingFlag);
+-        if (file < 0)
++        if (!file)
+            LOG_ERROR_STR(fileName);
+         }
+      else {
+         if (access(fileName, R_OK) == 0) {
+            dsyslog("playing '%s'", fileName);
+-           file = open(fileName, O_RDONLY | BlockingFlag);
+-           if (file < 0)
++           file = cUnbufferedFile::Create(fileName, O_RDONLY | BlockingFlag);
++           if (!file)
+               LOG_ERROR_STR(fileName);
+            }
+         else if (errno != ENOENT)
+@@ -1300,14 +1305,14 @@
+ 
+ void cFileName::Close(void)
+ {
+-  if (file >= 0) {
+-     if ((record && CloseVideoFile(file) < 0) || (!record && close(file) < 0))
++  if (file) {
++     if ((record && CloseVideoFile(file) < 0) || (!record && file->Close() < 0))
+         LOG_ERROR_STR(fileName);
+-     file = -1;
++     file = NULL;
+      }
+ }
+ 
+-int cFileName::SetOffset(int Number, int Offset)
++cUnbufferedFile *cFileName::SetOffset(int Number, int Offset)
+ {
+   if (fileNumber != Number)
+      Close();
+@@ -1332,23 +1337,23 @@
+            }
+         else if (errno != ENOENT) { // something serious has happened
+            LOG_ERROR_STR(fileName);
+-           return -1;
++           return NULL;
+            }
+         // found a non existing file suffix
+         }
+      if (Open() >= 0) {
+-        if (!record && Offset >= 0 && lseek(file, Offset, SEEK_SET) != Offset) {
++        if (!record && Offset >= 0 && file->Seek(Offset, SEEK_SET) != Offset) {
+            LOG_ERROR_STR(fileName);
+-           return -1;
++           return NULL;
+            }
+         }
+      return file;
+      }
+   esyslog("ERROR: max number of files (%d) exceeded", MAXFILESPERRECORDING);
+-  return -1;
++  return NULL;
+ }
+ 
+-int cFileName::NextFile(void)
++cUnbufferedFile *cFileName::NextFile(void)
+ {
+   return SetOffset(fileNumber + 1);
+ }
+@@ -1382,7 +1387,7 @@
+ 
+ // --- ReadFrame -------------------------------------------------------------
+ 
+-int ReadFrame(int f, uchar *b, int Length, int Max)
++int ReadFrame(cUnbufferedFile *f, uchar *b, int Length, int Max)
+ {
+   if (Length == -1)
+      Length = Max; // this means we read up to EOF (see cIndex)
+@@ -1390,10 +1395,8 @@
+      esyslog("ERROR: frame larger than buffer (%d > %d)", Length, Max);
+      Length = Max;
+      }
+-  int r = safe_read(f, b, Length);
++  int r = f->Read(b, Length);
+   if (r < 0)
+      LOG_ERROR;
+   return r;
+ }
+-
+-
+diff -ruN vdr-1.3.34/recording.h vdr-1.3.35/recording.h
+--- vdr-1.3.34/recording.h	2005-10-01 12:24:41.000000000 +0200
++++ vdr-1.3.35/recording.h	2005-10-31 13:27:12.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 1.45 2005/10/01 10:24:41 kls Exp $
++ * $Id: recording.h 1.46 2005/10/31 12:27:12 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -203,7 +203,7 @@
+ 
+ class cFileName {
+ private:
+-  int file;
++  cUnbufferedFile *file;
+   int fileNumber;
+   char *fileName, *pFileNumber;
+   bool record;
+@@ -213,10 +213,10 @@
+   ~cFileName();
+   const char *Name(void) { return fileName; }
+   int Number(void) { return fileNumber; }
+-  int Open(void);
++  cUnbufferedFile *Open(void);
+   void Close(void);
+-  int SetOffset(int Number, int Offset = 0);
+-  int NextFile(void);
++  cUnbufferedFile *SetOffset(int Number, int Offset = 0);
++  cUnbufferedFile *NextFile(void);
+   };
+ 
+ cString IndexToHMSF(int Index, bool WithFrame = false);
+@@ -226,7 +226,7 @@
+ int SecondsToFrames(int Seconds); //XXX+ ->player???
+       // Returns the number of frames corresponding to the given number of seconds.
+ 
+-int ReadFrame(int f, uchar *b, int Length, int Max);
++int ReadFrame(cUnbufferedFile *f, uchar *b, int Length, int Max);
+ 
+ char *ExchangeChars(char *s, bool ToFileSystem);
+       // Exchanges the characters in the given string to or from a file system
+diff -ruN vdr-1.3.34/sources.conf vdr-1.3.35/sources.conf
+--- vdr-1.3.34/sources.conf	2003-11-07 17:19:18.000000000 +0100
++++ vdr-1.3.35/sources.conf	2005-10-08 10:47:59.000000000 +0200
+@@ -91,13 +91,22 @@
+ S61.5W  Echostar 3
+ S79W    AMC5
+ S82W    Nimiq 2
++S85W    AMC2
+ S87W    AMC3
+-S91W    Nimiq 1
++S89W    Intelsat 808
++S91W    Galaxy 11 & Nimiq 1/3
++S93W    Intelsat 806
++S95W    Galaxy 3C
+ S97W    Telestar 5
+-S105W   AMC2
++S99W    Galaxy 4R
++S101W   AMC4
++S103W   AMC1
++S105W   AMC15
+ S110W   Echostar 6/8
+ S119W   Echostar 7
+-S121W   Echostar 9
++S121W   Echostar 9 & Intelsat 813
++S123W   Galaxy 10R
++S129W   Intelsat 807
+ S148W   Echostar 1/2
+ S157W   Echostar 4
+ 
+diff -ruN vdr-1.3.34/svdrp.h vdr-1.3.35/svdrp.h
+--- vdr-1.3.34/svdrp.h	2005-08-28 16:10:32.000000000 +0200
++++ vdr-1.3.35/svdrp.h	2005-10-09 13:11:59.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: svdrp.h 1.23 2005/08/28 14:10:32 kls Exp $
++ * $Id: svdrp.h 1.24 2005/10/09 11:11:59 kls Exp $
+  */
+ 
+ #ifndef __SVDRP_H
+@@ -51,7 +51,7 @@
+   time_t lastActivity;
+   void Close(bool Timeout = false);
+   bool Send(const char *s, int length = -1);
+-  void Reply(int Code, const char *fmt, ...);
++  void Reply(int Code, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
+   void PrintHelpTopics(const char **hp);
+   void CmdCHAN(const char *Option);
+   void CmdCLRE(const char *Option);
+diff -ruN vdr-1.3.34/thread.h vdr-1.3.35/thread.h
+--- vdr-1.3.34/thread.h	2005-08-14 13:21:48.000000000 +0200
++++ vdr-1.3.35/thread.h	2005-10-09 13:12:32.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.h 1.30 2005/08/14 11:21:48 kls Exp $
++ * $Id: thread.h 1.31 2005/10/09 11:12:32 kls Exp $
+  */
+ 
+ #ifndef __THREAD_H
+@@ -106,7 +106,7 @@
+        ///< the thread starts and stops. The Start() function must be called 
+        ///< to actually start the thread.
+   virtual ~cThread();
+-  void SetDescription(const char *Description, ...);
++  void SetDescription(const char *Description, ...) __attribute__ ((format (printf, 2, 3)));
+   bool Start(void);
+        ///< Actually starts the thread.
+   bool Active(void);
+diff -ruN vdr-1.3.34/tools.c vdr-1.3.35/tools.c
+--- vdr-1.3.34/tools.c	2005-09-25 14:56:06.000000000 +0200
++++ vdr-1.3.35/tools.c	2005-10-31 13:56:15.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 1.99 2005/09/25 12:56:06 kls Exp $
++ * $Id: tools.c 1.100 2005/10/31 12:56:15 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -836,6 +836,129 @@
+   return result;
+ }
+ 
++// --- cUnbufferedFile -------------------------------------------------------
++
++#define READ_AHEAD MEGABYTE(2)
++#define WRITE_BUFFER MEGABYTE(10)
++
++cUnbufferedFile::cUnbufferedFile(void)
++{
++  fd = -1;
++}
++
++cUnbufferedFile::~cUnbufferedFile()
++{
++  Close();
++}
++
++int cUnbufferedFile::Open(const char *FileName, int Flags, mode_t Mode)
++{
++  Close();
++  fd = open(FileName, Flags, Mode);
++  begin = end = ahead = -1;
++  written = 0;
++  return fd;
++}
++
++int cUnbufferedFile::Close(void)
++{
++  if (fd >= 0) {
++     if (ahead > end)
++        end = ahead;
++     if (begin >= 0 && end > begin) {
++        //dsyslog("close buffer: %d (flush: %d bytes, %ld-%ld)", fd, written, begin, end);
++        if (written)
++           fdatasync(fd);
++        posix_fadvise(fd, begin, end - begin, POSIX_FADV_DONTNEED);
++        }
++     begin = end = ahead = -1;
++     written = 0;
++     }
++  int OldFd = fd;
++  fd = -1;
++  return close(OldFd);
++}
++
++off_t cUnbufferedFile::Seek(off_t Offset, int Whence)
++{
++  if (fd >= 0)
++     return lseek(fd, Offset, Whence);
++  return -1;
++}
++
++ssize_t cUnbufferedFile::Read(void *Data, size_t Size)
++{
++  if (fd >= 0) {
++     off_t pos = lseek(fd, 0, SEEK_CUR);
++     // jump forward - adjust end position
++     if (pos > end)
++        end = pos;
++     // after adjusting end - don't clear more than previously requested
++     if (end > ahead)
++        end = ahead;
++     // jump backward - drop read ahead of previous run
++     if (pos < begin)
++        end = ahead;
++     if (begin >= 0 && end > begin)
++        posix_fadvise(fd, begin - KILOBYTE(200), end - begin + KILOBYTE(200), POSIX_FADV_DONTNEED);//XXX macros/parameters???
++     begin = pos;
++     ssize_t bytesRead = safe_read(fd, Data, Size);
++     if (bytesRead > 0) {
++        pos += bytesRead;
++        end = pos;
++        // this seems to trigger a non blocking read - this
++        // may or may not have been finished when we will be called next time.
++        // If it is not finished we can't release the not yet filled buffers.
++        // So this is commented out till we find a better solution.
++        //posix_fadvise(fd, pos, READ_AHEAD, POSIX_FADV_WILLNEED);
++        ahead = pos + READ_AHEAD;
++        }
++     else
++        end = pos;
++     return bytesRead;
++     }
++  return -1;
++}
++
++ssize_t cUnbufferedFile::Write(const void *Data, size_t Size)
++{
++  if (fd >=0) {
++     off_t pos = lseek(fd, 0, SEEK_CUR);
++     ssize_t bytesWritten = safe_write(fd, Data, Size);
++     if (bytesWritten >= 0) {
++        written += bytesWritten;
++        if (begin >= 0) {
++           if (pos < begin)
++              begin = pos;
++           }
++        else
++           begin = pos;
++        if (pos + bytesWritten > end)
++           end = pos + bytesWritten;
++        if (written > WRITE_BUFFER) {
++           //dsyslog("flush buffer: %d (%d bytes, %ld-%ld)", fd, written, begin, end);
++           fdatasync(fd);
++           if (begin >= 0 && end > begin)
++              posix_fadvise(fd, begin, end - begin, POSIX_FADV_DONTNEED);
++           begin = end = -1;
++           written = 0;
++           }
++        }
++     return bytesWritten;
++     }
++  return -1;
++}
++
++cUnbufferedFile *cUnbufferedFile::Create(const char *FileName, int Flags, mode_t Mode)
++{
++  cUnbufferedFile *File = new cUnbufferedFile;
++  if (File->Open(FileName, Flags, Mode) < 0) {
++     delete File;
++     File = NULL;
++     }
++  return File;
++}
++
+ // --- cLockFile -------------------------------------------------------------
+ 
+ #define LOCKFILENAME      ".lock-vdr"
+diff -ruN vdr-1.3.34/tools.h vdr-1.3.35/tools.h
+--- vdr-1.3.34/tools.h	2005-10-01 14:43:31.000000000 +0200
++++ vdr-1.3.35/tools.h	2005-10-31 13:54:36.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 1.79 2005/10/01 12:43:31 kls Exp $
++ * $Id: tools.h 1.81 2005/10/31 12:54:36 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -81,7 +81,7 @@
+   operator const char * () const { return s; } // for use in (const char *) context
+   const char * operator*() const { return s; } // for use in (const void *) context (printf() etc.)
+   cString &operator=(const cString &String);
+-  static cString sprintf(const char *fmt, ...);
++  static cString sprintf(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
+   };
+ 
+ ssize_t safe_read(int filedes, void *buffer, size_t size);
+@@ -198,6 +198,27 @@
+   bool Close(void);
+   };
+ 
++/// cUnbufferedFile is used for large files that are mainly written or read
++/// in a streaming manner, and thus should not be cached.
++
++class cUnbufferedFile {
++private:
++  int fd;
++  off_t begin;
++  off_t end;
++  off_t ahead;
++  ssize_t written;
++public:
++  cUnbufferedFile(void);
++  ~cUnbufferedFile();
++  int Open(const char *FileName, int Flags, mode_t Mode = DEFFILEMODE);
++  int Close(void);
++  off_t Seek(off_t Offset, int Whence);
++  ssize_t Read(void *Data, size_t Size);
++  ssize_t Write(const void *Data, size_t Size);
++  static cUnbufferedFile *Create(const char *FileName, int Flags, mode_t Mode = DEFFILEMODE);
++  };
++
+ class cLockFile {
+ private:
+   char *fileName;
+diff -ruN vdr-1.3.34/vdr.1 vdr-1.3.35/vdr.1
+--- vdr-1.3.34/vdr.1	2005-07-31 12:49:35.000000000 +0200
++++ vdr-1.3.35/vdr.1	2005-10-09 14:31:03.000000000 +0200
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.1 1.14 2005/07/31 10:49:35 kls Exp $
++.\" $Id: vdr.1 1.15 2005/10/09 12:31:03 kls Exp $
+ .\"
+ .TH vdr 1 "19 Dec 2004" "1.3.18" "Video Disk Recorder"
+ .SH NAME
+@@ -166,7 +166,7 @@
+ .I marks.vdr
+ Contains the editing marks defined for a recording.
+ .TP
+-.I summary.vdr
++.I info.vdr
+ Contains a description of the recording.
+ .TP
+ .I resume.vdr
+diff -ruN vdr-1.3.34/vdr.c vdr-1.3.35/vdr.c
+--- vdr-1.3.34/vdr.c	2005-09-24 15:27:26.000000000 +0200
++++ vdr-1.3.35/vdr.c	2005-10-09 12:01:45.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.217 2005/09/24 13:27:26 kls Exp $
++ * $Id: vdr.c 1.218 2005/10/09 10:01:45 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -370,17 +370,11 @@
+   // Daemon mode:
+ 
+   if (DaemonMode) {
+-     pid_t pid = fork();
+-     if (pid < 0) {
++     if (daemon(1, 0) == -1) {
+         fprintf(stderr, "%m\n");
+         esyslog("ERROR: %m");
+         return 2;
+         }
+-     if (pid != 0)
+-        return 0; // initial program immediately returns
+-     fclose(stdin);
+-     fclose(stdout);
+-     fclose(stderr);
+      }
+   else if (Terminal) {
+      // Claim new controlling terminal
+diff -ruN vdr-1.3.34/videodir.c vdr-1.3.35/videodir.c
+--- vdr-1.3.34/videodir.c	2005-08-06 11:53:21.000000000 +0200
++++ vdr-1.3.35/videodir.c	2005-10-31 13:07:41.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: videodir.c 1.12 2005/08/06 09:53:21 kls Exp $
++ * $Id: videodir.c 1.13 2005/10/31 12:07:41 kls Exp $
+  */
+ 
+ #include "videodir.h"
+@@ -102,7 +102,7 @@
+   return NULL;
+ }
+ 
+-int OpenVideoFile(const char *FileName, int Flags)
++cUnbufferedFile *OpenVideoFile(const char *FileName, int Flags)
+ {
+   const char *ActualFileName = FileName;
+ 
+@@ -110,7 +110,7 @@
+   if (strstr(FileName, VideoDirectory) != FileName) {
+      esyslog("ERROR: %s not in %s", FileName, VideoDirectory);
+      errno = ENOENT; // must set 'errno' - any ideas for a better value?
+-     return -1;
++     return NULL;
+      }
+   // Are we going to create a new file?
+   if ((Flags & O_CREAT) != 0) {
+@@ -128,25 +128,26 @@
+         if (Dir.Stored()) {
+            ActualFileName = Dir.Adjust(FileName);
+            if (!MakeDirs(ActualFileName, false))
+-              return -1; // errno has been set by MakeDirs()
++              return NULL; // errno has been set by MakeDirs()
+            if (symlink(ActualFileName, FileName) < 0) {
+               LOG_ERROR_STR(FileName);
+-              return -1;
++              return NULL;
+               }
+            ActualFileName = strdup(ActualFileName); // must survive Dir!
+            }
+         }
+      }
+-  int Result = open(ActualFileName, Flags, DEFFILEMODE);
++  cUnbufferedFile *File = cUnbufferedFile::Create(ActualFileName, Flags, DEFFILEMODE);
+   if (ActualFileName != FileName)
+      free((char *)ActualFileName);
+-  return Result;
++  return File;
+ }
+ 
+-int CloseVideoFile(int FileHandle)
++int CloseVideoFile(cUnbufferedFile *File)
+ {
+-  // just in case we ever decide to do something special when closing the file!
+-  return close(FileHandle);
++  int Result = File->Close();
++  delete File;
++  return Result;
+ }
+ 
+ bool RenameVideoFile(const char *OldName, const char *NewName)
+diff -ruN vdr-1.3.34/videodir.h vdr-1.3.35/videodir.h
+--- vdr-1.3.34/videodir.h	2004-12-26 12:52:56.000000000 +0100
++++ vdr-1.3.35/videodir.h	2005-10-31 12:50:23.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: videodir.h 1.5 2004/12/26 11:52:56 kls Exp $
++ * $Id: videodir.h 1.6 2005/10/31 11:50:23 kls Exp $
+  */
+ 
+ #ifndef __VIDEODIR_H
+@@ -15,8 +15,8 @@
+ 
+ extern const char *VideoDirectory;
+ 
+-int OpenVideoFile(const char *FileName, int Flags);
+-int CloseVideoFile(int FileHandle);
++cUnbufferedFile *OpenVideoFile(const char *FileName, int Flags);
++int CloseVideoFile(cUnbufferedFile *File);
+ bool RenameVideoFile(const char *OldName, const char *NewName);
+ bool RemoveVideoFile(const char *FileName);
+ bool VideoFileSpaceAvailable(int SizeMB);

@@ -1,0 +1,154 @@
+diff -ruN vdr-1.4.2-1/CONTRIBUTORS vdr-1.4.2-2/CONTRIBUTORS
+--- vdr-1.4.2-1/CONTRIBUTORS	2006-09-03 13:49:32.000000000 +0200
++++ vdr-1.4.2-2/CONTRIBUTORS	2006-09-04 19:22:38.000000000 +0200
+@@ -1465,6 +1465,7 @@
+  for fixing getting the next active timer when shutting down
+  for reporting a problem with cPlugin::ConfigDirectory() in case a plugin calls it
+  from a separate thread
++ for reporting that an assignment in svdrp.c didn't use the cTimer::operator=())
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -1741,6 +1742,7 @@
+  message clears all messages that have been previously queued by that thread
+  for reporting that the cTimer::operator=() messes up the cListObject's pointers
+  for reporting a memory leak in the cTimer::operator=() when using the 'aux' string
++ for fixing cTimer::operator=() in case a cTimer variable is assigned to itself
+ 
+ Philip Prindeville <philipp_subx@redfish-solutions.com>
+  for updates to 'sources.conf'
+diff -ruN vdr-1.4.2-1/HISTORY vdr-1.4.2-2/HISTORY
+--- vdr-1.4.2-1/HISTORY	2006-09-03 13:05:47.000000000 +0200
++++ vdr-1.4.2-2/HISTORY	2006-09-09 11:27:45.000000000 +0200
+@@ -4907,3 +4907,10 @@
+   Martin Ostermann).
+ - Fixed handling relative volume settings that unmute the audio in the call to
+   cStatus::MsgSetVolume() (reported by Oliver Endriss).
++
++2006-09-09: Version 1.4.2-2
++
++- Fixed cTimer::operator=() in case a cTimer variable is assigned to itself (thanks
++  to Alexander Rieger).
++- Implemented a copy constructor for cTimer (thanks to Udo Richter for reporting that
++  an assignment in svdrp.c didn't use the cTimer::operator=()).
+diff -ruN vdr-1.4.2-1/config.h vdr-1.4.2-2/config.h
+--- vdr-1.4.2-1/config.h	2006-09-01 14:59:35.000000000 +0200
++++ vdr-1.4.2-2/config.h	2006-09-04 19:44:12.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.268 2006/09/01 12:59:35 kls Exp $
++ * $Id: config.h 1.269 2006/09/04 17:44:12 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -21,13 +21,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.4.2-1"
++#define VDRVERSION  "1.4.2-2"
+ #define VDRVERSNUM   10402  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.4.2"
+-#define APIVERSNUM   10402  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.4.3"
++#define APIVERSNUM   10403  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-1.4.2-1/timers.c vdr-1.4.2-2/timers.c
+--- vdr-1.4.2-1/timers.c	2006-09-02 12:20:36.000000000 +0200
++++ vdr-1.4.2-2/timers.c	2006-09-08 17:06:09.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 1.63 2006/09/02 10:20:36 kls Exp $
++ * $Id: timers.c 1.64 2006/09/08 15:06:09 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -83,6 +83,14 @@
+   event = NULL; // let SetEvent() be called to get a log message
+ }
+ 
++cTimer::cTimer(const cTimer &Timer)
++{
++  channel = NULL;
++  aux = NULL;
++  event = NULL;
++  *this = Timer;
++}
++
+ cTimer::~cTimer()
+ {
+   free(aux);
+@@ -90,24 +98,26 @@
+ 
+ cTimer& cTimer::operator= (const cTimer &Timer)
+ {
+-  startTime    = Timer.startTime;
+-  stopTime     = Timer.stopTime;
+-  lastSetEvent = 0;
+-  recording    = Timer.recording;
+-  pending      = Timer.pending;
+-  inVpsMargin  = Timer.inVpsMargin;
+-  flags        = Timer.flags;
+-  channel      = Timer.channel;
+-  day          = Timer.day;
+-  weekdays     = Timer.weekdays;
+-  start        = Timer.start;
+-  stop         = Timer.stop;
+-  priority     = Timer.priority;
+-  lifetime     = Timer.lifetime;
+-  strncpy(file, Timer.file, sizeof(file));
+-  free(aux);
+-  aux = Timer.aux ? strdup(Timer.aux) : NULL;
+-  event = NULL;
++  if (&Timer != this) {
++     startTime    = Timer.startTime;
++     stopTime     = Timer.stopTime;
++     lastSetEvent = 0;
++     recording    = Timer.recording;
++     pending      = Timer.pending;
++     inVpsMargin  = Timer.inVpsMargin;
++     flags        = Timer.flags;
++     channel      = Timer.channel;
++     day          = Timer.day;
++     weekdays     = Timer.weekdays;
++     start        = Timer.start;
++     stop         = Timer.stop;
++     priority     = Timer.priority;
++     lifetime     = Timer.lifetime;
++     strncpy(file, Timer.file, sizeof(file));
++     free(aux);
++     aux = Timer.aux ? strdup(Timer.aux) : NULL;
++     event = NULL;
++     }
+   return *this;
+ }
+ 
+diff -ruN vdr-1.4.2-1/timers.h vdr-1.4.2-2/timers.h
+--- vdr-1.4.2-1/timers.h	2006-04-08 14:41:44.000000000 +0200
++++ vdr-1.4.2-2/timers.h	2006-09-04 19:07:39.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.h 1.28 2006/04/08 12:41:44 kls Exp $
++ * $Id: timers.h 1.29 2006/09/04 17:07:39 kls Exp $
+  */
+ 
+ #ifndef __TIMERS_H
+@@ -44,6 +44,7 @@
+ public:
+   cTimer(bool Instant = false, bool Pause = false, cChannel *Channel = NULL);
+   cTimer(const cEvent *Event);
++  cTimer(const cTimer &Timer);
+   virtual ~cTimer();
+   cTimer& operator= (const cTimer &Timer);
+   virtual int Compare(const cListObject &ListObject) const;

@@ -1,0 +1,2911 @@
+diff -ruN vdr-1.7.35/CONTRIBUTORS vdr-1.7.36/CONTRIBUTORS
+--- vdr-1.7.35/CONTRIBUTORS	2012-12-30 12:30:17.000000000 +0100
++++ vdr-1.7.36/CONTRIBUTORS	2013-01-20 13:19:42.000000000 +0100
+@@ -1004,6 +1004,10 @@
+  for fixing initializing the timer's flags in the cTimer copy constructor
+  for reporting a crash in case CutRecording() is called from a plugin
+  for fixing the type of MBperMinute in cVideoDiskUsage::HasChanged()
++ for reporting a bug in sorting recordings in case two folders have the same name,
++ but one of them ends in an additional digit, as in "abc" and "abc2"
++ for reporting multiple occurrences of the same directory in the recordings list ini
++ case there are directories that only differ in non-alphanumeric characters
+ 
+ Olivier Jacques <jacquesolivier@hotmail.com>)
+  for translating OSD texts to the French language
+@@ -1328,6 +1332,10 @@
+  for reporting a race condition when zapping in transfer mode
+  for requesting that plugin Makefiles should include a configuration file for compile
+  time parameters
++ for suggesting to add a remark indicating that the coordinates of Rect in a call to
++ cDevice::CanScaleVideo() are in the range of the width and height returned by
++ GetOsdSize()
++ for adding "repeat" function when using the keyboard to control VDR
+ 
+ Richard Robson <richard_robson@beeb.net>
+  for reporting freezing replay if a timer starts while in Transfer Mode from the
+@@ -2440,6 +2448,7 @@
+ 
+ Antti Hartikainen <ami+vdr@ah.fi>
+  for updating 'S13E' in 'sources.conf'
++ for adding maximum SNR value for PCTV Systems nanoStick T2 290e
+ 
+ Bernd Melcher <bernd@bernd-melcher.de>
+  for reporting a problem with the 'servicedemo' plugin having no PLUGIN macro
+@@ -2500,6 +2509,8 @@
+  for reporting a problem with audio track descriptions in the DVD plugin after a
+  replay has been stopped
+  for suggesting to add user defined key kUser0
++ for suggesting to perform absolute jumps when replaying a recording (via the Red key)
++ only if an actual value has been entered
+ 
+ Jörg Wendel <vdr-ml@jwendel.de>
+  for reporting that cPlugin::Active() was called too often
+@@ -2701,6 +2712,7 @@
+  for some fixes to dvbspu.[hc]
+  for fixing a busy loop when moving editing marks
+  for making cPalette::ClosestColor() treat fully transparent colors as "equal"
++ for implementing scaling of SPU bitmaps
+ 
+ Timo Helkio <timolavi@mbnet.fi>
+  for reporting a hangup when replaying a TS recording with subtitles activated
+@@ -3012,6 +3024,7 @@
+  for dropped B-frames
+  for simplifying calculating the PTS offset in cPtsFixer::Fix() and fixing the overflow
+  handling of PCR values
++ for improving cutting MPEG-2 video
+ 
+ Peter Münster <pmlists@free.fr>
+  for fixing 'make install' to not overwrite existing configuration files
+@@ -3032,3 +3045,11 @@
+ 
+ Cedric Dewijs <cedric.dewijs@telfort.nl>
+  for adding maximum SNR value for PCTV Systems PCTV 73ESE
++
++Stefan Stolz <st.stolz@gmail.com>
++ for suggesting to make the SVDRP command LSTR optionally list the actual file name of
++ a recording's directory
++
++Malte Forkel <malte.forkel@berlin.de>
++ for suggesting to make the SVDRP command NEWT no longer check whether a timer with the
++ given data already exists
+diff -ruN vdr-1.7.35/HISTORY vdr-1.7.36/HISTORY
+--- vdr-1.7.35/HISTORY	2012-12-30 12:29:17.000000000 +0100
++++ vdr-1.7.36/HISTORY	2013-01-20 14:25:06.000000000 +0100
+@@ -7493,3 +7493,43 @@
+   Endriss). You may need to adjust your DVBDIR setting in Make.config, in case you
+   use it.
+ - Added maximum SNR value for PCTV Systems PCTV 73ESE (thanks to Cedric Dewijs).
++
++2013-01-20: Version 1.7.36
++
++- Added maximum SNR value for PCTV Systems nanoStick T2 290e (thanks to Antti
++  Hartikainen).
++- Added a remark indicating that the coordinates of Rect in a call to
++  cDevice::CanScaleVideo() are in the range of the width and height returned by
++  GetOsdSize() (suggested by Reinhard Nissl).
++- Modified the Makefiles (thanks to Christopher Reimer).
++  By default VDR is now built according to the FHS ("File system Hierarchy Standard"),
++  and a plain "make" in the VDR source directory just builds everything, but doesn't
++  copy it to ./PLUGINS/lib and ./locale any more. You can use a Make.config file
++  (copied from Make.config.template) and set the parameter LCLBLD=1 to have everything
++  built and installed under the VDR source tree (as was the default in previous
++  versions). If you already have your own Make.config file, you may want to copy the
++  new Make.config.template and adapt it to your needs. If you don't want VDR's data
++  files to be spread around your system according to the FHS, you can set the
++  parameter ONEDIR=1 (using Make.config) to have all files in one /video directory as
++  before.
++- Fixed the example for cReceiver in PLUGINS.html.
++- Fixed sorting recordings in case two folders have the same name, but one of them
++  ends in an additional digit, as in "abc" and "abc2" (reported by Andreas Mair).
++- Added "repeat" function when using the keyboard to control VDR (thanks to Reinhard
++  Nissl).
++- The SVDRP command LSTR now knows the additional parameter "path", which can be
++  given to get the actual file name of a recording's directory (suggested by
++  Stefan Stolz).
++- Fixed multiple occurrences of the same directory in the recordings list in case there
++  are directories that only differ in non-alphanumeric characters (reported by Andreas
++  Mair).
++- Absolute jumps when replaying a recording (via the Red key) are now only performed
++  if an actual value has been entered (suggested by Ulf Kiener).
++- The last replayed recording is now stored in setup.conf, which allows the blue
++  "Resume" key in the main menu to work even after a restart of VDR.
++- The SVDRP command NEWT no longer checks whether a timer with the given data already
++  exists (suggested by Malte Forkel).
++- Implemented scaling of SPU bitmaps (thanks to Johann Friedrichs).
++- Improved cutting MPEG-2 video (thanks to Sören Moch).
++- Reduced the number of retries in cTransfer::Receive() to avoid blocking recordings
++  in case the primary device can't handle the current live signal.
+diff -ruN vdr-1.7.35/INSTALL vdr-1.7.36/INSTALL
+--- vdr-1.7.35/INSTALL	2012-10-09 12:43:28.000000000 +0200
++++ vdr-1.7.36/INSTALL	2013-01-06 15:42:28.000000000 +0100
+@@ -311,7 +311,7 @@
+ The video data directory:
+ -------------------------
+ 
+-All recordings are written into directories below "/video". Please
++All recordings are written into directories below "/srv/vdr/video". Please
+ make sure this directory exists, and that the user who runs the 'vdr'
+ program has read and write access to that directory.
+ If you prefer a different location for your video files, you can use
+@@ -331,12 +331,12 @@
+ the main directory and has increasing values for the rest of the
+ directories. For example
+ 
+-   /video0
+-   /video1
+-   /video2
++   /srv/vdr/video0
++   /srv/vdr/video1
++   /srv/vdr/video2
+ 
+ would be a setup with three directories. You can use more than one
+-numeric digit, and the directories need not be directly under '/':
++numeric digit:
+ 
+    /mnt/MyVideos/vdr.00
+    /mnt/MyVideos/vdr.01
+@@ -351,7 +351,7 @@
+ 
+    vdr -v /video0
+ 
+-Note that you should not copy any non-VDR files into the /videoX directories,
++Note that you should not copy any non-VDR files into the video directory,
+ since this might cause a lot of unnecessary disk access when VDR cleans up those
+ directories and there is a large number of files and/or subdirectories in
+ there. If you have a large disk that you want to use for VDR's video data as
+@@ -375,9 +375,11 @@
+ 
+ There are several configuration files that hold information about
+ channels, remote control keys, timers etc. By default these files are
+-assumed to be located in the video directory, but a different directory
+-can be used with the '-c' option. Plugins assume their configuration files
+-in a subdirectory called "plugins" of this directory.
++spread around the system according to the FHS ("File system Hierarchy Standard").
++If you prefer to have VDR built to run locally under the VDR source tree,
++you can copy the file Make.config.template to Make.config and set the parameter
++LCLBLD=1. If you also want to have all data files under one single directory,
++set ONEDIR=1 in Make.config.
+ 
+ For starters just copy all *.conf files from the VDR directory into your
+ video directory.
+@@ -396,15 +398,6 @@
+ VDR archive into your video directory (or into your config directory,
+ respectively, in case you have redirected it with the -c option).
+ 
+-If you prefer to have your system set up according to the FHS
+-("File system Hierarchy Standard") and thus have your files spread
+-all over the place ;-), you can do this by copying the file Make.config.template
+-to Make.config in the VDR source directory, and activating the line
+-
+-#USEFHS = 1
+-
+-in that file.
+-
+ Setting up DiSEqC:
+ ------------------
+ 
+diff -ruN vdr-1.7.35/Make.config.template vdr-1.7.36/Make.config.template
+--- vdr-1.7.35/Make.config.template	2012-12-28 10:55:22.000000000 +0100
++++ vdr-1.7.36/Make.config.template	2013-01-12 14:50:17.000000000 +0100
+@@ -6,7 +6,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Make.config.template 2.14 2012/12/28 09:55:22 kls Exp $
++# $Id: Make.config.template 2.16 2013/01/12 13:50:17 kls Exp $
+ 
+ ### The C compiler and options:
+ 
+@@ -14,48 +14,64 @@
+ CFLAGS   = -g -O3 -Wall
+ 
+ CXX      = g++
+-CXXFLAGS = $(CFLAGS) -Werror=overloaded-virtual -Wno-parentheses
+-
+-CFLAGS   += -fPIC
++CXXFLAGS = -g -O3 -Wall -Werror=overloaded-virtual -Wno-parentheses
+ 
+ # Use 'make M32=1 ...' to build a 32-bit version of VDR on a 64-bit machine:
+ ifdef M32
+ CFLAGS   += -m32
++CXXFLAGS += -m32
+ endif
+ 
+ ### The directory environment:
+ 
+-PREFIX   = /usr/local
+-#DVBDIR   = /usr/src/v4l-dvb/linux
+-MANDIR   = $(PREFIX)/man
+-BINDIR   = $(PREFIX)/bin
++# Default directories (adjust as necessary or desired):
+ 
+-# Use this if you want to have a central place where you configure compile time
+-# parameters for plugins:
+-#PLGCFG = /etc/vdr/plugins.conf
++#PREFIX    = /usr/local
++#BINDIR    = $(PREFIX)/bin
++#INCDIR    = $(PREFIX)/include
++#LIBDIR    = $(PREFIX)/lib/vdr
++#LOCDIR    = $(PREFIX)/share/locale
++#MANDIR    = $(PREFIX)/share/man
++#PCDIR     = $(PREFIX)/lib/pkgconfig
++#RESDIR    = $(PREFIX)/share/vdr
++
++#VIDEODIR  = /srv/vdr/video
++#CONFDIR   = /var/lib/vdr
++#CACHEDIR  = /var/cache/vdr
+ 
+-# By default locale and plugin files are built under the source directory:
+-INCDIR       = $(CWD)/include
++# Overrides for preset/legacy configurations:
++
++# Use 'make LCLBLD=1' to build locale and plugin files under the source directory:
++ifdef LCLBLD
+ LOCDIR       = $(CWD)/locale
+ PLUGINDIR    = $(CWD)/PLUGINS
++ifndef PLUGIN # don't overwrite for plugins with old makefiles
+ LIBDIR       = $(PLUGINDIR)/lib
+-# By default VDR requires only one single directory to operate:
++endif
++HDRDIR       = $(CWD)/include
++endif
++
++# Use 'make ONEDIR=1' to have all data in one single directory:
++ifdef ONEDIR
+ VIDEODIR     = /video
+-# Activate the following line to build VDR according to the FHS ("File system Hierarchy Standard"):
+-#USEFHS = 1
+-ifdef USEFHS
+-VIDEODIR     = /srv/vdr/video
+-CONFDIR      = /var/lib/vdr
+-CACHEDIR     = /var/cache/vdr
+-RESDIR       = $(PREFIX)/share/vdr
+-INCDIR       = $(PREFIX)/include
+-LOCDIR       = $(PREFIX)/share/locale
+-LIBDIR       = $(PREFIX)/lib/vdr
++CACHEDIR     = $(VIDEODIR)
++CONFDIR      = $(VIDEODIR)
++RESDIR       = $(VIDEODIR)
+ endif
+ 
++# Use this if you want to have a central place where you configure compile time
++# parameters for plugins:
++#PLGCFG = $(CONFDIR)/plugins.conf
++
+ ### The remote control:
+ 
+ LIRC_DEVICE = /var/run/lirc/lircd
+ 
+-## Define if you want vdr to not run as root
++### Define if you want vdr to not run as root:
+ #VDR_USER = vdr
++
++### Fallback for plugins with old makefiles:
++ifdef PLUGIN
++CFLAGS   += -fPIC
++CXXFLAGS += -fPIC
++endif
+diff -ruN vdr-1.7.35/Makefile vdr-1.7.36/Makefile
+--- vdr-1.7.35/Makefile	2012-12-30 12:18:18.000000000 +0100
++++ vdr-1.7.36/Makefile	2013-01-12 14:45:01.000000000 +0100
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 2.47 2012/12/30 11:18:18 kls Exp $
++# $Id: Makefile 2.49 2013/01/12 13:45:01 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -14,45 +14,55 @@
+ CFLAGS   ?= -g -O3 -Wall
+ 
+ CXX      ?= g++
+-CXXFLAGS ?= $(CFLAGS) -Werror=overloaded-virtual -Wno-parentheses
+-
+-CFLAGS   += -fPIC
++CXXFLAGS ?= -g -O3 -Wall -Werror=overloaded-virtual -Wno-parentheses
+ 
+ CDEFINES  = -D_GNU_SOURCE
+ CDEFINES += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
+ 
+-# Directories:
+-
+-CWD      = .
+-LSIDIR   = ./libsi
+-DESTDIR ?=
+-PREFIX  ?= /usr/local
+-MANDIR  ?= $(PREFIX)/share/man
+-BINDIR  ?= $(PREFIX)/bin
+-INCDIR  ?= $(CWD)/include
+-LOCDIR  ?= $(CWD)/locale
+-LIBS     = -ljpeg -lpthread -ldl -lcap -lrt $(shell pkg-config --libs freetype2 fontconfig)
++LIBS      = -ljpeg -lpthread -ldl -lcap -lrt $(shell pkg-config --libs freetype2 fontconfig)
+ INCLUDES ?= $(shell pkg-config --cflags freetype2 fontconfig)
+ 
+-PLUGINDIR= $(CWD)/PLUGINS
+-LIBDIR   = $(PLUGINDIR)/lib
++# Directories:
++
++CWD       ?= $(shell pwd)
++LSIDIR    ?= $(CWD)/libsi
++PLUGINDIR ?= $(CWD)/PLUGINS
++
++DESTDIR   ?=
++VIDEODIR  ?= /srv/vdr/video
++CONFDIR   ?= /var/lib/vdr
++CACHEDIR  ?= /var/cache/vdr
++
++PREFIX    ?= /usr/local
++BINDIR    ?= $(PREFIX)/bin
++INCDIR    ?= $(PREFIX)/include
++LIBDIR    ?= $(PREFIX)/lib/vdr
++LOCDIR    ?= $(PREFIX)/share/locale
++MANDIR    ?= $(PREFIX)/share/man
++PCDIR     ?= $(PREFIX)/lib/pkgconfig
++RESDIR    ?= $(PREFIX)/share/vdr
+ 
+-# By default VDR requires only one single directory to operate:
+-VIDEODIR     = /video
+-# See Make.config.template if you want to build VDR according to the FHS ("File system Hierarchy Standard")
++# Source documentation
+ 
+-DOXYGEN ?= /usr/bin/doxygen
+-DOXYFILE = Doxyfile
++DOXYGEN  ?= /usr/bin/doxygen
++DOXYFILE  = Doxyfile
+ 
+-PCDIR   ?= $(firstword $(subst :, , ${PKG_CONFIG_PATH}:$(shell pkg-config --variable=pc_path pkg-config):$(PREFIX)/lib/pkgconfig))
++# User configuration
+ 
+ -include Make.config
+ 
++# Mandatory compiler flags:
++
++CFLAGS   += -fPIC
++CXXFLAGS += -fPIC
++
++# Common include files:
++
+ ifdef DVBDIR
+-CFLAGS += -I$(DVBDIR)
++CINCLUDES += -I$(DVBDIR)
+ endif
+ 
+-UP3 = $(if $(findstring "$(LIBDIR)-$(LOCDIR)","$(CWD)/PLUGINS/lib-$(CWD)/locale"),../../../,)
++# Object files
+ 
+ SILIB    = $(LSIDIR)/libsi.a
+ 
+@@ -63,8 +73,12 @@
+        skinclassic.o skinlcars.o skins.o skinsttng.o sourceparams.o sources.o spu.o status.o svdrp.o themes.o thread.o\
+        timers.o tools.o transfer.o vdr.o videodir.o
+ 
+-DEFINES += $(CDEFINES)
++DEFINES  += $(CDEFINES)
++INCLUDES += $(CINCLUDES)
+ 
++ifdef HDRDIR
++HDRDIR   := -I$(HDRDIR)
++endif
+ ifndef NO_KBD
+ DEFINES += -DREMOTE_KBD
+ endif
+@@ -90,12 +104,6 @@
+ DEFINES += -DPLUGINDIR=\"$(LIBDIR)\"
+ DEFINES += -DLOCDIR=\"$(LOCDIR)\"
+ 
+-# Default values for directories:
+-
+-CONFDIRDEF  = $(firstword $(CONFDIR)  $(VIDEODIR))
+-CACHEDIRDEF = $(firstword $(CACHEDIR) $(VIDEODIR))
+-RESDIRDEF   = $(firstword $(RESDIR)   $(CONFDIRDEF))
+-
+ # The version numbers of VDR and the plugin API (taken from VDR's "config.h"):
+ 
+ VDRVERSION = $(shell sed -ne '/define VDRVERSION/s/^.*"\(.*\)".*$$/\1/p' config.h)
+@@ -106,7 +114,7 @@
+ # Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
++	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ # Dependencies:
+ 
+@@ -133,16 +141,16 @@
+ vdr.pc:
+ 	@echo "bindir=$(BINDIR)" > $@
+ 	@echo "mandir=$(MANDIR)" >> $@
+-	@echo "configdir=$(CONFDIRDEF)" >> $@
++	@echo "configdir=$(CONFDIR)" >> $@
+ 	@echo "videodir=$(VIDEODIR)" >> $@
+-	@echo "cachedir=$(CACHEDIRDEF)" >> $@
+-	@echo "resdir=$(RESDIRDEF)" >> $@
+-	@echo "libdir=$(UP3)$(LIBDIR)" >> $@
+-	@echo "locdir=$(UP3)$(LOCDIR)" >> $@
++	@echo "cachedir=$(CACHEDIR)" >> $@
++	@echo "resdir=$(RESDIR)" >> $@
++	@echo "libdir=$(LIBDIR)" >> $@
++	@echo "locdir=$(LOCDIR)" >> $@
+ 	@echo "plgcfg=$(PLGCFG)" >> $@
+ 	@echo "apiversion=$(APIVERSION)" >> $@
+-	@echo "cflags=$(CFLAGS) $(CDEFINES) -I$(UP3)$(INCDIR)" >> $@
+-	@echo "cxxflags=$(CXXFLAGS) $(CDEFINES) -I$(UP3)$(INCDIR)" >> $@
++	@echo "cflags=$(CFLAGS) $(CDEFINES) $(CINCLUDES) $(HDRDIR)" >> $@
++	@echo "cxxflags=$(CXXFLAGS) $(CDEFINES) $(CINCLUDES) $(HDRDIR)" >> $@
+ 	@echo "" >> $@
+ 	@echo "Name: VDR" >> $@
+ 	@echo "Description: Video Disk Recorder" >> $@
+@@ -155,6 +163,7 @@
+ PODIR     = po
+ LOCALEDIR = locale
+ I18Npo    = $(wildcard $(PODIR)/*.po)
++I18Nmo    = $(addsuffix .mo, $(foreach file, $(I18Npo), $(basename $(file))))
+ I18Nmsgs  = $(addprefix $(LOCALEDIR)/, $(addsuffix /LC_MESSAGES/vdr.mo, $(notdir $(foreach file, $(I18Npo), $(basename $(file))))))
+ I18Npot   = $(PODIR)/vdr.pot
+ 
+@@ -169,15 +178,14 @@
+ 	@touch $@
+ 
+ $(I18Nmsgs): $(LOCALEDIR)/%/LC_MESSAGES/vdr.mo: $(PODIR)/%.mo
+-	@mkdir -p $(dir $@)
+-	cp $< $@
++	install -D -m644 $< $@
+ 
+ .PHONY: i18n
+-i18n: $(I18Nmsgs) $(I18Npot)
++i18n: $(I18Nmsgs)
+ 
+ install-i18n:
+ 	@mkdir -p $(DESTDIR)$(LOCDIR)
+-	@(cd $(LOCALEDIR); cp -r --parents * $(DESTDIR)$(LOCDIR))
++	cp -r $(LOCALEDIR)/* $(DESTDIR)$(LOCDIR)
+ 
+ # The 'include' directory (for plugins):
+ 
+@@ -192,45 +200,54 @@
+ plugins: include-dir vdr.pc
+ 	@failed="";\
+ 	noapiv="";\
++	oldmakefile="";\
+ 	for i in `ls $(PLUGINDIR)/src | grep -v '[^a-z0-9]'`; do\
+-	    echo "*** Plugin $$i:";\
++	    echo; echo "*** Plugin $$i:";\
++	    # No APIVERSION: Skip\
+ 	    if ! grep -q "\$$(LIBDIR)/.*\$$(APIVERSION)" "$(PLUGINDIR)/src/$$i/Makefile" ; then\
+ 	       echo "ERROR: plugin $$i doesn't honor APIVERSION - not compiled!";\
+ 	       noapiv="$$noapiv $$i";\
+ 	       continue;\
+ 	       fi;\
+-	    newmakefile=`grep "PKGCFG" "$(PLUGINDIR)/src/$$i/Makefile"`;\
+-	    if [ -z "$$newmakefile" ]; then\
+-	       echo "********************************************************************";\
+-	       echo "* Your plugin \"$$i\" is using an old Makefile!";\
+-	       echo "* While this currently still works, it is strongly recommended";\
+-	       echo "* that you convert that Makefile to the new style used since";\
+-	       echo "* VDR version 1.7.35. Support for old style Makefiles may be dropped";\
+-	       echo "* in future versions of VDR.";\
+-	       echo "********************************************************************";\
+-	       $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" CXXFLAGS="$(CXXFLAGS)" VDRDIR=$(UP3) LIBDIR=../../lib all || failed="$$failed $$i";\
+-	    else\
+-               target=all;\
+-	       if [ "$(LIBDIR)" = "$(CWD)/PLUGINS/lib" ] && [ "$(LOCDIR)" = "$(CWD)/locale" ]; then\
+-	          target="install";\
+-	          fi;\
+-	       includes=;\
+-	       if [ "$(INCDIR)" != "$(CWD)/include" ]; then\
+-	          includes="INCLUDES=-I$(UP3)/include";\
++	    # Old Makefile\
++	    if ! grep -q "PKGCFG" "$(PLUGINDIR)/src/$$i/Makefile" ; then\
++	       echo "WARNING: plugin $$i is using an old Makefile!";\
++	       oldmakefile="$$oldmakefile $$i";\
++	       $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" CFLAGS="$(CFLAGS) $(CDEFINES) $(CINCLUDES)" CXXFLAGS="$(CXXFLAGS) $(CDEFINES) $(CINCLUDES)" LIBDIR="$(PLUGINDIR)/lib" VDRDIR="$(CWD)" all || failed="$$failed $$i";\
++	       continue;\
++	       fi;\
++	    # New Makefile\
++	    INCLUDES="-I$(CWD)/include"\
++	    $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" VDRDIR="$(CWD)" || failed="$$failed $$i";\
++	    if [ -n "$(LCLBLD)" ] ; then\
++	       (cd $(PLUGINDIR)/src/$$i; for l in libvdr-*.so; do install $$l $(LIBDIR)/$$l.$(APIVERSION); done);\
++	       if [ -d $(PLUGINDIR)/src/$$i/po ]; then\
++	          for l in `ls $(PLUGINDIR)/src/$$i/po/*.mo`; do\
++	              install -D -m644 $$l $(LOCDIR)/`basename $$l | cut -d. -f1`/LC_MESSAGES/vdr-$$i.mo;\
++	              done;\
+ 	          fi;\
+-	       $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" VDRDIR=$(UP3) $$includes $$target || failed="$$failed $$i";\
+ 	       fi;\
+ 	    done;\
++	# Conclusion\
+ 	if [ -n "$$noapiv" ] ; then echo; echo "*** plugins without APIVERSION:$$noapiv"; echo; fi;\
++	if [ -n "$$oldmakefile" ] ; then\
++	   echo; echo "*** plugins with old Makefile:$$oldmakefile"; echo;\
++	   echo "**********************************************************************";\
++	   echo "*** While this currently still works, it is strongly recommended";\
++	   echo "*** that you convert old Makefiles to the new style used since";\
++	   echo "*** VDR version 1.7.36. Support for old style Makefiles may be dropped";\
++	   echo "*** in future versions of VDR.";\
++	   echo "**********************************************************************";\
++	   fi;\
+ 	if [ -n "$$failed" ] ; then echo; echo "*** failed plugins:$$failed"; echo; exit 1; fi
+ 
+ clean-plugins:
+ 	@for i in `ls $(PLUGINDIR)/src | grep -v '[^a-z0-9]'`; do $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" clean; done
+ 	@-rm -f $(PLUGINDIR)/lib/lib*-*.so.$(APIVERSION)
+ 
+-# Install the files:
++# Install the files (note that 'install-pc' must be first!):
+ 
+-install: install-bin install-dirs install-conf install-doc install-plugins install-i18n install-includes install-pc
++install: install-pc install-bin install-dirs install-conf install-doc install-plugins install-i18n install-includes
+ 
+ # VDR binary:
+ 
+@@ -242,13 +259,12 @@
+ 
+ install-dirs:
+ 	@mkdir -p $(DESTDIR)$(VIDEODIR)
+-	@mkdir -p $(DESTDIR)$(CONFDIRDEF)
+-	@mkdir -p $(DESTDIR)$(CACHEDIRDEF)
+-	@mkdir -p $(DESTDIR)$(RESDIRDEF)
++	@mkdir -p $(DESTDIR)$(CONFDIR)
++	@mkdir -p $(DESTDIR)$(CACHEDIR)
++	@mkdir -p $(DESTDIR)$(RESDIR)
+ 
+ install-conf:
+-	@cp -n *.conf $(DESTDIR)$(CONFDIRDEF)
+-
++	@cp -n *.conf $(DESTDIR)$(CONFDIR)
+ 
+ # Documentation:
+ 
+@@ -261,9 +277,14 @@
+ # Plugins:
+ 
+ install-plugins: plugins
+-	@for i in `ls $(PLUGINDIR)/src | grep -v '[^a-z0-9]'`; do\
+-	     $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" VDRDIR=$(UP3) DESTDIR=$(DESTDIR) install;\
+-	     done
++	@-for i in `ls $(PLUGINDIR)/src | grep -v '[^a-z0-9]'`; do\
++	      $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" VDRDIR=$(CWD) DESTDIR=$(DESTDIR) install;\
++	      done
++	@if [ -d $(PLUGINDIR)/lib ] ; then\
++	    for i in `find $(PLUGINDIR)/lib -name 'lib*-*.so.$(APIVERSION)'`; do\
++	        install -D $$i $(DESTDIR)$(LIBDIR);\
++	        done;\
++	    fi
+ 
+ # Includes:
+ 
+@@ -274,10 +295,10 @@
+ # pkg-config file:
+ 
+ install-pc: vdr.pc
+-	if [ -n "$(PCDIR)" ] ; then \
+-	    mkdir -p $(DESTDIR)$(PCDIR) ; \
+-	    cp vdr.pc $(DESTDIR)$(PCDIR) ; \
+-	    fi
++	if [ -n "$(PCDIR)" ] ; then\
++	   mkdir -p $(DESTDIR)$(PCDIR) ;\
++	   cp vdr.pc $(DESTDIR)$(PCDIR) ;\
++	   fi
+ 
+ # Source documentation:
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/dvbhddevice/HISTORY vdr-1.7.36/PLUGINS/src/dvbhddevice/HISTORY
+--- vdr-1.7.35/PLUGINS/src/dvbhddevice/HISTORY	2012-12-27 11:31:52.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/dvbhddevice/HISTORY	2013-01-12 15:07:42.000000000 +0100
+@@ -47,3 +47,7 @@
+ 2012-12-27: Version 0.0.5
+ 
+ - Adapted Makefile to changes introduced in recent VDR versions.
++
++2013-01-12: Version 0.0.6
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.35/PLUGINS/src/dvbhddevice/Makefile vdr-1.7.36/PLUGINS/src/dvbhddevice/Makefile
+--- vdr-1.7.35/PLUGINS/src/dvbhddevice/Makefile	2012-12-28 11:08:50.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/dvbhddevice/Makefile	2013-01-12 14:45:01.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.20 2012/12/28 10:08:50 kls Exp $
++# $Id: Makefile 1.22 2013/01/12 13:45:01 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -17,8 +17,8 @@
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
+-LOCDIR = $(DESTDIR)$(call PKGCFG,locdir)
++LIBDIR = $(call PKGCFG,libdir)
++LOCDIR = $(call PKGCFG,locdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+@@ -62,14 +62,14 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
++	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+ MAKEDEP = $(CXX) -MM -MG
+ DEPFILE = .dependencies
+ $(DEPFILE): Makefile
+-	@$(MAKEDEP) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
++	@$(MAKEDEP) $(CXXFLAGS) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
+ 
+ -include $(DEPFILE)
+ 
+@@ -78,7 +78,7 @@
+ PODIR     = po
+ I18Npo    = $(wildcard $(PODIR)/*.po)
+ I18Nmo    = $(addsuffix .mo, $(foreach file, $(I18Npo), $(basename $(file))))
+-I18Nmsgs  = $(addprefix $(LOCDIR)/, $(addsuffix /LC_MESSAGES/vdr-$(PLUGIN).mo, $(notdir $(foreach file, $(I18Npo), $(basename $(file))))))
++I18Nmsgs  = $(addprefix $(DESTDIR)$(LOCDIR)/, $(addsuffix /LC_MESSAGES/vdr-$(PLUGIN).mo, $(notdir $(foreach file, $(I18Npo), $(basename $(file))))))
+ I18Npot   = $(PODIR)/$(PLUGIN).pot
+ 
+ %.mo: %.po
+@@ -91,7 +91,7 @@
+ 	msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
+ 	@touch $@
+ 
+-$(I18Nmsgs): $(LOCDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
++$(I18Nmsgs): $(DESTDIR)$(LOCDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
+ 	install -D -m644 $< $@
+ 
+ .PHONY: i18n
+@@ -106,7 +106,7 @@
+ 	$(CXX) $(CXXFLAGS) -shared $(OBJS) libhdffcmd/libhdffcmd.a -o $@
+ 
+ install-lib: $(SOFILE)
+-	install -D $^ $(LIBDIR)/$^.$(APIVERSION)
++	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+ 
+ install: install-lib install-i18n
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/dvbhddevice/dvbhddevice.c vdr-1.7.36/PLUGINS/src/dvbhddevice/dvbhddevice.c
+--- vdr-1.7.35/PLUGINS/src/dvbhddevice/dvbhddevice.c	2012-12-27 11:30:48.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/dvbhddevice/dvbhddevice.c	2013-01-12 15:11:35.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbhddevice.c 1.18 2012/12/27 10:30:48 kls Exp $
++ * $Id: dvbhddevice.c 1.19 2013/01/12 14:11:35 kls Exp $
+  */
+ 
+ #include <vdr/plugin.h>
+@@ -12,7 +12,7 @@
+ #include "menu.h"
+ #include "setup.h"
+ 
+-static const char *VERSION        = "0.0.5";
++static const char *VERSION        = "0.0.6";
+ static const char *DESCRIPTION    = trNOOP("HD Full Featured DVB device");
+ static const char *MAINMENUENTRY  = "dvbhddevice";
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/dvbsddevice/HISTORY vdr-1.7.36/PLUGINS/src/dvbsddevice/HISTORY
+--- vdr-1.7.35/PLUGINS/src/dvbsddevice/HISTORY	2012-12-27 11:35:29.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/dvbsddevice/HISTORY	2013-01-12 15:08:02.000000000 +0100
+@@ -33,3 +33,7 @@
+ 2012-12-27: Version 0.0.7
+ 
+ - Adapted Makefile to changes introduced in recent VDR versions.
++
++2013-01-12: Version 0.0.8
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.35/PLUGINS/src/dvbsddevice/Makefile vdr-1.7.36/PLUGINS/src/dvbsddevice/Makefile
+--- vdr-1.7.35/PLUGINS/src/dvbsddevice/Makefile	2012-12-29 11:28:45.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/dvbsddevice/Makefile	2013-01-12 14:45:01.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.18 2012/12/29 10:28:45 kls Exp $
++# $Id: Makefile 1.20 2013/01/12 13:45:01 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -17,7 +17,7 @@
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
++LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+@@ -61,14 +61,14 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
++	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+ MAKEDEP = $(CXX) -MM -MG
+ DEPFILE = .dependencies
+ $(DEPFILE): Makefile
+-	@$(MAKEDEP) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
++	@$(MAKEDEP) $(CXXFLAGS) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
+ 
+ -include $(DEPFILE)
+ 
+@@ -78,7 +78,7 @@
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+-	install -D $^ $(LIBDIR)/$^.$(APIVERSION)
++	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+ 
+ install: install-lib
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/dvbsddevice/dvbsddevice.c vdr-1.7.36/PLUGINS/src/dvbsddevice/dvbsddevice.c
+--- vdr-1.7.35/PLUGINS/src/dvbsddevice/dvbsddevice.c	2012-12-27 11:32:23.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/dvbsddevice/dvbsddevice.c	2013-01-12 15:12:07.000000000 +0100
+@@ -3,14 +3,14 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsddevice.c 1.7 2012/12/27 10:32:23 kls Exp $
++ * $Id: dvbsddevice.c 1.8 2013/01/12 14:12:07 kls Exp $
+  */
+ 
+ #include <getopt.h>
+ #include <vdr/plugin.h>
+ #include "dvbsdffdevice.h"
+ 
+-static const char *VERSION        = "0.0.7";
++static const char *VERSION        = "0.0.8";
+ static const char *DESCRIPTION    = "SD Full Featured DVB device";
+ 
+ class cPluginDvbsddevice : public cPlugin {
+diff -ruN vdr-1.7.35/PLUGINS/src/epgtableid0/HISTORY vdr-1.7.36/PLUGINS/src/epgtableid0/HISTORY
+--- vdr-1.7.35/PLUGINS/src/epgtableid0/HISTORY	2012-12-27 11:33:07.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/epgtableid0/HISTORY	2013-01-12 15:08:20.000000000 +0100
+@@ -8,3 +8,7 @@
+ 2012-12-27: Version 0.0.2
+ 
+ - Adapted Makefile to changes introduced in recent VDR versions.
++
++2013-01-12: Version 0.0.3
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.35/PLUGINS/src/epgtableid0/Makefile vdr-1.7.36/PLUGINS/src/epgtableid0/Makefile
+--- vdr-1.7.35/PLUGINS/src/epgtableid0/Makefile	2012-12-29 11:28:58.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/epgtableid0/Makefile	2013-01-12 14:45:01.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.11 2012/12/29 10:28:58 kls Exp $
++# $Id: Makefile 1.13 2013/01/12 13:45:01 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -17,7 +17,7 @@
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
++LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+@@ -61,14 +61,14 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
++	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+ MAKEDEP = $(CXX) -MM -MG
+ DEPFILE = .dependencies
+ $(DEPFILE): Makefile
+-	@$(MAKEDEP) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
++	@$(MAKEDEP) $(CXXFLAGS) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
+ 
+ -include $(DEPFILE)
+ 
+@@ -78,7 +78,7 @@
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+-	install -D $^ $(LIBDIR)/$^.$(APIVERSION)
++	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+ 
+ install: install-lib
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/epgtableid0/epgtableid0.c vdr-1.7.36/PLUGINS/src/epgtableid0/epgtableid0.c
+--- vdr-1.7.35/PLUGINS/src/epgtableid0/epgtableid0.c	2012-12-27 11:32:52.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/epgtableid0/epgtableid0.c	2013-01-12 15:12:13.000000000 +0100
+@@ -3,13 +3,13 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: epgtableid0.c 1.2 2012/12/27 10:32:52 kls Exp $
++ * $Id: epgtableid0.c 1.3 2013/01/12 14:12:13 kls Exp $
+  */
+ 
+ #include <vdr/epg.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "0.0.2";
++static const char *VERSION        = "0.0.3";
+ static const char *DESCRIPTION    = "EPG handler for events with table id 0x00";
+ 
+ // --- cTable0Handler --------------------------------------------------------
+diff -ruN vdr-1.7.35/PLUGINS/src/hello/HISTORY vdr-1.7.36/PLUGINS/src/hello/HISTORY
+--- vdr-1.7.35/PLUGINS/src/hello/HISTORY	2012-12-27 11:33:26.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/hello/HISTORY	2013-01-12 15:08:43.000000000 +0100
+@@ -78,3 +78,7 @@
+ 2012-12-27: Version 0.2.6
+ 
+ - Adapted Makefile to changes introduced in recent VDR versions.
++
++2013-01-12: Version 0.2.7
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.35/PLUGINS/src/hello/Makefile vdr-1.7.36/PLUGINS/src/hello/Makefile
+--- vdr-1.7.35/PLUGINS/src/hello/Makefile	2012-12-28 11:09:20.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/hello/Makefile	2013-01-12 14:45:01.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.16 2012/12/28 10:09:20 kls Exp $
++# $Id: Makefile 2.18 2013/01/12 13:45:01 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -17,8 +17,8 @@
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
+-LOCDIR = $(DESTDIR)$(call PKGCFG,locdir)
++LIBDIR = $(call PKGCFG,libdir)
++LOCDIR = $(call PKGCFG,locdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+@@ -62,14 +62,14 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
++	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+ MAKEDEP = $(CXX) -MM -MG
+ DEPFILE = .dependencies
+ $(DEPFILE): Makefile
+-	@$(MAKEDEP) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
++	@$(MAKEDEP) $(CXXFLAGS) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
+ 
+ -include $(DEPFILE)
+ 
+@@ -78,7 +78,7 @@
+ PODIR     = po
+ I18Npo    = $(wildcard $(PODIR)/*.po)
+ I18Nmo    = $(addsuffix .mo, $(foreach file, $(I18Npo), $(basename $(file))))
+-I18Nmsgs  = $(addprefix $(LOCDIR)/, $(addsuffix /LC_MESSAGES/vdr-$(PLUGIN).mo, $(notdir $(foreach file, $(I18Npo), $(basename $(file))))))
++I18Nmsgs  = $(addprefix $(DESTDIR)$(LOCDIR)/, $(addsuffix /LC_MESSAGES/vdr-$(PLUGIN).mo, $(notdir $(foreach file, $(I18Npo), $(basename $(file))))))
+ I18Npot   = $(PODIR)/$(PLUGIN).pot
+ 
+ %.mo: %.po
+@@ -91,7 +91,7 @@
+ 	msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
+ 	@touch $@
+ 
+-$(I18Nmsgs): $(LOCDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
++$(I18Nmsgs): $(DESTDIR)$(LOCDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
+ 	install -D -m644 $< $@
+ 
+ .PHONY: i18n
+@@ -105,7 +105,7 @@
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+-	install -D $^ $(LIBDIR)/$^.$(APIVERSION)
++	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+ 
+ install: install-lib install-i18n
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/hello/hello.c vdr-1.7.36/PLUGINS/src/hello/hello.c
+--- vdr-1.7.35/PLUGINS/src/hello/hello.c	2012-12-27 11:35:04.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/hello/hello.c	2013-01-12 15:12:18.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: hello.c 2.4 2012/12/27 10:35:04 kls Exp $
++ * $Id: hello.c 2.5 2013/01/12 14:12:18 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -12,7 +12,7 @@
+ #include <vdr/interface.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "0.2.6";
++static const char *VERSION        = "0.2.7";
+ static const char *DESCRIPTION    = trNOOP("A friendly greeting");
+ static const char *MAINMENUENTRY  = trNOOP("Hello");
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/osddemo/HISTORY vdr-1.7.36/PLUGINS/src/osddemo/HISTORY
+--- vdr-1.7.35/PLUGINS/src/osddemo/HISTORY	2012-12-27 11:36:15.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/osddemo/HISTORY	2013-01-12 15:09:08.000000000 +0100
+@@ -42,3 +42,7 @@
+ 2012-12-27: Version 0.2.4
+ 
+ - Adapted Makefile to changes introduced in recent VDR versions.
++
++2013-01-12: Version 0.2.5
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.35/PLUGINS/src/osddemo/Makefile vdr-1.7.36/PLUGINS/src/osddemo/Makefile
+--- vdr-1.7.35/PLUGINS/src/osddemo/Makefile	2012-12-29 11:29:04.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/osddemo/Makefile	2013-01-12 14:45:01.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.14 2012/12/29 10:29:04 kls Exp $
++# $Id: Makefile 2.16 2013/01/12 13:45:01 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -17,7 +17,7 @@
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
++LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+@@ -61,14 +61,14 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
++	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+ MAKEDEP = $(CXX) -MM -MG
+ DEPFILE = .dependencies
+ $(DEPFILE): Makefile
+-	@$(MAKEDEP) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
++	@$(MAKEDEP) $(CXXFLAGS) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
+ 
+ -include $(DEPFILE)
+ 
+@@ -78,7 +78,7 @@
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+-	install -D $^ $(LIBDIR)/$^.$(APIVERSION)
++	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+ 
+ install: install-lib
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/osddemo/osddemo.c vdr-1.7.36/PLUGINS/src/osddemo/osddemo.c
+--- vdr-1.7.35/PLUGINS/src/osddemo/osddemo.c	2012-12-27 11:36:21.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/osddemo/osddemo.c	2013-01-12 15:12:23.000000000 +0100
+@@ -3,13 +3,13 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: osddemo.c 2.7 2012/12/27 10:36:21 kls Exp $
++ * $Id: osddemo.c 2.8 2013/01/12 14:12:23 kls Exp $
+  */
+ 
+ #include <vdr/osd.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "0.2.4";
++static const char *VERSION        = "0.2.5";
+ static const char *DESCRIPTION    = "Demo of arbitrary OSD setup";
+ static const char *MAINMENUENTRY  = "Osd Demo";
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/pictures/HISTORY vdr-1.7.36/PLUGINS/src/pictures/HISTORY
+--- vdr-1.7.35/PLUGINS/src/pictures/HISTORY	2012-12-27 11:36:55.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/pictures/HISTORY	2013-01-12 15:09:22.000000000 +0100
+@@ -79,3 +79,7 @@
+ 2012-12-27: Version 0.1.4
+ 
+ - Adapted Makefile to changes introduced in recent VDR versions.
++
++2013-01-12: Version 0.1.5
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.35/PLUGINS/src/pictures/Makefile vdr-1.7.36/PLUGINS/src/pictures/Makefile
+--- vdr-1.7.35/PLUGINS/src/pictures/Makefile	2012-12-28 11:09:29.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/pictures/Makefile	2013-01-12 14:45:01.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.16 2012/12/28 10:09:29 kls Exp $
++# $Id: Makefile 2.18 2013/01/12 13:45:01 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -17,8 +17,8 @@
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
+-LOCDIR = $(DESTDIR)$(call PKGCFG,locdir)
++LIBDIR = $(call PKGCFG,libdir)
++LOCDIR = $(call PKGCFG,locdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+@@ -62,14 +62,14 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
++	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+ MAKEDEP = $(CXX) -MM -MG
+ DEPFILE = .dependencies
+ $(DEPFILE): Makefile
+-	@$(MAKEDEP) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
++	@$(MAKEDEP) $(CXXFLAGS) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
+ 
+ -include $(DEPFILE)
+ 
+@@ -78,7 +78,7 @@
+ PODIR     = po
+ I18Npo    = $(wildcard $(PODIR)/*.po)
+ I18Nmo    = $(addsuffix .mo, $(foreach file, $(I18Npo), $(basename $(file))))
+-I18Nmsgs  = $(addprefix $(LOCDIR)/, $(addsuffix /LC_MESSAGES/vdr-$(PLUGIN).mo, $(notdir $(foreach file, $(I18Npo), $(basename $(file))))))
++I18Nmsgs  = $(addprefix $(DESTDIR)$(LOCDIR)/, $(addsuffix /LC_MESSAGES/vdr-$(PLUGIN).mo, $(notdir $(foreach file, $(I18Npo), $(basename $(file))))))
+ I18Npot   = $(PODIR)/$(PLUGIN).pot
+ 
+ %.mo: %.po
+@@ -91,7 +91,7 @@
+ 	msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
+ 	@touch $@
+ 
+-$(I18Nmsgs): $(LOCDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
++$(I18Nmsgs): $(DESTDIR)$(LOCDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
+ 	install -D -m644 $< $@
+ 
+ .PHONY: i18n
+@@ -105,7 +105,7 @@
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+-	install -D $^ $(LIBDIR)/$^.$(APIVERSION)
++	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+ 
+ install: install-lib install-i18n
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/pictures/pictures.c vdr-1.7.36/PLUGINS/src/pictures/pictures.c
+--- vdr-1.7.35/PLUGINS/src/pictures/pictures.c	2012-12-27 11:37:07.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/pictures/pictures.c	2013-01-12 15:12:42.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: pictures.c 2.7 2012/12/27 10:37:07 kls Exp $
++ * $Id: pictures.c 2.8 2013/01/12 14:12:42 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -11,7 +11,7 @@
+ #include "menu.h"
+ #include "player.h"
+ 
+-static const char *VERSION       = "0.1.4";
++static const char *VERSION       = "0.1.5";
+ static const char *DESCRIPTION   = trNOOP("A simple picture viewer");
+ static const char *MAINMENUENTRY = trNOOP("Pictures");
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/rcu/HISTORY vdr-1.7.36/PLUGINS/src/rcu/HISTORY
+--- vdr-1.7.35/PLUGINS/src/rcu/HISTORY	2012-12-27 11:37:23.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/rcu/HISTORY	2013-01-12 15:09:40.000000000 +0100
+@@ -12,3 +12,7 @@
+ 2012-12-27: Version 0.0.3
+ 
+ - Adapted Makefile to changes introduced in recent VDR versions.
++
++2013-01-12: Version 0.0.4
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.35/PLUGINS/src/rcu/Makefile vdr-1.7.36/PLUGINS/src/rcu/Makefile
+--- vdr-1.7.35/PLUGINS/src/rcu/Makefile	2012-12-29 11:29:09.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/rcu/Makefile	2013-01-12 14:45:01.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.11 2012/12/29 10:29:09 kls Exp $
++# $Id: Makefile 1.13 2013/01/12 13:45:01 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -17,7 +17,7 @@
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
++LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+@@ -61,14 +61,14 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
++	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+ MAKEDEP = $(CXX) -MM -MG
+ DEPFILE = .dependencies
+ $(DEPFILE): Makefile
+-	@$(MAKEDEP) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
++	@$(MAKEDEP) $(CXXFLAGS) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
+ 
+ -include $(DEPFILE)
+ 
+@@ -78,7 +78,7 @@
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+-	install -D $^ $(LIBDIR)/$^.$(APIVERSION)
++	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+ 
+ install: install-lib
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/rcu/rcu.c vdr-1.7.36/PLUGINS/src/rcu/rcu.c
+--- vdr-1.7.35/PLUGINS/src/rcu/rcu.c	2012-12-27 11:37:31.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/rcu/rcu.c	2013-01-12 15:12:54.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: rcu.c 1.3 2012/12/27 10:37:31 kls Exp $
++ * $Id: rcu.c 1.4 2013/01/12 14:12:54 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -16,7 +16,7 @@
+ #include <vdr/thread.h>
+ #include <vdr/tools.h>
+ 
+-static const char *VERSION        = "0.0.3";
++static const char *VERSION        = "0.0.4";
+ static const char *DESCRIPTION    = "Remote Control Unit";
+ 
+ #define REPEATLIMIT      150 // ms
+diff -ruN vdr-1.7.35/PLUGINS/src/servicedemo/HISTORY vdr-1.7.36/PLUGINS/src/servicedemo/HISTORY
+--- vdr-1.7.35/PLUGINS/src/servicedemo/HISTORY	2012-12-27 11:37:48.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/servicedemo/HISTORY	2013-01-12 15:10:14.000000000 +0100
+@@ -13,3 +13,7 @@
+ 2012-12-27: Version 0.1.3
+ 
+ - Adapted Makefile to changes introduced in recent VDR versions.
++
++2013-01-12: Version 0.1.4
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.35/PLUGINS/src/servicedemo/Makefile vdr-1.7.36/PLUGINS/src/servicedemo/Makefile
+--- vdr-1.7.35/PLUGINS/src/servicedemo/Makefile	2012-12-29 11:29:15.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/servicedemo/Makefile	2013-01-12 14:45:01.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.12 2012/12/29 10:29:15 kls Exp $
++# $Id: Makefile 2.14 2013/01/12 13:45:01 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -18,7 +18,7 @@
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
++LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+@@ -58,14 +58,14 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
++	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+ MAKEDEP = $(CXX) -MM -MG
+ DEPFILE = .dependencies
+ $(DEPFILE): Makefile
+-	@$(MAKEDEP) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
++	@$(MAKEDEP) $(CXXFLAGS) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
+ 
+ -include $(DEPFILE)
+ 
+@@ -78,8 +78,8 @@
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(PLUGIN2).o -o $@
+ 
+ install-lib: libvdr-$(PLUGIN1).so libvdr-$(PLUGIN2).so
+-	install -D libvdr-$(PLUGIN1).so $(LIBDIR)/libvdr-$(PLUGIN1).so.$(APIVERSION)
+-	install -D libvdr-$(PLUGIN2).so $(LIBDIR)/libvdr-$(PLUGIN2).so.$(APIVERSION)
++	install -D libvdr-$(PLUGIN1).so $(DESTDIR)$(LIBDIR)/libvdr-$(PLUGIN1).so.$(APIVERSION)
++	install -D libvdr-$(PLUGIN2).so $(DESTDIR)$(LIBDIR)/libvdr-$(PLUGIN2).so.$(APIVERSION)
+ 
+ install: install-lib
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/servicedemo/svccli.c vdr-1.7.36/PLUGINS/src/servicedemo/svccli.c
+--- vdr-1.7.35/PLUGINS/src/servicedemo/svccli.c	2012-12-27 11:37:57.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/servicedemo/svccli.c	2013-01-12 15:13:00.000000000 +0100
+@@ -3,14 +3,14 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: svccli.c 2.1 2012/12/27 10:37:57 kls Exp $
++ * $Id: svccli.c 2.2 2013/01/12 14:13:00 kls Exp $
+  */
+ 
+ #include <stdlib.h>
+ #include <vdr/interface.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "0.1.3";
++static const char *VERSION        = "0.1.4";
+ static const char *DESCRIPTION    = "Service demo client";
+ static const char *MAINMENUENTRY  = "Service demo";
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/servicedemo/svcsvr.c vdr-1.7.36/PLUGINS/src/servicedemo/svcsvr.c
+--- vdr-1.7.35/PLUGINS/src/servicedemo/svcsvr.c	2012-12-27 11:38:19.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/servicedemo/svcsvr.c	2013-01-12 15:13:05.000000000 +0100
+@@ -3,14 +3,14 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: svcsvr.c 2.1 2012/12/27 10:38:19 kls Exp $
++ * $Id: svcsvr.c 2.2 2013/01/12 14:13:05 kls Exp $
+  */
+ 
+ #include <stdlib.h>
+ #include <vdr/interface.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "0.1.3";
++static const char *VERSION        = "0.1.4";
+ static const char *DESCRIPTION    = "Service demo server";
+ 
+ class cPluginSvcSvr : public cPlugin {
+diff -ruN vdr-1.7.35/PLUGINS/src/skincurses/HISTORY vdr-1.7.36/PLUGINS/src/skincurses/HISTORY
+--- vdr-1.7.35/PLUGINS/src/skincurses/HISTORY	2012-12-27 11:38:36.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/skincurses/HISTORY	2013-01-12 15:10:28.000000000 +0100
+@@ -105,3 +105,7 @@
+ 2012-12-27: Version 0.1.13
+ 
+ - Adapted Makefile to changes introduced in recent VDR versions.
++
++2013-01-12: Version 0.1.14
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.35/PLUGINS/src/skincurses/Makefile vdr-1.7.36/PLUGINS/src/skincurses/Makefile
+--- vdr-1.7.35/PLUGINS/src/skincurses/Makefile	2012-12-28 11:09:36.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/skincurses/Makefile	2013-01-12 14:45:01.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.16 2012/12/28 10:09:36 kls Exp $
++# $Id: Makefile 2.18 2013/01/12 13:45:01 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -17,8 +17,8 @@
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
+-LOCDIR = $(DESTDIR)$(call PKGCFG,locdir)
++LIBDIR = $(call PKGCFG,libdir)
++LOCDIR = $(call PKGCFG,locdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+@@ -62,14 +62,14 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
++	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+ MAKEDEP = $(CXX) -MM -MG
+ DEPFILE = .dependencies
+ $(DEPFILE): Makefile
+-	@$(MAKEDEP) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
++	@$(MAKEDEP) $(CXXFLAGS) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
+ 
+ -include $(DEPFILE)
+ 
+@@ -78,7 +78,7 @@
+ PODIR     = po
+ I18Npo    = $(wildcard $(PODIR)/*.po)
+ I18Nmo    = $(addsuffix .mo, $(foreach file, $(I18Npo), $(basename $(file))))
+-I18Nmsgs  = $(addprefix $(LOCDIR)/, $(addsuffix /LC_MESSAGES/vdr-$(PLUGIN).mo, $(notdir $(foreach file, $(I18Npo), $(basename $(file))))))
++I18Nmsgs  = $(addprefix $(DESTDIR)$(LOCDIR)/, $(addsuffix /LC_MESSAGES/vdr-$(PLUGIN).mo, $(notdir $(foreach file, $(I18Npo), $(basename $(file))))))
+ I18Npot   = $(PODIR)/$(PLUGIN).pot
+ 
+ %.mo: %.po
+@@ -91,7 +91,7 @@
+ 	msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
+ 	@touch $@
+ 
+-$(I18Nmsgs): $(LOCDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
++$(I18Nmsgs): $(DESTDIR)$(LOCDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
+ 	install -D -m644 $< $@
+ 
+ .PHONY: i18n
+@@ -105,7 +105,7 @@
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -lncursesw -o $@
+ 
+ install-lib: $(SOFILE)
+-	install -D $^ $(LIBDIR)/$^.$(APIVERSION)
++	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+ 
+ install: install-lib install-i18n
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/skincurses/skincurses.c vdr-1.7.36/PLUGINS/src/skincurses/skincurses.c
+--- vdr-1.7.35/PLUGINS/src/skincurses/skincurses.c	2012-12-27 11:38:43.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/skincurses/skincurses.c	2013-01-12 15:13:12.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: skincurses.c 2.10 2012/12/27 10:38:43 kls Exp $
++ * $Id: skincurses.c 2.11 2013/01/12 14:13:12 kls Exp $
+  */
+ 
+ #include <ncurses.h>
+@@ -12,7 +12,7 @@
+ #include <vdr/skins.h>
+ #include <vdr/videodir.h>
+ 
+-static const char *VERSION        = "0.1.13";
++static const char *VERSION        = "0.1.14";
+ static const char *DESCRIPTION    = trNOOP("A text only skin");
+ static const char *MAINMENUENTRY  = NULL;
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/status/HISTORY vdr-1.7.36/PLUGINS/src/status/HISTORY
+--- vdr-1.7.35/PLUGINS/src/status/HISTORY	2012-12-27 11:39:04.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/status/HISTORY	2013-01-12 15:10:44.000000000 +0100
+@@ -52,3 +52,7 @@
+ 2012-12-27: Version 0.3.2
+ 
+ - Adapted Makefile to changes introduced in recent VDR versions.
++
++2013-01-12: Version 0.3.3
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.35/PLUGINS/src/status/Makefile vdr-1.7.36/PLUGINS/src/status/Makefile
+--- vdr-1.7.35/PLUGINS/src/status/Makefile	2012-12-29 11:29:20.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/status/Makefile	2013-01-12 14:45:01.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.13 2012/12/29 10:29:20 kls Exp $
++# $Id: Makefile 2.15 2013/01/12 13:45:01 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -17,7 +17,7 @@
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
++LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+@@ -61,14 +61,14 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
++	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+ MAKEDEP = $(CXX) -MM -MG
+ DEPFILE = .dependencies
+ $(DEPFILE): Makefile
+-	@$(MAKEDEP) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
++	@$(MAKEDEP) $(CXXFLAGS) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
+ 
+ -include $(DEPFILE)
+ 
+@@ -78,7 +78,7 @@
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+-	install -D $^ $(LIBDIR)/$^.$(APIVERSION)
++	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+ 
+ install: install-lib
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/status/status.c vdr-1.7.36/PLUGINS/src/status/status.c
+--- vdr-1.7.35/PLUGINS/src/status/status.c	2012-12-27 11:39:26.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/status/status.c	2013-01-12 15:13:17.000000000 +0100
+@@ -3,13 +3,13 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: status.c 2.2 2012/12/27 10:39:26 kls Exp $
++ * $Id: status.c 2.3 2013/01/12 14:13:17 kls Exp $
+  */
+ 
+ #include <vdr/plugin.h>
+ #include <vdr/status.h>
+ 
+-static const char *VERSION        = "0.3.2";
++static const char *VERSION        = "0.3.3";
+ static const char *DESCRIPTION    = "Status monitor test";
+ static const char *MAINMENUENTRY  = NULL;
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/svdrpdemo/HISTORY vdr-1.7.36/PLUGINS/src/svdrpdemo/HISTORY
+--- vdr-1.7.35/PLUGINS/src/svdrpdemo/HISTORY	2012-12-27 11:39:40.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/svdrpdemo/HISTORY	2013-01-12 15:10:59.000000000 +0100
+@@ -17,3 +17,7 @@
+ 2012-12-27: Version 0.0.4
+ 
+ - Adapted Makefile to changes introduced in recent VDR versions.
++
++2013-01-12: Version 0.0.5
++
++- Adapted Makefile to changes introduced in recent VDR versions.
+diff -ruN vdr-1.7.35/PLUGINS/src/svdrpdemo/Makefile vdr-1.7.36/PLUGINS/src/svdrpdemo/Makefile
+--- vdr-1.7.35/PLUGINS/src/svdrpdemo/Makefile	2012-12-29 11:29:24.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/svdrpdemo/Makefile	2013-01-12 14:45:01.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.13 2012/12/29 10:29:24 kls Exp $
++# $Id: Makefile 2.15 2013/01/12 13:45:01 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -17,7 +17,7 @@
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
+-LIBDIR = $(DESTDIR)$(call PKGCFG,libdir)
++LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+@@ -61,14 +61,14 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
++	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+ MAKEDEP = $(CXX) -MM -MG
+ DEPFILE = .dependencies
+ $(DEPFILE): Makefile
+-	@$(MAKEDEP) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
++	@$(MAKEDEP) $(CXXFLAGS) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
+ 
+ -include $(DEPFILE)
+ 
+@@ -78,7 +78,7 @@
+ 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+-	install -D $^ $(LIBDIR)/$^.$(APIVERSION)
++	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+ 
+ install: install-lib
+ 
+diff -ruN vdr-1.7.35/PLUGINS/src/svdrpdemo/svdrpdemo.c vdr-1.7.36/PLUGINS/src/svdrpdemo/svdrpdemo.c
+--- vdr-1.7.35/PLUGINS/src/svdrpdemo/svdrpdemo.c	2012-12-27 11:39:48.000000000 +0100
++++ vdr-1.7.36/PLUGINS/src/svdrpdemo/svdrpdemo.c	2013-01-12 15:13:28.000000000 +0100
+@@ -3,12 +3,12 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: svdrpdemo.c 2.1 2012/12/27 10:39:48 kls Exp $
++ * $Id: svdrpdemo.c 2.2 2013/01/12 14:13:28 kls Exp $
+  */
+ 
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "0.0.4";
++static const char *VERSION        = "0.0.5";
+ static const char *DESCRIPTION    = "How to add SVDRP support to a plugin";
+ 
+ class cPluginSvdrpdemo : public cPlugin {
+diff -ruN vdr-1.7.35/PLUGINS.html vdr-1.7.36/PLUGINS.html
+--- vdr-1.7.35/PLUGINS.html	2012-08-31 14:46:07.000000000 +0200
++++ vdr-1.7.36/PLUGINS.html	2013-01-12 15:22:03.000000000 +0100
+@@ -1519,10 +1519,13 @@
+   cMyReceiver(int Pid);
+   };
+ 
++<modified>
+ cMyReceiver::cMyReceiver(int Pid)
+-:cReceiver(tChannelID(), -1, Pid)
++:cReceiver(NULL, -1)
+ {
++  AddPid(Pid);
+ }
++</modified>
+ 
+ cMyReceiver::~cMyReceiver()
+ {
+diff -ruN vdr-1.7.35/config.c vdr-1.7.36/config.c
+--- vdr-1.7.35/config.c	2012-12-06 10:00:23.000000000 +0100
++++ vdr-1.7.36/config.c	2013-01-17 15:50:51.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 2.31 2012/12/06 09:00:23 kls Exp $
++ * $Id: config.c 2.32 2013/01/17 14:50:51 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -13,6 +13,7 @@
+ #include "device.h"
+ #include "i18n.h"
+ #include "interface.h"
++#include "menu.h"
+ #include "plugin.h"
+ #include "recording.h"
+ 
+@@ -672,6 +673,7 @@
+   else if (!strcasecmp(Name, "ChannelsWrap"))        ChannelsWrap       = atoi(Value);
+   else if (!strcasecmp(Name, "ShowChannelNamesWithSource")) ShowChannelNamesWithSource = atoi(Value);
+   else if (!strcasecmp(Name, "EmergencyExit"))       EmergencyExit      = atoi(Value);
++  else if (!strcasecmp(Name, "LastReplayed"))        cReplayControl::SetRecording(Value);
+   else
+      return false;
+   return true;
+@@ -777,6 +779,7 @@
+   Store("ChannelsWrap",       ChannelsWrap);
+   Store("ShowChannelNamesWithSource", ShowChannelNamesWithSource);
+   Store("EmergencyExit",      EmergencyExit);
++  Store("LastReplayed",       cReplayControl::LastReplayed());
+ 
+   Sort();
+ 
+diff -ruN vdr-1.7.35/config.h vdr-1.7.36/config.h
+--- vdr-1.7.35/config.h	2012-12-27 10:56:56.000000000 +0100
++++ vdr-1.7.36/config.h	2012-12-30 14:08:41.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.59 2012/12/27 09:56:56 kls Exp $
++ * $Id: config.h 2.60 2012/12/30 13:08:41 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.35"
+-#define VDRVERSNUM   10735  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.36"
++#define VDRVERSNUM   10736  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.35"
+-#define APIVERSNUM   10735  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.36"
++#define APIVERSNUM   10736  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-1.7.35/cutter.c vdr-1.7.36/cutter.c
+--- vdr-1.7.35/cutter.c	2012-12-02 15:30:55.000000000 +0100
++++ vdr-1.7.36/cutter.c	2013-01-20 13:04:07.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: cutter.c 2.21 2012/12/02 14:30:55 kls Exp $
++ * $Id: cutter.c 2.22 2013/01/20 12:04:07 kls Exp $
+  */
+ 
+ #include "cutter.h"
+@@ -104,167 +104,121 @@
+      buffers[Pid]->Flush(Data, Length, MaxLength);
+ }
+ 
+-// --- cDanglingPacketStripper -----------------------------------------------
++// --- cMpeg2Fixer --------------------------------------------------------
+ 
+-class cDanglingPacketStripper {
++class cMpeg2Fixer : private cTsPayload {
+ private:
+-  bool processed[MAXPID];
+-  cPatPmtParser patPmtParser;
+-public:
+-  cDanglingPacketStripper(void);
+-  bool Process(uchar *Data, int Length, int64_t FirstPts);
+-       ///< Scans the frame given in Data and hides the payloads of any TS packets
+-       ///< that either didn't start within this frame, or have a PTS that is
+-       ///< before FirstPts. The TS packets in question are not physically removed
+-       ///< from Data in order to keep any frame counts and PCR timestamps intact.
+-       ///< Returns true if any dangling packets have been found.
+-  };
+-
+-cDanglingPacketStripper::cDanglingPacketStripper(void)
+-{
+-  memset(processed, 0x00, sizeof(processed));
+-}
+-
+-bool cDanglingPacketStripper::Process(uchar *Data, int Length, int64_t FirstPts)
+-{
+-  bool Found = false;
+-  while (Length >= TS_SIZE && *Data == TS_SYNC_BYTE) {
+-        int Pid = TsPid(Data);
+-        if (Pid == PATPID)
+-           patPmtParser.ParsePat(Data, TS_SIZE);
+-        else if (patPmtParser.IsPmtPid(Pid))
+-           patPmtParser.ParsePmt(Data, TS_SIZE);
+-        else {
+-           int64_t Pts = TsGetPts(Data, TS_SIZE);
+-           if (Pts >= 0)
+-              processed[Pid] = PtsDiff(FirstPts, Pts) >= 0; // Pts is at or after FirstPts
+-           if (!processed[Pid]) {
+-              TsHidePayload(Data);
+-              Found = true;
+-              }
+-           }
+-        Length -= TS_SIZE;
+-        Data += TS_SIZE;
+-        }
+-  return Found;
+-}
+-
+-// --- cPtsFixer -------------------------------------------------------------
+-
+-class cPtsFixer {
+-private:
+-  int delta; // time between two frames
+-  int64_t deltaDts; // the difference between two consecutive DTS values (may differ from 'delta' in case of multiple fields per frame)
+-  int64_t lastPts; // the video PTS of the last frame (in display order)
+-  int64_t lastDts; // the last video DTS value seen
+-  int64_t offset; // offset to add to all timestamps
+-  bool fixCounters; // controls fixing the TS continuity counters (only from the second CutIn up)
+-  uchar counter[MAXPID]; // the TS continuity counter for each PID
+-  cPatPmtParser patPmtParser;
++  bool FindHeader(uint32_t Code, const char *Header);
+ public:
+-  cPtsFixer(void);
+-  void Setup(double FramesPerSecond);
+-  void Fix(uchar *Data, int Length, bool CutIn);
++  cMpeg2Fixer(uchar *Data, int Length, int Vpid);
++  void SetBrokenLink(void);
++  void SetClosedGop(void);
++  int GetTref(void);
++  void AdjGopTime(int Offset, int FramesPerSecond);
++  void AdjTref(int TrefOffset);
+   };
+ 
+-cPtsFixer::cPtsFixer(void)
++cMpeg2Fixer::cMpeg2Fixer(uchar *Data, int Length, int Vpid)
+ {
+-  delta = 0;
+-  deltaDts = 0;
+-  lastPts = -1;
+-  lastDts = -1;
+-  offset = -1;
+-  fixCounters = false;
+-  memset(counter, 0x00, sizeof(counter));
++  // Go to first video packet:
++  for (; Length > 0; Data += TS_SIZE, Length -= TS_SIZE) {
++      if (TsPid(Data) == Vpid) {
++         Setup(Data, Length, Vpid);
++         break;
++         }
++      }
+ }
+ 
+-void cPtsFixer::Setup(double FramesPerSecond)
++bool cMpeg2Fixer::FindHeader(uint32_t Code, const char *Header)
+ {
+-  delta = int(round(PTSTICKS / FramesPerSecond));
++  Reset();
++  if (Find(Code))
++     return true;
++  esyslog("ERROR: %s header not found!", Header);
++  return false;
+ }
+ 
+-void cPtsFixer::Fix(uchar *Data, int Length, bool CutIn)
++void cMpeg2Fixer::SetBrokenLink(void)
+ {
+-  if (!patPmtParser.Vpid()) {
+-     if (!patPmtParser.ParsePatPmt(Data, Length))
+-        return;
+-     }
+-  // Determine the PTS offset at the beginning of each sequence (except the first one):
+-  if (CutIn && lastPts >= 0) {
+-     int64_t Pts = TsGetPts(Data, Length);
+-     if (Pts >= 0)
+-        offset = (lastPts + delta - Pts) & MAX33BIT; // offset is calculated so that Pts + offset results in lastPts + delta
+-     fixCounters = true;
+-     }
+-  // Keep track of the highest video PTS:
+-  bool GotPts = false;
+-  int64_t PrevDts = lastDts;
+-  uchar *p = Data;
+-  int len = Length;
+-  while (len >= TS_SIZE && *p == TS_SYNC_BYTE) {
+-        int Pid = TsPid(p);
+-        if (Pid == patPmtParser.Vpid()) {
+-           if (!GotPts) { // in case of multiple fields per frame, the offset is calculated only with the first one
+-              int64_t Pts = TsGetPts(p, TS_SIZE);
+-              if (Pts >= 0) {
+-                 if (offset >= 0)
+-                    Pts = PtsAdd(Pts, offset); // offset is taken into account here, to make lastPts have the "new" value already!
+-                 if (lastPts < 0 || PtsDiff(lastPts, Pts) > 0)
+-                    lastPts = Pts;
+-                 }
+-              GotPts = true;
+-              }
+-           if (!CutIn) {
+-              int64_t Dts = TsGetDts(p, TS_SIZE);
+-              if (Dts >= 0) {
+-                 if (offset >= 0)
+-                    Dts = PtsAdd(Dts, offset); // offset is taken into account here, to make lastDts have the "new" value already!
+-                 deltaDts = PtsDiff(PrevDts, Dts);
+-                 PrevDts = Dts;
+-                 }
+-              }
+-           }
+-        // Adjust the TS continuity counter:
+-        if (fixCounters) {
+-           if (TsHasPayload(p))
+-              counter[Pid] = (counter[Pid] + 1) & TS_CONT_CNT_MASK;
+-           TsSetContinuityCounter(p, counter[Pid]);
+-           }
+-        else
+-           counter[Pid] = TsGetContinuityCounter(p); // collect initial counters
+-        p += TS_SIZE;
+-        len -= TS_SIZE;
+-        }
+-  // Apply the PTS offset:
+-  if (offset > 0) {
+-     uchar *p = Data;
+-     int len = Length;
+-     while (len >= TS_SIZE && *p == TS_SYNC_BYTE) {
+-           // Adjust the various timestamps:
+-           int64_t Pts = TsGetPts(p, TS_SIZE);
+-           if (Pts >= 0)
+-              TsSetPts(p, TS_SIZE, PtsAdd(Pts, offset));
+-           int64_t Dts = TsGetDts(p, TS_SIZE);
+-           if (Dts >= 0) {
+-              if (CutIn) {
+-                 lastDts = PtsAdd(lastDts, deltaDts);
+-                 TsSetDts(p, TS_SIZE, lastDts);
+-                 }
+-              else
+-                 TsSetDts(p, TS_SIZE, PtsAdd(Dts, offset));
+-              }
+-           int64_t Pcr = TsGetPcr(p);
+-           if (Pcr >= 0) {
+-              int64_t NewPcr = Pcr + offset * PCRFACTOR;
+-              if (NewPcr > MAX27MHZ)
+-                 NewPcr -= MAX27MHZ + 1;
+-              TsSetPcr(p, NewPcr);
+-              }
+-           p += TS_SIZE;
+-           len -= TS_SIZE;
+-           }
+-     }
+-  lastDts = PrevDts;
++  if (!FindHeader(0x000001B8, "GOP"))
++     return;
++  SkipBytes(3);
++  uchar b = GetByte();
++  if (!(b & 0x40)) { // GOP not closed
++     b |= 0x20;
++     SetByte(b, GetLastIndex());
++     }
++}
++
++void cMpeg2Fixer::SetClosedGop(void)
++{
++  if (!FindHeader(0x000001B8, "GOP"))
++     return;
++  SkipBytes(3);
++  uchar b = GetByte();
++  b |= 0x40;
++  SetByte(b, GetLastIndex());
++}
++
++int cMpeg2Fixer::GetTref(void)
++{
++  if (!FindHeader(0x00000100, "picture"))
++     return 0;
++  int Tref = GetByte() << 2;
++  Tref |= GetByte() >> 6;
++  return Tref;
++}
++
++void cMpeg2Fixer::AdjGopTime(int Offset, int FramesPerSecond)
++{
++  if (!FindHeader(0x000001B8, "GOP"))
++     return;
++  uchar Byte1 = GetByte();
++  int Index1 = GetLastIndex();
++  uchar Byte2 =  GetByte();
++  int Index2 = GetLastIndex();
++  uchar Byte3 = GetByte();
++  int Index3 = GetLastIndex();
++  uchar Byte4 =  GetByte();
++  int Index4 = GetLastIndex();
++  uchar Frame = ((Byte3 & 0x1F) << 1) | (Byte4 >> 7);
++  uchar Sec   = ((Byte2 & 0x07) << 3) | (Byte3 >> 5);
++  uchar Min   = ((Byte1 & 0x03) << 4) | (Byte2 >> 4);
++  uchar Hour  = ((Byte1 & 0x7C) >> 2);
++  int GopTime = ((Hour * 60 + Min) * 60 + Sec) * FramesPerSecond + Frame;
++  if (GopTime) { // do not fix when zero
++     GopTime += Offset;
++     if (GopTime < 0)
++        GopTime += 24 * 60 * 60 * FramesPerSecond;
++     Frame = GopTime % FramesPerSecond;
++     GopTime = GopTime / FramesPerSecond;
++     Sec = GopTime % 60;
++     GopTime = GopTime / 60;
++     Min = GopTime % 60;
++     GopTime = GopTime / 60;
++     Hour = GopTime % 24;
++     SetByte((Byte1 & 0x80) | (Hour << 2) | (Min >> 4), Index1);
++     SetByte(((Min & 0x0F) << 4) | 0x08 | (Sec >> 3), Index2);
++     SetByte(((Sec & 0x07) << 3) | (Frame >> 1), Index3);
++     SetByte((Byte4 & 0x7F) | ((Frame & 0x01) << 7), Index4);
++     }
++}
++
++void cMpeg2Fixer::AdjTref(int TrefOffset)
++{
++  Reset();
++  if (!Find(0x00000100)) {
++     esyslog("ERROR: Picture header not found!");
++     return;
++     }
++  int Tref = GetByte() << 2;
++  int Index1 = GetLastIndex();
++  uchar Byte2 = GetByte();
++  int Index2 = GetLastIndex();
++  Tref |= Byte2 >> 6;
++  Tref -= TrefOffset;
++  SetByte(Tref >> 2, Index1);
++  SetByte((Tref << 6) | (Byte2 & 0x3F), Index2);
+ }
+ 
+ // --- cCuttingThread --------------------------------------------------------
+@@ -281,16 +235,27 @@
+   int numSequences;
+   off_t maxVideoFileSize;
+   off_t fileSize;
+-  cPtsFixer ptsFixer;
+   bool suspensionLogged;
++  int sequence;          // cutting sequence
++  int delta;             // time between two frames (PTS ticks)
++  int64_t lastVidPts;    // the video PTS of the last frame (in display order)
++  bool multiFramePkt;    // multiple frames within one PES packet
++  int64_t firstPts;      // first valid PTS, for dangling packet stripping
++  int64_t offset;        // offset to add to all timestamps
++  int tRefOffset;        // number of stripped frames in GOP
++  uchar counter[MAXPID]; // the TS continuity counter for each PID
++  bool keepPkt[MAXPID];  // flag for each PID to keep packets, for dangling packet stripping
++  int numIFrames;        // number of I-frames without pending packets
++  cPatPmtParser patPmtParser;
+   bool Throttled(void);
+   bool SwitchFile(bool Force = false);
+   bool LoadFrame(int Index, uchar *Buffer, bool &Independent, int &Length);
+   bool FramesAreEqual(int Index1, int Index2);
+-  void GetPendingPackets(uchar *Buffer, int &Length, int Index, int64_t LastPts);
++  void GetPendingPackets(uchar *Buffer, int &Length, int Index);
+        // Gather all non-video TS packets from Index upward that either belong to
+-       // payloads that started before Index, or have a PTS that is before LastPts,
++       // payloads that started before Index, or have a PTS that is before lastVidPts,
+        // and add them to the end of the given Data.
++  bool FixFrame(uchar *Data, int &Length, bool Independent, int Index, bool CutIn, bool CutOut);
+   bool ProcessSequence(int LastEndIndex, int BeginIndex, int EndIndex, int NextBeginIndex);
+ protected:
+   virtual void Action(void);
+@@ -312,7 +277,15 @@
+   framesPerSecond = Recording.FramesPerSecond();
+   suspensionLogged = false;
+   fileSize = 0;
+-  ptsFixer.Setup(framesPerSecond);
++  sequence = 0;
++  delta = int(round(PTSTICKS / framesPerSecond));
++  lastVidPts = -1;
++  multiFramePkt = false;
++  firstPts = -1;
++  offset = 0;
++  tRefOffset = 0;
++  memset(counter, 0x00, sizeof(counter));
++  numIFrames = 0;
+   if (fromMarks.Load(FromFileName, framesPerSecond, isPesRecording) && fromMarks.Count()) {
+      numSequences = fromMarks.GetNumSequences();
+      if (numSequences > 0) {
+@@ -414,104 +387,176 @@
+   return false;
+ }
+ 
+-void cCuttingThread::GetPendingPackets(uchar *Data, int &Length, int Index, int64_t LastPts)
++void cCuttingThread::GetPendingPackets(uchar *Data, int &Length, int Index)
+ {
+   bool Processed[MAXPID] = { false };
+-  int NumIndependentFrames = 0;
+-  cPatPmtParser PatPmtParser;
+   cPacketStorage PacketStorage;
+-  for (; NumIndependentFrames < 2; Index++) {
++  int64_t LastPts = lastVidPts + delta;// adding one frame length to fully cover the very last frame
++  Processed[patPmtParser.Vpid()] = true; // we only want non-video packets
++  for (int NumIndependentFrames = 0; NumIndependentFrames < 2; Index++) {
+       uchar Buffer[MAXFRAMESIZE];
+       bool Independent;
+       int len;
+       if (LoadFrame(Index, Buffer, Independent, len)) {
+          if (Independent)
+             NumIndependentFrames++;
+-         uchar *p = Buffer;
+-         while (len >= TS_SIZE && *p == TS_SYNC_BYTE) {
+-               int Pid = TsPid(p);
+-               if (Pid == PATPID)
+-                  PatPmtParser.ParsePat(p, TS_SIZE);
+-               else if (PatPmtParser.IsPmtPid(Pid)) {
+-                  PatPmtParser.ParsePmt(p, TS_SIZE);
+-                  Processed[PatPmtParser.Vpid()] = true; // we only want non-video packets
+-                  }
+-               else if (!Processed[Pid]) {
+-                  int64_t Pts = TsGetPts(p, TS_SIZE);
+-                  if (Pts >= 0) {
+-                     int64_t d = PtsDiff(LastPts, Pts);
+-                     if (d <= 0) // Pts is before or at LastPts
+-                        PacketStorage.Flush(Pid, Data, Length, MAXFRAMESIZE);
+-                     if (d >= 0) { // Pts is at or after LastPts
+-                        NumIndependentFrames = 0; // we search until we find two consecutive I-frames without any more pending packets
+-                        Processed[Pid] = true;
+-                        }
+-                     }
+-                  if (!Processed[Pid])
+-                     PacketStorage.Append(Pid, p, TS_SIZE);
+-                  }
+-               len -= TS_SIZE;
+-               p += TS_SIZE;
+-               }
++         for (uchar *p = Buffer; len >= TS_SIZE && *p == TS_SYNC_BYTE; len -= TS_SIZE, p += TS_SIZE) {
++             int Pid = TsPid(p);
++             if (Pid != PATPID && !patPmtParser.IsPmtPid(Pid) && !Processed[Pid]) {
++                int64_t Pts = TsGetPts(p, TS_SIZE);
++                if (Pts >= 0) {
++                   int64_t d = PtsDiff(LastPts, Pts);
++                   if (d < 0) // Pts is before LastPts
++                      PacketStorage.Flush(Pid, Data, Length, MAXFRAMESIZE);
++                   else { // Pts is at or after LastPts
++                      NumIndependentFrames = 0; // we search until we find two consecutive I-frames without any more pending packets
++                      Processed[Pid] = true;
++                      }
++                   }
++                if (!Processed[Pid])
++                   PacketStorage.Append(Pid, p, TS_SIZE);
++                }
++             }
+          }
+       else
+          break;
+       }
+ }
+ 
++bool cCuttingThread::FixFrame(uchar *Data, int &Length, bool Independent, int Index, bool CutIn, bool CutOut)
++{
++  if (!patPmtParser.Vpid()) {
++     if (!patPmtParser.ParsePatPmt(Data, Length))
++        return false;
++     }
++  if (CutIn) {
++     sequence++;
++     memset(keepPkt, false, sizeof(keepPkt));
++     numIFrames = 0;
++     firstPts = TsGetPts(Data, Length);
++     // Determine the PTS offset at the beginning of each sequence (except the first one):
++     if (sequence != 1) {
++        if (firstPts >= 0)
++           offset = (lastVidPts + delta - firstPts) & MAX33BIT;
++        }
++     }
++  if (CutOut)
++     GetPendingPackets(Data, Length, Index + 1);
++  if (Independent) {
++     numIFrames++;
++     tRefOffset = 0;
++     }
++  // Fix MPEG-2:
++  if (patPmtParser.Vtype() == 2) {
++     cMpeg2Fixer Mpeg2fixer(Data, Length, patPmtParser.Vpid());
++     if (CutIn) {
++        if (sequence == 1 || multiFramePkt)
++           Mpeg2fixer.SetBrokenLink();
++        else {
++           Mpeg2fixer.SetClosedGop();
++           tRefOffset = Mpeg2fixer.GetTref();
++           }
++        }
++     if (tRefOffset)
++        Mpeg2fixer.AdjTref(tRefOffset);
++     if (sequence > 1 && Independent)
++        Mpeg2fixer.AdjGopTime((offset - MAX33BIT) / delta, round(framesPerSecond));
++     }
++  bool DeletedFrame = false;
++  bool GotVidPts = false;
++  bool StripVideo = sequence > 1 && tRefOffset;
++  uchar *p;
++  int len;
++  for (p = Data, len = Length; len >= TS_SIZE && *p == TS_SYNC_BYTE; p += TS_SIZE, len -= TS_SIZE) {
++      int Pid = TsPid(p);
++      // Strip dangling packets:
++      if (numIFrames < 2 && Pid != PATPID && !patPmtParser.IsPmtPid(Pid)) {
++         if (Pid != patPmtParser.Vpid() || StripVideo) {
++            int64_t Pts = TsGetPts(p, TS_SIZE);
++            if (Pts >= 0)
++               keepPkt[Pid] = PtsDiff(firstPts, Pts) >= 0; // Pts is at or after FirstPts
++            if (!keepPkt[Pid]) {
++               TsHidePayload(p);
++               numIFrames = 0; // we search until we find two consecutive I-frames without any more dangling packets
++               if (Pid == patPmtParser.Vpid())
++                  DeletedFrame = true;
++               }
++            }
++         }
++      // Adjust the TS continuity counter:
++      if (sequence > 1) {
++         if (TsHasPayload(p))
++            counter[Pid] = (counter[Pid] + 1) & TS_CONT_CNT_MASK;
++         TsSetContinuityCounter(p, counter[Pid]);
++         }
++      else
++         counter[Pid] = TsGetContinuityCounter(p); // collect initial counters
++      // Adjust PTS:
++      int64_t Pts = TsGetPts(p, TS_SIZE);
++      if (Pts >= 0) {
++         if (sequence > 1) {
++            Pts = PtsAdd(Pts, offset);
++            TsSetPts(p, TS_SIZE, Pts);
++            }
++         // Keep track of the highest video PTS - in case of multiple fields per frame, take the first one
++         if (!GotVidPts && Pid == patPmtParser.Vpid()) {
++            GotVidPts = true;
++            if (lastVidPts < 0 || PtsDiff(lastVidPts, Pts) > 0)
++               lastVidPts = Pts;
++            }
++         }
++      // Adjust DTS:
++      if (sequence > 1) {
++         int64_t Dts = TsGetDts(p, TS_SIZE);
++         if (Dts >= 0) {
++            Dts = PtsAdd(Dts, offset);
++            if (CutIn)
++               Dts = PtsAdd(Dts, tRefOffset * delta);
++            TsSetDts(p, TS_SIZE, Dts);
++            }
++         int64_t Pcr = TsGetPcr(p);
++         if (Pcr >= 0) {
++            Pcr = Pcr + offset * PCRFACTOR;
++            if (Pcr > MAX27MHZ)
++               Pcr -= MAX27MHZ + 1;
++            TsSetPcr(p, Pcr);
++            }
++         }
++      }
++  if (!DeletedFrame && !GotVidPts) {
++     // Adjust PTS for multiple frames within a single PES packet:
++     lastVidPts = (lastVidPts + delta) & MAX33BIT;
++     multiFramePkt = true;
++     }
++  return DeletedFrame;
++}
++
+ bool cCuttingThread::ProcessSequence(int LastEndIndex, int BeginIndex, int EndIndex, int NextBeginIndex)
+ {
+   // Check for seamless connections:
+   bool SeamlessBegin = LastEndIndex >= 0 && FramesAreEqual(LastEndIndex, BeginIndex);
+   bool SeamlessEnd = NextBeginIndex >= 0 && FramesAreEqual(EndIndex, NextBeginIndex);
+   // Process all frames from BeginIndex (included) to EndIndex (excluded):
+-  cDanglingPacketStripper DanglingPacketStripper;
+-  int NumIndependentFrames = 0;
+-  int64_t FirstPts = -1;
+-  int64_t LastPts = -1;
+   for (int Index = BeginIndex; Running() && Index < EndIndex; Index++) {
+       uchar Buffer[MAXFRAMESIZE];
+       bool Independent;
+       int Length;
+       if (LoadFrame(Index, Buffer, Independent, Length)) {
++         bool CutIn = !SeamlessBegin && Index == BeginIndex;
++         bool CutOut = !SeamlessEnd && Index == EndIndex - 1;
++         bool DeletedFrame = false;
+          if (!isPesRecording) {
+-            int64_t Pts = TsGetPts(Buffer, Length);
+-            if (FirstPts < 0)
+-               FirstPts = Pts; // the PTS of the first frame in the sequence
+-            else if (LastPts < 0 || PtsDiff(LastPts, Pts) > 0)
+-               LastPts = Pts; // the PTS of the frame that is displayed as the very last one of the sequence
+-            }
+-         // Fixup data at the beginning of the sequence:
+-         if (!SeamlessBegin) {
+-            if (isPesRecording) {
+-               if (Index == BeginIndex)
+-                  cRemux::SetBrokenLink(Buffer, Length);
+-               }
+-            else if (NumIndependentFrames < 2) {
+-               if (DanglingPacketStripper.Process(Buffer, Length, FirstPts))
+-                  NumIndependentFrames = 0; // we search until we find two consecutive I-frames without any more dangling packets
+-               }
+-            }
+-         // Fixup data at the end of the sequence:
+-         if (!SeamlessEnd) {
+-            if (Index == EndIndex - 1) {
+-               if (!isPesRecording)
+-                  GetPendingPackets(Buffer, Length, EndIndex, LastPts + int(round(PTSTICKS / framesPerSecond))); // adding one frame length to fully cover the very last frame
+-               }
+-            }
+-         // Fixup timestamps and continuity counters:
+-         if (!isPesRecording) {
+-            if (numSequences > 1)
+-              ptsFixer.Fix(Buffer, Length, !SeamlessBegin && Index == BeginIndex);
++            DeletedFrame = FixFrame(Buffer, Length, Independent, Index, CutIn, CutOut);
+             }
++         else if (CutIn)
++            cRemux::SetBrokenLink(Buffer, Length);
+          // Every file shall start with an independent frame:
+          if (Independent) {
+-            NumIndependentFrames++;
+             if (!SwitchFile())
+                return false;
+             }
+          // Write index:
+-         if (!toIndex->Write(Independent, toFileName->Number(), fileSize)) {
++         if (!DeletedFrame && !toIndex->Write(Independent, toFileName->Number(), fileSize)) {
+             error = "toIndex";
+             return false;
+             }
+diff -ruN vdr-1.7.35/device.h vdr-1.7.36/device.h
+--- vdr-1.7.35/device.h	2012-12-04 12:52:58.000000000 +0100
++++ vdr-1.7.36/device.h	2013-01-03 09:53:06.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 2.42 2012/12/04 11:52:58 kls Exp $
++ * $Id: device.h 2.43 2013/01/03 08:53:06 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -672,6 +672,8 @@
+        ///< be prepared for cases where the returned rectangle is way off the requested
+        ///< Rect, or even Null. In such cases, the skin may want to fall back to
+        ///< working with full screen video.
++       ///< The coordinates of Rect are in the range of the width and height returned
++       ///< by GetOsdSize().
+        ///< If this device can't scale the video, a Null rectangle is returned (this
+        ///< is also the default implementation).
+   virtual void ScaleVideo(const cRect &Rect = cRect::Null) {}
+diff -ruN vdr-1.7.35/dvbdevice.c vdr-1.7.36/dvbdevice.c
+--- vdr-1.7.35/dvbdevice.c	2012-12-30 12:27:39.000000000 +0100
++++ vdr-1.7.36/dvbdevice.c	2012-12-30 14:08:41.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.76 2012/12/30 11:27:39 kls Exp $
++ * $Id: dvbdevice.c 2.77 2012/12/30 13:08:41 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -632,7 +632,8 @@
+      // special treatment to map their Snr value into the range 0...0xFFFF.
+      switch (subsystemId) {
+        case 0x13C21019: MaxSnr = 200; break; // TT-budget S2-3200 (DVB-S/DVB-S2)
+-       case 0x20130245: MaxSnr = 255; break; // PCTV Systems PCTV 73ESE
++       case 0x20130245:                      // PCTV Systems PCTV 73ESE
++       case 0x2013024F: MaxSnr = 255; break; // PCTV Systems nanoStick T2 290e
+        }
+      int a = int(Snr) * 100 / MaxSnr;
+      int b = 100 - (Unc * 10 + (Ber / 256) * 5);
+diff -ruN vdr-1.7.35/dvbspu.c vdr-1.7.36/dvbspu.c
+--- vdr-1.7.35/dvbspu.c	2011-12-10 15:39:19.000000000 +0100
++++ vdr-1.7.36/dvbspu.c	2013-01-20 11:36:58.000000000 +0100
+@@ -8,7 +8,7 @@
+  *
+  * parts of this file are derived from the OMS program.
+  *
+- * $Id: dvbspu.c 2.9 2011/12/10 14:39:19 kls Exp $
++ * $Id: dvbspu.c 2.10 2013/01/20 10:36:58 kls Exp $
+  */
+ 
+ #include "dvbspu.h"
+@@ -54,6 +54,7 @@
+ #define setMin(a, b) if (a > b) a = b
+ #define setMax(a, b) if (a < b) a = b
+ 
++// DVD SPU bitmaps cover max. 720 x 576 - this sizes the SPU bitmap
+ #define spuXres   720
+ #define spuYres   576
+ 
+@@ -243,6 +244,36 @@
+     delete osd;
+ }
+ 
++// SPUs must be scaled if screensize is not 720x576
++
++void cDvbSpuDecoder::SetSpuScaling(void)
++{
++    int Width = spuXres;
++    int Height = spuYres;
++    int OsdWidth = 0;
++    int OsdHeight = 0;
++    double VideoAspect;
++    cDevice::PrimaryDevice()->GetOsdSize(OsdWidth, OsdHeight, VideoAspect);
++    DEBUG("dvbspu SetSpuScaling OsdSize %d x %d\n", OsdWidth, OsdHeight);
++    if (!OsdWidth) { // guess correct size
++        if (Setup.OSDWidth <= 720 || Setup.OSDHeight <= 576)
++            xscaling = yscaling = 1.0;
++        else if (Setup.OSDWidth <= 1280 || Setup.OSDHeight <= 720) {
++            xscaling = 1280.0 / Width;
++            yscaling = 720.0 / Height;
++        }
++        else {
++            xscaling = 1920.0 / Width;
++            yscaling = 1080.0/ Height;
++        }
++    }
++    else {
++        xscaling = (double)OsdWidth / Width;
++        yscaling = (double)OsdHeight / Height;
++    }
++    DEBUG("dvbspu xscaling = %f yscaling = %f\n", xscaling, yscaling);
++}
++
+ void cDvbSpuDecoder::processSPU(uint32_t pts, uint8_t * buf, bool AllowedShow)
+ {
+     setTime(pts);
+@@ -296,6 +327,7 @@
+         memcpy(hlpDescr, pld, sizeof(aDvbSpuPalDescr));
+         highlight = true;
+         clean = false;
++        Draw(); // we have to trigger Draw() here
+     }
+ }
+ 
+@@ -376,32 +408,52 @@
+         return;
+     }
+     sDvbSpuRect bgsize;
++    sDvbSpuRect drawsize;
++    sDvbSpuRect bgdrawsize;
+     cBitmap *fg = NULL;
+     cBitmap *bg = NULL;
++    cBitmap *tmp = NULL;
++
++    SetSpuScaling(); // always set current scaling, size could have changed
+ 
+-    if (highlight)
+-        fg = spubmp->getBitmap(hlpDescr, palette, hlpsize);
++    if (highlight) {
++        tmp = spubmp->getBitmap(hlpDescr, palette, hlpsize);
++        fg = tmp->Scaled(xscaling, yscaling, true);
++        drawsize.x1 = hlpsize.x1 * xscaling;
++        drawsize.y1 = hlpsize.y1 * yscaling;
++        drawsize.x2 = drawsize.x1 + fg->Width();
++        drawsize.y2 = drawsize.y1 + fg->Height();
++    }
+ 
+-    if (spubmp->getMinSize(palDescr, bgsize))
+-        bg = spubmp->getBitmap(palDescr, palette, bgsize);
++    if (spubmp->getMinSize(palDescr, bgsize)) {
++        tmp = spubmp->getBitmap(palDescr, palette, bgsize);
++        bg = tmp->Scaled(xscaling, yscaling, true);
++        bgdrawsize.x1 = bgsize.x1 * xscaling;
++        bgdrawsize.y1 = bgsize.y1 * yscaling;
++        bgdrawsize.x2 = bgdrawsize.x1 + bg->Width();
++        bgdrawsize.y2 = bgdrawsize.y1 + bg->Height();
++    }
+ 
+-    if (!fg || !bg || !osd)
++    if (osd) // always rewrite OSD
+         Hide();
+ 
+     if (osd == NULL) {
+             restricted_osd = false;
+             osd = cOsdProvider::NewOsd(0, 0);
+ 
+-            tArea Area = { size.x1, size.y1, size.x2, size.y2, 4};
+-            if (osd->CanHandleAreas(&Area, 1) != oeOk)
+-                    restricted_osd = true;
++            sDvbSpuRect areaSize = CalcAreaSize(drawsize, fg, bgdrawsize, bg); // combine
++            tArea Area = { areaSize.x1, areaSize.y1, areaSize.x2, areaSize.y2, 4 };
++            if (osd->CanHandleAreas(&Area, 1) != oeOk) {
++                DEBUG("dvbspu CanHandleAreas (%d,%d)x(%d,%d), 4 failed\n", areaSize.x1, areaSize.y1, areaSize.x2, areaSize.y2);
++                restricted_osd = true;
++            }
+             else
+                 osd->SetAreas(&Area, 1);
+     }
+     if (restricted_osd) {
+             sDvbSpuRect hlsize;
+             bool setarea = false;
+-            /* reduce fg area (only valid if there is no bg below) */
++            /* reduce fg area */
+             if (fg) {
+                     spubmp->getMinSize(hlpDescr,hlsize);
+                     /* clip to the highligh area */
+@@ -409,11 +461,15 @@
+                     setMax(hlsize.y1, hlpsize.y1);
+                     setMin(hlsize.x2, hlpsize.x2);
+                     setMin(hlsize.y2, hlpsize.y2);
+-                    if (hlsize.x1 > hlsize.x2 || hlsize.y1 > hlsize.y2) {
++                    if (hlsize.x1 > hlsize.x2 || hlsize.y1 > hlsize.y2)
+                             hlsize.x1 = hlsize.x2 = hlsize.y1 = hlsize.y2 = 0;
+-                    }
++                    /* resize scaled fg */
++                    drawsize.x1=hlsize.x1 * xscaling;
++                    drawsize.y1=hlsize.y1 * yscaling;
++                    drawsize.x2=hlsize.x2 * xscaling;
++                    drawsize.y2=hlsize.y2 * yscaling;
+             }
+-            sDvbSpuRect areaSize = CalcAreaSize((fg && bg) ? hlpsize : hlsize, fg, bgsize, bg);
++            sDvbSpuRect areaSize = CalcAreaSize(drawsize, fg, bgdrawsize, bg);
+ 
+ #define DIV(a, b) (a/b)?:1
+             for (int d = 1; !setarea && d <= 2; d++) {
+@@ -431,16 +487,11 @@
+                     /* second try to split area if there is both area */
+                     if (!setarea && fg && bg) {
+                             tArea Area_Both [2] = {
+-                                    {bgsize.x1, bgsize.y1, bgsize.x2, bgsize.y2, DIV(CalcAreaBpp(0, bg), d)},
+-                                    {hlpsize.x1, hlpsize.y1, hlpsize.x2, hlpsize.y2, DIV(CalcAreaBpp(fg, 0), d)}
++                                    { bgdrawsize.x1, bgdrawsize.y1, bgdrawsize.x2, bgdrawsize.y2, DIV(CalcAreaBpp(0, bg), d) },
++                                    { drawsize.x1, drawsize.y1, drawsize.x2, drawsize.y2, DIV(CalcAreaBpp(fg, 0), d) }
+                             };
+                             if (!Area_Both[0].Intersects(Area_Both[1])) {
+-                                    /* there is no intersection. We can reduce hl */
+-                                    Area_Both[1].x1 = hlsize.x1;
+-                                    Area_Both[1].y1 = hlsize.y1;
+-                                    Area_Both[1].x2 = hlsize.x2;
+-                                    Area_Both[1].y2 = hlsize.y2;
+-
++                                    /* there is no intersection. We can try with split areas */
+                                     if ((Area_Both[0].Width() & 7) != 0)
+                                             Area_Both[0].x2 += 8 - (Area_Both[0].Width() & 7);
+                                     if ((Area_Both[1].Width() & 7) != 0)
+@@ -451,18 +502,21 @@
+                             }
+                     }
+             }
+-            if (!setarea)
+-              dsyslog("dvbspu: AreaSize (%d, %d) (%d, %d) Bpp %d", areaSize.x1, areaSize.y1, areaSize.x2, areaSize.y2, (fg && bg) ? 4 : 2 );
++            if (setarea)
++                DEBUG("dvbspu: reduced AreaSize (%d, %d) (%d, %d) Bpp %d\n", areaSize.x1, areaSize.y1, areaSize.x2, areaSize.y2, (fg && bg) ? 4 : 2);
++            else
++                dsyslog("dvbspu: reduced AreaSize (%d, %d) (%d, %d) Bpp %d failed", areaSize.x1, areaSize.y1, areaSize.x2, areaSize.y2, (fg && bg) ? 4 : 2);
+     }
+ 
+     /* we could draw use DrawPixel on osd */
+     if (bg || fg) {
+         if (bg)
+-           osd->DrawBitmap(bgsize.x1, bgsize.y1, *bg);
++           osd->DrawBitmap(bgdrawsize.x1, bgdrawsize.y1, *bg);
+         if (fg)
+-           osd->DrawBitmap(hlpsize.x1, hlpsize.y1, *fg);
++           osd->DrawBitmap(drawsize.x1, drawsize.y1, *fg);
+         delete fg;
+         delete bg;
++        delete tmp;
+ 
+         osd->Flush();
+     }
+diff -ruN vdr-1.7.35/dvbspu.h vdr-1.7.36/dvbspu.h
+--- vdr-1.7.35/dvbspu.h	2011-03-27 16:50:48.000000000 +0200
++++ vdr-1.7.36/dvbspu.h	2013-01-20 11:15:47.000000000 +0100
+@@ -8,13 +8,14 @@
+  *
+  * parts of this file are derived from the OMS program.
+  *
+- * $Id: dvbspu.h 2.5 2011/03/27 14:50:48 kls Exp $
++ * $Id: dvbspu.h 2.6 2013/01/20 10:15:47 kls Exp $
+  */
+ 
+ #ifndef __DVBSPU_H
+ #define __DVBSPU_H
+ 
+ #include <inttypes.h>
++#include "device.h"
+ #include "osd.h"
+ #include "spu.h"
+ #include "thread.h"
+@@ -106,7 +107,8 @@
+     enum spFlag { spNONE, spHIDE, spSHOW, spMENU };
+     spFlag state;
+ 
+-     cSpuDecoder::eScaleMode scaleMode;
++    cSpuDecoder::eScaleMode scaleMode;
++    double xscaling, yscaling;
+ 
+     //highligh area
+     bool highlight;
+@@ -133,6 +135,7 @@
+         return ((spu[0] << 8) | spu[1]);
+     };
+ 
++    void SetSpuScaling(void);
+     sDvbSpuRect CalcAreaSize(sDvbSpuRect fgsize, cBitmap *fgbmp, sDvbSpuRect bgsize, cBitmap *bgbmp);
+     int CalcAreaBpp(cBitmap *fgbmp, cBitmap *bgbmp);
+ 
+diff -ruN vdr-1.7.35/menu.c vdr-1.7.36/menu.c
+--- vdr-1.7.35/menu.c	2012-12-21 12:11:14.000000000 +0100
++++ vdr-1.7.36/menu.c	2013-01-17 15:20:08.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 2.72 2012/12/21 11:11:14 kls Exp $
++ * $Id: menu.c 2.74 2013/01/17 14:20:08 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -2273,7 +2273,6 @@
+ {
+   const char *CurrentRecording = cReplayControl::LastReplayed();
+   cMenuRecordingItem *LastItem = NULL;
+-  char *LastItemText = NULL;
+   cThreadLock RecordingsLock(&Recordings);
+   if (Refresh) {
+      if (cMenuRecordingItem *ri = (cMenuRecordingItem *)Get(Current()))
+@@ -2285,23 +2284,32 @@
+   for (cRecording *recording = Recordings.First(); recording; recording = Recordings.Next(recording)) {
+       if (!base || (strstr(recording->Name(), base) == recording->Name() && recording->Name()[strlen(base)] == FOLDERDELIMCHAR)) {
+          cMenuRecordingItem *Item = new cMenuRecordingItem(recording, level);
+-         if (*Item->Text() && (!Item->IsDirectory() || (!LastItem || !LastItem->IsDirectory() || strcmp(Item->Text(), LastItemText) != 0))) {
++         cMenuRecordingItem *LastDir = NULL;
++         if (Item->IsDirectory()) {
++            // Sorting may ignore non-alphanumeric characters, so we need to explicitly handle directories in case they only differ in such characters:
++            for (cMenuRecordingItem *p = LastItem; p; p = dynamic_cast<cMenuRecordingItem *>(p->Prev())) {
++                if (p->Name() && strcmp(p->Name(), Item->Name()) == 0) {
++                   LastDir = p;
++                   break;
++                   }
++                }
++            }
++         if (*Item->Text() && !LastDir) {
+             Add(Item);
+             LastItem = Item;
+-            free(LastItemText);
+-            LastItemText = strdup(LastItem->Text()); // must use a copy because of the counters!
++            if (Item->IsDirectory())
++               LastDir = Item;
+             }
+          else
+             delete Item;
+          if (LastItem) {
+             if (CurrentRecording && strcmp(CurrentRecording, recording->FileName()) == 0)
+                SetCurrent(LastItem);
+-            if (LastItem->IsDirectory())
+-               LastItem->IncrementCounter(recording->IsNew());
+             }
++         if (LastDir)
++            LastDir->IncrementCounter(recording->IsNew());
+          }
+       }
+-  free(LastItemText);
+   if (Refresh)
+      Display();
+ }
+@@ -4708,8 +4716,10 @@
+     case kPause:
+     case kDown:
+     case kOk:
+-         Seconds = min(Total - STAY_SECONDS_OFF_END, Seconds);
+-         Goto(SecondsToFrames(Seconds, FramesPerSecond()), Key == kDown || Key == kPause || Key == kOk);
++         if (timeSearchPos > 0) {
++            Seconds = min(Total - STAY_SECONDS_OFF_END, Seconds);
++            Goto(SecondsToFrames(Seconds, FramesPerSecond()), Key == kDown || Key == kPause || Key == kOk);
++            }
+          timeSearchActive = false;
+          break;
+     default:
+diff -ruN vdr-1.7.35/newplugin vdr-1.7.36/newplugin
+--- vdr-1.7.35/newplugin	2012-12-28 10:52:29.000000000 +0100
++++ vdr-1.7.36/newplugin	2013-01-12 14:46:00.000000000 +0100
+@@ -12,7 +12,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: newplugin 2.15 2012/12/28 09:52:29 kls Exp $
++# $Id: newplugin 2.17 2013/01/12 13:46:00 kls Exp $
+ 
+ $PLUGIN_NAME = $ARGV[0] || die "Usage: newplugin <name>\n";
+ 
+@@ -76,8 +76,8 @@
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+ PKGCFG = \$(if \$(VDRDIR),\$(shell pkg-config --variable=\$(1) \$(VDRDIR)/vdr.pc),\$(shell pkg-config --variable=\$(1) vdr || pkg-config --variable=\$(1) ../../../vdr.pc))
+-LIBDIR = \$(DESTDIR)\$(call PKGCFG,libdir)
+-LOCDIR = \$(DESTDIR)\$(call PKGCFG,locdir)
++LIBDIR = \$(call PKGCFG,libdir)
++LOCDIR = \$(call PKGCFG,locdir)
+ PLGCFG = \$(call PKGCFG,plgcfg)
+ #
+ TMPDIR ?= /tmp
+@@ -121,14 +121,14 @@
+ ### Implicit rules:
+ 
+ %.o: %.c
+-	\$(CXX) \$(CXXFLAGS) -c \$(DEFINES) \$(INCLUDES) \$<
++	\$(CXX) \$(CXXFLAGS) -c \$(DEFINES) \$(INCLUDES) -o \$\@ \$<
+ 
+ ### Dependencies:
+ 
+ MAKEDEP = \$(CXX) -MM -MG
+ DEPFILE = .dependencies
+ \$(DEPFILE): Makefile
+-	\@\$(MAKEDEP) \$(DEFINES) \$(INCLUDES) \$(OBJS:%.o=%.c) > \$\@
++	\@\$(MAKEDEP) \$(CXXFLAGS) \$(DEFINES) \$(INCLUDES) \$(OBJS:%.o=%.c) > \$\@
+ 
+ -include \$(DEPFILE)
+ 
+@@ -137,7 +137,7 @@
+ PODIR     = po
+ I18Npo    = \$(wildcard \$(PODIR)/*.po)
+ I18Nmo    = \$(addsuffix .mo, \$(foreach file, \$(I18Npo), \$(basename \$(file))))
+-I18Nmsgs  = \$(addprefix \$(LOCDIR)/, \$(addsuffix /LC_MESSAGES/vdr-\$(PLUGIN).mo, \$(notdir \$(foreach file, \$(I18Npo), \$(basename \$(file))))))
++I18Nmsgs  = \$(addprefix \$(DESTDIR)\$(LOCDIR)/, \$(addsuffix /LC_MESSAGES/vdr-\$(PLUGIN).mo, \$(notdir \$(foreach file, \$(I18Npo), \$(basename \$(file))))))
+ I18Npot   = \$(PODIR)/\$(PLUGIN).pot
+ 
+ %.mo: %.po
+@@ -150,7 +150,7 @@
+ 	msgmerge -U --no-wrap --no-location --backup=none -q -N \$\@ \$<
+ 	\@touch \$\@
+ 
+-\$(I18Nmsgs): \$(LOCDIR)/%/LC_MESSAGES/vdr-\$(PLUGIN).mo: \$(PODIR)/%.mo
++\$(I18Nmsgs): \$(DESTDIR)\$(LOCDIR)/%/LC_MESSAGES/vdr-\$(PLUGIN).mo: \$(PODIR)/%.mo
+ 	install -D -m644 \$< \$\@
+ 
+ .PHONY: i18n
+@@ -164,7 +164,7 @@
+ 	\$(CXX) \$(CXXFLAGS) \$(LDFLAGS) -shared \$(OBJS) -o \$\@
+ 
+ install-lib: \$(SOFILE)
+-	install -D \$^ \$(LIBDIR)/\$^.\$(APIVERSION)
++	install -D \$^ \$(DESTDIR)\$(LIBDIR)/\$^.\$(APIVERSION)
+ 
+ install: install-lib install-i18n
+ 
+diff -ruN vdr-1.7.35/recording.c vdr-1.7.36/recording.c
+--- vdr-1.7.35/recording.c	2012-12-23 16:11:28.000000000 +0100
++++ vdr-1.7.36/recording.c	2013-01-16 15:17:44.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.81 2012/12/23 15:11:28 kls Exp $
++ * $Id: recording.c 2.83 2013/01/16 14:17:44 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -824,10 +824,10 @@
+         }
+   if (s1 && s2) {
+      // To have folders sorted before plain recordings, the '/' s1 points to
+-     // is replaced by the character 'b'. All other slashes will be replaced
+-     // by 'a' in SortName() (see below), which will result in the desired
++     // is replaced by the character '1'. All other slashes will be replaced
++     // by '0' in SortName() (see below), which will result in the desired
+      // sequence:
+-     *s1 = 'b';
++     *s1 = '1';
+      s1++;
+      memmove(s1, s2, t - s2 + 1);
+      }
+@@ -840,7 +840,7 @@
+   if (!*sb) {
+      char *s = (RecordingsSortMode == rsmName) ? strdup(FileName() + strlen(VideoDirectory))
+                                               : StripEpisodeName(strdup(FileName() + strlen(VideoDirectory)));
+-     strreplace(s, '/', 'a'); // some locales ignore '/' when sorting
++     strreplace(s, '/', '0'); // some locales ignore '/' when sorting
+      int l = strxfrm(NULL, s, 0) + 1;
+      *sb = MALLOC(char, l);
+      strxfrm(*sb, s, l);
+diff -ruN vdr-1.7.35/remote.c vdr-1.7.36/remote.c
+--- vdr-1.7.35/remote.c	2012-01-16 17:57:00.000000000 +0100
++++ vdr-1.7.36/remote.c	2013-01-13 13:01:52.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.c 2.5 2012/01/16 16:57:00 kls Exp $
++ * $Id: remote.c 2.6 2013/01/13 12:01:52 kls Exp $
+  */
+ 
+ #include "remote.h"
+@@ -356,14 +356,25 @@
+ 
+ void cKbdRemote::Action(void)
+ {
++  uint64_t LastCommand = 0;
++  bool Repeat = false;
++
+   while (Running()) {
+         uint64_t Command = ReadKeySequence();
++        if (LastCommand && Command != LastCommand && Repeat) {
++           if (!rawMode)
++              Put(LastCommand, false, true);
++           Repeat = false;
++           }
+         if (Command) {
+-           if (rawMode || !Put(Command)) {
++           if (Command == LastCommand)
++              Repeat = true;
++           if (rawMode || !Put(Command, Repeat)) {
+               int func = MapCodeToFunc(Command);
+               if (func)
+                  Put(KBDKEY(func));
+               }
+            }
++        LastCommand = Command;
+         }
+ }
+diff -ruN vdr-1.7.35/remux.h vdr-1.7.36/remux.h
+--- vdr-1.7.35/remux.h	2012-11-19 11:22:28.000000000 +0100
++++ vdr-1.7.36/remux.h	2013-01-20 12:43:59.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 2.36 2012/11/19 10:22:28 kls Exp $
++ * $Id: remux.h 2.37 2013/01/20 11:43:59 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+@@ -217,6 +217,8 @@
+   int length;
+   int pid;
+   int index; // points to the next byte to process
++protected:
++  void Reset(void) { index = 0; }
+ public:
+   cTsPayload(void);
+   cTsPayload(uchar *Data, int Length, int Pid = -1);
+diff -ruN vdr-1.7.35/svdrp.c vdr-1.7.36/svdrp.c
+--- vdr-1.7.35/svdrp.c	2012-12-04 13:08:36.000000000 +0100
++++ vdr-1.7.36/svdrp.c	2013-01-17 16:19:02.000000000 +0100
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 2.21 2012/12/04 12:08:36 kls Exp $
++ * $Id: svdrp.c 2.23 2013/01/17 15:19:02 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -236,9 +236,11 @@
+   "    only data for that channel is listed. 'now', 'next', or 'at <time>'\n"
+   "    restricts the returned data to present events, following events, or\n"
+   "    events at the given time (which must be in time_t form).",
+-  "LSTR [ <number> ]\n"
++  "LSTR [ <number> [ path ] ]\n"
+   "    List recordings. Without option, all recordings are listed. Otherwise\n"
+-  "    the information for the given recording is listed.",
++  "    the information for the given recording is listed. If a recording\n"
++  "    number and the keyword 'path' is given, the actual file name of that\n"
++  "    recording's directory is listed.",
+   "LSTT [ <number> ] [ id ]\n"
+   "    List timers. Without option, all timers are listed. Otherwise\n"
+   "    only the given timer is listed. If the keyword 'id' is given, the\n"
+@@ -261,8 +263,7 @@
+   "    by the LSTC command.",
+   "NEWT <settings>\n"
+   "    Create a new timer. Settings must be in the same format as returned\n"
+-  "    by the LSTT command. It is an error if a timer with the same channel,\n"
+-  "    day, start and stop time already exists.",
++  "    by the LSTT command.",
+   "NEXT [ abs | rel ]\n"
+   "    Show the next timer event. If no option is given, the output will be\n"
+   "    in human readable form. With option 'abs' the absolute time of the next\n"
+@@ -1080,16 +1081,44 @@
+ 
+ void cSVDRP::CmdLSTR(const char *Option)
+ {
++  int Number = 0;
++  bool Path = false;
+   recordings.Update(true);
+   if (*Option) {
+-     if (isnumber(Option)) {
++     char buf[strlen(Option) + 1];
++     strcpy(buf, Option);
++     const char *delim = " \t";
++     char *strtok_next;
++     char *p = strtok_r(buf, delim, &strtok_next);
++     while (p) {
++           if (!Number) {
++              if (isnumber(p))
++                 Number = strtol(p, NULL, 10);
++              else {
++                 Reply(501, "Error in recording number \"%s\"", Option);
++                 return;
++                 }
++              }
++           else if (strcasecmp(p, "PATH") == 0)
++              Path = true;
++           else {
++              Reply(501, "Unknown option: \"%s\"", p);
++              return;
++              }
++           p = strtok_r(NULL, delim, &strtok_next);
++           }
++     if (Number) {
+         cRecording *recording = recordings.Get(strtol(Option, NULL, 10) - 1);
+         if (recording) {
+            FILE *f = fdopen(file, "w");
+            if (f) {
+-              recording->Info()->Write(f, "215-");
+-              fflush(f);
+-              Reply(215, "End of recording information");
++              if (Path)
++                 Reply(250, "%s", recording->FileName());
++              else {
++                 recording->Info()->Write(f, "215-");
++                 fflush(f);
++                 Reply(215, "End of recording information");
++                 }
+               // don't 'fclose(f)' here!
+               }
+            else
+@@ -1098,8 +1127,6 @@
+         else
+            Reply(550, "Recording \"%s\" not found", Option);
+         }
+-     else
+-        Reply(501, "Error in recording number \"%s\"", Option);
+      }
+   else if (recordings.Count()) {
+      cRecording *recording = recordings.First();
+@@ -1322,16 +1349,11 @@
+   if (*Option) {
+      cTimer *timer = new cTimer;
+      if (timer->Parse(Option)) {
+-        cTimer *t = Timers.GetTimer(timer);
+-        if (!t) {
+-           Timers.Add(timer);
+-           Timers.SetModified();
+-           isyslog("timer %s added", *timer->ToDescr());
+-           Reply(250, "%d %s", timer->Index() + 1, *timer->ToText());
+-           return;
+-           }
+-        else
+-           Reply(550, "Timer already defined: %d %s", t->Index() + 1, *t->ToText());
++        Timers.Add(timer);
++        Timers.SetModified();
++        isyslog("timer %s added", *timer->ToDescr());
++        Reply(250, "%d %s", timer->Index() + 1, *timer->ToText());
++        return;
+         }
+      else
+         Reply(501, "Error in timer settings");
+diff -ruN vdr-1.7.35/transfer.c vdr-1.7.36/transfer.c
+--- vdr-1.7.35/transfer.c	2012-02-29 15:16:23.000000000 +0100
++++ vdr-1.7.36/transfer.c	2013-01-20 14:40:30.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: transfer.c 2.6 2012/02/29 14:16:23 kls Exp $
++ * $Id: transfer.c 2.7 2013/01/20 13:40:30 kls Exp $
+  */
+ 
+ #include "transfer.h"
+@@ -15,6 +15,7 @@
+ :cReceiver(Channel, TRANSFERPRIORITY)
+ {
+   patPmtGenerator.SetChannel(Channel);
++  retriesExceeded = false;
+ }
+ 
+ cTransfer::~cTransfer()
+@@ -35,6 +36,10 @@
+      cPlayer::Detach();
+ }
+ 
++#define MAXRETRIES     5 // max. number of retries for a single TS packet
++#define RETRYWAIT      5 // time (in ms) between two retries
++#define RETRYPAUSE 10000 // time (in ms) for which to pause retrying once a packet has not been accepted
++
+ void cTransfer::Receive(uchar *Data, int Length)
+ {
+   if (cPlayer::IsAttached()) {
+@@ -42,11 +47,18 @@
+      // buffering here. The TS packets *must* get through here! However, every
+      // now and then there may be conditions where the packet just can't be
+      // handled when offered the first time, so that's why we try several times:
+-     for (int i = 0; i < 100; i++) {
+-         if (PlayTs(Data, Length) > 0)
++     for (int i = 0; i < MAXRETRIES; i++) {
++         if (PlayTs(Data, Length) > 0) {
++            if (retriesExceeded && timer.TimedOut())
++               retriesExceeded = false;
++            return;
++            }
++         if (retriesExceeded) // no retries once a packet has not been accepted
+             return;
+-         cCondWait::SleepMs(10);
++         cCondWait::SleepMs(RETRYWAIT);
+          }
++     retriesExceeded = true;
++     timer.Set(RETRYPAUSE); // wait a while before retrying
+      esyslog("ERROR: TS packet not accepted in Transfer Mode");
+      }
+ }
+diff -ruN vdr-1.7.35/transfer.h vdr-1.7.36/transfer.h
+--- vdr-1.7.35/transfer.h	2010-01-29 17:38:09.000000000 +0100
++++ vdr-1.7.36/transfer.h	2013-01-20 14:12:38.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: transfer.h 2.2 2010/01/29 16:38:09 kls Exp $
++ * $Id: transfer.h 2.3 2013/01/20 13:12:38 kls Exp $
+  */
+ 
+ #ifndef __TRANSFER_H
+@@ -13,10 +13,13 @@
+ #include "player.h"
+ #include "receiver.h"
+ #include "remux.h"
++#include "tools.h"
+ 
+ class cTransfer : public cReceiver, public cPlayer {
+ private:
+   cPatPmtGenerator patPmtGenerator;
++  bool retriesExceeded;
++  cTimeMs timer;
+ protected:
+   virtual void Activate(bool On);
+   virtual void Receive(uchar *Data, int Length);

@@ -1,0 +1,2196 @@
+diff -ruN vdr-1.3.22/CONTRIBUTORS vdr-1.3.23/CONTRIBUTORS
+--- vdr-1.3.22/CONTRIBUTORS	2005-02-27 14:58:22.000000000 +0100
++++ vdr-1.3.23/CONTRIBUTORS	2005-03-20 14:27:01.000000000 +0100
+@@ -1281,6 +1281,7 @@
+  in cDevice::Shutdown()
+  for removing some unneeded code and fixing access to unallocated memory in
+  cEvent::FixEpgBugs()
++ for adding a missing cMutexLock to cRemote::HasKeys()
+ 
+ Chad Flynt <hoochster@sofnet.com>
+  for suggestions and experiments regarding the buffer reserve in cTransfer
+@@ -1292,3 +1293,17 @@
+ Luca Olivetti <luca@ventoso.org>
+  for making cDevice::AttachPlayer() keep the track language codes and descriptions
+  in Transfer Mode
++
++Mikko Salo <mikko.salo@ppe.inet.fi>
++ for suggesting to make the setup option "DVB/Video display format" available only
++ if "Video format" is set to "4:3"
++
++Roman Krenický <free-rtk@gmx.de>
++ for a patch that was used a a basis for changing a timer's day handling to full date
++
++Ville Skyttä <ville.skytta@iki.fi>
++ for reporting several compiler warnings in gcc 4.0
++
++Steffen Beyer <cpunk@reactor.de>
++ for fixing setting the colored button help after deleting a recording in case the next
++ menu entry is a directory
+diff -ruN vdr-1.3.22/HISTORY vdr-1.3.23/HISTORY
+--- vdr-1.3.22/HISTORY	2005-02-27 15:54:57.000000000 +0100
++++ vdr-1.3.23/HISTORY	2005-03-20 16:15:42.000000000 +0100
+@@ -3443,3 +3443,33 @@
+   Luca Olivetti).
+ - Fixed handling repeated kAudio keys.
+ - Improved displaying the the current audio track in the ST:TNG channel display.
++
++2005-03-20: Version 1.3.23
++
++- The setup option "DVB/Video display format" is now only available if "Video format"
++  is set to "4:3" (suggested by Mikko Salo).
++- Updated the Russian OSD texts (thanks to Vyacheslav Dikonov).
++- Dropped CA support for the old '-icam' firmware.
++- Updated the Finnish OSD texts (thanks to Rolf Ahrenberg).
++- Updated the Swedish OSD texts (thanks to Tomas Prybil).
++- Fixed a few French OSD texts that were in the wrong place.
++- Improved matching timers to EPG events, especially in case there are several events
++  with the same VPS time.
++- Fixed cDolbyRepacker to allow recording ProSieben HD broadcasts (thanks to Reinhard
++  Nissl).
++- Fixed cDvbDevice::SetVideoDisplayFormat() in case of 16:9 (thanks to Marco Schlüßler).
++- The running status of a VPS event is now only taken seriously if that event has been
++  seen within the last 30 seconds - otherwise recording is done as if no VPS was
++  available.
++- The day of a timer is now stored as a full date in ISO notation ("YYYY-MM-DD") in
++  'timers.conf' and for the result of the SVDRP command LSTT (based in parts on a
++  patch by Roman Krenický).
++- Some fixes to avoid compiler warnings in gcc 4.0 (thanks to Ville Skyttä for reporting
++  these).
++- Single shot timers are now reliably deleted when they have expired.
++- Fixed setting the colored button help after deleting a recording in case the next
++  menu entry is a directory (thanks to Steffen Beyer).
++- Improved falling back to normal recording if the VPS data hasn't been seen for more
++  than 30 seconds.
++- Added a missing cMutexLock to cRemote::HasKeys() (thanks to Wolfgang Rohdewald).
++- All log entries regarding timers now contain a short description of the timer.
+diff -ruN vdr-1.3.22/MANUAL vdr-1.3.23/MANUAL
+--- vdr-1.3.22/MANUAL	2005-02-20 14:21:21.000000000 +0100
++++ vdr-1.3.23/MANUAL	2005-03-19 16:38:43.000000000 +0100
+@@ -381,10 +381,9 @@
+              Any changes made in the "Channels" list (like renaming or
+              reordering channels) will be automatically reflected in the
+              timers settings.
+-  Day:       The day on which this timer shall start. This can be either a
+-             "day of month" (1..31), which allows programming a "single shot"
+-             timer that hits once and is deleted after it ends. Single shot
+-             timers can be programmed up to one month into the future.
++  Day:       The day on which this timer shall start. This can be a
++             date (like 2005-03-19), which allows programming a "single shot"
++             timer that hits once and is deleted after it ends.
+              Another option here are "repeating timers" which are defined
+              by listing the days of the week on which they shall record.
+              For example, a timer that shall record every monday and wednesday
+@@ -392,6 +391,9 @@
+              The '0' key toggles between a single shot and a repeating timer.
+              If "Day" indicates a repeating timer, the keys '1'...'7' can be
+              used to toggle the individual days ('1' is monday).
++             You can also switch to a set of predefined repeating timer settings
++             by pressing the "Left" key when the day is the present day. To return
++             to the single shot mode just press "Right" until a date is displayed.
+   Start:     The start time of the timer in hh:mm as 24 hour ("military") time.
+   Stop:      The stop time of the timer.
+   VPS:       Defines whether the timer shall use VPS (if available). If this
+@@ -588,12 +590,14 @@
+                          from the primary DVB interface, so that the viewer will
+                          be disturbed as little as possible.
+ 
++  Video format = 4:3     The video format (or aspect ratio) of the tv set in use
++                         (4:3 or 16:9).
++
+   Video display format = letterbox
+                          The display format to use for playing wide screen video on
+                          a 4:3 tv set ("pan & scan", "letterbox" or "center cut out").
+-
+-  Video format = 4:3     The video format (or aspect ratio) of the tv set in use
+-                         (4:3 or 16:9).
++                         This option is only available if "Video format" is set to
++                         4:3.
+ 
+   Use Dolby Digital = yes
+                          Turns recording of the Dolby Digital audio channels on
+diff -ruN vdr-1.3.22/channels.c vdr-1.3.23/channels.c
+--- vdr-1.3.22/channels.c	2005-02-06 10:44:53.000000000 +0100
++++ vdr-1.3.23/channels.c	2005-03-19 16:56:38.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 1.35 2005/02/06 09:44:53 kls Exp $
++ * $Id: channels.c 1.36 2005/03/19 15:56:38 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -694,9 +694,12 @@
+            char *p = strchr(vpidbuf, '+');
+            if (p)
+               *p++ = 0;
+-           sscanf(vpidbuf, "%d", &vpid);
+-           if (p)
+-              sscanf(p, "%d", &ppid);
++           if (sscanf(vpidbuf, "%d", &vpid) != 1)
++              return false;
++           if (p) {
++              if (sscanf(p, "%d", &ppid) != 1)
++                 return false;
++              }
+            else
+               ppid = vpid;
+ 
+diff -ruN vdr-1.3.22/channels.conf vdr-1.3.23/channels.conf
+--- vdr-1.3.22/channels.conf	2005-02-27 15:57:57.000000000 +0100
++++ vdr-1.3.23/channels.conf	2005-03-20 16:22:50.000000000 +0100
+@@ -48,7 +48,7 @@
+ PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu,1793=deu;1795=deu:32:1722,1801,1702:11:133:2:0
+ PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu,2305=deu:32:1722,1801,1702:43:133:2:0
+ PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu,769=deu:32:1801,1722,1702:9:133:2:0
+-PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu:32:1801,1722,1702:29:133:2:0
++PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu,1281=deu:32:1801,1722,1702:29:133:2:0
+ PREMIERE 6,PREM 6;PREMIERE:11797:hC34:S19.2E:27500:1535:1536=deu:32:1702,1722,1801:41:133:2:0
+ PREMIERE 7,PREM 7;PREMIERE:11797:hC34:S19.2E:27500:1023:1024=deu:32:1722,1702,1801:20:133:2:0
+ DISNEY CHANNEL,DISNEY;PREMIERE:11758:hC34:S19.2E:27500:2559:2560=deu:0:1722,1801,1702:34:133:17:0
+@@ -90,9 +90,9 @@
+ :@201 Sky
+ Sky One;BSkyB:12226:hC23:S28.2E:27500:2305+2304:2306=eng:2307:960,961:4705:2:2027:0
+ Sky Mix;BSkyB:12226:hC23:S28.2E:27500:2314+2304:2315=eng,2316=NAR:2317:960,961:5104:2:2027:0
+-ITV2;BSkyB:10906:vC56:S28.2E:22000:2350:2351=eng,2352=eng:2353:960,961:10240:2:2054:0
+-Sci-Fi;BSkyB:12148:hC23:S28.2E:27500:2314+2304:2315=eng:2316:960,961:4905:2:2023:0
+-Paramount;BSkyB:12187:hC23:S28.2E:27500:2313+2304:2314=eng:2315:960,961:5904:2:2025:0
++ITV2;BSkyB:10906:vC56:S28.2E:22000:2350:2351=eng:2353:960,961:10240:2:2054:0
++Sci-Fi;BSkyB:12148:hC23:S28.2E:27500:2320+2304:2321=eng:2322:960,961:4905:2:2023:0
++Paramount;BSkyB:12187:hC23:S28.2E:27500:2313+2304:2317=eng,2318=NAR:2315:960,961:5904:2:2025:0
+ Discovery;BSkyB:11875:hC23:S28.2E:27500:2304:2306=eng,2307=NAR:2305:960,961:6201:2:2009:0
+ Sky Movies 1;BSkyB:11836:hC23:S28.2E:27500:518+8190:646=eng,653=NAR;686=eng:582:960,961:4303:2:2007:0
+ Sky Movies 2;BSkyB:11836:hC23:S28.2E:27500:519+8190:647=eng,667=NAR;687=eng:583:960,961:4302:2:2007:0
+diff -ruN vdr-1.3.22/config.h vdr-1.3.23/config.h
+--- vdr-1.3.22/config.h	2005-02-20 13:50:37.000000000 +0100
++++ vdr-1.3.23/config.h	2005-03-05 16:44:35.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.215 2005/02/20 12:50:37 kls Exp $
++ * $Id: config.h 1.216 2005/03/05 15:44:35 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -20,8 +20,8 @@
+ #include "i18n.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.3.22"
+-#define VDRVERSNUM   10322  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.3.23"
++#define VDRVERSNUM   10323  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+diff -ruN vdr-1.3.22/dvbdevice.c vdr-1.3.23/dvbdevice.c
+--- vdr-1.3.22/dvbdevice.c	2005-02-20 14:35:28.000000000 +0100
++++ vdr-1.3.23/dvbdevice.c	2005-03-20 11:10:38.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.124 2005/02/20 13:35:28 kls Exp $
++ * $Id: dvbdevice.c 1.127 2005/03/20 10:10:38 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -577,7 +577,7 @@
+               else {
+                  // write PNM file:
+                  if (fprintf(f, "P6\n%d\n%d\n255\n", vm.width, vm.height) < 0 ||
+-                     fwrite(mem, vm.width * vm.height * 3, 1, f) < 0) {
++                     fwrite(mem, vm.width * vm.height * 3, 1, f) != 1) {
+                     LOG_ERROR_STR(FileName);
+                     result |= 1;
+                     }
+@@ -604,7 +604,7 @@
+   cDevice::SetVideoDisplayFormat(VideoDisplayFormat);
+   if (HasDecoder()) {
+      if (Setup.VideoFormat) {
+-        CHECK(ioctl(fd_video, VIDEO_SET_DISPLAY_FORMAT, VIDEO_CENTER_CUT_OUT));
++        CHECK(ioctl(fd_video, VIDEO_SET_DISPLAY_FORMAT, VIDEO_LETTER_BOX));
+         }
+      else {
+         switch (VideoDisplayFormat) {
+@@ -757,8 +757,7 @@
+            if (Channel->Vpid() && !HasPid(Channel->Vpid()) || Channel->Apid(0) && !HasPid(Channel->Apid(0))) {
+ #ifdef DO_MULTIPLE_RECORDINGS
+               if (Ca() > CACONFBASE || Channel->Ca() > CACONFBASE)
+-                 needsDetachReceivers = !ciHandler // only LL-firmware can do non-live CA channels
+-                                        || Ca() != Channel->Ca();
++                 needsDetachReceivers = Ca() != Channel->Ca();
+               else if (!IsPrimaryDevice())
+                  result = true;
+ #ifdef DO_REC_AND_PLAY_ON_PRIMARY_DEVICE
+@@ -781,27 +780,21 @@
+ 
+ bool cDvbDevice::SetChannelDevice(const cChannel *Channel, bool LiveView)
+ {
+-  bool IsEncrypted = Channel->Ca() > CACONFBASE && !ciHandler; // only LL-firmware can do non-live CA channels
+-
+   bool DoTune = !dvbTuner->IsTunedTo(Channel);
+ 
+   bool TurnOffLivePIDs = HasDecoder()
+                          && (DoTune
+-                            || IsEncrypted && pidHandles[ptVideo].pid != Channel->Vpid() // CA channels can only be decrypted in "live" mode
+                             || !IsPrimaryDevice()
+                             || LiveView // for a new live view the old PIDs need to be turned off
+                             || pidHandles[ptVideo].pid == Channel->Vpid() // for recording the PIDs must be shifted from DMX_PES_AUDIO/VIDEO to DMX_PES_OTHER
+                             );
+ 
+-  bool StartTransferMode = IsPrimaryDevice() && !IsEncrypted && !DoTune
++  bool StartTransferMode = IsPrimaryDevice() && !DoTune
+                            && (LiveView && HasPid(Channel->Vpid() ? Channel->Vpid() : Channel->Apid(0)) && (pidHandles[ptVideo].pid != Channel->Vpid() || pidHandles[ptAudio].pid != Channel->Apid(0))// the PID is already set as DMX_PES_OTHER
+                               || !LiveView && (pidHandles[ptVideo].pid == Channel->Vpid() || pidHandles[ptAudio].pid == Channel->Apid(0)) // a recording is going to shift the PIDs from DMX_PES_AUDIO/VIDEO to DMX_PES_OTHER
+                               );
+ 
+-  bool TurnOnLivePIDs = HasDecoder() && !StartTransferMode
+-                        && (IsEncrypted // CA channels can only be decrypted in "live" mode
+-                           || LiveView
+-                           );
++  bool TurnOnLivePIDs = HasDecoder() && !StartTransferMode && LiveView;
+ 
+ #ifndef DO_MULTIPLE_RECORDINGS
+   TurnOffLivePIDs = TurnOnLivePIDs = true;
+@@ -919,7 +912,7 @@
+   if (Receiving())
+      return false;
+ #endif
+-  return cDevice::CanReplay() && (Ca() <= MAXDEVICES || ciHandler); // with non-LL-firmware we can only replay if there is no CA recording going on
++  return cDevice::CanReplay();
+ }
+ 
+ bool cDvbDevice::SetPlayMode(ePlayMode PlayMode)
+diff -ruN vdr-1.3.22/eit.c vdr-1.3.23/eit.c
+--- vdr-1.3.22/eit.c	2005-01-02 12:52:12.000000000 +0100
++++ vdr-1.3.23/eit.c	2005-03-20 13:33:51.000000000 +0100
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 1.102 2005/01/02 11:52:12 kls Exp $
++ * $Id: eit.c 1.103 2005/03/20 12:33:51 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -246,6 +246,8 @@
+   if (Empty && Tid == 0x4E && getSectionNumber() == 0)
+      // ETR 211: an empty entry in section 0 of table 0x4E means there is currently no event running
+      pSchedule->ClrRunningStatus(channel);
++  if (Tid == 0x4E)
++     pSchedule->SetPresentSeen();
+   if (Modified) {
+      pSchedule->Sort();
+      Schedules->SetModified(pSchedule);
+diff -ruN vdr-1.3.22/epg.c vdr-1.3.23/epg.c
+--- vdr-1.3.22/epg.c	2005-02-19 12:35:00.000000000 +0100
++++ vdr-1.3.23/epg.c	2005-03-20 13:34:19.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 1.25 2005/02/19 11:35:00 kls Exp $
++ * $Id: epg.c 1.27 2005/03/20 12:34:19 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -645,6 +645,7 @@
+   channelID = ChannelID;
+   hasRunning = false;;
+   modified = 0;
++  presentSeen = 0;
+ }
+ 
+ cEvent *cSchedule::AddEvent(cEvent *Event)
+@@ -663,7 +664,7 @@
+          if (!CheckRunningStatus)
+             break;
+          }
+-      if (CheckRunningStatus && time(NULL) - p->Seen() < 30 && p->RunningStatus() >= SI::RunningStatusPausing)
++      if (CheckRunningStatus && p->SeenWithin(30) && p->RunningStatus() >= SI::RunningStatusPausing)
+          return p;
+       }
+   return pe;
+diff -ruN vdr-1.3.22/epg.h vdr-1.3.23/epg.h
+--- vdr-1.3.22/epg.h	2005-01-02 11:44:41.000000000 +0100
++++ vdr-1.3.23/epg.h	2005-03-20 13:32:36.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.h 1.19 2005/01/02 10:44:41 kls Exp $
++ * $Id: epg.h 1.21 2005/03/20 12:32:36 kls Exp $
+  */
+ 
+ #ifndef __EPG_H
+@@ -79,6 +79,7 @@
+   int Duration(void) const { return duration; }
+   time_t Vps(void) const { return vps; }
+   time_t Seen(void) const { return seen; }
++  bool SeenWithin(int Seconds) const { return time(NULL) - seen < Seconds; }
+   bool HasTimer(void) const;
+   bool IsRunning(bool OrAboutToStart = false) const;
+   cString GetDateString(void) const;
+@@ -110,11 +111,15 @@
+   cList<cEvent> events;
+   bool hasRunning;
+   time_t modified;
++  time_t presentSeen;
+ public:
+   cSchedule(tChannelID ChannelID);
+   tChannelID ChannelID(void) const { return channelID; }
+   time_t Modified(void) const { return modified; }
++  time_t PresentSeen(void) const { return presentSeen; }
++  bool PresentSeenWithin(int Seconds) const { return time(NULL) - presentSeen < Seconds; }
+   void SetModified(void) { modified = time(NULL); }
++  void SetPresentSeen(void) { presentSeen = time(NULL); }
+   void SetRunningStatus(cEvent *Event, int RunningStatus, cChannel *Channel = NULL);
+   void ClrRunningStatus(cChannel *Channel = NULL);
+   void ResetVersions(void);
+diff -ruN vdr-1.3.22/font.h vdr-1.3.23/font.h
+--- vdr-1.3.22/font.h	2005-01-14 14:25:35.000000000 +0100
++++ vdr-1.3.23/font.h	2005-03-19 16:51:19.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: font.h 1.10 2005/01/14 13:25:35 kls Exp $
++ * $Id: font.h 1.11 2005/03/19 15:51:19 kls Exp $
+  */
+ 
+ #ifndef __FONT_H
+@@ -44,6 +44,7 @@
+   int height;
+ public:
+   cFont(void *Data);
++  virtual ~cFont() {}
+   void SetData(void *Data);
+   virtual int Width(unsigned char c) const { return data[c]->width; }
+       ///< Returns the width of the given character.
+diff -ruN vdr-1.3.22/i18n.c vdr-1.3.23/i18n.c
+--- vdr-1.3.22/i18n.c	2005-02-27 10:45:57.000000000 +0100
++++ vdr-1.3.23/i18n.c	2005-03-12 11:43:16.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.181 2005/02/27 09:45:57 kls Exp $
++ * $Id: i18n.c 1.185 2005/03/12 10:43:16 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -958,7 +958,7 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "Skanna",
+     "Cãutare canale",
+     "",//TODO
+     "",//TODO
+@@ -1801,7 +1801,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "VPS",
+     "VPS",
+     "",// TODO
+     "",// TODO
+@@ -2301,16 +2301,16 @@
+     "Geen audio beschikbaar!",
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "Pas d'audio disponible!",
+     "Äänen kieli ei ole valittavissa!",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "Pas d'audio disponible!",
+-    "",//TODO
++    "Ljud saknas!"
+     "",//TODO
+     "",//TODO
+     "",//TODO
++    "¾âáãâáâÒãÕâ ×ÒãÚ!",
+     "",//TODO
+     "Audio kättesaamatu!",
+     "Ingen lyd tilgængelig!",
+@@ -2581,7 +2581,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Skin",
+     "Skin",
+     "",// TODO
+     "",// TODO
+@@ -2602,7 +2602,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Tema",
+     "Temã",
+     "",// TODO
+     "",// TODO
+@@ -2623,7 +2623,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Vänster",
+     "Stânga",
+     "",// TODO
+     "",// TODO
+@@ -2644,7 +2644,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Övre",
+     "Sus",
+     "",// TODO
+     "",// TODO
+@@ -2728,7 +2728,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Använd liten font",
+     "Utilizare fonturi mici",
+     "",// TODO
+     "",// TODO
+@@ -2749,7 +2749,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "aldrig",
+     "niciodatã",
+     "",// TODO
+     "",// TODO
+@@ -2770,7 +2770,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "skin beroende",
+     "dep. de skin",
+     "",// TODO
+     "",// TODO
+@@ -2791,7 +2791,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "alltid",
+     "întotdeauna",
+     "",// TODO
+     "",// TODO
+@@ -2833,11 +2833,11 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
++    "Kanal information (s)",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
+-    "",// TODO
++    "¿ÞÚÐ× ØÝäÞàÜÐæØØ Þ ÚÐÝÐÛÕ (áÕÚ)",
+     "",// TODO
+     "",// TODO
+     "Tid kanalinfo skal vises (s)",
+@@ -3043,11 +3043,11 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Önskade språk",
+     "Limbi preferate",
+     "",// TODO
+     "",// TODO
+-    "¿àÕÔßÞçØâÐÕÜëÕ ï×ëÚØ",
++    "¿àÕÔßÞçØâÐÕÜëÕ ï×ëÚØ (âÕÛÕÓØÔ)",
+     "Preferirani jezici",
+     "Eelistatuid keeli",
+     "Foretrukne sprog",
+@@ -3064,7 +3064,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Önskat språk",
+     "Limba preferatã",
+     "",// TODO
+     "",// TODO
+@@ -3102,15 +3102,15 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
++    "Näyttömuoto",
+     "",//TODO
+     "",//TODO
+     "",//TODO
++    "Format för Video display",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
+-    "",//TODO
+-    "",//TODO
++    "ÈØàÞÚÞíÚàÐÝÝÞÕ Ø×ÞÑàÐÖÕÝØÕ",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -3131,7 +3131,7 @@
+     "pan&scan",
+     "pan&scan",
+     "pan&scan",
+-    "pan&scan",
++    "ßÐÝÞàÐÜØàÞÒÐâì",
+     "pan&scan",
+     "pan&scan",
+     "pan&scan",
+@@ -3152,7 +3152,7 @@
+     "letterbox",
+     "letterbox",
+     "letterbox",
+-    "letterbox",
++    "ãÜÕÝìèÐâì",
+     "letterbox",
+     "letterbox",
+     "letterbox",
+@@ -3173,7 +3173,7 @@
+     "center cut out",
+     "center cut out",
+     "center cut out",
+-    "center cut out",
++    "ÞÑàÕ×Ðâì áÑÞÚã",
+     "center cut out",
+     "center cut out",
+     "center cut out",
+@@ -3205,17 +3205,17 @@
+     "",//TODO
+     "Dolby Digital gebruiken",
+     "",//TODO
+-    "",//TODO
++    "Utiliser le Dolby Digital",
+     "",//TODO
+     "Käytä Dolby Digital -ääntä",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "Utiliser le Dolby Digital",
+-    "",//TODO
++    "Använd Dolby Digital",
+     "",//TODO
+     "",//TODO
+     "",//TODO
++    "²ÚÛîçØâì Dolby Digital",
+     "",//TODO
+     "Dolby Digital kasutamine",
+     "Anvend Dolby Digital",
+@@ -3232,7 +3232,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Uppdatera kanaler",
+     "Actualizare canale",
+     "",// TODO
+     "",// TODO
+@@ -3253,7 +3253,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "bara namn",
+     "doar numele",
+     "",// TODO
+     "",// TODO
+@@ -3274,7 +3274,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "namn och PIDdar",
+     "nume si PID-uri",
+     "",// TODO
+     "",// TODO
+@@ -3295,7 +3295,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "lägg till nya kanaler",
+     "adãugare canale noi",
+     "",// TODO
+     "",// TODO
+@@ -3316,7 +3316,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "lägg till nya transponders",
+     "adãugare transpondere noi",
+     "",// TODO
+     "",// TODO
+@@ -3337,11 +3337,11 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
++    "Antal ljudspråk",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
+-    "",//TODO
++    "¿àÕÔßÞçØâÐÕÜëÕ ï×ëÚØ (×ÒãÚ)",
+     "",//TODO
+     "",//TODO
+     "Audio sprog (ant.)",
+@@ -3358,11 +3358,11 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
++    "Ljudspråk",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
+-    "",//TODO
++    "²ëÑàÐÝ",
+     "",//TODO
+     "",//TODO
+     "Audio sprog",
+@@ -3652,7 +3652,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Använd VPS",
+     "Utilizeazã VPS",
+     "",// TODO
+     "",// TODO
+@@ -3673,7 +3673,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "VPS marginal (s)",
+     "Marjã de timp la utilizare VPS (s)",
+     "",// TODO
+     "",// TODO
+@@ -3925,7 +3925,7 @@
+     "",// TODO
+     "",// TODO
+     "ÆÜðéíãê äéáêïðÞ (ä)",
+-    "",// TODO
++    "Zap timeout(s)",
+     "Interval zapping (s)",
+     "",// TODO
+     "",// TODO
+@@ -4784,17 +4784,17 @@
+     "",// TODO
+     "Audio",
+     "",// TODO
+-    "",// TODO
++    "Audio",
+     "",// TODO
+     "Ääni",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "Audio",
+-    "",// TODO
++    "Ljud",
+     "",// TODO
+     "",// TODO
+     "",// TODO
++    "Ï×ëÚ",
+     "",// TODO
+     "Audio",
+     "Audio",
+@@ -5274,7 +5274,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Klassisk VDR",
+     "VDR clasic",
+     "",// TODO
+     "",// TODO
+@@ -5295,7 +5295,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "ST:TNG konsol",
+     "Cons. ST:TNG",
+     "",// TODO
+     "",// TODO
+diff -ruN vdr-1.3.22/menu.c vdr-1.3.23/menu.c
+--- vdr-1.3.22/menu.c	2005-02-27 15:09:00.000000000 +0100
++++ vdr-1.3.23/menu.c	2005-03-20 16:14:51.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.342 2005/02/27 14:09:00 kls Exp $
++ * $Id: menu.c 1.348 2005/03/20 15:14:51 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -632,7 +632,7 @@
+      channel = data.Channel()->Number();
+      Add(new cMenuEditBitItem( tr("Active"),       &data.flags, tfActive));
+      Add(new cMenuEditChanItem(tr("Channel"),      &channel));
+-     Add(new cMenuEditDayItem( tr("Day"),          &data.day));
++     Add(new cMenuEditDateItem(tr("Day"),          &data.day, &data.weekdays));
+      Add(new cMenuEditTimeItem(tr("Start"),        &data.start));
+      Add(new cMenuEditTimeItem(tr("Stop"),         &data.stop));
+      Add(new cMenuEditBitItem( tr("VPS"),          &data.flags, tfVps));
+@@ -654,13 +654,12 @@
+ void cMenuEditTimer::SetFirstDayItem(void)
+ {
+   if (!firstday && !data.IsSingleEvent()) {
+-     Add(firstday = new cMenuEditDateItem(tr("First day"), &data.firstday));
++     Add(firstday = new cMenuEditDateItem(tr("First day"), &data.day));
+      Display();
+      }
+   else if (firstday && data.IsSingleEvent()) {
+      Del(firstday->Index());
+      firstday = NULL;
+-     data.firstday = 0;
+      Display();
+      }
+ }
+@@ -691,7 +690,7 @@
+                              Timers.Add(timer);
+                           timer->Matches();
+                           Timers.SetModified();
+-                          isyslog("timer %d %s (%s)", timer->Index() + 1, addIfConfirmed ? "added" : "modified", timer->HasFlags(tfActive) ? "active" : "inactive");
++                          isyslog("timer %s %s (%s)", *timer->ToDescr(), addIfConfirmed ? "added" : "modified", timer->HasFlags(tfActive) ? "active" : "inactive");
+                           addIfConfirmed = false;
+                           }
+                      }
+@@ -733,13 +732,28 @@
+ 
+ void cMenuTimerItem::Set(void)
+ {
++  cString day, name("");
++  if (timer->WeekDays())
++     day = timer->PrintDay(0, timer->WeekDays());
++  else if (timer->Day() - time(NULL) < 28 * SECSINDAY) {
++     day = itoa(timer->GetMDay(timer->Day()));
++     name = WeekDayName(timer->Day());
++     }
++  else {
++     struct tm tm_r;
++     time_t Day = timer->Day();
++     localtime_r(&Day, &tm_r);
++     char buffer[16];
++     strftime(buffer, sizeof(buffer), "%Y%m%d", &tm_r);
++     day = buffer;
++     }
+   char *buffer = NULL;
+   asprintf(&buffer, "%c\t%d\t%s%s%s\t%02d:%02d\t%02d:%02d\t%s",
+                     !(timer->HasFlags(tfActive)) ? ' ' : timer->FirstDay() ? '!' : timer->Recording() ? '#' : '>',
+                     timer->Channel()->Number(),
+-                    timer->IsSingleEvent() ? *WeekDayName(timer->StartTime()) : "",
+-                    timer->IsSingleEvent() ? " " : "",
+-                    *timer->PrintDay(timer->Day()),
++                    *name,
++                    *name && **name ? " " : "",
++                    *day,
+                     timer->Start() / 100,
+                     timer->Start() % 100,
+                     timer->Stop() / 100,
+@@ -795,9 +809,9 @@
+      RefreshCurrent();
+      DisplayCurrent(true);
+      if (timer->FirstDay())
+-        isyslog("timer %d first day set to %s", timer->Index() + 1, *timer->PrintFirstDay());
++        isyslog("timer %s first day set to %s", *timer->ToDescr(), *timer->PrintFirstDay());
+      else
+-        isyslog("timer %d %sactivated", timer->Index() + 1, timer->HasFlags(tfActive) ? "" : "de");
++        isyslog("timer %s %sactivated", *timer->ToDescr(), timer->HasFlags(tfActive) ? "" : "de");
+      Timers.SetModified();
+      }
+   return osContinue;
+@@ -807,7 +821,7 @@
+ {
+   if (HasSubMenu() || Count() == 0)
+      return osContinue;
+-  isyslog("editing timer %d", CurrentTimer()->Index() + 1);
++  isyslog("editing timer %s", *CurrentTimer()->ToDescr());
+   return AddSubMenu(new cMenuEditTimer(CurrentTimer()));
+ }
+ 
+@@ -832,12 +846,11 @@
+            else
+               return osContinue;
+            }
+-        int Index = ti->Index();
++        isyslog("deleting timer %s", *ti->ToDescr());
+         Timers.Del(ti);
+         cOsdMenu::Del(Current());
+         Timers.SetModified();
+         Display();
+-        isyslog("timer %d deleted", Index + 1);
+         }
+      }
+   return osContinue;
+@@ -1603,9 +1616,8 @@
+                  timer->Skip();
+                  cRecordControls::Process(time(NULL));
+                  if (timer->IsSingleEvent()) {
+-                    int Index = timer->Index();
++                    isyslog("deleting timer %s", *timer->ToDescr());
+                     Timers.Del(timer);
+-                    isyslog("timer %d deleted", Index + 1);
+                     }
+                  Timers.SetModified();
+                  }
+@@ -1619,6 +1631,7 @@
+               cReplayControl::ClearLastReplayed(ri->FileName());
+               cOsdMenu::Del(Current());
+               Recordings.Del(recording);
++              SetHelpKeys();
+               Display();
+               if (!Count())
+                  return osBack;
+@@ -1947,8 +1960,9 @@
+   Clear();
+ 
+   Add(new cMenuEditIntItem( tr("Setup.DVB$Primary DVB interface"), &data.PrimaryDVB, 1, cDevice::NumDevices()));
+-  Add(new cMenuEditStraItem(tr("Setup.DVB$Video display format"),  &data.VideoDisplayFormat, 3, videoDisplayFormatTexts));
+   Add(new cMenuEditBoolItem(tr("Setup.DVB$Video format"),          &data.VideoFormat, "4:3", "16:9"));
++  if (data.VideoFormat == 0)
++     Add(new cMenuEditStraItem(tr("Setup.DVB$Video display format"), &data.VideoDisplayFormat, 3, videoDisplayFormatTexts));
+   Add(new cMenuEditBoolItem(tr("Setup.DVB$Use Dolby Digital"),     &data.UseDolbyDigital));
+   Add(new cMenuEditStraItem(tr("Setup.DVB$Update channels"),       &data.UpdateChannels, 5, updateChannelsTexts));
+   Add(new cMenuEditIntItem( tr("Setup.DVB$Audio languages"),       &numAudioLanguages, 0, I18nNumLanguages));
+@@ -1964,10 +1978,12 @@
+   int oldPrimaryDVB = ::Setup.PrimaryDVB;
+   int oldVideoDisplayFormat = ::Setup.VideoDisplayFormat;
+   bool oldVideoFormat = ::Setup.VideoFormat;
++  bool newVideoFormat = data.VideoFormat;
+   int oldnumAudioLanguages = numAudioLanguages;
+   eOSState state = cMenuSetupBase::ProcessKey(Key);
+ 
+   if (Key != kNone) {
++     bool DoSetup = data.VideoFormat != newVideoFormat;
+      if (numAudioLanguages != oldnumAudioLanguages) {
+         for (int i = oldnumAudioLanguages; i < numAudioLanguages; i++) {
+             data.AudioLanguages[i] = 0;
+@@ -1984,8 +2000,10 @@
+                 }
+             }
+         data.AudioLanguages[numAudioLanguages] = -1;
+-        Setup();
++        DoSetup = true;
+         }
++     if (DoSetup)
++        Setup();
+      }
+   if (state == osBack && Key == kOk) {
+      if (::Setup.PrimaryDVB != oldPrimaryDVB)
+@@ -3048,7 +3066,7 @@
+ 
+ cRecordControl::~cRecordControl()
+ {
+-  Stop(true);
++  Stop();
+   free(instantId);
+   free(fileName);
+ }
+@@ -3083,16 +3101,11 @@
+   return false;
+ }
+ 
+-void cRecordControl::Stop(bool KeepInstant)
++void cRecordControl::Stop(void)
+ {
+   if (timer) {
+      DELETENULL(recorder);
+      timer->SetRecording(false);
+-     if ((IsInstant() && !KeepInstant) || (timer->IsSingleEvent() && timer->StopTime() <= time(NULL))) {
+-        isyslog("deleting timer %d", timer->Index() + 1);
+-        Timers.Del(timer);
+-        Timers.SetModified();
+-        }
+      timer = NULL;
+      cStatus::MsgRecording(device, NULL);
+      cRecordingUserCommand::InvokeCommand(RUC_AFTERRECORDING, fileName);
+@@ -3153,8 +3166,16 @@
+   for (int i = 0; i < MAXRECORDCONTROLS; i++) {
+       if (RecordControls[i]) {
+          const char *id = RecordControls[i]->InstantId();
+-         if (id && strcmp(id, InstantId) == 0)
++         if (id && strcmp(id, InstantId) == 0) {
++            cTimer *timer = RecordControls[i]->Timer();
+             RecordControls[i]->Stop();
++            if (timer) {
++               isyslog("deleting timer %s", *timer->ToDescr());
++               Timers.Del(timer);
++               Timers.SetModified();
++               }
++            break;
++            }
+          }
+       }
+ }
+@@ -3165,7 +3186,7 @@
+       if (RecordControls[i]) {
+          if (RecordControls[i]->Device() == Device) {
+             isyslog("stopping recording on DVB device %d due to higher priority", Device->CardIndex() + 1);
+-            RecordControls[i]->Stop(true);
++            RecordControls[i]->Stop();
+             }
+          }
+       }
+@@ -3242,7 +3263,7 @@
+          if (RecordControls[i]->Timer() && RecordControls[i]->Timer()->Channel() == Channel) {
+             if (RecordControls[i]->Device()->ProvidesTransponder(Channel)) { // avoids retune on devices that don't really access the transponder
+                isyslog("stopping recording due to modification of channel %d", Channel->Number());
+-               RecordControls[i]->Stop(true);
++               RecordControls[i]->Stop();
+                // This will restart the recording, maybe even from a different
+                // device in case conditional access has changed.
+                }
+diff -ruN vdr-1.3.22/menu.h vdr-1.3.23/menu.h
+--- vdr-1.3.22/menu.h	2005-01-08 16:48:57.000000000 +0100
++++ vdr-1.3.23/menu.h	2005-03-20 11:57:29.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 1.68 2005/01/08 15:48:57 kls Exp $
++ * $Id: menu.h 1.69 2005/03/20 10:57:29 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -155,8 +155,7 @@
+   virtual ~cRecordControl();
+   bool Process(time_t t);
+   cDevice *Device(void) { return device; }
+-  void Stop(bool KeepInstant = false);
+-  bool IsInstant(void) { return instantId; }
++  void Stop(void);
+   const char *InstantId(void) { return instantId; }
+   const char *FileName(void) { return fileName; }
+   cTimer *Timer(void) { return timer; }
+diff -ruN vdr-1.3.22/menuitems.c vdr-1.3.23/menuitems.c
+--- vdr-1.3.22/menuitems.c	2004-11-21 14:24:10.000000000 +0100
++++ vdr-1.3.23/menuitems.c	2005-03-19 16:33:34.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.c 1.21 2004/11/21 13:24:10 kls Exp $
++ * $Id: menuitems.c 1.22 2005/03/19 15:33:34 kls Exp $
+  */
+ 
+ #include "menuitems.h"
+@@ -535,117 +535,35 @@
+   return state;
+ }
+ 
+-// --- cMenuEditDayItem ------------------------------------------------------
+-
+-int cMenuEditDayItem::days[] ={ cTimer::ParseDay("M------"),
+-                                cTimer::ParseDay("-T-----"),
+-                                cTimer::ParseDay("--W----"),
+-                                cTimer::ParseDay("---T---"),
+-                                cTimer::ParseDay("----F--"),
+-                                cTimer::ParseDay("-----S-"),
+-                                cTimer::ParseDay("------S"),
+-                                cTimer::ParseDay("MTWTF--"),
+-                                cTimer::ParseDay("MTWTFS-"),
+-                                cTimer::ParseDay("MTWTFSS"),
+-                                cTimer::ParseDay("-----SS"),
+-                                0 };
+-
+-cMenuEditDayItem::cMenuEditDayItem(const char *Name, int *Value)
+-:cMenuEditIntItem(Name, Value, -INT_MAX, 31)
+-{
+-  d = -1;
+-  md = 0;
+-  if (*value < 0) {
+-     int n = 0;
+-     while (days[n]) {
+-           if (days[n] == *value) {
+-              d = n;
+-              break;
+-              }
+-           n++;
+-           }
+-     }
+-  Set();
+-}
++// --- cMenuEditDateItem -----------------------------------------------------
+ 
+-void cMenuEditDayItem::Set(void)
++static int ParseWeekDays(const char *s)
+ {
+-  SetValue(cTimer::PrintDay(*value));
+-}
++  time_t day;
++  int weekdays;
++  return cTimer::ParseDay(s, day, weekdays) ? weekdays : 0;
++}
++
++int cMenuEditDateItem::days[] = { ParseWeekDays("M------"),
++                                  ParseWeekDays("-T-----"),
++                                  ParseWeekDays("--W----"),
++                                  ParseWeekDays("---T---"),
++                                  ParseWeekDays("----F--"),
++                                  ParseWeekDays("-----S-"),
++                                  ParseWeekDays("------S"),
++                                  ParseWeekDays("MTWTF--"),
++                                  ParseWeekDays("MTWTFS-"),
++                                  ParseWeekDays("MTWTFSS"),
++                                  ParseWeekDays("-----SS"),
++                                  0 };
+ 
+-eOSState cMenuEditDayItem::ProcessKey(eKeys Key)
+-{
+-  switch (Key) {
+-    case kLeft|k_Repeat:
+-    case kLeft:  if (d > 0)
+-                    *value = days[--d];
+-                 else if (d == 0) {
+-                    *value = 31;
+-                    d = -1;
+-                    }
+-                 else if (*value == 1) {
+-                    d = sizeof(days) / sizeof(int) - 2;
+-                    *value = days[d];
+-                    }
+-                 else
+-                    return cMenuEditIntItem::ProcessKey(Key);
+-                 Set();
+-                 break;
+-    case kRight|k_Repeat:
+-    case kRight: if (d >= 0) {
+-                    *value = days[++d];
+-                    if (*value == 0) {
+-                       *value = 1;
+-                       d = -1;
+-                       }
+-                    }
+-                 else if (*value == 31) {
+-                    d = 0;
+-                    *value = days[d];
+-                    }
+-                 else
+-                    return cMenuEditIntItem::ProcessKey(Key);
+-                 Set();
+-                 break;
+-    default: {
+-               if (d >= 0) {
+-                  if (k1 <= Key && Key <= k7) {
+-                     int v = *value ^ (1 << (Key - k1));
+-                     if ((v & 0xFF) != 0) {
+-                        *value = v; // can't let this become all 0
+-                        Set();
+-                        }
+-                     break;
+-                     }
+-                  }
+-               int v = *value;
+-               eOSState result = cMenuEditIntItem::ProcessKey(Key);
+-               if (result == osContinue && Key == k0) {
+-                  if (d >= 0) {
+-                     *value = md ? md : cTimer::GetMDay(time(NULL));
+-                     md = 0;
+-                     d = -1;
+-                     Set();
+-                     }
+-                  else if (*value == 0 || *value == v) {
+-                     md = v;
+-                     d = cTimer::GetWDayFromMDay(v);
+-                     *value = days[d];
+-                     Set();
+-                     }
+-                  }
+-               return result;
+-             }
+-    }
+-  return osContinue;
+-}
+-
+-// --- cMenuEditDateItem -----------------------------------------------------
+-
+-cMenuEditDateItem::cMenuEditDateItem(const char *Name, time_t *Value)
++cMenuEditDateItem::cMenuEditDateItem(const char *Name, time_t *Value, int *WeekDays)
+ :cMenuEditItem(Name)
+ {
+   value = Value;
++  weekdays = WeekDays;
++  oldvalue = 0;
++  dayindex = 0;
+   Set();
+ }
+ 
+@@ -653,7 +571,11 @@
+ {
+ #define DATEBUFFERSIZE 32
+   char buf[DATEBUFFERSIZE];
+-  if (*value) {
++  if (weekdays && *weekdays) {
++     SetValue(cTimer::PrintDay(0, *weekdays));
++     return;
++     }
++  else if (*value) {
+      struct tm tm_r;
+      localtime_r(value, &tm_r);
+      strftime(buf, DATEBUFFERSIZE, "%Y-%m-%d ", &tm_r);
+@@ -669,15 +591,73 @@
+   eOSState state = cMenuEditItem::ProcessKey(Key);
+ 
+   if (state == osUnknown) {
++     time_t now = time(NULL);
+      if (NORMALKEY(Key) == kLeft) { // TODO might want to increase the delta if repeated quickly?
+-        *value -= SECSINDAY;
+-        if (*value < time(NULL))
+-           *value = 0;
++        if (!weekdays || !*weekdays) {
++           // Decrement single day:
++           time_t v = *value;
++           v -= SECSINDAY;
++           if (v < now) {
++              if (now <= v + SECSINDAY) { // switched from tomorrow to today
++                 if (!weekdays)
++                    v = 0;
++                 }
++              else if (weekdays) { // switched from today to yesterday, so enter weekdays mode
++                 v = 0;
++                 dayindex = sizeof(days) / sizeof(int) - 2;
++                 *weekdays = days[dayindex];
++                 }
++              else // don't go before today
++                 v = *value;
++              }
++           *value = v;
++           }
++        else {
++           // Decrement weekday index:
++           if (dayindex > 0)
++              *weekdays = days[--dayindex];
++           }
+         }
+      else if (NORMALKEY(Key) == kRight) {
+-        if (!*value)
+-           *value = cTimer::SetTime(time(NULL), 0);
+-        *value += SECSINDAY;
++        if (!weekdays || !*weekdays) {
++           // Increment single day:
++           if (!*value)
++              *value = cTimer::SetTime(now, 0);
++           *value += SECSINDAY;
++           }
++        else {
++           // Increment weekday index:
++           *weekdays = days[++dayindex];
++           if (!*weekdays) { // was last weekday entry, so switch to today
++              *value = cTimer::SetTime(now, 0);
++              dayindex = 0;
++              }
++           }
++        }
++     else if (weekdays) {
++        if (Key == k0) {
++           // Toggle between weekdays and single day:
++           if (*weekdays) {
++              *value = cTimer::SetTime(oldvalue ? oldvalue : now, 0);
++              oldvalue = 0;
++              *weekdays = 0;
++              }
++           else {
++              *weekdays = days[cTimer::GetWDay(*value)];
++              oldvalue = *value;
++              *value = 0;
++              }
++           }
++        else if (k1 <= Key && Key <= k7) {
++           // Toggle individual weekdays:
++           if (*weekdays) {
++              int v = *weekdays ^ (1 << (Key - k1));
++              if (v != 0)
++                 *weekdays = v; // can't let this become all 0
++              }
++           }
++        else
++           return state;
+         }
+      else
+         return state;
+diff -ruN vdr-1.3.22/menuitems.h vdr-1.3.23/menuitems.h
+--- vdr-1.3.22/menuitems.h	2004-11-21 14:23:00.000000000 +0100
++++ vdr-1.3.23/menuitems.h	2005-03-19 16:02:57.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.h 1.10 2004/11/21 13:23:00 kls Exp $
++ * $Id: menuitems.h 1.11 2005/03/19 15:02:57 kls Exp $
+  */
+ 
+ #ifndef __MENUITEMS_H
+@@ -118,24 +118,16 @@
+   virtual eOSState ProcessKey(eKeys Key);
+   };
+ 
+-class cMenuEditDayItem : public cMenuEditIntItem {
++class cMenuEditDateItem : public cMenuEditItem {
+ private:
+   static int days[];
+-  int d;
+-  int md;
+-protected:
+-  virtual void Set(void);
+-public:
+-  cMenuEditDayItem(const char *Name, int *Value);
+-  virtual eOSState ProcessKey(eKeys Key);
+-  };
+-
+-class cMenuEditDateItem : public cMenuEditItem {
+-protected:
+   time_t *value;
++  int *weekdays;
++  time_t oldvalue;
++  int dayindex;
+   virtual void Set(void);
+ public:
+-  cMenuEditDateItem(const char *Name, time_t *Value);
++  cMenuEditDateItem(const char *Name, time_t *Value, int *WeekDays = NULL);
+   virtual eOSState ProcessKey(eKeys Key);
+   };
+ 
+diff -ruN vdr-1.3.22/remote.c vdr-1.3.23/remote.c
+--- vdr-1.3.22/remote.c	2004-10-31 15:05:12.000000000 +0100
++++ vdr-1.3.23/remote.c	2005-03-20 14:25:31.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.c 1.41 2004/10/31 14:05:12 kls Exp $
++ * $Id: remote.c 1.42 2005/03/20 13:25:31 kls Exp $
+  */
+ 
+ #include "remote.h"
+@@ -145,6 +145,7 @@
+ 
+ bool cRemote::HasKeys(void)
+ {
++  cMutexLock MutexLock(&mutex);
+   return in != out && !(keys[out] & k_Repeat);
+ }
+ 
+diff -ruN vdr-1.3.22/remux.c vdr-1.3.23/remux.c
+--- vdr-1.3.22/remux.c	2005-02-13 15:36:23.000000000 +0100
++++ vdr-1.3.23/remux.c	2005-03-20 14:18:15.000000000 +0100
+@@ -11,7 +11,7 @@
+  * The cDolbyRepacker code was originally written by Reinhard Nissl <rnissl@gmx.de>,
+  * and adapted to the VDR coding style by Klaus.Schmidinger@cadsoft.de.
+  *
+- * $Id: remux.c 1.31 2005/02/13 14:36:23 kls Exp $
++ * $Id: remux.c 1.33 2005/03/20 13:18:15 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -46,6 +46,8 @@
+   int fragmentTodo;
+   uchar pesHeader[6 + 3 + 255 + 4 + 4];
+   int pesHeaderLen;
++  uchar pesHeaderBackup[6 + 3 + 255];
++  int pesHeaderBackupLen;
+   uchar chk1;
+   uchar chk2;
+   int ac3todo;
+@@ -57,8 +59,8 @@
+     get_length,
+     output_packet
+     } state;
+-  void ResetPesHeader(void);
+-  void AppendSubStreamID(void);
++  void ResetPesHeader(bool ContinuationFrame = false);
++  void AppendSubStreamID(bool ContinuationFrame = false);
+   bool FinishRemainder(cRingBufferLinear *ResultBuffer, const uchar *const Data, const int Todo, int &Done, int &Bite);
+   bool StartNewPacket(cRingBufferLinear *ResultBuffer, const uchar *const Data, const int Todo, int &Done, int &Bite);
+ public:
+@@ -103,23 +105,26 @@
+   Reset();
+ }
+ 
+-void cDolbyRepacker::AppendSubStreamID(void)
++void cDolbyRepacker::AppendSubStreamID(bool ContinuationFrame)
+ {
+   if (subStreamId) {
+      pesHeader[pesHeaderLen++] = subStreamId;
++     // number of ac3 frames "starting" in this packet (1 by design).
++     pesHeader[pesHeaderLen++] = 0x01;
++     // offset to start of first ac3 frame (0 means "no ac3 frame starting"
++     // so 1 (by design) addresses the first byte after the next two bytes).
+      pesHeader[pesHeaderLen++] = 0x00;
+-     pesHeader[pesHeaderLen++] = 0x00;
+-     pesHeader[pesHeaderLen++] = 0x00;
++     pesHeader[pesHeaderLen++] = (ContinuationFrame ? 0x00 : 0x01);
+      }
+ }
+ 
+-void cDolbyRepacker::ResetPesHeader(void)
++void cDolbyRepacker::ResetPesHeader(bool ContinuationFrame)
+ {
+   pesHeader[6] = 0x80;
+   pesHeader[7] = 0x00;
+   pesHeader[8] = 0x00;
+   pesHeaderLen = 9;
+-  AppendSubStreamID();
++  AppendSubStreamID(ContinuationFrame);
+ }
+ 
+ void cDolbyRepacker::Reset(void)
+@@ -131,6 +136,7 @@
+   chk2 = 0;
+   fragmentLen = 0;
+   fragmentTodo = 0;
++  pesHeaderBackupLen = 0;
+ }
+ 
+ bool cDolbyRepacker::FinishRemainder(cRingBufferLinear *ResultBuffer, const uchar *const Data, const int Todo, int &Done, int &Bite)
+@@ -229,12 +235,17 @@
+   if ((Data[6] & 0xC0) != 0x80)
+      return 0;
+ 
++  // backup PES header
++  if (Data[6] != 0x80 || Data[7] != 0x00 || Data[8] != 0x00) {
++     pesHeaderBackupLen = 6 + 3 + Data[8];
++     memcpy(pesHeaderBackup, Data, pesHeaderBackupLen);
++     }
++
+   // skip PES header
+   int done = 6 + 3 + Data[8];
+   int todo = Count - done;
+   const uchar *data = Data + done;
+-  bool headerCopied = false;
+-  
++
+   // look for 0x0B 0x77 <chk1> <chk2> <frameSize>
+   while (todo > 0) {
+         switch (state) {
+@@ -242,10 +253,10 @@
+                if (*data == 0x0B) {
+                   ++(int &)state;
+                   // copy header information once for later use
+-                  if (!headerCopied) {
+-                     headerCopied = true;
+-                     pesHeaderLen = 6 + 3 + Data[8];
+-                     memcpy(pesHeader, Data, pesHeaderLen);
++                  if (pesHeaderBackupLen > 0) {
++                     pesHeaderLen = pesHeaderBackupLen;
++                     pesHeaderBackupLen = 0;
++                     memcpy(pesHeader, pesHeaderBackup, pesHeaderLen);
+                      AppendSubStreamID();
+                      }
+                   }
+@@ -279,9 +290,8 @@
+                ac3todo = 2 * frameSizes[*data];
+                // frameSizeCode was invalid => restart searching
+                if (ac3todo <= 0) {
+-                  // reset PES header instead of using/copying a wrong one
++                  // reset PES header instead of using a wrong one
+                   ResetPesHeader();
+-                  headerCopied = true;
+                   if (chk1 == 0x0B) {
+                      if (chk2 == 0x77) {
+                         state = store_chk1;
+@@ -320,8 +330,8 @@
+                   // start a new packet
+                   if (!StartNewPacket(ResultBuffer, data, todo, done, bite))
+                      return done;
+-                  // prepare for next packet
+-                  ResetPesHeader();
++                  // prepare for next (continuation) packet
++                  ResetPesHeader(state == output_packet);
+                   }
+                data += bite;
+                done += bite;
+diff -ruN vdr-1.3.22/svdrp.c vdr-1.3.23/svdrp.c
+--- vdr-1.3.22/svdrp.c	2004-12-26 13:23:55.000000000 +0100
++++ vdr-1.3.23/svdrp.c	2005-03-20 16:04:00.000000000 +0100
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 1.67 2004/12/26 12:23:55 kls Exp $
++ * $Id: svdrp.c 1.69 2005/03/20 15:04:00 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -111,7 +111,8 @@
+         bool accepted = SVDRPhosts.Acceptable(clientname.sin_addr.s_addr);
+         if (!accepted) {
+            const char *s = "Access denied!\n";
+-           write(newsock, s, strlen(s));
++           if (write(newsock, s, strlen(s)) < 0)
++              LOG_ERROR;
+            close(newsock);
+            newsock = -1;
+            }
+@@ -528,9 +529,9 @@
+         cTimer *timer = Timers.Get(strtol(Option, NULL, 10) - 1);
+         if (timer) {
+            if (!timer->Recording()) {
++              isyslog("deleting timer %s", *timer->ToDescr());
+               Timers.Del(timer);
+               Timers.SetModified();
+-              isyslog("timer %s deleted", Option);
+               Reply(250, "Timer \"%s\" deleted", Option);
+               }
+            else
+@@ -918,7 +919,7 @@
+               }
+            *timer = t;
+            Timers.SetModified();
+-           isyslog("timer %d modified (%s)", timer->Index() + 1, timer->HasFlags(tfActive) ? "active" : "inactive");
++           isyslog("timer %s modified (%s)", *timer->ToDescr(), timer->HasFlags(tfActive) ? "active" : "inactive");
+            Reply(250, "%d %s", timer->Index() + 1, *timer->ToText());
+            }
+         else
+@@ -976,7 +977,7 @@
+         if (!t) {
+            Timers.Add(timer);
+            Timers.SetModified();
+-           isyslog("timer %d added", timer->Index() + 1);
++           isyslog("timer %s added", *timer->ToDescr());
+            Reply(250, "%d %s", timer->Index() + 1, *timer->ToText());
+            return;
+            }
+@@ -1050,11 +1051,11 @@
+            t->Parse(Option);
+            delete timer;
+            timer = t;
+-           isyslog("timer %d updated", timer->Index() + 1);
++           isyslog("timer %s updated", *timer->ToDescr());
+            }
+         else {
+            Timers.Add(timer);
+-           isyslog("timer %d added", timer->Index() + 1);
++           isyslog("timer %s added", *timer->ToDescr());
+            }
+         Timers.SetModified();
+         Reply(250, "%d %s", timer->Index() + 1, *timer->ToText());
+diff -ruN vdr-1.3.22/timers.c vdr-1.3.23/timers.c
+--- vdr-1.3.22/timers.c	2005-02-06 10:45:52.000000000 +0100
++++ vdr-1.3.23/timers.c	2005-03-20 15:50:37.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 1.22 2005/02/06 09:45:52 kls Exp $
++ * $Id: timers.c 1.30 2005/03/20 14:50:37 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -30,7 +30,8 @@
+   time_t t = time(NULL);
+   struct tm tm_r;
+   struct tm *now = localtime_r(&t, &tm_r);
+-  day = now->tm_mday;
++  day = SetTime(t, 0);
++  weekdays = 0;
+   start = now->tm_hour * 100 + now->tm_min;
+   stop = now->tm_hour * 60 + now->tm_min + Setup.InstantRecordTime;
+   stop = (stop / 60) * 100 + (stop % 60);
+@@ -39,7 +40,6 @@
+   priority = Pause ? Setup.PausePriority : Setup.DefaultPriority;
+   lifetime = Pause ? Setup.PauseLifetime : Setup.DefaultLifetime;
+   *file = 0;
+-  firstday = 0;
+   summary = NULL;
+   event = NULL;
+   if (Instant && channel)
+@@ -62,7 +62,8 @@
+      }
+   struct tm tm_r;
+   struct tm *time = localtime_r(&tstart, &tm_r);
+-  day = time->tm_mday;
++  day = SetTime(tstart, 0);
++  weekdays = 0;
+   start = time->tm_hour * 100 + time->tm_min;
+   time = localtime_r(&tstop, &tm_r);
+   stop = time->tm_hour * 100 + time->tm_min;
+@@ -74,7 +75,6 @@
+   const char *Title = Event->Title();
+   if (!isempty(Title))
+      strn0cpy(file, Event->Title(), sizeof(file));
+-  firstday = 0;
+   summary = NULL;
+   event = Event;
+ }
+@@ -109,85 +109,111 @@
+   char *buffer;
+   strreplace(file, ':', '|');
+   strreplace(summary, '\n', '|');
+-  asprintf(&buffer, "%d:%s:%s:%04d:%04d:%d:%d:%s:%s\n", flags, UseChannelID ? *Channel()->GetChannelID().ToString() : *itoa(Channel()->Number()), *PrintDay(day, firstday), start, stop, priority, lifetime, file, summary ? summary : "");
++  asprintf(&buffer, "%d:%s:%s:%04d:%04d:%d:%d:%s:%s\n", flags, UseChannelID ? *Channel()->GetChannelID().ToString() : *itoa(Channel()->Number()), *PrintDay(day, weekdays), start, stop, priority, lifetime, file, summary ? summary : "");
+   strreplace(summary, '|', '\n');
+   strreplace(file, '|', ':');
+   return cString(buffer, true);
+ }
+ 
++cString cTimer::ToDescr(void) const
++{
++  char *buffer;
++  asprintf(&buffer, "%d (%d %04d-%04d '%s')", Index() + 1, Channel()->Number(), start, stop, file);
++  return cString(buffer, true);
++}
++
+ int cTimer::TimeToInt(int t)
+ {
+   return (t / 100 * 60 + t % 100) * 60;
+ }
+ 
+-int cTimer::ParseDay(const char *s, time_t *FirstDay)
++bool cTimer::ParseDay(const char *s, time_t &Day, int &WeekDays)
+ {
+-  char *tail;
+-  int d = strtol(s, &tail, 10);
+-  if (FirstDay)
+-     *FirstDay = 0;
+-  if (tail && *tail) {
+-     d = 0;
+-     if (tail == s) {
+-        const char *first = strchr(s, '@');
+-        int l = first ? first - s : strlen(s);
+-        if (l == 7) {
+-           for (const char *p = s + 6; p >= s; p--) {
+-               d <<= 1;
+-               d |= (*p != '-');
+-               }
+-           d |= 0x80000000;
+-           }
+-        if (FirstDay && first) {
+-           ++first;
+-           if (strlen(first) == 10) {
+-              struct tm tm_r;
+-              if (3 == sscanf(first, "%d-%d-%d", &tm_r.tm_year, &tm_r.tm_mon, &tm_r.tm_mday)) {
+-                 tm_r.tm_year -= 1900;
+-                 tm_r.tm_mon--;
+-                 tm_r.tm_hour = tm_r.tm_min = tm_r.tm_sec = 0;
+-                 tm_r.tm_isdst = -1; // makes sure mktime() will determine the correct DST setting
+-                 *FirstDay = mktime(&tm_r);
+-                 }
+-              }
+-           else
+-              d = 0;
++  // possible formats are:
++  // 19
++  // 2005-03-19
++  // MTWTFSS
++  // MTWTFSS@19
++  // MTWTFSS@2005-03-19
++
++  Day = 0;
++  WeekDays = 0;
++  s = skipspace(s);
++  if (!*s)
++     return false;
++  const char *a = strchr(s, '@');
++  const char *d = a ? a + 1 : isdigit(*s) ? s : NULL;
++  if (d) {
++     if (strlen(d) == 10) {
++        struct tm tm_r;
++        if (3 == sscanf(d, "%d-%d-%d", &tm_r.tm_year, &tm_r.tm_mon, &tm_r.tm_mday)) {
++           tm_r.tm_year -= 1900;
++           tm_r.tm_mon--;
++           tm_r.tm_hour = tm_r.tm_min = tm_r.tm_sec = 0;
++           tm_r.tm_isdst = -1; // makes sure mktime() will determine the correct DST setting
++           Day = mktime(&tm_r);
+            }
++        else
++           return false;
++        }
++     else {
++        // handle "day of month" for compatibility with older versions:
++        char *tail = NULL;
++        int day = strtol(s, &tail, 10);
++        if (tail && *tail || day < 1 || day > 31)
++           return false;
++        time_t t = time(NULL);
++        int DaysToCheck = 61; // 61 to handle months with 31/30/31
++        for (int i = -1; i <= DaysToCheck; i++) {
++            time_t t0 = IncDay(t, i);
++            if (GetMDay(t0) == day) {
++               Day = SetTime(t0, 0);
++               break;
++               }
++            }
+         }
+      }
+-  else if (d < 1 || d > 31)
+-     d = 0;
+-  return d;
++  if (a || !isdigit(*s)) {
++     if ((a && a - s == 7) || strlen(s) == 7) {
++        for (const char *p = s + 6; p >= s; p--) {
++            WeekDays <<= 1;
++            WeekDays |= (*p != '-');
++            }
++        }
++     else
++        return false;
++     }
++  return true;
+ }
+ 
+-cString cTimer::PrintDay(int d, time_t FirstDay)
++cString cTimer::PrintDay(time_t Day, int WeekDays)
+ {
+ #define DAYBUFFERSIZE 32
+   char buffer[DAYBUFFERSIZE];
+-  if ((d & 0x80000000) != 0) {
+-     char *b = buffer;
++  char *b = buffer;
++  if (WeekDays) {
+      const char *w = tr("MTWTFSS");
+      while (*w) {
+-           *b++ = (d & 1) ? *w : '-';
+-           d >>= 1;
++           *b++ = (WeekDays & 1) ? *w : '-';
++           WeekDays >>= 1;
+            w++;
+            }
+-     if (FirstDay) {
+-        struct tm tm_r;
+-        localtime_r(&FirstDay, &tm_r);
+-        b += strftime(b, DAYBUFFERSIZE - (b - buffer), "@%Y-%m-%d", &tm_r);
+-        }
+-     *b = 0;
++     if (Day)
++        *b++ = '@';
+      }
+-  else
+-     sprintf(buffer, "%d", d);
++  if (Day) {
++     struct tm tm_r;
++     localtime_r(&Day, &tm_r);
++     b += strftime(b, DAYBUFFERSIZE - (b - buffer), "%Y-%m-%d", &tm_r);
++     }
++  *b = 0;
+   return buffer;
+ }
+ 
+-cString cTimer::PrintFirstDay(void)
++cString cTimer::PrintFirstDay(void) const
+ {
+-  if (firstday) {
+-     cString s = PrintDay(day, firstday);
++  if (weekdays) {
++     cString s = PrintDay(day, weekdays);
+      if (strlen(s) == 18)
+         return *s + 8;
+      }
+@@ -223,8 +249,7 @@
+         summary = NULL;
+         }
+      //TODO add more plausibility checks
+-     day = ParseDay(daybuffer, &firstday);
+-     result = day != 0;
++     result = ParseDay(daybuffer, day, weekdays);
+      strn0cpy(file, filebuffer, MaxFileName);
+      strreplace(file, '|', ':');
+      strreplace(summary, '|', '\n');
+@@ -251,7 +276,7 @@
+ 
+ bool cTimer::IsSingleEvent(void) const
+ {
+-  return (day & 0x80000000) == 0;
++  return !weekdays;
+ }
+ 
+ int cTimer::GetMDay(time_t t)
+@@ -267,20 +292,9 @@
+   return weekday == 0 ? 6 : weekday - 1; // we start with monday==0!
+ }
+ 
+-int cTimer::GetWDayFromMDay(int MDay)
+-{
+-  time_t now =  time(NULL);
+-  for (int i = -1; i <= 28; i++) { // looking 4 weeks into the future should be enough
+-      time_t t0 = IncDay(now, i);
+-      if (GetMDay(t0) == MDay)
+-         return GetWDay(t0);
+-      }
+-  return GetWDay(now); // just to return something
+-}
+-
+ bool cTimer::DayMatches(time_t t) const
+ {
+-  return IsSingleEvent() ? GetMDay(t) == day : (day & (1 << GetWDay(t))) != 0;
++  return IsSingleEvent() ? SetTime(t, 0) == day : (weekdays & (1 << GetWDay(t))) != 0;
+ }
+ 
+ time_t cTimer::IncDay(time_t t, int Days)
+@@ -324,26 +338,31 @@
+   if (length < 0)
+      length += SECSINDAY;
+ 
+-  int DaysToCheck = IsSingleEvent() ? 61 : 7; // 61 to handle months with 31/30/31
+-  for (int i = -1; i <= DaysToCheck; i++) {
+-      time_t t0 = IncDay(t, i);
+-      if (DayMatches(t0)) {
+-         time_t a = SetTime(t0, begin);
+-         time_t b = a + length;
+-         if ((!firstday || a >= firstday) && t <= b) {
+-            startTime = a;
+-            stopTime = b;
+-            break;
++  if (IsSingleEvent()) {
++     startTime = SetTime(day, begin);
++     stopTime = startTime + length;
++     }
++  else {
++     for (int i = -1; i <= 7; i++) {
++         time_t t0 = IncDay(t, i);
++         if (DayMatches(t0)) {
++            time_t a = SetTime(t0, begin);
++            time_t b = a + length;
++            if ((!day || a >= day) && t <= b) {
++               startTime = a;
++               stopTime = b;
++               break;
++               }
+             }
+          }
+-      }
+-  if (!startTime)
+-     startTime = firstday; // just to have something that's more than a week in the future
+-  else if (!Directly && (t > startTime || t > firstday + SECSINDAY + 3600)) // +3600 in case of DST change
+-     firstday = 0;
++     if (!startTime)
++        startTime = day; // just to have something that's more than a week in the future
++     else if (!Directly && (t > startTime || t > day + SECSINDAY + 3600)) // +3600 in case of DST change
++        day = 0;
++     }
+ 
+   if (HasFlags(tfActive)) {
+-     if (HasFlags(tfVps) && !Directly && event && event->Vps()) {
++     if (HasFlags(tfVps) && !Directly && event && event->Vps() && schedule && schedule->PresentSeenWithin(30)) {
+         startTime = event->StartTime();
+         stopTime = event->EndTime();
+         return event->IsRunning(true);
+@@ -353,28 +372,42 @@
+   return false;
+ }
+ 
+-int cTimer::Matches(const cEvent *Event)
++#define FULLMATCH 1000
++
++int cTimer::Matches(const cEvent *Event, int *Overlap) const
+ {
+-  if (channel->GetChannelID() == Event->ChannelID()) {
++  // Overlap is the percentage of the Event's duration that is covered by
++  // this timer (based on FULLMATCH for finer granularity than just 100).
++  // To make sure a VPS timer can be distinguished from a plain 100% overlap,
++  // it gets an additional 100 added, and a VPS event that is actually running
++  // gets 200 added to the FULLMATCH.
++  if (HasFlags(tfActive) && channel->GetChannelID() == Event->ChannelID()) {
+      bool UseVps = HasFlags(tfVps) && Event->Vps();
+-     time_t t1 = UseVps ? Event->Vps() : Event->StartTime();
+-     time_t t2 = t1 + Event->Duration();
+-     bool m1 = Matches(t1, true);
+-     bool m2 = UseVps ? m1 : Matches(t2, true);
++     Matches(UseVps ? Event->Vps() : Event->StartTime(), true);
++     int overlap;
++     if (UseVps)
++        overlap = (startTime == Event->Vps()) ? FULLMATCH + (Event->IsRunning() ? 200 : 100) : 0;
++     else if (startTime <= Event->StartTime() && Event->EndTime() <= stopTime)
++        overlap = FULLMATCH;
++     else if (stopTime <= Event->StartTime() || Event->EndTime() <= startTime)
++        overlap = 0;
++     else
++        overlap = (min(stopTime, Event->EndTime()) - max(startTime, Event->StartTime())) * FULLMATCH / max(Event->Duration(), 1);
+      startTime = stopTime = 0;
+-     if (m1 && m2) {
+-        if (UseVps && Event->IsRunning(true))
+-           return tmFull;
+-        if (time(NULL) > Event->EndTime())
+-           return tmNone;
+-        return tmFull;
+-        }
+-     if ((m1 || m2) && time(NULL) <= Event->EndTime())
+-        return tmPartial;
++     if (Overlap)
++        *Overlap = overlap;
++     return overlap >= 1000 ? tmFull : overlap > 0 ? tmPartial : tmNone;
+      }
+   return tmNone;
+ }
+ 
++#define EXPIRELATENCY 60 // seconds (just in case there's a short glitch in the VPS signal)
++
++bool cTimer::Expired(void) const
++{
++  return IsSingleEvent() && !Recording() && StopTime() + EXPIRELATENCY <= time(NULL);
++}
++
+ time_t cTimer::StartTime(void) const
+ {
+   if (!startTime)
+@@ -389,17 +422,18 @@
+   return stopTime;
+ }
+ 
+-void cTimer::SetEvent(const cEvent *Event)
++void cTimer::SetEvent(const cSchedule *Schedule, const cEvent *Event)
+ {
+   if (event != Event) { //XXX TODO check event data, too???
+      if (Event) {
+         char vpsbuf[64] = "";
+         if (Event->Vps())
+            sprintf(vpsbuf, "(VPS: %s) ", *Event->GetVpsString());
+-        isyslog("timer %d (%d %04d-%04d '%s') set to event %s %s-%s %s'%s'", Index() + 1, Channel()->Number(), start, stop, file, *Event->GetDateString(), *Event->GetTimeString(), *Event->GetEndTimeString(), vpsbuf, Event->Title());
++        isyslog("timer %s set to event %s %s-%s %s'%s'", *ToDescr(), *Event->GetDateString(), *Event->GetTimeString(), *Event->GetEndTimeString(), vpsbuf, Event->Title());
+         }
+      else
+-        isyslog("timer %d (%d %04d-%04d '%s') set to no event", Index() + 1, Channel()->Number(), start, stop, file);
++        isyslog("timer %s set to no event", *ToDescr());
++     schedule = Event ? Schedule : NULL;
+      event = Event;
+      }
+ }
+@@ -407,7 +441,7 @@
+ void cTimer::SetRecording(bool Recording)
+ {
+   recording = Recording;
+-  isyslog("timer %d (%d %04d-%04d '%s') %s", Index() + 1, Channel()->Number(), start, stop, file, recording ? "start" : "stop");
++  isyslog("timer %s %s", *ToDescr(), recording ? "start" : "stop");
+ }
+ 
+ void cTimer::SetPending(bool Pending)
+@@ -418,7 +452,7 @@
+ void cTimer::SetInVpsMargin(bool InVpsMargin)
+ {
+   if (InVpsMargin && !inVpsMargin)
+-     isyslog("timer %d (%d %04d-%04d '%s') entered VPS margin", Index() + 1, Channel()->Number(), start, stop, file);
++     isyslog("timer %s entered VPS margin", *ToDescr());
+   inVpsMargin = InVpsMargin;
+ }
+ 
+@@ -444,7 +478,7 @@
+ 
+ void cTimer::Skip(void)
+ {
+-  firstday = IncDay(SetTime(StartTime(), 0), 1);
++  day = IncDay(SetTime(StartTime(), 0), 1);
+   event = NULL;
+ }
+ 
+@@ -452,8 +486,8 @@
+ {
+   if (IsSingleEvent())
+      InvFlags(tfActive);
+-  else if (firstday) {
+-     firstday = 0;
++  else if (day) {
++     day = 0;
+      ClrFlags(tfActive);
+      }
+   else if (HasFlags(tfActive))
+@@ -536,6 +570,9 @@
+   return Result;
+ }
+ 
++#define EPGLIMITPAST   (2 * 3600) // time in seconds around now, within which EPG events will be taken into consideration
++#define EPGLIMITFUTURE (4 * 3600)
++
+ void cTimers::SetEvents(void)
+ {
+   if (time(NULL) - lastSetEvents < 5)
+@@ -549,20 +586,40 @@
+             if (Schedule) {
+                if (!lastSetEvents || Schedule->Modified() >= lastSetEvents) {
+                   const cEvent *Event = NULL;
+-                  int Match = tmNone;
++                  int Overlap = 0;
++                  int Distance = INT_MIN;
++                  time_t now = time(NULL);
+                   for (const cEvent *e = Schedule->Events()->First(); e; e = Schedule->Events()->Next(e)) {
+                       if (cRemote::HasKeys())
+                          return; // react immediately on user input
+-                      int m = ti->Matches(e);
+-                      if (m > Match) {
+-                         Match = m;
++                      if (e->EndTime() < now - EPGLIMITPAST)
++                         continue; // skip old events
++                      if (e->StartTime() > now + EPGLIMITFUTURE)
++                         break; // no need to process events too far in the future
++                      int overlap = 0;
++                      ti->Matches(e, &overlap);
++                      if (overlap && overlap >= Overlap) {
++                         int distance = 0;
++                         if (now < e->StartTime())
++                            distance = e->StartTime() - now;
++                         else if (now > e->EndTime())
++                            distance = e->EndTime() - now;
++                         if (Event && overlap == Overlap) {
++                            if (Overlap > FULLMATCH) { // this means VPS
++                               if (abs(Distance) < abs(distance)) 
++                                  break; // we've already found the closest VPS event
++                               }
++                            else if (e->Duration() <= Event->Duration())
++                               continue; // if overlap is the same, we take the longer event
++                            }
++                         Overlap = overlap;
++                         Distance = distance;
+                          Event = e;
+-                         if (Match == tmFull)
+-                            break;
+-                            //XXX what if there's another event with the same VPS time???
+                          }
+                       }
+-                  ti->SetEvent(Event);
++                  if (Event && Event->EndTime() < now - EXPIRELATENCY && !Event->IsRunning())
++                     Event = NULL;
++                  ti->SetEvent(Schedule, Event);
+                   }
+                }
+             }
+@@ -570,3 +627,17 @@
+      }
+   lastSetEvents = time(NULL);
+ }
++
++void cTimers::DeleteExpired(void)
++{
++  cTimer *ti = First();
++  while (ti) {
++        cTimer *next = Next(ti);
++        if (ti->Expired()) {
++           isyslog("deleting timer %s", *ti->ToDescr());
++           Del(ti);
++           SetModified();
++           }
++        ti = next;
++        }
++}
+diff -ruN vdr-1.3.22/timers.h vdr-1.3.23/timers.h
+--- vdr-1.3.22/timers.h	2004-12-26 13:21:29.000000000 +0100
++++ vdr-1.3.23/timers.h	2005-03-20 15:47:45.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.h 1.13 2004/12/26 12:21:29 kls Exp $
++ * $Id: timers.h 1.18 2005/03/20 14:47:45 kls Exp $
+  */
+ 
+ #ifndef __TIMERS_H
+@@ -30,14 +30,15 @@
+   bool recording, pending, inVpsMargin;
+   int flags;
+   cChannel *channel;
+-  int day;
++  mutable time_t day; ///< midnight of the day this timer shall hit, or of the first day it shall hit in case of a repeating timer
++  int weekdays;       ///< bitmask, lowest bits: SSFTWTM  (the 'M' is the LSB)
+   int start;
+   int stop;
+   int priority;
+   int lifetime;
+   char file[MaxFileName];
+-  mutable time_t firstday;
+   char *summary;
++  const cSchedule *schedule;
+   const cEvent *event;
+ public:
+   cTimer(bool Instant = false, bool Pause = false);
+@@ -45,36 +46,38 @@
+   virtual ~cTimer();
+   cTimer& operator= (const cTimer &Timer);
+   virtual int Compare(const cListObject &ListObject) const;
+-  bool Recording(void) { return recording; }
+-  bool Pending(void) { return pending; }
+-  bool InVpsMargin(void) { return inVpsMargin; }
+-  int Flags(void) { return flags; }
+-  const cChannel *Channel(void) { return channel; }
+-  int Day(void) { return day; }
+-  int Start(void) { return start; }
+-  int Stop(void) { return stop; }
+-  int Priority(void) { return priority; }
+-  int Lifetime(void) { return lifetime; }
+-  const char *File(void) { return file; }
+-  time_t FirstDay(void) { return firstday; }
+-  const char *Summary(void) { return summary; }
++  bool Recording(void) const { return recording; }
++  bool Pending(void) const { return pending; }
++  bool InVpsMargin(void) const { return inVpsMargin; }
++  int Flags(void) const { return flags; }
++  const cChannel *Channel(void) const { return channel; }
++  time_t Day(void) const { return day; }
++  int WeekDays(void) const { return weekdays; }
++  int Start(void) const { return start; }
++  int Stop(void) const { return stop; }
++  int Priority(void) const { return priority; }
++  int Lifetime(void) const { return lifetime; }
++  const char *File(void) const { return file; }
++  time_t FirstDay(void) const { return weekdays ? day : 0; }
++  const char *Summary(void) const { return summary; }
+   cString ToText(bool UseChannelID = false);
+-  const cEvent *Event(void) { return event; }
++  cString ToDescr(void) const;
++  const cEvent *Event(void) const { return event; }
+   bool Parse(const char *s);
+   bool Save(FILE *f);
+   bool IsSingleEvent(void) const;
+   static int GetMDay(time_t t);
+   static int GetWDay(time_t t);
+-  static int GetWDayFromMDay(int MDay);
+   bool DayMatches(time_t t) const;
+   static time_t IncDay(time_t t, int Days);
+   static time_t SetTime(time_t t, int SecondsFromMidnight);
+   char *SetFile(const char *File);
+   bool Matches(time_t t = 0, bool Directly = false) const;
+-  int Matches(const cEvent *Event);
++  int Matches(const cEvent *Event, int *Overlap = NULL) const;
++  bool Expired(void) const;
+   time_t StartTime(void) const;
+   time_t StopTime(void) const;
+-  void SetEvent(const cEvent *Event);
++  void SetEvent(const cSchedule *Schedule, const cEvent *Event);
+   void SetRecording(bool Recording);
+   void SetPending(bool Pending);
+   void SetInVpsMargin(bool InVpsMargin);
+@@ -84,10 +87,10 @@
+   bool HasFlags(int Flags) const;
+   void Skip(void);
+   void OnOff(void);
+-  cString PrintFirstDay(void);
++  cString PrintFirstDay(void) const;
+   static int TimeToInt(int t);
+-  static int ParseDay(const char *s, time_t *FirstDay = NULL);
+-  static cString PrintDay(int d, time_t FirstDay = 0);
++  static bool ParseDay(const char *s, time_t &Day, int &WeekDays);
++  static cString PrintDay(time_t Day, int WeekDays);
+   };
+ 
+ class cTimers : public cConfig<cTimer> {
+@@ -109,6 +112,7 @@
+       ///< Returns true if any of the timers have been modified.
+       ///< Calling this function resets the 'modified' flag to false.
+   void SetEvents(void);
++  void DeleteExpired(void);
+   };
+ 
+ extern cTimers Timers;
+diff -ruN vdr-1.3.22/tools.c vdr-1.3.23/tools.c
+--- vdr-1.3.22/tools.c	2005-02-19 14:43:03.000000000 +0100
++++ vdr-1.3.23/tools.c	2005-03-20 15:44:33.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 1.90 2005/02/19 13:43:03 kls Exp $
++ * $Id: tools.c 1.91 2005/03/20 14:44:33 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -896,7 +896,7 @@
+   next = prev = NULL;
+ }
+ 
+-int cListObject::Index(void)
++int cListObject::Index(void) const
+ {
+   cListObject *p = prev;
+   int i = 0;
+diff -ruN vdr-1.3.22/tools.h vdr-1.3.23/tools.h
+--- vdr-1.3.22/tools.h	2005-02-12 11:17:14.000000000 +0100
++++ vdr-1.3.23/tools.h	2005-03-20 15:44:24.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 1.67 2005/02/12 10:17:14 kls Exp $
++ * $Id: tools.h 1.68 2005/03/20 14:44:24 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -202,7 +202,7 @@
+   void Append(cListObject *Object);
+   void Insert(cListObject *Object);
+   void Unlink(void);
+-  int Index(void);
++  int Index(void) const;
+   cListObject *Prev(void) const { return prev; }
+   cListObject *Next(void) const { return next; }
+   };
+diff -ruN vdr-1.3.22/vdr.5 vdr-1.3.23/vdr.5
+--- vdr-1.3.22/vdr.5	2005-01-23 15:16:12.000000000 +0100
++++ vdr-1.3.23/vdr.5	2005-03-19 16:20:47.000000000 +0100
+@@ -8,9 +8,9 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 1.34 2005/01/23 14:16:12 kls Exp $
++.\" $Id: vdr.5 1.35 2005/03/19 15:20:47 kls Exp $
+ .\"
+-.TH vdr 5 "19 Dec 2004" "1.3.18" "Video Disk Recorder Files"
++.TH vdr 5 "19 Mar 2005" "1.3.23" "Video Disk Recorder Files"
+ .SH NAME
+ vdr file formats - the Video Disk Recorder Files
+ .SH DESCRIPTION
+@@ -231,8 +231,13 @@
+ .B Day
+ The day when this timer shall record.
+ 
+-If this is a `single-shot' timer, this is the day of month on which this
+-timer shall record. This must be in the range \fB1...31\fR.
++If this is a `single-shot' timer, this is the date on which this
++timer shall record, given in ISO notation (\fBYYYY-MM-DD\fR), as in:
++
++.B 2005-03-19
++
++For compatibility with earlier versions of VDR this may also be just the day of month
++on which this timer shall record (must be in the range \fB1...31\fR).
+ 
+ In case of a `repeating' timer this is a string consisting of exactly seven
+ characters, where each character position corresponds to one day of the week
+@@ -245,6 +250,7 @@
+ will define a timer that records on Monday thru Friday and does not record
+ on weekends. The same result could be achieved with \fBABCDE\-\-\fR (this is
+ used to allow setting the days with language specific characters).
++Note that only letters may be used here, no digits.
+ 
+ The day definition of a `repeating' timer may be followed by the date when that
+ timer shall hit for the first time. The format for this is \fB@YYYY\-MM\-DD\fR,
+diff -ruN vdr-1.3.22/vdr.c vdr-1.3.23/vdr.c
+--- vdr-1.3.22/vdr.c	2005-02-12 16:06:16.000000000 +0100
++++ vdr-1.3.23/vdr.c	2005-03-20 11:58:59.000000000 +0100
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.202 2005/02/12 15:06:16 kls Exp $
++ * $Id: vdr.c 1.203 2005/03/20 10:58:59 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -606,6 +606,8 @@
+            PreviousChannel[PreviousChannelIndex ^= 1] = LastChannel;
+         // Timers and Recordings:
+         if (!Timers.BeingEdited()) {
++           // Delete expired timers:
++           Timers.DeleteExpired();
+            // Assign events to timers:
+            Timers.SetEvents();
+            // Must do all following calls with the exact same time!

@@ -1,0 +1,4684 @@
+diff -ruN vdr-2.3.2/CONTRIBUTORS vdr-2.3.3/CONTRIBUTORS
+--- vdr-2.3.2/CONTRIBUTORS	2016-12-23 15:49:06.000000000 +0100
++++ vdr-2.3.3/CONTRIBUTORS	2017-03-28 10:31:39.000000000 +0200
+@@ -2478,6 +2478,8 @@
+  numbers use a decimal point
+  for adding dependency on 'i18n' to 'install-i18n' in the VDR Makefile
+  for adding a manual page for 'svdrpsend'
++ for adding a missing dependency to the Makefile to avoid error messages in the
++ clean-plugins target
+ 
+ Helge Lenz <h.lenz@gmx.de>
+  for reporting a bug in setting the 'Delta' parameter when calling the shutdown
+@@ -2848,6 +2850,7 @@
+  for suggesting to add ARGSDIR to the ONEDIR section of Make.config.template
+  for suggesting to change the naming of "binary skip mode" to "adaptive skip mode"
+  for suggesting to make the -u option also accept a numerical user id
++ for reporting a problem with abs() in gcc6+ when called with an unsigned variable
+ 
+ Marcel Unbehaun <frostworks@gmx.de>
+  for adding cRecordingInfo::GetEvent()
+@@ -3170,6 +3173,7 @@
+ Andrey Pridvorov <ua0lnj@bk.ru>
+  for reporting a problem with detecting frames in H.264 video, and pointing towards
+  a better way of doing it
++ for updating the Russian OSD texts
+ 
+ Jens Vogel <jens.vogel@akjv.de>
+  for suggesting to make cPatPmtParser::ParsePmt() also recognize stream type 0x81
+@@ -3380,6 +3384,7 @@
+  for suggesting to provide a way of using no DVB devices at all
+  for suggesting that the -V and -h options should list the plugins in alphabetical order
+  for suggesting to implement the setup option "Recording/Record key handling"
++ for suggesting to cache the channel/CAM relations in the file 'cam.data'
+ 
+ Stefan Schallenberg <infos@nafets.de>
+  for adding the functions IndexOf(), InsertUnique(), AppendUnique() and RemoveElement()
+@@ -3400,6 +3405,8 @@
+ Jasmin Jessich <jasmin@anw.at>
+  for modifying the CAM API so that it is possible to implement CAMs that can be freely
+  assigned to any devices
++ for writing the ddci2 plugin and for valuable input and help with testing and
++ debugging MTD support
+ 
+ Martin Schirrmacher <schirrmie@gmail.com>
+  for suggesting to provide a way for skin plugins to get informed about the currently
+@@ -3459,3 +3466,6 @@
+ Sergey Chernyavskiy <glenvt18@gmail.com>
+  for reporting truncated date/time strings in the skins on multi-byte UTF-8
+  for adding a short sleep to cTSBuffer::Action() to avoid high CPU usage
++
++Frank Richter <kulpstur@t-online.de>
++ for adding 'S3W ABS-3A' to sources.conf
+diff -ruN vdr-2.3.2/HISTORY vdr-2.3.3/HISTORY
+--- vdr-2.3.2/HISTORY	2016-12-24 09:48:22.000000000 +0100
++++ vdr-2.3.3/HISTORY	2017-03-28 10:31:51.000000000 +0200
+@@ -8881,3 +8881,46 @@
+ - Added support for the systemd watchdog (thanks to Marc Perrudin),
+ - Added a short sleep to cTSBuffer::Action() to avoid high CPU usage (thanks to
+   Sergey Chernyavskiy).
++
++2017-03-28: Version 2.3.3
++
++- Added 'S3W ABS-3A' to sources.conf (thanks to Frank Richter).
++- Fixed a possible deadlock in the recordings handler thread.
++- Updated the Russian OSD texts (thanks to Andrey Pridvorov).
++- Added a missing dependency to the Makefile to avoid error messages in the
++  clean-plugins target (thanks to Tobias Grimm).
++- The channel/CAM relations (i.e. the information which CAM can decrypt a given
++  channel) are now stored in the file 'cam.data' in the cache directory (suggested
++  by Dietmar Spingler). This speeds up switching to encrypted channels after
++  newly starting VDR, in case there is more than one CAM in the system.
++- Fixed a flaw in handling timeouts for encrypted channels.
++- The mechanism of trying different CAMs when switching to an encrypted channel is
++  now only triggered if there acually is more than one CAM in the system.
++- Fixed updating the elapsed/remaining time in the progress display during fast
++  forward/rewind.
++- Changed 'unsigned' to 'signed' in some places to avoid trouble with abs() in
++  gcc6+ (reported by Derek Kelly).
++- CAMs that can handle multiple devices at the same time can now indicate this
++  by creating the first cCamSlot as usual, and every other cCamSlot by giving
++  it the first one as its "MasterSlot". To VDR this means that when searching
++  for a CAM that can decrypt a particular channel, it only needs to ask the
++  master CAM slot whether it is suitable for decrypting, and can skip all the
++  other slots belonging to the same master. This can greatly speed up channel
++  switching on systems with more than one CAM (that can handle multiple devices).
++- The LCARS skin now displays the master CAM's number when a device is tuned to
++  an encrypted channel.
++- The Setup/CAM menu now only displays master CAMs.
++- Fixed setting the local machine's SVDRP host name (was overwritten if setup.conf
++  contained an empty string).
++- PIDs can now be added to and deleted from a cReceiver while it is attached to
++  a cDevice, without having to detach it first and re-attach it afterwards.
++- Implemented support for MTD ("Multi Transponder Decryption"). This allows a CAM
++  that is capable of decrypting more than one channel ("Multi Channel Decryption")
++  to decrypt channels from different transponders. See the remarks in mtd.h on
++  what a derived cCamSlot class needs to do in order to activate MTD (thanks to
++  Jasmin Jessich for writing the ddci2 plugin and for valuable input and help
++  with testing and debugging).
++- The function cRingBufferLinear::Clear() can now be called safely from the
++  reading thread, without additional locking.
++- Now stopping any ongoing recordings before stopping the plugins, to avoid
++  a crash when stopping VDR while recording.
+diff -ruN vdr-2.3.2/Makefile vdr-2.3.3/Makefile
+--- vdr-2.3.2/Makefile	2016-12-22 14:18:32.000000000 +0100
++++ vdr-2.3.3/Makefile	2017-02-20 10:22:47.000000000 +0100
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 4.1 2016/12/22 13:18:32 kls Exp $
++# $Id: Makefile 4.3 2017/02/20 09:22:47 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -69,7 +69,7 @@
+ 
+ OBJS = args.o audio.o channels.o ci.o config.o cutter.o device.o diseqc.o dvbdevice.o dvbci.o\
+        dvbplayer.o dvbspu.o dvbsubtitle.o eit.o eitscan.o epg.o filter.o font.o i18n.o interface.o keys.o\
+-       lirc.o menu.o menuitems.o nit.o osdbase.o osd.o pat.o player.o plugin.o positioner.o\
++       lirc.o menu.o menuitems.o mtd.o nit.o osdbase.o osd.o pat.o player.o plugin.o positioner.o\
+        receiver.o recorder.o recording.o remote.o remux.o ringbuffer.o sdt.o sections.o shutdown.o\
+        skinclassic.o skinlcars.o skins.o skinsttng.o sourceparams.o sources.o spu.o status.o svdrp.o themes.o thread.o\
+        timers.o tools.o transfer.o vdr.o videodir.o
+@@ -250,7 +250,7 @@
+ 	   fi;\
+ 	if [ -n "$$failed" ] ; then echo; echo "*** failed plugins:$$failed"; echo; exit 1; fi
+ 
+-clean-plugins:
++clean-plugins: vdr.pc
+ 	@for i in `ls $(PLUGINDIR)/src | grep -v '[^a-z0-9]'`; do $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" VDRDIR="$(CWD)" clean; done
+ 	@-rm -f $(PLUGINDIR)/lib/lib*-*.so.$(APIVERSION)
+ 
+diff -ruN vdr-2.3.2/ci.c vdr-2.3.3/ci.c
+--- vdr-2.3.2/ci.c	2016-12-23 15:00:45.000000000 +0100
++++ vdr-2.3.3/ci.c	2017-03-25 15:09:23.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 4.3 2016/12/23 14:00:45 kls Exp $
++ * $Id: ci.c 4.9 2017/03/25 14:09:23 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -13,11 +13,13 @@
+ #include <malloc.h>
+ #include <netinet/in.h>
+ #include <poll.h>
++#include <stdio.h>
+ #include <string.h>
+ #include <sys/ioctl.h>
+ #include <time.h>
+ #include <unistd.h>
+ #include "device.h"
++#include "mtd.h"
+ #include "pat.h"
+ #include "receiver.h"
+ #include "remux.h"
+@@ -117,11 +119,10 @@
+   cVector<int> emmPids;
+   uchar buffer[2048]; // 11 bit length, max. 2048 byte
+   uchar *bufp;
++  uchar mtdCatBuffer[TS_SIZE]; // TODO: handle multi packet CATs!
+   int length;
+   void AddEmmPid(int Pid);
+   void DelEmmPids(void);
+-protected:
+-  virtual void Activate(bool On);
+ public:
+   cCaPidReceiver(void);
+   virtual ~cCaPidReceiver() { Detach(); }
+@@ -155,14 +156,10 @@
+   emmPids.Clear();
+ }
+ 
+-void cCaPidReceiver::Activate(bool On)
+-{
+-  catVersion = -1; // can be done independent of 'On'
+-}
+-
+ void cCaPidReceiver::Receive(const uchar *Data, int Length)
+ {
+   if (TsPid(Data) == CATPID) {
++     cMtdCamSlot *MtdCamSlot = dynamic_cast<cMtdCamSlot *>(Device()->CamSlot());
+      const uchar *p = NULL;
+      if (TsPayloadStart(Data)) {
+         if (Data[5] == SI::TableIdCAT) {
+@@ -172,6 +169,8 @@
+               if (v != catVersion) {
+                  if (Data[11] == 0 && Data[12] == 0) { // section number, last section number
+                     if (length > TS_SIZE - 8) {
++                       if (MtdCamSlot)
++                          esyslog("ERROR: need to implement multi packet CAT handling for MTD!");
+                        int n = TS_SIZE - 13;
+                        memcpy(buffer, Data + 13, n);
+                        bufp = buffer + n;
+@@ -186,6 +185,8 @@
+                     dsyslog("multi table CAT section - unhandled!");
+                  catVersion = v;
+                  }
++              else if (MtdCamSlot)
++                 MtdCamSlot->PutCat(mtdCatBuffer, TS_SIZE);
+               }
+            }
+         }
+@@ -207,32 +208,32 @@
+            }
+         }
+      if (p) {
+-        int OldCatVersion = catVersion; // must preserve the current version number
+-        cDevice *AttachedDevice = Device();
+-        if (AttachedDevice)
+-           AttachedDevice->Detach(this);
+         DelEmmPids();
+         for (int i = 0; i < length - 4; i++) { // -4 = checksum
+             if (p[i] == 0x09) {
+                int CaId = int(p[i + 2] << 8) | p[i + 3];
+-               int EmmPid = int(((p[i + 4] & 0x1F) << 8)) | p[i + 5];
++               int EmmPid = Peek13(p + i + 4);
+                AddEmmPid(EmmPid);
++               if (MtdCamSlot)
++                  MtdMapPid(const_cast<uchar *>(p + i + 4), MtdCamSlot->MtdMapper());
+                switch (CaId >> 8) {
+                  case 0x01: for (int j = i + 7; j < p[i + 1] + 2; j += 4) {
+-                                EmmPid = (int(p[j] & 0x0F) << 8) | p[j + 1];
++                                EmmPid = Peek13(p + j);
+                                 AddEmmPid(EmmPid);
++                                if (MtdCamSlot)
++                                   MtdMapPid(const_cast<uchar *>(p + j), MtdCamSlot->MtdMapper());
+                                 }
+                             break;
+                  }
+                i += p[i + 1] + 2 - 1; // -1 to compensate for the loop increment
+                }
+             }
+-        if (AttachedDevice)
+-           AttachedDevice->AttachReceiver(this);
+-        catVersion = OldCatVersion;
+         p = NULL;
+         bufp = 0;
+         length = 0;
++        memcpy(mtdCatBuffer, Data, TS_SIZE);
++        if (MtdCamSlot)
++           MtdCamSlot->PutCat(mtdCatBuffer, TS_SIZE);
+         }
+      }
+ }
+@@ -279,7 +280,12 @@
+      else if (Now - lastScrambledTime > UNSCRAMBLE_TIME) {
+         dsyslog("CAM %d: activated!", camSlot->SlotNumber());
+         Skins.QueueMessage(mtInfo, tr("CAM activated!"));
++        cDevice *d = Device();
+         Detach();
++        if (d) {
++           if (cCamSlot *s = d->CamSlot())
++              s->CancelActivation(); // this will delete *this* object, so no more code referencing *this* after this call!
++           }
+         }
+      }
+ }
+@@ -770,6 +776,7 @@
+   void SetListManagement(uint8_t ListManagement);
+   uint8_t ListManagement(void) { return capmt.Get(0); }
+   void AddPid(int Pid, uint8_t StreamType);
++  void MtdMapPids(cMtdMapper *MtdMapper);
+   };
+ 
+ cCiCaPmt::cCiCaPmt(uint8_t CmdId, int Source, int Transponder, int ProgramNumber, const int *CaSystemIds)
+@@ -830,6 +837,84 @@
+      esyslog("ERROR: adding CA descriptor without Pid!");
+ }
+ 
++static int MtdMapCaDescriptor(uchar *p, cMtdMapper *MtdMapper)
++{
++  // See pat.c: cCaDescriptor::cCaDescriptor() for the layout of the data!
++  if (*p == SI::CaDescriptorTag) {
++     int l = *++p;
++     if (l >= 4) {
++        MtdMapPid(p + 3, MtdMapper);
++        return l + 2;
++        }
++     else
++        esyslog("ERROR: wrong length (%d) in MtdMapCaDescriptor()", l);
++     }
++  else
++     esyslog("ERROR: wrong tag (%d) in MtdMapCaDescriptor()", *p);
++  return -1;
++}
++
++static int MtdMapCaDescriptors(uchar *p, cMtdMapper *MtdMapper)
++{
++  int Length = p[0] * 256 + p[1];
++  if (Length >= 3) {
++     p += 3;
++     int m = Length - 1;
++     while (m > 0) {
++           int l = MtdMapCaDescriptor(p, MtdMapper);
++           if (l > 0) {
++              p += l;
++              m -= l;
++              }
++           }
++     }
++  return Length + 2;
++}
++
++static int MtdMapStream(uchar *p, cMtdMapper *MtdMapper)
++{
++  // See ci.c: cCiCaPmt::AddPid() for the layout of the data!
++  MtdMapPid(p + 1, MtdMapper);
++  int l = MtdMapCaDescriptors(p + 3, MtdMapper);
++  if (l > 0)
++     return l + 3;
++  return -1;
++}
++
++static int MtdMapStreams(uchar *p, cMtdMapper *MtdMapper, int Length)
++{
++  int m = Length;
++  while (m >= 5) {
++        int l = MtdMapStream(p, MtdMapper);
++        if (l > 0) {
++           p += l;
++           m -= l;
++           }
++        else
++           break;
++        }
++  return Length;
++}
++
++void cCiCaPmt::MtdMapPids(cMtdMapper *MtdMapper)
++{
++  uchar *p = capmt.Data();
++  int m = capmt.Length();
++  if (m >= 3) {
++     MtdMapSid(p + 1, MtdMapper);
++     p += 4;
++     m -= 4;
++     if (m >= 2) {
++        int l = MtdMapCaDescriptors(p, MtdMapper);
++        if (l >= 0) {
++           p += l;
++           m -= l;
++           MtdMapStreams(p, MtdMapper, m);
++           }
++        }
++     }
++}
++
+ // --- cCiConditionalAccessSupport -------------------------------------------
+ 
+ // CA Enable Ids:
+@@ -910,8 +995,12 @@
+        case AOT_CA_PMT_REPLY: {
+             dbgprotocol("Slot %d: <== Ca Pmt Reply (%d)", Tc()->CamSlot()->SlotNumber(), SessionId());
+             if (!repliesToQuery) {
+-               dsyslog("CAM %d: replies to QUERY - multi channel decryption possible", Tc()->CamSlot()->SlotNumber());
++               dsyslog("CAM %d: replies to QUERY - multi channel decryption (MCD) possible", Tc()->CamSlot()->SlotNumber());
+                repliesToQuery = true;
++               if (Tc()->CamSlot()->MtdAvailable()) {
++                  dsyslog("CAM %d: supports multi transponder decryption (MTD)", Tc()->CamSlot()->SlotNumber());
++                  Tc()->CamSlot()->MtdActivate(true);
++                  }
+                }
+             state = 5; // got ca pmt reply
+             int l = 0;
+@@ -1663,6 +1752,14 @@
+     programNumber = ProgramNumber;
+     modified = false;
+   }
++  bool Active(void)
++  {
++    for (cCiCaPidData *p = pidList.First(); p; p = pidList.Next(p)) {
++        if (p->active)
++           return true;
++        }
++    return false;
++  }
+   };
+ 
+ // --- cCiAdapter ------------------------------------------------------------
+@@ -1730,55 +1827,79 @@
+ #define MODULE_CHECK_INTERVAL 500 // ms
+ #define MODULE_RESET_TIMEOUT    2 // s
+ 
+-cCamSlot::cCamSlot(cCiAdapter *CiAdapter, bool ReceiveCaPids)
++cCamSlot::cCamSlot(cCiAdapter *CiAdapter, bool WantsTsData, cCamSlot *MasterSlot)
+ {
+   ciAdapter = CiAdapter;
++  masterSlot = MasterSlot;
+   assignedDevice = NULL;
+-  caPidReceiver = ReceiveCaPids ? new cCaPidReceiver : NULL;
++  caPidReceiver = WantsTsData ? new cCaPidReceiver : NULL;
+   caActivationReceiver = NULL;
+   slotIndex = -1;
++  mtdAvailable = false;
++  mtdHandler = NULL;
+   lastModuleStatus = msReset; // avoids initial reset log message
+   resetTime = 0;
+   resendPmt = false;
+-  source = transponder = 0;
+   for (int i = 0; i <= MAX_CONNECTIONS_PER_CAM_SLOT; i++) // tc[0] is not used, but initialized anyway
+       tc[i] = NULL;
+-  CamSlots.Add(this);
+-  slotNumber = Index() + 1;
+-  if (ciAdapter)
++  if (MasterSlot)
++     slotNumber = MasterSlot->SlotNumber();
++  if (ciAdapter) {
++     CamSlots.Add(this);
++     slotNumber = Index() + 1;
+      ciAdapter->AddCamSlot(this);
+-  Reset();
++     Reset();
++     }
+ }
+ 
+ cCamSlot::~cCamSlot()
+ {
+-  if (assignedDevice)
+-     assignedDevice->SetCamSlot(NULL);
++  Assign(NULL);
+   delete caPidReceiver;
+   delete caActivationReceiver;
+   CamSlots.Del(this, false);
+   DeleteAllConnections();
++  delete mtdHandler;
++}
++
++cCamSlot *cCamSlot::MtdSpawn(void)
++{
++  cMutexLock MutexLock(&mutex);
++  if (mtdHandler)
++     return mtdHandler->GetMtdCamSlot(this);
++  return this;
+ }
+ 
+ bool cCamSlot::Assign(cDevice *Device, bool Query)
+ {
+   cMutexLock MutexLock(&mutex);
++  if (Device == assignedDevice)
++     return true;
+   if (ciAdapter) {
++     int OldDeviceNumber = 0;
++     if (assignedDevice && !Query) {
++        OldDeviceNumber = assignedDevice->DeviceNumber() + 1;
++        if (caPidReceiver)
++           assignedDevice->Detach(caPidReceiver);
++        assignedDevice->SetCamSlot(NULL);
++        assignedDevice = NULL;
++        }
+      if (ciAdapter->Assign(Device, true)) {
+-        if (!Device && assignedDevice)
+-           assignedDevice->SetCamSlot(NULL);
+-        if (!Query || !Device) {
++        if (!Query) {
+            StopDecrypting();
+-           source = transponder = 0;
+            if (ciAdapter->Assign(Device)) {
+-              assignedDevice = Device;
+               if (Device) {
+                  Device->SetCamSlot(this);
+-                 dsyslog("CAM %d: assigned to device %d", slotNumber, Device->DeviceNumber() + 1);
++                 assignedDevice = Device;
++                 if (caPidReceiver) {
++                    caPidReceiver->Reset();
++                    Device->AttachReceiver(caPidReceiver);
++                    }
++                 dsyslog("CAM %d: assigned to device %d", MasterSlotNumber(), Device->DeviceNumber() + 1);
+                  }
+               else {
+                  CancelActivation();
+-                 dsyslog("CAM %d: unassigned", slotNumber);
++                 dsyslog("CAM %d: unassigned from device %d", MasterSlotNumber(), OldDeviceNumber);
+                  }
+               }
+            else
+@@ -1790,6 +1911,16 @@
+   return false;
+ }
+ 
++bool cCamSlot::Devices(cVector<int> &CardIndexes)
++{
++  cMutexLock MutexLock(&mutex);
++  if (mtdHandler)
++     return mtdHandler->Devices(CardIndexes);
++  if (assignedDevice)
++     CardIndexes.Append(assignedDevice->CardIndex());
++  return CardIndexes.Size() > 0;
++}
++
+ void cCamSlot::NewConnection(void)
+ {
+   cMutexLock MutexLock(&mutex);
+@@ -1815,8 +1946,6 @@
+ void cCamSlot::Process(cTPDU *TPDU)
+ {
+   cMutexLock MutexLock(&mutex);
+-  if (caActivationReceiver && !caActivationReceiver->IsAttached())
+-     CancelActivation();
+   if (TPDU) {
+      int n = TPDU->Tcid();
+      if (1 <= n && n <= MAX_CONNECTIONS_PER_CAM_SLOT) {
+@@ -1827,9 +1956,9 @@
+   for (int i = 1; i <= MAX_CONNECTIONS_PER_CAM_SLOT; i++) {
+       if (tc[i]) {
+          if (!tc[i]->Process()) {
+-           Reset();
+-           return;
+-           }
++            Reset();
++            return;
++            }
+          }
+       }
+   if (moduleCheckTimer.TimedOut()) {
+@@ -1839,6 +1968,7 @@
+           case msNone:
+                dbgprotocol("Slot %d: no module present\n", slotNumber);
+                isyslog("CAM %d: no module present", slotNumber);
++               MtdActivate(false);
+                DeleteAllConnections();
+                CancelActivation();
+                break;
+@@ -1855,7 +1985,7 @@
+                dbgprotocol("Slot %d: module ready\n", slotNumber);
+                isyslog("CAM %d: module ready", slotNumber);
+                NewConnection();
+-               resendPmt = caProgramList.Count() > 0;
++               resendPmt = true;
+                break;
+           default:
+                esyslog("ERROR: unknown module status %d (%s)", ms, __FUNCTION__);
+@@ -1864,8 +1994,14 @@
+         }
+      moduleCheckTimer.Set(MODULE_CHECK_INTERVAL);
+      }
+-  if (resendPmt)
+-     SendCaPmt(CPCI_OK_DESCRAMBLING);
++  if (resendPmt && Ready()) {
++     if (mtdHandler) {
++        mtdHandler->StartDecrypting();
++        resendPmt = false;
++        }
++     else if (caProgramList.Count())
++        StartDecrypting();
++     }
+   processed.Broadcast();
+ }
+ 
+@@ -1925,12 +2061,18 @@
+ void cCamSlot::CancelActivation(void)
+ {
+   cMutexLock MutexLock(&mutex);
+-  delete caActivationReceiver;
+-  caActivationReceiver = NULL;
++  if (mtdHandler)
++     mtdHandler->CancelActivation();
++  else {
++     delete caActivationReceiver;
++     caActivationReceiver = NULL;
++     }
+ }
+ 
+ bool cCamSlot::IsActivating(void)
+ {
++  if (mtdHandler)
++     return mtdHandler->IsActivating();
+   return caActivationReceiver;
+ }
+ 
+@@ -2004,67 +2146,115 @@
+   return NULL;
+ }
+ 
+-void cCamSlot::SendCaPmt(uint8_t CmdId)
++cCiCaPmtList::~cCiCaPmtList()
++{
++  for (int i = 0; i < caPmts.Size(); i++)
++      delete caPmts[i];
++}
++
++cCiCaPmt *cCiCaPmtList::Add(uint8_t CmdId, int Source, int Transponder, int ProgramNumber, const int *CaSystemIds)
++{
++  cCiCaPmt *p = new cCiCaPmt(CmdId, Source, Transponder, ProgramNumber, CaSystemIds);
++  caPmts.Append(p);
++  return p;
++}
++
++void cCiCaPmtList::Del(cCiCaPmt *CaPmt)
++{
++  if (caPmts.RemoveElement(CaPmt))
++     delete CaPmt;
++}
++
++bool cCamSlot::RepliesToQuery(void)
+ {
+   cMutexLock MutexLock(&mutex);
+   cCiConditionalAccessSupport *cas = (cCiConditionalAccessSupport *)GetSessionByResourceId(RI_CONDITIONAL_ACCESS_SUPPORT);
+-  if (cas) {
+-     const int *CaSystemIds = cas->GetCaSystemIds();
+-     if (CaSystemIds && *CaSystemIds) {
+-        if (caProgramList.Count()) {
+-           if (caPidReceiver && caPidReceiver->HasCaPids()) {
+-              if (cDevice *d = Device())
+-                 d->Detach(caPidReceiver);
+-              }
+-           for (int Loop = 1; Loop <= 2; Loop++) {
+-               for (cCiCaProgramData *p = caProgramList.First(); p; p = caProgramList.Next(p)) {
+-                   if (p->modified || resendPmt) {
+-                      bool Active = false;
+-                      cCiCaPmt CaPmt(CmdId, source, transponder, p->programNumber, CaSystemIds);
+-                      for (cCiCaPidData *q = p->pidList.First(); q; q = p->pidList.Next(q)) {
+-                          if (q->active) {
+-                             CaPmt.AddPid(q->pid, q->streamType);
+-                             Active = true;
+-                             }
+-                          }
+-                      if ((Loop == 1) != Active) { // first remove, then add
+-                         if (caPidReceiver) {
+-                            int CaPids[MAXRECEIVEPIDS + 1];
+-                            if (GetCaPids(source, transponder, p->programNumber, CaSystemIds, MAXRECEIVEPIDS + 1, CaPids) > 0) {
+-                               if (Loop == 1)
+-                                  caPidReceiver->DelPids(CaPids);
+-                               else
+-                                  caPidReceiver->AddPids(CaPids);
+-                               }
+-                            }
+-                         if (cas->RepliesToQuery())
+-                            CaPmt.SetListManagement(Active ? CPLM_ADD : CPLM_UPDATE);
+-                         if (Active || cas->RepliesToQuery())
+-                            cas->SendPMT(&CaPmt);
+-                         p->modified = false;
+-                         }
+-                      }
++  return cas && cas->RepliesToQuery();
++}
++
++void cCamSlot::BuildCaPmts(uint8_t CmdId, cCiCaPmtList &CaPmtList, cMtdMapper *MtdMapper)
++{
++  cMutexLock MutexLock(&mutex);
++  CaPmtList.caPmts.Clear();
++  const int *CaSystemIds = GetCaSystemIds();
++  if (CaSystemIds && *CaSystemIds) {
++     if (caProgramList.Count()) {
++        for (cCiCaProgramData *p = caProgramList.First(); p; p = caProgramList.Next(p)) {
++            if (p->modified || resendPmt) {
++               bool Active = p->Active();
++               cCiCaPmt *CaPmt = CaPmtList.Add(Active ? CmdId : CPCI_NOT_SELECTED, source, transponder, p->programNumber, CaSystemIds);
++               for (cCiCaPidData *q = p->pidList.First(); q; q = p->pidList.Next(q)) {
++                   if (q->active)
++                      CaPmt->AddPid(q->pid, q->streamType);
+                    }
++               if (caPidReceiver) {
++                  int CaPids[MAXRECEIVEPIDS + 1];
++                  if (GetCaPids(source, transponder, p->programNumber, CaSystemIds, MAXRECEIVEPIDS + 1, CaPids) > 0) {
++                     if (Active)
++                        caPidReceiver->AddPids(CaPids);
++                     else
++                        caPidReceiver->DelPids(CaPids);
++                     }
++                  }
++               if (RepliesToQuery())
++                  CaPmt->SetListManagement(Active ? CPLM_ADD : CPLM_UPDATE);
++               if (MtdMapper)
++                  CaPmt->MtdMapPids(MtdMapper);
++               p->modified = false;
+                }
+-           if (caPidReceiver && caPidReceiver->HasCaPids()) {
+-              if (cDevice *d = Device())
+-                 d->AttachReceiver(caPidReceiver);
+-              }
+-           resendPmt = false;
+-           }
+-        else {
+-           cCiCaPmt CaPmt(CmdId, 0, 0, 0, NULL);
+-           cas->SendPMT(&CaPmt);
+-           if (caPidReceiver) {
+-              if (cDevice *d = Device())
+-                 d->Detach(caPidReceiver);
+-              caPidReceiver->Reset();
+-              }
++            }
++        }
++     else if (CmdId == CPCI_NOT_SELECTED)
++        CaPmtList.Add(CmdId, 0, 0, 0, NULL);
++     }
++}
++
++void cCamSlot::SendCaPmts(cCiCaPmtList &CaPmtList)
++{
++  cMutexLock MutexLock(&mutex);
++  cCiConditionalAccessSupport *cas = (cCiConditionalAccessSupport *)GetSessionByResourceId(RI_CONDITIONAL_ACCESS_SUPPORT);
++  if (cas) {
++     for (int i = 0; i < CaPmtList.caPmts.Size(); i++)
++         cas->SendPMT(CaPmtList.caPmts[i]);
++     }
++  resendPmt = false;
++}
++
++void cCamSlot::SendCaPmt(uint8_t CmdId)
++{
++  cMutexLock MutexLock(&mutex);
++  cCiCaPmtList CaPmtList;
++  BuildCaPmts(CmdId, CaPmtList);
++  SendCaPmts(CaPmtList);
++}
++
++void cCamSlot::MtdEnable(void)
++{
++  mtdAvailable = true;
++}
++
++void cCamSlot::MtdActivate(bool On)
++{
++  if (McdAvailable() && MtdAvailable()) {
++     if (On) {
++        if (!mtdHandler) {
++           dsyslog("CAM %d: activating MTD support", SlotNumber());
++           mtdHandler = new cMtdHandler;
+            }
+         }
++     else if (mtdHandler) {
++        dsyslog("CAM %d: deactivating MTD support", SlotNumber());
++        delete mtdHandler;
++        mtdHandler = NULL;
++        }
+      }
+ }
+ 
++int cCamSlot::MtdPutData(uchar *Data, int Count)
++{
++  return mtdHandler->Put(Data, Count);
++}
++
+ const int *cCamSlot::GetCaSystemIds(void)
+ {
+   cMutexLock MutexLock(&mutex);
+@@ -2074,6 +2264,8 @@
+ 
+ int cCamSlot::Priority(void)
+ {
++  if (mtdHandler)
++     return mtdHandler->Priority();
+   cDevice *d = Device();
+   return d ? d->Priority() : IDLEPRIORITY;
+ }
+@@ -2123,7 +2315,7 @@
+                 }
+              return;
+              }
+-         }
++          }
+       }
+ }
+ 
+@@ -2152,7 +2344,7 @@
+ 
+ #define QUERY_REPLY_WAIT  100 // ms to wait between checks for a reply
+ 
+-bool cCamSlot::CanDecrypt(const cChannel *Channel)
++bool cCamSlot::CanDecrypt(const cChannel *Channel, cMtdMapper *MtdMapper)
+ {
+   if (Channel->Ca() < CA_ENCRYPTED_MIN)
+      return true; // channel not encrypted
+@@ -2170,6 +2362,8 @@
+          CaPmt.AddPid(*Dpid, STREAM_TYPE_PRIVATE);
+      for (const int *Spid = Channel->Spids(); *Spid; Spid++)
+          CaPmt.AddPid(*Spid, STREAM_TYPE_PRIVATE);
++     if (MtdMapper)
++        CaPmt.MtdMapPids(MtdMapper);
+      cas->SendPMT(&CaPmt);
+      cTimeMs Timeout(QUERY_REPLY_TIMEOUT);
+      do {
+@@ -2196,13 +2390,16 @@
+   cMutexLock MutexLock(&mutex);
+   if (caProgramList.Count()) {
+      caProgramList.Clear();
+-     SendCaPmt(CPCI_NOT_SELECTED);
++     if (!dynamic_cast<cMtdCamSlot *>(this))
++        SendCaPmt(CPCI_NOT_SELECTED);
+      }
+ }
+ 
+ bool cCamSlot::IsDecrypting(void)
+ {
+   cMutexLock MutexLock(&mutex);
++  if (mtdHandler)
++     return mtdHandler->IsDecrypting();
+   if (caProgramList.Count()) {
+      for (cCiCaProgramData *p = caProgramList.First(); p; p = caProgramList.Next(p)) {
+          if (p->modified)
+@@ -2226,10 +2423,21 @@
+ 
+ cCamSlots CamSlots;
+ 
++int cCamSlots::NumReadyMasterSlots(void)
++{
++  int n = 0;
++  for (cCamSlot *CamSlot = CamSlots.First(); CamSlot; CamSlot = CamSlots.Next(CamSlot)) {
++      if (CamSlot->IsMasterSlot() && CamSlot->ModuleStatus() == msReady)
++         n++;
++      }
++  return n;
++}
++
+ bool cCamSlots::WaitForAllCamSlotsReady(int Timeout)
+ {
++  bool ready = true;
+   for (time_t t0 = time(NULL); time(NULL) - t0 < Timeout; ) {
+-      bool ready = true;
++      ready = true;
+       for (cCamSlot *CamSlot = CamSlots.First(); CamSlot; CamSlot = CamSlots.Next(CamSlot)) {
+           if (!CamSlot->Ready()) {
+              ready = false;
+@@ -2237,9 +2445,11 @@
+              }
+           }
+       if (ready)
+-         return true;
++         break;
+       }
+-  return false;
++  for (cCamSlot *CamSlot = CamSlots.First(); CamSlot; CamSlot = CamSlots.Next(CamSlot))
++      dsyslog("CAM %d: %sready, %s", CamSlot->SlotNumber(), CamSlot->Ready() ? "" : "not ", CamSlot->IsMasterSlot() ? *cString::sprintf("master (%s)", CamSlot->GetCamName() ? CamSlot->GetCamName() : "empty") : *cString::sprintf("slave of CAM %d", CamSlot->MasterSlotNumber()));
++  return ready;
+ }
+ 
+ // --- cChannelCamRelation ---------------------------------------------------
+@@ -2317,6 +2527,7 @@
+ 
+ // --- cChannelCamRelations --------------------------------------------------
+ 
++#define MAX_CAM_NUMBER 32
+ #define CHANNEL_CAM_RELATIONS_CLEANUP_INTERVAL 3600 // seconds between cleanups
+ 
+ cChannelCamRelations ChannelCamRelations;
+@@ -2414,3 +2625,60 @@
+   if (ccr)
+      ccr->ClrDecrypt(CamSlotNumber);
+ }
++
++void cChannelCamRelations::Load(const char *FileName)
++{
++  cMutexLock MutexLock(&mutex);
++  fileName = FileName;
++  if (access(fileName, R_OK) == 0) {
++     dsyslog("loading %s", *fileName);
++     if (FILE *f = fopen(fileName, "r")) {
++        cReadLine ReadLine;
++        char *s;
++        while ((s = ReadLine.Read(f)) != NULL) {
++              if (char *p = strchr(s, ' ')) {
++                 *p = 0;
++                 if (*++p) {
++                    tChannelID ChannelID = tChannelID::FromString(s);
++                    if (ChannelID.Valid()) {
++                       char *q;
++                       char *strtok_next;
++                       while ((q = strtok_r(p, " ", &strtok_next)) != NULL) {
++                             int CamSlotNumber = atoi(q);
++                             if (CamSlotNumber >= 1 && CamSlotNumber <= MAX_CAM_NUMBER)
++                                SetDecrypt(ChannelID, CamSlotNumber);
++                             p = NULL;
++                             }
++                       }
++                    }
++                 }
++              }
++        fclose(f);
++        }
++     else
++        LOG_ERROR_STR(*fileName);
++     }
++}
++
++void cChannelCamRelations::Save(void)
++{
++  cMutexLock MutexLock(&mutex);
++  dsyslog("saving %s", *fileName);
++  cSafeFile f(fileName);
++  if (f.Open()) {
++     for (cChannelCamRelation *ccr = First(); ccr; ccr = Next(ccr)) {
++         if (ccr->ChannelID().Valid()) {
++            cString s;
++            for (int i = 1; i <= MAX_CAM_NUMBER; i++) {
++                if (ccr->CamDecrypt(i))
++                   s = cString::sprintf("%s%s%d", *s ? *s : "", *s ? " " : "", i);
++                }
++            if (*s)
++               fprintf(f, "%s %s\n", *ccr->ChannelID().ToString(), *s);
++            }
++         }
++     f.Close();
++     }
++  else
++     LOG_ERROR_STR(*fileName);
++}
+diff -ruN vdr-2.3.2/ci.h vdr-2.3.3/ci.h
+--- vdr-2.3.2/ci.h	2015-01-31 15:36:41.000000000 +0100
++++ vdr-2.3.3/ci.h	2017-03-23 15:23:33.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.h 4.0 2015/01/31 14:36:41 kls Exp $
++ * $Id: ci.h 4.5 2017/03/23 14:23:33 kls Exp $
+  */
+ 
+ #ifndef __CI_H
+@@ -13,10 +13,11 @@
+ #include <stdint.h>
+ #include <stdio.h>
+ #include "channels.h"
++#include "ringbuffer.h"
+ #include "thread.h"
+ #include "tools.h"
+ 
+-#define MAX_CAM_SLOTS_PER_ADAPTER     8 // maximum possible value is 255
++#define MAX_CAM_SLOTS_PER_ADAPTER    16 // maximum possible value is 255 (same value as MAXDEVICES!)
+ #define MAX_CONNECTIONS_PER_CAM_SLOT  8 // maximum possible value is 254
+ #define CAM_READ_TIMEOUT  50 // ms
+ 
+@@ -124,14 +125,28 @@
+ class cCiCaProgramData;
+ class cCaPidReceiver;
+ class cCaActivationReceiver;
++class cMtdHandler;
++class cMtdMapper;
++class cMtdCamSlot;
++class cCiCaPmt;
++
++struct cCiCaPmtList {
++  cVector<cCiCaPmt *> caPmts;
++  ~cCiCaPmtList();
++  cCiCaPmt *Add(uint8_t CmdId, int Source, int Transponder, int ProgramNumber, const int *CaSystemIds);
++  void Del(cCiCaPmt *CaPmt);
++  };
+ 
+ class cCamSlot : public cListObject {
+   friend class cCiAdapter;
+   friend class cCiTransportConnection;
++  friend class cCiConditionalAccessSupport;
++  friend class cMtdCamSlot;
+ private:
+   cMutex mutex;
+   cCondVar processed;
+   cCiAdapter *ciAdapter;
++  cCamSlot *masterSlot;
+   cDevice *assignedDevice;
+   cCaPidReceiver *caPidReceiver;
+   cCaActivationReceiver *caActivationReceiver;
+@@ -145,23 +160,70 @@
+   int source;
+   int transponder;
+   cList<cCiCaProgramData> caProgramList;
+-  const int *GetCaSystemIds(void);
+-  void SendCaPmt(uint8_t CmdId);
++  bool mtdAvailable;
++  cMtdHandler *mtdHandler;
+   void NewConnection(void);
+   void DeleteAllConnections(void);
+   void Process(cTPDU *TPDU = NULL);
+   void Write(cTPDU *TPDU);
+   cCiSession *GetSessionByResourceId(uint32_t ResourceId);
++  void MtdActivate(bool On);
++       ///< Activates (On == true) or deactivates (On == false) MTD.
++protected:
++  virtual const int *GetCaSystemIds(void);
++  virtual void SendCaPmt(uint8_t CmdId);
++  virtual bool RepliesToQuery(void);
++       ///< Returns true if the CAM in this slot replies to queries and thus
++       ///< supports MCD ("Multi Channel Decryption").
++  void BuildCaPmts(uint8_t CmdId, cCiCaPmtList &CaPmtList, cMtdMapper *MtdMapper = NULL);
++       ///< Generates all CA_PMTs with the given CmdId and stores them in the given CaPmtList.
++       ///< If MtdMapper is given, all SIDs and PIDs will be mapped accordingly.
++  void SendCaPmts(cCiCaPmtList &CaPmtList);
++       ///< Sends the given list of CA_PMTs to the CAM.
++  void MtdEnable(void);
++       ///< Enables MTD support for this CAM. Note that actual MTD operation also
++       ///< requires a CAM that supports MCD ("Multi Channel Decryption").
++  int MtdPutData(uchar *Data, int Count);
++       ///< Sends at most Count bytes of the given Data to the individual MTD CAM slots
++       ///< that are using this CAM. Data must point to the beginning of a TS packet.
++       ///< Returns the number of bytes actually processed.
+ public:
+-  cCamSlot(cCiAdapter *CiAdapter, bool WantsTsData = false);
++  bool McdAvailable(void) { return RepliesToQuery(); }
++       ///< Returns true if this CAM supports MCD ("Multi Channel Decyption").
++  bool MtdAvailable(void) { return mtdAvailable; }
++       ///< Returns true if this CAM supports MTD ("Multi Transponder Decryption").
++  bool MtdActive(void) { return mtdHandler != NULL; }
++       ///< Returns true if MTD is currently active.
++public:
++  cCamSlot(cCiAdapter *CiAdapter, bool WantsTsData = false, cCamSlot *MasterSlot = NULL);
+        ///< Creates a new CAM slot for the given CiAdapter.
+        ///< The CiAdapter will take care of deleting the CAM slot,
+        ///< so the caller must not delete it!
+        ///< If WantsTsData is true, the device this CAM slot is assigned to will
+        ///< call the Decrypt() function of this CAM slot, presenting it the complete
+        ///< TS data stream of the encrypted programme, including the CA pids.
++       ///< If this CAM slot is basically the same as an other one, MasterSlot can
++       ///< be given to indicate this. This can be used for instance for CAM slots
++       ///< that can do MTD ("Multi Transponder Decryption"), where the first cCamSlot
++       ///< is created without giving a MasterSlot, and all others are given the first
++       ///< one as their MasterSlot. This can speed up the search for a suitable CAM
++       ///< when tuning to an encrypted channel, and it also makes the Setup/CAM menu
++       ///< clearer because only the master CAM slots will be shown there.
+   virtual ~cCamSlot();
+-  bool Assign(cDevice *Device, bool Query = false);
++  bool IsMasterSlot(void) { return !masterSlot; }
++       ///< Returns true if this CAM slot itself is a master slot (which means that
++       ///< it doesn't have pointer to another CAM slot that's its master).
++  cCamSlot *MasterSlot(void) { return masterSlot ? masterSlot : this; }
++       ///< Returns this CAM slot's master slot, or a pointer to itself if it is a
++       ///< master slot.
++  cCamSlot *MtdSpawn(void);
++       ///< If this CAM slot can do MTD ("Multi Transponder Decryption"),
++       ///< a call to this function returns a cMtdCamSlot with this CAM slot
++       ///< as its master. Otherwise a pointer to this object is returned, which
++       ///< means that MTD is not supported.
++  void TriggerResendPmt(void) { resendPmt = true; }
++       ///< Tells this CAM slot to resend the list of CA_PMTs to the CAM.
++  virtual bool Assign(cDevice *Device, bool Query = false);
+        ///< Assigns this CAM slot to the given Device, if this is possible.
+        ///< If Query is 'true', the CI adapter of this slot only checks whether
+        ///< it can be assigned to the Device, but doesn't actually assign itself to it.
+@@ -170,8 +232,16 @@
+        ///< device it was previously assigned to. The value of Query
+        ///< is ignored in that case, and this function always returns
+        ///< 'true'.
++       ///< If a derived class reimplements this function, it can return 'false'
++       ///< if this CAM can't be assigned to the given Device. If the CAM can be
++       ///< assigned to the Device, or if Device is NULL, it must call the base
++       ///< class function.
+   cDevice *Device(void) { return assignedDevice; }
+        ///< Returns the device this CAM slot is currently assigned to.
++  bool Devices(cVector<int> &CardIndexes);
++       ///< Adds the card indexes of any devices that currently use this CAM to
++       ///< the given CardIndexes. This can be more than one in case of MTD.
++       ///< Returns true if the array is not empty.
+   bool WantsTsData(void) const { return caPidReceiver != NULL; }
+        ///< Returns true if this CAM slot wants to receive the TS data through
+        ///< its Decrypt() function.
+@@ -181,6 +251,9 @@
+   int SlotNumber(void) { return slotNumber; }
+        ///< Returns the number of this CAM slot within the whole system.
+        ///< The first slot has the number 1.
++  int MasterSlotNumber(void) { return masterSlot ? masterSlot->SlotNumber() : slotNumber; }
++       ///< Returns the number of this CAM's master slot within the whole system.
++       ///< The first slot has the number 1.
+   virtual bool Reset(void);
+        ///< Resets the CAM in this slot.
+        ///< Returns true if the operation was successful.
+@@ -241,7 +314,7 @@
+        ///< If the source or transponder of the channel are different than
+        ///< what was given in a previous call to AddChannel(), any previously
+        ///< added PIDs will be cleared.
+-  virtual bool CanDecrypt(const cChannel *Channel);
++  virtual bool CanDecrypt(const cChannel *Channel, cMtdMapper *MtdMapper = NULL);
+        ///< Returns true if there is a CAM in this slot that is able to decrypt
+        ///< the given Channel (or at least claims to be able to do so).
+        ///< Since the QUERY/REPLY mechanism for CAMs is pretty unreliable (some
+@@ -252,11 +325,18 @@
+        ///< to the initial QUERY will perform this check at all. CAMs that never
+        ///< replied to the initial QUERY are assumed not to be able to handle
+        ///< more than one channel at a time.
++       ///< If MtdMapper is given, all SIDs and PIDs will be mapped accordingly.
+   virtual void StartDecrypting(void);
+-       ///< Triggers sending all currently active CA_PMT entries to the CAM,
+-       ///< so that it will start decrypting.
++       ///< Sends all CA_PMT entries to the CAM that have been modified since the
++       ///< last call to this function. This includes CA_PMTs that have been
++       ///< added or activated, as well as ones that have been deactivated.
++       ///< StartDecrypting() will be called whenever a PID is activated or
++       ///< deactivated.
+   virtual void StopDecrypting(void);
+        ///< Clears the list of CA_PMT entries and tells the CAM to stop decrypting.
++       ///< Note that this function is only called when there are no more PIDs for
++       ///< the CAM to decrypt. There is no symmetry between StartDecrypting() and
++       ///< StopDecrypting().
+   virtual bool IsDecrypting(void);
+        ///< Returns true if the CAM in this slot is currently used for decrypting.
+   virtual uchar *Decrypt(uchar *Data, int &Count);
+@@ -287,7 +367,8 @@
+        ///< the CAM's control). If no decrypted TS packet is currently available, NULL
+        ///< shall be returned. If no data from Data can currently be processed, Count
+        ///< shall be set to 0 and the same Data pointer will be offered in the next
+-       ///< call to Decrypt().
++       ///< call to Decrypt(). See mtd.h for further requirements if this CAM can
++       ///< do MTD ("Multi Transponder Decryption").
+        ///< A derived class that implements this function will also need
+        ///< to set the WantsTsData parameter in the call to the base class
+        ///< constructor to true in order to receive the TS data.
+@@ -295,6 +376,9 @@
+ 
+ class cCamSlots : public cList<cCamSlot> {
+ public:
++  int NumReadyMasterSlots(void);
++       ///< Returns the number of master CAM slots in the system that are ready
++       ///< to decrypt.
+   bool WaitForAllCamSlotsReady(int Timeout = 0);
+        ///< Waits until all CAM slots have become ready, or the given Timeout
+        ///< (seconds) has expired. While waiting, the Ready() function of each
+@@ -310,6 +394,7 @@
+ class cChannelCamRelations : public cList<cChannelCamRelation> {
+ private:
+   cMutex mutex;
++  cString fileName;
+   cChannelCamRelation *GetEntry(tChannelID ChannelID);
+   cChannelCamRelation *AddEntry(tChannelID ChannelID);
+   time_t lastCleanup;
+@@ -323,6 +408,8 @@
+   void SetDecrypt(tChannelID ChannelID, int CamSlotNumber);
+   void ClrChecked(tChannelID ChannelID, int CamSlotNumber);
+   void ClrDecrypt(tChannelID ChannelID, int CamSlotNumber);
++  void Load(const char *FileName);
++  void Save(void);
+   };
+ 
+ extern cChannelCamRelations ChannelCamRelations;
+diff -ruN vdr-2.3.2/config.c vdr-2.3.3/config.c
+--- vdr-2.3.2/config.c	2015-09-13 13:09:44.000000000 +0200
++++ vdr-2.3.3/config.c	2017-02-14 12:02:48.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 4.4 2015/09/13 11:09:44 kls Exp $
++ * $Id: config.c 4.5 2017/02/14 11:02:48 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -640,7 +640,7 @@
+   else if (!strcasecmp(Name, "EPGLinger"))           EPGLinger          = atoi(Value);
+   else if (!strcasecmp(Name, "SVDRPTimeout"))        SVDRPTimeout       = atoi(Value);
+   else if (!strcasecmp(Name, "SVDRPPeering"))        SVDRPPeering       = atoi(Value);
+-  else if (!strcasecmp(Name, "SVDRPHostName"))       strn0cpy(SVDRPHostName, Value, sizeof(SVDRPHostName));
++  else if (!strcasecmp(Name, "SVDRPHostName"))     { if (!*SVDRPHostName) strn0cpy(SVDRPHostName, Value, sizeof(SVDRPHostName)); }
+   else if (!strcasecmp(Name, "SVDRPdefaultHost"))    strn0cpy(SVDRPDefaultHost, Value, sizeof(SVDRPDefaultHost));
+   else if (!strcasecmp(Name, "ZapTimeout"))          ZapTimeout         = atoi(Value);
+   else if (!strcasecmp(Name, "ChannelEntryTimeout")) ChannelEntryTimeout= atoi(Value);
+diff -ruN vdr-2.3.2/config.h vdr-2.3.3/config.h
+--- vdr-2.3.2/config.h	2015-09-16 13:11:42.000000000 +0200
++++ vdr-2.3.3/config.h	2016-12-27 12:45:25.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 4.6 2015/09/16 11:11:42 kls Exp $
++ * $Id: config.h 4.7 2016/12/27 11:45:25 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.3.2"
+-#define VDRVERSNUM   20302  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.3.3"
++#define VDRVERSNUM   20303  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "2.3.2"
+-#define APIVERSNUM   20302  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "2.3.3"
++#define APIVERSNUM   20303  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-2.3.2/device.c vdr-2.3.3/device.c
+--- vdr-2.3.2/device.c	2016-12-23 15:43:44.000000000 +0100
++++ vdr-2.3.3/device.c	2017-03-27 16:02:54.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 4.3 2016/12/23 14:43:44 kls Exp $
++ * $Id: device.c 4.11 2017/03/27 14:02:54 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -90,6 +90,7 @@
+ 
+   camSlot = NULL;
+   startScrambleDetection = 0;
++  scramblingTimeout = 0;
+ 
+   occupiedTimeout = 0;
+ 
+@@ -251,7 +252,7 @@
+          SlotPriority[CamSlot->Index()] = MAXPRIORITY + 1; // assumes it can't be used
+          if (CamSlot->ModuleStatus() == msReady) {
+             if (CamSlot->ProvidesCa(Channel->Caids())) {
+-               if (!ChannelCamRelations.CamChecked(Channel->GetChannelID(), CamSlot->SlotNumber())) {
++               if (!ChannelCamRelations.CamChecked(Channel->GetChannelID(), CamSlot->MasterSlotNumber())) {
+                   SlotPriority[CamSlot->Index()] = CamSlot->Priority();
+                   NumUsableSlots++;
+                   }
+@@ -280,8 +281,13 @@
+              continue; // CAM slot can't be used with this device
+           bool ndr;
+           if (device[i]->ProvidesChannel(Channel, Priority, &ndr)) { // this device is basically able to do the job
+-             if (NumUsableSlots && !HasInternalCam && device[i]->CamSlot() && device[i]->CamSlot() != CamSlots.Get(j))
+-                ndr = true; // using a different CAM slot requires detaching receivers
++             if (NumUsableSlots && !HasInternalCam) {
++                if (cCamSlot *csi = device[i]->CamSlot()) {
++                   cCamSlot *csj = CamSlots.Get(j);
++                   if ((csj->MtdActive() ? csi->MasterSlot() : csi) != csj)
++                      ndr = true; // using a different CAM slot requires detaching receivers
++                   }
++                }
+              // Put together an integer number that reflects the "impact" using
+              // this device would have on the overall system. Each condition is represented
+              // by one bit in the number (or several bits, if the condition is actually
+@@ -299,7 +305,7 @@
+              imp <<= 1; imp |= ndr;                                                                                  // avoid devices if we need to detach existing receivers
+              imp <<= 1; imp |= (NumUsableSlots || InternalCamNeeded) ? 0 : device[i]->HasCi();                       // avoid cards with Common Interface for FTA channels
+              imp <<= 1; imp |= device[i]->AvoidRecording();                                                          // avoid SD full featured cards
+-             imp <<= 1; imp |= (NumUsableSlots && !HasInternalCam) ? !ChannelCamRelations.CamDecrypt(Channel->GetChannelID(), j + 1) : 0; // prefer CAMs that are known to decrypt this channel
++             imp <<= 1; imp |= (NumUsableSlots && !HasInternalCam) ? !ChannelCamRelations.CamDecrypt(Channel->GetChannelID(), CamSlots.Get(j)->MasterSlotNumber()) : 0; // prefer CAMs that are known to decrypt this channel
+              imp <<= 1; imp |= device[i]->IsPrimaryDevice();                                                         // avoid the primary device
+              if (imp < Impact) {
+                 // This device has less impact than any previous one, so we take it.
+@@ -314,16 +320,89 @@
+       if (!NumUsableSlots)
+          break; // no CAM necessary, so just one loop over the devices
+       }
+-  if (d && !Query) {
+-     if (NeedsDetachReceivers)
++  if (d) {
++     if (!Query && NeedsDetachReceivers)
+         d->DetachAllReceivers();
+      if (s) {
+-        if (s->Device() != d) {
+-           if (s->Device())
+-              s->Device()->DetachAllReceivers();
+-           if (d->CamSlot())
+-              d->CamSlot()->Assign(NULL);
+-           s->Assign(d);
++        // Some of the following statements could probably be combined, but let's keep them
++        // explicit so we can clearly see every single aspect of the decisions made here.
++        if (d->CamSlot()) {
++           if (s->MtdActive()) {
++              if (s == d->CamSlot()->MasterSlot()) {
++                 // device d already has a proper CAM slot, so nothing to do here
++                 }
++              else {
++                 // device d has a CAM slot, but it's not the right one
++                 if (!Query) {
++                    d->CamSlot()->Assign(NULL);
++                    s = s->MtdSpawn();
++                    s->Assign(d);
++                    }
++                 }
++              }
++           else {
++              if (s->Device()) {
++                 if (s->Device() != d) {
++                    // CAM slot s is currently assigned to a different device than d
++                    if (Priority > s->Priority()) {
++                       if (!Query) {
++                          d->CamSlot()->Assign(NULL);
++                          s->Assign(d);
++                          }
++                       }
++                    else {
++                       d = NULL;
++                       s = NULL;
++                       }
++                    }
++                 else {
++                    // device d already has a proper CAM slot, so nothing to do here
++                    }
++                 }
++              else {
++                 if (s != d->CamSlot()) {
++                    // device d has a CAM slot, but it's not the right one
++                    if (!Query) {
++                       d->CamSlot()->Assign(NULL);
++                       s->Assign(d);
++                       }
++                    }
++                 else {
++                    // device d already has a proper CAM slot, so nothing to do here
++                    }
++                 }
++              }
++           }
++        else {
++           // device d has no CAM slot, ...
++           if (s->MtdActive()) {
++              // ... so we assign s with MTD support
++              if (!Query) {
++                 s = s->MtdSpawn();
++                 s->Assign(d);
++                 }
++              }
++           else {
++              // CAM slot s has no MTD support ...
++              if (s->Device()) {
++                 // ... but it is assigned to a different device, so we reassign it to d
++                 if (Priority > s->Priority()) {
++                    if (!Query) {
++                       s->Device()->DetachAllReceivers();
++                       s->Assign(d);
++                       }
++                    }
++                 else {
++                    d = NULL;
++                    s = NULL;
++                    }
++                 }
++              else {
++                 // ... and is not assigned to any device, so we just assign it to d
++                 if (!Query)
++                    s->Assign(d);
++                 }
++              }
+            }
+         }
+      else if (d->CamSlot() && !d->CamSlot()->IsDecrypting())
+@@ -450,6 +529,7 @@
+ 
+ bool cDevice::HasPid(int Pid) const
+ {
++  cMutexLock MutexLock(&mutexPids);
+   for (int i = 0; i < MAXPIDHANDLES; i++) {
+       if (pidHandles[i].pid == Pid)
+          return true;
+@@ -459,6 +539,7 @@
+ 
+ bool cDevice::AddPid(int Pid, ePidType PidType, int StreamType)
+ {
++  cMutexLock MutexLock(&mutexPids);
+   if (Pid || PidType == ptPcr) {
+      int n = -1;
+      int a = -1;
+@@ -523,6 +604,7 @@
+ 
+ void cDevice::DelPid(int Pid, ePidType PidType)
+ {
++  cMutexLock MutexLock(&mutexPids);
+   if (Pid || PidType == ptPcr) {
+      int n = -1;
+      if (PidType == ptPcr)
+@@ -558,6 +640,7 @@
+ 
+ void cDevice::DelLivePids(void)
+ {
++  cMutexLock MutexLock(&mutexPids);
+   for (int i = ptAudio; i < ptOther; i++) {
+       if (pidHandles[i].pid)
+          DelPid(pidHandles[i].pid, ePidType(i));
+@@ -1487,13 +1570,8 @@
+      }
+   else {
+      while (Length >= TS_SIZE) {
+-           if (Data[0] != TS_SYNC_BYTE) {
+-              int Skipped = 1;
+-              while (Skipped < Length && (Data[Skipped] != TS_SYNC_BYTE || Length - Skipped > TS_SIZE && Data[Skipped + TS_SIZE] != TS_SYNC_BYTE))
+-                    Skipped++;
+-              esyslog("ERROR: skipped %d bytes to sync on start of TS packet", Skipped);
++           if (int Skipped = TS_SYNC(Data, Length))
+               return Played + Skipped;
+-              }
+            int Pid = TsPid(Data);
+            if (TsHasPayload(Data)) { // silently ignore TS packets w/o payload
+               int PayloadOffset = TsPayloadOffset(Data);
+@@ -1574,6 +1652,7 @@
+ 
+ void cDevice::Action(void)
+ {
++  time_t LastScrambledPacket = 0;
+   if (Running() && OpenDvr()) {
+      while (Running()) {
+            // Read data from the DVR device:
+@@ -1588,17 +1667,18 @@
+                  cCamSlot *cs = NULL;
+                  if (startScrambleDetection) {
+                     cs = CamSlot();
+-                    CamSlotNumber = cs ? cs->SlotNumber() : 0;
++                    CamSlotNumber = cs ? cs->MasterSlotNumber() : 0;
+                     if (CamSlotNumber) {
+-                       int t = time(NULL) - startScrambleDetection;
++                       if (LastScrambledPacket < startScrambleDetection)
++                          LastScrambledPacket = startScrambleDetection;
++                       time_t Now = time(NULL);
+                        if (TsIsScrambled(b)) {
+-                          if (t > TS_SCRAMBLING_TIMEOUT)
++                          LastScrambledPacket = Now;
++                          if (Now - startScrambleDetection > scramblingTimeout)
+                              DetachReceivers = true;
+                           }
+-                       else if (t > TS_SCRAMBLING_TIME_OK) {
++                       if (Now - LastScrambledPacket > TS_SCRAMBLING_TIME_OK)
+                           DescramblingOk = true;
+-                          startScrambleDetection = 0;
+-                          }
+                        }
+                     }
+                  // Distribute the packet to all attached receivers:
+@@ -1606,14 +1686,17 @@
+                  for (int i = 0; i < MAXRECEIVERS; i++) {
+                      if (receiver[i] && receiver[i]->WantsPid(Pid)) {
+                         if (DetachReceivers && cs && (!cs->IsActivating() || receiver[i]->Priority() >= LIVEPRIORITY)) {
+-                           dsyslog("detaching receiver - won't decrypt channel %s with CAM %d", *receiver[i]->ChannelID().ToString(), CamSlotNumber);
++                           dsyslog("CAM %d: won't decrypt channel %s, detaching receiver", CamSlotNumber, *receiver[i]->ChannelID().ToString());
+                            ChannelCamRelations.SetChecked(receiver[i]->ChannelID(), CamSlotNumber);
+                            Detach(receiver[i]);
+                            }
+                         else
+                            receiver[i]->Receive(b, TS_SIZE);
+-                        if (DescramblingOk)
++                        if (DescramblingOk && receiver[i]->ChannelID().Valid()) {
++                           dsyslog("CAM %d: decrypts channel %s", CamSlotNumber, *receiver[i]->ChannelID().ToString());
+                            ChannelCamRelations.SetDecrypt(receiver[i]->ChannelID(), CamSlotNumber);
++                           startScrambleDetection = 0;
++                           }
+                         }
+                      }
+                  Unlock();
+@@ -1672,7 +1755,14 @@
+          Unlock();
+          if (camSlot && Receiver->priority > MINPRIORITY) { // priority check to avoid an infinite loop with the CAM slot's caPidReceiver
+             camSlot->StartDecrypting();
+-            startScrambleDetection = time(NULL);
++            if (CamSlots.NumReadyMasterSlots() > 1) { // don't try different CAMs if there is only one
++               startScrambleDetection = time(NULL);
++               scramblingTimeout = TS_SCRAMBLING_TIMEOUT;
++               bool KnownToDecrypt = ChannelCamRelations.CamDecrypt(Receiver->ChannelID(), camSlot->MasterSlotNumber());
++               if (KnownToDecrypt)
++                  scramblingTimeout *= 10; // give it time to receive ECM/EMM
++               dsyslog("CAM %d: %sknown to decrypt channel %s (scramblingTimeout = %ds)", camSlot->SlotNumber(), KnownToDecrypt ? "" : "not ", *Receiver->ChannelID().ToString(), scramblingTimeout);
++               }
+             }
+          Start();
+          return true;
+diff -ruN vdr-2.3.2/device.h vdr-2.3.3/device.h
+--- vdr-2.3.2/device.h	2016-12-06 15:12:39.000000000 +0100
++++ vdr-2.3.3/device.h	2017-02-21 14:23:24.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 4.2 2016/12/06 14:12:39 kls Exp $
++ * $Id: device.h 4.4 2017/02/21 13:23:24 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -109,6 +109,7 @@
+ class cDevice : public cThread {
+   friend class cLiveSubtitle;
+   friend class cDeviceHook;
++  friend class cReceiver;
+ private:
+   static int numDevices;
+   static int useDevice;
+@@ -355,6 +356,7 @@
+ // PID handle facilities
+ 
+ private:
++  mutable cMutex mutexPids;
+   virtual void Action(void);
+ protected:
+   enum ePidType { ptAudio, ptVideo, ptPcr, ptTeletext, ptDolby, ptOther };
+@@ -425,6 +427,7 @@
+ 
+ private:
+   time_t startScrambleDetection;
++  int scramblingTimeout;
+   cCamSlot *camSlot;
+ public:
+   virtual bool HasCi(void);
+diff -ruN vdr-2.3.2/diseqc.c vdr-2.3.3/diseqc.c
+--- vdr-2.3.2/diseqc.c	2015-01-26 13:02:14.000000000 +0100
++++ vdr-2.3.3/diseqc.c	2017-01-09 16:10:40.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: diseqc.c 4.0 2015/01/26 12:02:14 kls Exp $
++ * $Id: diseqc.c 4.1 2017/01/09 15:10:40 kls Exp $
+  */
+ 
+ #include "diseqc.h"
+@@ -253,10 +253,10 @@
+   return result;
+ }
+ 
+-uint cDiseqc::SetScrFrequency(uint SatFrequency, const cScr *Scr, uint8_t *Codes) const
++int cDiseqc::SetScrFrequency(int SatFrequency, const cScr *Scr, uint8_t *Codes) const
+ {
+   if ((Codes[0] & 0xF0) == 0x70 ) { // EN50607 aka JESS
+-     uint t = SatFrequency == 0 ? 0 : (SatFrequency - 100);
++     int t = SatFrequency == 0 ? 0 : (SatFrequency - 100);
+      if (t < 2048 && Scr->Channel() >= 0 && Scr->Channel() < 32) {
+         Codes[1] = t >> 8 | Scr->Channel() << 3;
+         Codes[2] = t;
+@@ -266,7 +266,7 @@
+         }
+      }
+   else { // EN50494 aka Unicable
+-     uint t = SatFrequency == 0 ? 0 : (SatFrequency + Scr->UserBand() + 2) / 4 - 350; // '+ 2' together with '/ 4' results in rounding!
++     int t = SatFrequency == 0 ? 0 : (SatFrequency + Scr->UserBand() + 2) / 4 - 350; // '+ 2' together with '/ 4' results in rounding!
+      if (t < 1024 && Scr->Channel() >= 0 && Scr->Channel() < 8) {
+         Codes[3] = t >> 8 | (t == 0 ? 0 : scrBank << 2) | Scr->Channel() << 5;
+         Codes[4] = t;
+@@ -399,7 +399,7 @@
+   return NULL;
+ }
+ 
+-cDiseqc::eDiseqcActions cDiseqc::Execute(const char **CurrentAction, uchar *Codes, uint8_t *MaxCodes, const cScr *Scr, uint *Frequency) const
++cDiseqc::eDiseqcActions cDiseqc::Execute(const char **CurrentAction, uchar *Codes, uint8_t *MaxCodes, const cScr *Scr, int *Frequency) const
+ {
+   if (!*CurrentAction)
+      *CurrentAction = commands;
+diff -ruN vdr-2.3.2/diseqc.h vdr-2.3.3/diseqc.h
+--- vdr-2.3.2/diseqc.h	2013-06-12 13:52:17.000000000 +0200
++++ vdr-2.3.3/diseqc.h	2017-01-09 16:11:19.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: diseqc.h 4.0 2013/06/12 11:52:17 kls Exp $
++ * $Id: diseqc.h 4.1 2017/01/09 15:11:19 kls Exp $
+  */
+ 
+ #ifndef __DISEQC_H
+@@ -86,7 +86,7 @@
+   mutable int scrBank;
+   char *commands;
+   bool parsing;
+-  uint SetScrFrequency(uint SatFrequency, const cScr *Scr, uint8_t *Codes) const;
++  int SetScrFrequency(int SatFrequency, const cScr *Scr, uint8_t *Codes) const;
+   int SetScrPin(const cScr *Scr, uint8_t *Codes) const;
+   const char *Wait(const char *s) const;
+   const char *GetPosition(const char *s) const;
+@@ -96,7 +96,7 @@
+   cDiseqc(void);
+   ~cDiseqc();
+   bool Parse(const char *s);
+-  eDiseqcActions Execute(const char **CurrentAction, uchar *Codes, uint8_t *MaxCodes, const cScr *Scr, uint *Frequency) const;
++  eDiseqcActions Execute(const char **CurrentAction, uchar *Codes, uint8_t *MaxCodes, const cScr *Scr, int *Frequency) const;
+       ///< Parses the DiSEqC commands and returns the appropriate action code
+       ///< with every call. CurrentAction must be the address of a character pointer,
+       ///< which is initialized to NULL. This pointer is used internally while parsing
+diff -ruN vdr-2.3.2/dvbdevice.c vdr-2.3.3/dvbdevice.c
+--- vdr-2.3.2/dvbdevice.c	2016-11-07 14:55:58.000000000 +0100
++++ vdr-2.3.3/dvbdevice.c	2017-01-09 16:11:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 4.3 2016/11/07 13:55:58 kls Exp $
++ * $Id: dvbdevice.c 4.4 2017/01/09 15:11:39 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -329,7 +329,7 @@
+   void ClearEventQueue(void) const;
+   bool GetFrontendStatus(fe_status_t &Status) const;
+   cPositioner *GetPositioner(void);
+-  void ExecuteDiseqc(const cDiseqc *Diseqc, unsigned int *Frequency);
++  void ExecuteDiseqc(const cDiseqc *Diseqc, int *Frequency);
+   void ResetToneAndVoltage(void);
+   bool SetFrontend(void);
+   virtual void Action(void);
+@@ -696,7 +696,7 @@
+   return positioner;
+ }
+ 
+-void cDvbTuner::ExecuteDiseqc(const cDiseqc *Diseqc, unsigned int *Frequency)
++void cDvbTuner::ExecuteDiseqc(const cDiseqc *Diseqc, int *Frequency)
+ {
+   if (!lnbPowerTurnedOn) {
+      CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, SEC_VOLTAGE_13)); // must explicitly turn on LNB power
+@@ -806,7 +806,7 @@
+ 
+   SETCMD(DTV_DELIVERY_SYSTEM, frontendType);
+   if (frontendType == SYS_DVBS || frontendType == SYS_DVBS2) {
+-     unsigned int frequency = channel.Frequency();
++     int frequency = channel.Frequency();
+      if (Setup.DiSEqC) {
+         if (const cDiseqc *diseqc = Diseqcs.Get(device->CardIndex() + 1, channel.Source(), frequency, dtp.Polarization(), &scr)) {
+            frequency -= diseqc->Lof();
+@@ -829,7 +829,7 @@
+         }
+      else {
+         int tone = SEC_TONE_OFF;
+-        if (frequency < (unsigned int)Setup.LnbSLOF) {
++        if (frequency < Setup.LnbSLOF) {
+            frequency -= Setup.LnbFrequLo;
+            tone = SEC_TONE_OFF;
+            }
+diff -ruN vdr-2.3.2/menu.c vdr-2.3.3/menu.c
+--- vdr-2.3.2/menu.c	2016-12-22 12:00:13.000000000 +0100
++++ vdr-2.3.3/menu.c	2017-03-18 15:27:50.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 4.19 2016/12/22 11:00:13 kls Exp $
++ * $Id: menu.c 4.22 2017/03/18 14:27:50 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -3770,8 +3770,18 @@
+   else if (camSlot->IsActivating())
+      // TRANSLATORS: note the leading blank!
+      Activating = tr(" (activating)");
+-  if (cDevice *Device = camSlot->Device())
+-     AssignedDevice = cString::sprintf(" %s %d", tr("@ device"), Device->CardIndex() + 1);
++  cVector<int> CardIndexes;
++  for (cCamSlot *CamSlot = CamSlots.First(); CamSlot; CamSlot = CamSlots.Next(CamSlot)) {
++      if (CamSlot == camSlot || CamSlot->MasterSlot() == camSlot)
++         CamSlot->Devices(CardIndexes);
++      }
++  if (CardIndexes.Size() > 0) {
++     AssignedDevice = cString::sprintf(" %s", tr("@ device"));
++     CardIndexes.Sort(CompareInts);
++     for (int i = 0; i < CardIndexes.Size(); i++)
++         AssignedDevice = cString::sprintf("%s %d", *AssignedDevice, CardIndexes[i] + 1);
++     }
++
+   cString buffer = cString::sprintf(" %d %s%s%s", camSlot->SlotNumber(), CamName, *AssignedDevice, Activating);
+   if (strcmp(buffer, Text()) != 0) {
+      SetText(buffer);
+@@ -3799,8 +3809,10 @@
+   SetSection(tr("CAM"));
+   SetCols(15);
+   SetHasHotkeys();
+-  for (cCamSlot *CamSlot = CamSlots.First(); CamSlot; CamSlot = CamSlots.Next(CamSlot))
+-      Add(new cMenuSetupCAMItem(CamSlot));
++  for (cCamSlot *CamSlot = CamSlots.First(); CamSlot; CamSlot = CamSlots.Next(CamSlot)) {
++      if (CamSlot->IsMasterSlot()) // we only list master CAM slots
++         Add(new cMenuSetupCAMItem(CamSlot));
++      }
+   SetHelpKeys();
+ }
+ 
+@@ -3865,14 +3877,13 @@
+                   if (cDevice *Device = cDevice::GetDevice(i)) {
+                      if (Device->ProvidesChannel(Channel)) {
+                         if (Device->Priority() < LIVEPRIORITY) { // don't interrupt recordings
+-                           if (CamSlot->CanActivate()) {
+-                              if (CamSlot->Assign(Device, true)) { // query
+-                                 cControl::Shutdown(); // must end transfer mode before assigning CAM, otherwise it might be unassigned again
+-                                 if (CamSlot->Assign(Device)) {
+-                                    if (Device->SwitchChannel(Channel, true)) {
+-                                       CamSlot->StartActivation();
+-                                       return osContinue;
+-                                       }
++                           if (CamSlot->Assign(Device, true)) { // query
++                              cControl::Shutdown(); // must end transfer mode before assigning CAM, otherwise it might be unassigned again
++                              CamSlot = CamSlot->MtdSpawn();
++                              if (CamSlot->Assign(Device)) {
++                                 if (Device->SwitchChannel(Channel, true)) {
++                                    CamSlot->StartActivation();
++                                    return osContinue;
+                                     }
+                                  }
+                               }
+@@ -5584,7 +5595,7 @@
+ bool cReplayControl::ShowProgress(bool Initial)
+ {
+   int Current, Total;
+-  if (Initial || time(NULL) - lastProgressUpdate >= 1) {
++  if (Initial || lastSpeed != -1 || time(NULL) - lastProgressUpdate >= 1) {
+      if (GetFrameNumber(Current, Total) && Total > 0) {
+         if (!visible) {
+            displayReplay = Skins.Current()->DisplayReplay(modeOnly);
+diff -ruN vdr-2.3.2/mtd.c vdr-2.3.3/mtd.c
+--- vdr-2.3.2/mtd.c	1970-01-01 01:00:00.000000000 +0100
++++ vdr-2.3.3/mtd.c	2017-03-27 16:26:04.000000000 +0200
+@@ -0,0 +1,341 @@
++/*
++ * mtd.c: Multi Transponder Decryption
++ *
++ * See the main source file 'vdr.c' for copyright information and
++ * how to reach the author.
++ *
++ * $Id: mtd.c 1.9 2017/03/27 14:26:04 kls Exp $
++ */
++
++#include "mtd.h"
++#include "receiver.h"
++
++//#define DEBUG_MTD
++#ifdef DEBUG_MTD
++#define DBGMTD(a...) dsyslog(a)
++#else
++#define DBGMTD(a...)
++#endif
++
++//#define KEEPPIDS // for testing and debugging - USE ONLY IF YOU KNOW WHAT YOU ARE DOING!
++
++#define MAX_REAL_PIDS  MAXPID // real PIDs are 13 bit (0x0000 - 0x1FFF)
++#ifdef KEEPPIDS
++#define MAX_UNIQ_PIDS  MAXPID
++#define UNIQ_PID_MASK  0x1FFF
++#else
++#define MAX_UNIQ_PIDS  256    // uniq PIDs are 8 bit (0x00 - 0xFF)
++#define UNIQ_PID_MASK  0x00FF
++#define UNIQ_PID_SHIFT 8
++#endif // KEEPPIDS
++
++// --- cMtdHandler -----------------------------------------------------------
++
++cMtdHandler::cMtdHandler(void)
++{
++}
++
++cMtdHandler::~cMtdHandler()
++{
++  for (int i = 0; i < camSlots.Size(); i++) {
++      dsyslog("CAM %d/%d: deleting MTD CAM slot", camSlots[i]->MasterSlot()->SlotNumber(), i + 1);
++      delete camSlots[i];
++      }
++}
++
++cMtdCamSlot *cMtdHandler::GetMtdCamSlot(cCamSlot *MasterSlot)
++{
++  for (int i = 0; i < camSlots.Size(); i++) {
++      if (!camSlots[i]->Device()) {
++         dsyslog("CAM %d/%d: reusing MTD CAM slot", MasterSlot->SlotNumber(), i + 1);
++         return camSlots[i];
++         }
++      }
++  dsyslog("CAM %d/%d: creating new MTD CAM slot", MasterSlot->SlotNumber(), camSlots.Size() + 1);
++  cMtdCamSlot *s = new cMtdCamSlot(MasterSlot, camSlots.Size());
++  camSlots.Append(s);
++  return s;
++}
++
++int cMtdHandler::Put(const uchar *Data, int Count)
++{
++  int Used = 0;
++  while (Count >= TS_SIZE) {
++        if (int Skipped = TS_SYNC(Data, Count))
++           return Used + Skipped;
++        int Pid = TsPid(Data);
++        if (Pid != CATPID) { // the original CAT with mapped PIDs must be skipped here!
++#ifdef KEEPPIDS
++           int Index = 0;
++#else
++           int Index = (Pid >> UNIQ_PID_SHIFT) - 1;
++#endif // KEEPPIDS
++           if (Index >= 0 && Index < camSlots.Size()) {
++              int w = camSlots[Index]->PutData(Data, TS_SIZE);
++              if (w == 0)
++                 break;
++              else if (w != TS_SIZE)
++                 esyslog("ERROR: incomplete MTD packet written (%d) in PID %d (%04X)", Index + 1, Pid, Pid);
++              }
++           else if (Index >= 0) // we silently ignore Index -1 (i.e. MTD number 0), since there are several hundred empty TS packets when switching to an encrypted channel for the first time since startup
++              esyslog("ERROR: invalid MTD number (%d) in PID %d (%04X)", Index + 1, Pid, Pid);
++           }
++        Data += TS_SIZE;
++        Count -= TS_SIZE;
++        Used += TS_SIZE;
++        }
++  return Used;
++}
++
++int cMtdHandler::Priority(void)
++{
++  int p = IDLEPRIORITY;
++  for (int i = 0; i < camSlots.Size(); i++)
++      p = max(p, camSlots[i]->Priority());
++  return p;
++}
++
++bool cMtdHandler::IsDecrypting(void)
++{
++  for (int i = 0; i < camSlots.Size(); i++) {
++      if (camSlots[i]->IsDecrypting())
++         return true;
++      }
++  return false;
++}
++
++void cMtdHandler::StartDecrypting(void)
++{
++  for (int i = 0; i < camSlots.Size(); i++) {
++      if (camSlots[i]->Device()) {
++         camSlots[i]->TriggerResendPmt();
++         camSlots[i]->StartDecrypting();
++         }
++      }
++}
++
++void cMtdHandler::CancelActivation(void)
++{
++  for (int i = 0; i < camSlots.Size(); i++)
++      camSlots[i]->CancelActivation();
++}
++
++bool cMtdHandler::IsActivating(void)
++{
++  for (int i = 0; i < camSlots.Size(); i++) {
++      if (camSlots[i]->IsActivating())
++         return true;
++      }
++  return false;
++}
++
++bool cMtdHandler::Devices(cVector<int> &CardIndexes)
++{
++  for (int i = 0; i < camSlots.Size(); i++)
++      camSlots[i]->Devices(CardIndexes);
++  return CardIndexes.Size() > 0;
++}
++
++// --- cMtdMapper ------------------------------------------------------------
++
++#define MTD_INVALID_PID 0xFFFF
++
++class cMtdMapper {
++private:
++  int number;
++  int masterCamSlotNumber;
++  uint16_t uniqPids[MAX_REAL_PIDS]; // maps a real PID to a unique PID
++  uint16_t realPids[MAX_UNIQ_PIDS]; // maps a unique PID to a real PID
++  cVector<uint16_t> uniqSids;
++  uint16_t MakeUniqPid(uint16_t RealPid);
++public:
++  cMtdMapper(int Number, int MasterCamSlotNumber);
++  ~cMtdMapper();
++  uint16_t RealToUniqPid(uint16_t RealPid) { if (uniqPids[RealPid]) return uniqPids[RealPid]; return MakeUniqPid(RealPid); }
++  uint16_t UniqToRealPid(uint16_t UniqPid) { return realPids[UniqPid & UNIQ_PID_MASK]; }
++  uint16_t RealToUniqSid(uint16_t RealSid);
++  void Clear(void);
++  };
++
++cMtdMapper::cMtdMapper(int Number, int MasterCamSlotNumber)
++{
++  number = Number;
++  masterCamSlotNumber = MasterCamSlotNumber;
++  Clear();
++}
++
++cMtdMapper::~cMtdMapper()
++{
++}
++
++uint16_t cMtdMapper::MakeUniqPid(uint16_t RealPid)
++{
++#ifdef KEEPPIDS
++  uniqPids[RealPid] = realPids[RealPid] = RealPid;
++  DBGMTD("CAM %d/%d: mapped PID %d (%04X) to %d (%04X)", masterCamSlotNumber, number, RealPid, RealPid, uniqPids[RealPid], uniqPids[RealPid]);
++  return uniqPids[RealPid];
++#else
++  for (int i = 0; i < MAX_UNIQ_PIDS; i++) {
++      if (realPids[i] == MTD_INVALID_PID) { // 0x0000 is a valid PID (PAT)!
++         realPids[i] = RealPid;
++         uniqPids[RealPid] = (number << UNIQ_PID_SHIFT) | i;
++         DBGMTD("CAM %d/%d: mapped PID %d (%04X) to %d (%04X)", masterCamSlotNumber, number, RealPid, RealPid, uniqPids[RealPid], uniqPids[RealPid]);
++         return uniqPids[RealPid];
++         }
++      }
++#endif // KEEPPIDS
++  esyslog("ERROR: MTD %d: mapper ran out of unique PIDs", number);
++  return 0;
++}
++
++uint16_t cMtdMapper::RealToUniqSid(uint16_t RealSid)
++{
++#ifdef KEEPPIDS
++  return RealSid;
++#endif // KEEPPIDS
++  int UniqSid = uniqSids.IndexOf(RealSid);
++  if (UniqSid < 0) {
++     UniqSid = uniqSids.Size();
++     uniqSids.Append(RealSid);
++     DBGMTD("CAM %d/%d: mapped SID %d (%04X) to %d (%04X)", masterCamSlotNumber, number, RealSid, RealSid, UniqSid | (number << UNIQ_PID_SHIFT), UniqSid | (number << UNIQ_PID_SHIFT));
++     }
++  UniqSid |= number << UNIQ_PID_SHIFT;
++  return UniqSid;
++}
++
++void cMtdMapper::Clear(void)
++{
++  DBGMTD("CAM %d/%d: MTD mapper cleared", masterCamSlotNumber, number);
++  memset(uniqPids, 0, sizeof(uniqPids));
++  memset(realPids, MTD_INVALID_PID, sizeof(realPids));
++  uniqSids.Clear();
++}
++
++void MtdMapSid(uchar *p, cMtdMapper *MtdMapper)
++{
++  Poke13(p, MtdMapper->RealToUniqSid(Peek13(p)));
++}
++
++void MtdMapPid(uchar *p, cMtdMapper *MtdMapper)
++{
++  Poke13(p, MtdMapper->RealToUniqPid(Peek13(p)));
++}
++
++// --- cMtdCamSlot -----------------------------------------------------------
++
++#define MTD_BUFFER_SIZE MEGABYTE(1)
++
++cMtdCamSlot::cMtdCamSlot(cCamSlot *MasterSlot, int Index)
++:cCamSlot(NULL, true, MasterSlot)
++{
++  mtdBuffer = new cRingBufferLinear(MTD_BUFFER_SIZE, TS_SIZE, true, "MTD buffer");
++  mtdMapper = new cMtdMapper(Index + 1, MasterSlot->SlotNumber());
++  delivered = false;
++  ciAdapter = MasterSlot->ciAdapter; // we don't pass the CI adapter in the constructor, to prevent this one from being inserted into CamSlots
++}
++
++cMtdCamSlot::~cMtdCamSlot()
++{
++  Assign(NULL);
++  delete mtdMapper;
++  delete mtdBuffer;
++}
++
++const int *cMtdCamSlot::GetCaSystemIds(void)
++{
++  return MasterSlot()->GetCaSystemIds();
++}
++
++void cMtdCamSlot::SendCaPmt(uint8_t CmdId)
++{
++  cMutexLock MutexLock(&mutex);
++  cCiCaPmtList CaPmtList;
++  BuildCaPmts(CmdId, CaPmtList, mtdMapper);
++  MasterSlot()->SendCaPmts(CaPmtList);
++}
++
++bool cMtdCamSlot::RepliesToQuery(void)
++{
++  return MasterSlot()->RepliesToQuery();
++}
++
++bool cMtdCamSlot::ProvidesCa(const int *CaSystemIds)
++{
++  return MasterSlot()->ProvidesCa(CaSystemIds);
++}
++
++bool cMtdCamSlot::CanDecrypt(const cChannel *Channel, cMtdMapper *MtdMapper)
++{
++  return MasterSlot()->CanDecrypt(Channel, mtdMapper);
++}
++
++void cMtdCamSlot::StartDecrypting(void)
++{
++  MasterSlot()->StartDecrypting();
++  cCamSlot::StartDecrypting();
++}
++
++void cMtdCamSlot::StopDecrypting(void)
++{
++  cCamSlot::StopDecrypting();
++  if (!MasterSlot()->IsDecrypting())
++     MasterSlot()->StopDecrypting();
++  cMutexLock MutexLock(&clearMutex);
++  mtdMapper->Clear();
++  mtdBuffer->Clear();
++  delivered = false;
++}
++
++uchar *cMtdCamSlot::Decrypt(uchar *Data, int &Count)
++{
++  // Send data to CAM:
++  if (Count >= TS_SIZE) {
++     Count = TS_SIZE;
++     int Pid = TsPid(Data);
++     TsSetPid(Data, mtdMapper->RealToUniqPid(Pid));
++     MasterSlot()->Decrypt(Data, Count);
++     if (Count == 0)
++        TsSetPid(Data, Pid); // must restore PID for later retry
++     }
++  else
++     Count = 0;
++  // Drop delivered data from previous call:
++  cMutexLock MutexLock(&clearMutex);
++  if (delivered) {
++     mtdBuffer->Del(TS_SIZE);
++     delivered = false;
++     }
++  // Receive data from buffer:
++  int c = 0;
++  uchar *d = mtdBuffer->Get(c);
++  if (d) {
++     if (int Skipped = TS_SYNC(d, c)) {
++        mtdBuffer->Del(Skipped);
++        return NULL;
++        }
++     if (c >= TS_SIZE) {
++        TsSetPid(d, mtdMapper->UniqToRealPid(TsPid(d)));
++        delivered = true;
++        }
++     else
++        d = NULL;
++     }
++  return d;
++}
++
++int cMtdCamSlot::PutData(const uchar *Data, int Count)
++{
++  int Free = mtdBuffer->Free();
++  Free -= Free % TS_SIZE;
++  if (Free < TS_SIZE)
++     return 0;
++  if (Free < Count)
++     Count = Free;
++  return mtdBuffer->Put(Data, Count);
++}
++
++int cMtdCamSlot::PutCat(const uchar *Data, int Count)
++{
++  MasterSlot()->Decrypt(const_cast<uchar *>(Data), Count);
++  return Count;
++}
+diff -ruN vdr-2.3.2/mtd.h vdr-2.3.3/mtd.h
+--- vdr-2.3.2/mtd.h	1970-01-01 01:00:00.000000000 +0100
++++ vdr-2.3.3/mtd.h	2017-03-27 10:30:00.000000000 +0200
+@@ -0,0 +1,188 @@
++/*
++ * mtd.h: Multi Transponder Decryption
++ *
++ * See the main source file 'vdr.c' for copyright information and
++ * how to reach the author.
++ *
++ * $Id: mtd.h 1.6 2017/03/27 08:30:00 kls Exp $
++ */
++
++#ifndef __MTD_H
++#define __MTD_H
++
++/*
++Multiple Transponder Decryption (MTD) is the method of sending TS packets
++from channels on different transponders to one single CAM for decryption.
++While decrypting several channels from the same transponder ("Multi Channel
++Decryption") is straightforward, because the PIDs are unique within one
++transponder, channels on different transponders might use the same PIDs
++for different streams.
++
++Here's a summary of how MTD is implemented in VDR:
++
++Identifying the relevant source code
++------------------------------------
++
++The actual code that implements the MTD handling is located in the files
++mtd.h and mtd.c. There are also a few places in ci.[hc], device.c and
++menu.c where things need to be handled differently for MTD. All functions
++and variables that have to do with MTD have the three letters "mtd" (upper-
++and/or lowercase) in their name, so that these code lines can be easily
++identified if necessary.
++
++What a plugin implementing a cCiAdapter/cCamSlot needs to do
++------------------------------------------------------------
++
++If an implementation of cCiAdapter/cCamSlot supports MTD, it needs to
++fulfill the following requirements:
++- The cCiAdapter's Assign() function needs to return true for any given
++  device.
++- The cCamSlot's constructor needs to call MtdEnable().
++- The cCamSlot's Decrypt() function shall accept the given TS packet,
++  but shall *not* return a decrypted packet. Decypted packets shall be
++  delivered through a call to MtdPutData(), one at a time.
++- The cCamSlot's Decrypt() function needs to be thread safe, because
++  it will be called from several cMtdCamSlot objects.
++
++Physical vs. virtual CAMs
++-------------------------
++
++MTD is done by having one physical CAM (accessed through a plugin's
++implementation of cCiAdapter/cCamSlot) and several "virtual" CAMs,
++implemented through cMtdCamSlot objects ("MTD CAMs"). For each device
++that requires the physical CAM, one instance of a cMtdCamSlot is created
++on the fly at runtime, and that MTD CAM is assigned to the device.
++The MTD CAM takes care of mapping the PIDs, and a cMtdHandler in the
++physical CAM object distributes the decrypted TS packets to the proper
++devices.
++
++Mapping the PIDs
++----------------
++
++The main problem with MTD is that the TS packets from different devices
++(and thus different transponders with possibly overlapping PIDs) need to
++be combined into one stream, sent to the physical CAM, and finally be sorted
++apart again and returned to the devices they came from. Both aspects are
++solved in VDR by mapping the "real" PIDs into "unique" PIDs. Real PIDs
++are in the range 0x0000-0x1FFF (13 bit). Unique PIDs use the upper 5 bit
++to indicate the number of the MTD CAM a TS packet came from, and the lower
++8 bit as individual PID values. Mapping is done with a single array lookup
++and is thus very fast. The cMtdHandler class takes care of distributing
++the TS packets to the individual cMtdCamSlot objects, while mapping the
++PIDs (in both directions) is done by the cMtdMapper class.
++
++Mapping the SIDs
++----------------
++
++Besides the PIDs there are also the "service ids" (SIDs, a.k.a. "programme
++numbers" or PNRs) that need to be taken care of. SIDs only appear in the
++CA-PMTs sent to the CAM, so they only need to be mapped from real to unique
++(not the other way) and since the are only mapped when switching channels,
++mapping doesn't need to be very fast. Mapping SIDs is also done by the
++cMtdMapper class.
++
++Handling the CAT
++----------------
++
++Each transponder carries a CAT ("Conditional Access Table") with the fixed PID 1.
++The CAT contains a list of EMM PIDs, which are necessary to convey entitlement
++messages to the smart card. Since the CAM only recognizes the CAT if it has
++its fixed PID of 1, this PID cannot be mapped and has to be sent to the CAM
++as is. However, the cCaPidReceiver also needs to see the CAM in order to
++request from the device the TS packets with the EMM PIDs. Since any receivers
++only get the TS packets after they have been sent through the CAM, we need
++to send the CAT in both ways, with mapped PID but unmapped EMM PIDs for the
++cCaPidReceiver, and with unmapped PID but mapped EMM PIDs for the CAM itself.
++Since the PID 0x0001 can always be distinguished from any mapped PID (which
++always have a non-zero upper byte), the CAT can be easily channeled in both
++ways.
++
++Handling the CA-PMTs
++--------------------
++
++The CA-PMTs that are sent to the CAM contain both SIDs and PIDs, which are
++mapped in cCiCaPmt::MtdMapPids().
++*/
++
++#include "ci.h"
++#include "remux.h"
++#include "ringbuffer.h"
++
++class cMtdHandler {
++private:
++  cVector<cMtdCamSlot *> camSlots;
++public:
++  cMtdHandler(void);
++      ///< Creates a new MTD handler that distributes TS data received through
++      ///< calls to the Put() function to the individual CAM slots that have been
++      ///< created via GetMtdCamSlot(). It also distributes several function
++      ///< calls from the physical master CAM slot to the individual MTD CAM slots.
++  ~cMtdHandler();
++  cMtdCamSlot *GetMtdCamSlot(cCamSlot *MasterSlot);
++      ///< Creates a new MTD CAM slot, or reuses an existing one that is currently
++      ///< unused.
++  int Put(const uchar *Data, int Count);
++      ///< Puts at most Count bytes of Data into the CAM slot which's index is
++      ///< derived from the PID of the TS packets.
++      ///< Data must point to the beginning of a TS packet.
++      ///< Returns the number of bytes actually stored.
++  int Priority(void);
++      ///< Returns the maximum priority of any of the active MTD CAM slots.
++  bool IsDecrypting(void);
++      ///< Returns true if any of the active MTD CAM slots is currently decrypting.
++  void StartDecrypting(void);
++      ///< Tells all active MTD CAM slots to start decrypting.
++  void CancelActivation(void);
++      ///< Tells all active MTD CAM slots to cancel activation.
++  bool IsActivating(void);
++      ///< Returns true if any of the active MTD CAM slots is currently activating.
++  bool Devices(cVector<int> &CardIndexes);
++      ///< Adds the card indexes of the devices of any active MTD CAM slots to
++      ///< the given CardIndexes.
++      ///< Returns true if the array is not empty.
++  };
++
++#define MTD_DONT_CALL(v) dsyslog("PROGRAMMING ERROR (%s,%d): DON'T CALL %s", __FILE__, __LINE__, __FUNCTION__); return v;
++
++class cMtdMapper;
++
++void MtdMapSid(uchar *p, cMtdMapper *MtdMapper);
++void MtdMapPid(uchar *p, cMtdMapper *MtdMapper);
++
++class cMtdCamSlot : public cCamSlot {
++private:
++  cMutex clearMutex;
++  cMtdMapper *mtdMapper;
++  cRingBufferLinear *mtdBuffer;
++  bool delivered;
++protected:
++  virtual const int *GetCaSystemIds(void);
++  virtual void SendCaPmt(uint8_t CmdId);
++public:
++  cMtdCamSlot(cCamSlot *MasterSlot, int Index);
++       ///< Creates a new "Multi Transponder Decryption" CAM slot, connected to the
++       ///< given physical MasterSlot, using the given Index for mapping PIDs.
++  virtual ~cMtdCamSlot();
++  cMtdMapper *MtdMapper(void) { return mtdMapper; }
++  virtual bool RepliesToQuery(void);
++  virtual bool ProvidesCa(const int *CaSystemIds);
++  virtual bool CanDecrypt(const cChannel *Channel, cMtdMapper *MtdMapper = NULL);
++  virtual void StartDecrypting(void);
++  virtual void StopDecrypting(void);
++  virtual uchar *Decrypt(uchar *Data, int &Count);
++  int PutData(const uchar *Data, int Count);
++  int PutCat(const uchar *Data, int Count);
++  // The following functions shall not be called for a cMtdCamSlot:
++  virtual cCamSlot *Spawn(void) { MTD_DONT_CALL(NULL); }
++  virtual bool Reset(void) { MTD_DONT_CALL(false); }
++  virtual eModuleStatus ModuleStatus(void) { MTD_DONT_CALL(msNone); }
++  virtual const char *GetCamName(void) { MTD_DONT_CALL(NULL); }
++  virtual bool Ready(void) { MTD_DONT_CALL(false); }
++  virtual bool HasMMI(void) { MTD_DONT_CALL(false); }
++  virtual bool HasUserIO(void) { MTD_DONT_CALL(false); }
++  virtual bool EnterMenu(void) { MTD_DONT_CALL(false); }
++  virtual cCiMenu *GetMenu(void) { MTD_DONT_CALL(NULL); }
++  virtual cCiEnquiry *GetEnquiry(void) { MTD_DONT_CALL(NULL); }
++  };
++
++#endif //__MTD_H
+diff -ruN vdr-2.3.2/po/ru_RU.po vdr-2.3.3/po/ru_RU.po
+--- vdr-2.3.2/po/ru_RU.po	2016-12-23 15:58:03.994497885 +0100
++++ vdr-2.3.3/po/ru_RU.po	2017-03-27 16:32:11.500805129 +0200
+@@ -8,552 +8,552 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
+-"PO-Revision-Date: 2013-03-10 17:13+0100\n"
+-"Last-Translator: Oleg Roitburd <oroitburd@gmail.com>\n"
++"POT-Creation-Date: 2017-01-05 19:50+1000\n"
++"PO-Revision-Date: 2016-12-27 17:13+0100\n"
++"Last-Translator: Pridvorov Andrey <ua0lnj@bk.ru>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
+ "Language: ru\n"
+ "MIME-Version: 1.0\n"
+-"Content-Type: text/plain; charset=ISO-8859-5\n"
++"Content-Type: text/plain; charset=utf-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
+ msgid "*** Invalid Channel ***"
+-msgstr "*** Ω’ﬂ‡–“ÿ€Ï›ÎŸ ⁄–›–€ ***"
++msgstr "*** –ù–µ–ø—Ä–∞–≤–∏–ª—å–Ω—ã–π –∫–∞–Ω–∞–ª ***"
+ 
+ msgid "CAM activated!"
+-msgstr ""
++msgstr "–ú–î –∞–∫—Ç–∏–≤–µ–Ω!"
+ 
+ msgid "Channel not available!"
+-msgstr "∫–›–€ ›’‘ﬁ·‚„ﬂ’›!"
++msgstr "–ö–∞–Ω–∞–ª –Ω–µ–¥–æ—Å—Ç—É–ø–µ–Ω!"
+ 
+ msgid "Can't start Transfer Mode!"
+-msgstr "Ω’“ﬁ◊‹ﬁ÷›ﬁ “⁄€ÓÁÿ‚Ï ‡’÷ÿ‹ ﬂ‡ﬁﬂ„·⁄–!"
++msgstr "–ù–µ–≤–æ–∑–º–æ–∂–Ω–æ –≤–∫–ª—é—á–∏—Ç—å —Ä–µ–∂–∏–º –ø—Ä–æ–ø—É—Å–∫–∞!"
+ 
+ msgid "off"
+-msgstr "“Î⁄€"
++msgstr "–≤—ã–∫–ª"
+ 
+ msgid "on"
+-msgstr "“⁄€"
++msgstr "–≤–∫–ª"
+ 
+ msgid "auto"
+-msgstr "–“‚ﬁ"
++msgstr "–∞–≤—Ç–æ"
+ 
+ msgid "none"
+-msgstr "›ÿÁ’”ﬁ"
++msgstr "–Ω–∏—á–µ–≥–æ"
+ 
+ msgid "Polarization"
+-msgstr "øﬁ€Ô‡ÿ◊–ÊÿÔ"
++msgstr "–ü–æ–ª—è—Ä–∏–∑–∞—Ü–∏—è"
+ 
+ msgid "System"
+-msgstr "¡ÿ·‚’‹–"
++msgstr "–°–∏—Å—Ç–µ–º–∞"
+ 
+ msgid "Srate"
+-msgstr "¡ÿ‹“. ·⁄ﬁ‡ﬁ·‚Ï"
++msgstr "–°–∏–º–≤. —Å–∫–æ—Ä–æ—Å—Ç—å"
+ 
+ msgid "Inversion"
+-msgstr "∏›“’‡·ÿÔ"
++msgstr "–ò–Ω–≤–µ—Ä—Å–∏—è"
+ 
+ msgid "CoderateH"
+-msgstr "CoderateH"
++msgstr "–í—ã—Å.–ø–æ—Ç–æ–∫"
+ 
+ msgid "CoderateL"
+-msgstr "CoderateL"
++msgstr "–ù–∏–∑.–ø–æ—Ç–æ–∫"
+ 
+ msgid "Modulation"
+-msgstr "ºﬁ‘„€ÔÊÿÔ"
++msgstr "–ú–æ–¥—É–ª—è—Ü–∏—è"
+ 
+ msgid "Bandwidth"
+-msgstr "¥ÿ–ﬂ–◊ﬁ›"
++msgstr "–ü–æ–ª–æ—Å–∞"
+ 
+ msgid "Transmission"
+-msgstr "ø’‡’‘–Á–"
++msgstr "–ü–µ—Ä–µ–¥–∞—á–∞"
+ 
+ msgid "Guard"
+-msgstr "∑–Èÿ‚–"
++msgstr "–ó–∞—â–∏—Ç–∞"
+ 
+ msgid "Hierarchy"
+-msgstr "∏’‡–‡ÂÿÔ"
++msgstr "–ò–µ—Ä–∞—Ä—Ö–∏—è"
+ 
+ msgid "Rolloff"
+-msgstr "Rolloff"
++msgstr "–ö—Ä—É—Ç–∏–∑–Ω–∞"
+ 
+ msgid "StreamId"
+ msgstr "StreamId"
+ 
+ msgid "Pilot"
+-msgstr ""
++msgstr "–ü–∏–ª–æ—Ç"
+ 
+ msgid "T2SystemId"
+-msgstr ""
++msgstr "T2SystemId"
+ 
+ msgid "SISO/MISO"
+-msgstr ""
++msgstr "SISO/MISO"
+ 
+ msgid "Starting EPG scan"
+-msgstr "Ω–Áÿ›–Ó EPG-·⁄–›ÿ‡ﬁ“–›ÿ’"
++msgstr "–ó–∞–ø—É—Å–∫ EPG-—Å–∫–∞–Ω–∏—Ä–æ–≤–∞–Ω–∏—è"
+ 
+ msgid "Content$Movie/Drama"
+-msgstr "ƒÿ€Ï‹/¥‡–‹–"
++msgstr "–§–∏–ª—å–º/–î—Ä–∞–º–∞"
+ 
+ msgid "Content$Detective/Thriller"
+-msgstr "¥’‚’⁄‚ÿ“/¬‡ÿ€€’‡"
++msgstr "–î–µ—Ç–µ–∫—Ç–∏–≤/–¢—Ä–∏–ª–ª–µ—Ä"
+ 
+ msgid "Content$Adventure/Western/War"
+-msgstr "ø‡ÿ⁄€ÓÁ’›ÿ’/≤’·‚’‡›/≤ﬁŸ›–"
++msgstr "–ü—Ä–∏–∫–ª—é—á–µ–Ω–∏–µ/–í–µ—Å—Ç–µ—Ä–Ω/–í–æ–π–Ω–∞"
+ 
+ msgid "Content$Science Fiction/Fantasy/Horror"
+-msgstr "Ω–„Á›–Ô ‰–›‚–·‚ÿ⁄–/ƒ–›‚–◊ÿÔ/√÷–·"
++msgstr "–ù–∞—É—á–Ω–∞—è —Ñ–∞–Ω—Ç–∞—Å—Ç–∏–∫–∞/–§–∞–Ω—Ç–∞–∑–∏—è/–£–∂–∞—Å"
+ 
+ msgid "Content$Comedy"
+-msgstr "∫ﬁ‹’‘ÿÔ"
++msgstr "–ö–æ–º–µ–¥–∏—è"
+ 
+ msgid "Content$Soap/Melodrama/Folkloric"
+-msgstr "ºÎ€Ï›–Ô ﬁﬂ’‡–/º’€ﬁ‘‡–‹–/ƒﬁ€Ï⁄€ﬁ‡"
++msgstr "–ú—ã–ª—å–Ω–∞—è –æ–ø–µ—Ä–∞/–ú–µ–ª–æ–¥—Ä–∞–º–∞/–§–æ–ª—å–∫–ª–æ—Ä"
+ 
+ msgid "Content$Romance"
+-msgstr "¿ﬁ‹–›‚ÿ⁄–"
++msgstr "–†–æ–º–∞–Ω—Ç–∏–∫–∞"
+ 
+ msgid "Content$Serious/Classical/Religious/Historical Movie/Drama"
+-msgstr "¡’‡Ï’◊›ﬁ·‚Ï/∫€–··ÿ⁄–/¿’€ÿ”ÿﬁ◊›ﬁ’/∏·‚ﬁ‡ÿÁ’·⁄ÿŸ ‰ÿ€Ï‹/¥‡–‹–"
++msgstr "–°–µ—Ä—å–µ–∑–Ω–æ—Å—Ç—å/–ö–ª–∞—Å—Å–∏–∫–∞/–†–µ–ª–∏–≥–∏–æ–∑–Ω–æ–µ/–ò—Å—Ç–æ—Ä–∏—á–µ—Å–∫–∏–π —Ñ–∏–ª—å–º/–î—Ä–∞–º–∞"
+ 
+ msgid "Content$Adult Movie/Drama"
+-msgstr "ƒÿ€Ï‹ ‘€Ô “◊‡ﬁ·€ÎÂ/¥‡–‹–"
++msgstr "–§–∏–ª—å–º –¥–ª—è –≤–∑—Ä–æ—Å–ª—ã—Ö/–î—Ä–∞–º–∞"
+ 
+ msgid "Content$News/Current Affairs"
+-msgstr "Ωﬁ“ﬁ·‚ÿ/∞⁄‚„€Ï›Î’ ·ﬁ—Î‚ÿÔ"
++msgstr "–ù–æ–≤–æ—Å—Ç–∏/–ê–∫—Ç—É–ª—å–Ω—ã–µ —Å–æ–±—ã—Ç–∏—è"
+ 
+ msgid "Content$News/Weather Report"
+-msgstr "Ωﬁ“ﬁ·‚ÿ/øﬁ”ﬁ‘–"
++msgstr "–ù–æ–≤–æ—Å—Ç–∏/–ü–æ–≥–æ–¥–∞"
+ 
+ msgid "Content$News Magazine"
+-msgstr "Ωﬁ“ﬁ·‚›ﬁŸ ÷„‡›–€"
++msgstr "–ù–æ–≤–æ—Å—Ç–Ω–æ–π –∂—É—Ä–Ω–∞–ª"
+ 
+ msgid "Content$Documentary"
+-msgstr "¥ﬁ⁄„‹’›‚–ÊÿÔ"
++msgstr "–î–æ–∫—É–º–µ–Ω—Ç–∞–ª—å–Ω—ã–µ"
+ 
+ msgid "Content$Discussion/Inverview/Debate"
+-msgstr "¥ÿ·⁄„··ÿÔ/∏›‚’‡“ÏÓ/¥’—–‚Î"
++msgstr "–î–∏—Å–∫—É—Å—Å–∏—è/–ò–Ω—Ç–µ—Ä–≤—å—é/–î–µ–±–∞—Ç—ã"
+ 
+ msgid "Content$Show/Game Show"
+-msgstr "»ﬁ„/∏”‡ﬁ“ﬁ’ Ëﬁ„"
++msgstr "–®–æ—É/–ò–≥—Ä–æ–≤–æ–µ —à–æ—É"
+ 
+ msgid "Content$Game Show/Quiz/Contest"
+-msgstr "∏”‡ﬁ“ﬁ’ Ëﬁ„/≤ÿ⁄‚ﬁ‡ÿ›–/¡ﬁ‡’“›ﬁ“–›ÿ’"
++msgstr "–ò–≥—Ä–æ–≤–æ–µ —à–æ—É/–í–∏–∫—Ç–æ—Ä–∏–Ω–∞/–°–æ—Ä–µ–≤–Ω–æ–≤–∞–Ω–∏–µ"
+ 
+ msgid "Content$Variety Show"
+-msgstr "≤–‡Ï’‚‚’"
++msgstr "–í–∞—Ä—å–µ—Ç—Ç–µ"
+ 
+ msgid "Content$Talk Show"
+-msgstr "¬ﬁ⁄Ëﬁ„"
++msgstr "–¢–æ–∫—à–æ—É"
+ 
+ msgid "Content$Sports"
+-msgstr "¡ﬂﬁ‡‚"
++msgstr "–°–ø–æ—Ä—Ç"
+ 
+ msgid "Content$Special Event"
+-msgstr "æ·ﬁ—’››ﬁ’ ·ﬁ—Î‚ÿ’"
++msgstr "–û—Å–æ–±–µ–Ω–Ω–æ–µ —Å–æ–±—ã—Ç–∏–µ"
+ 
+ msgid "Content$Sport Magazine"
+-msgstr "¡ﬂﬁ‡‚ ÷„‡›–€"
++msgstr "–°–ø–æ—Ä—Ç –∂—É—Ä–Ω–∞–ª"
+ 
+ msgid "Content$Football/Soccer"
+-msgstr "ƒ„‚—ﬁ€"
++msgstr "–§—É—Ç–±–æ–ª"
+ 
+ msgid "Content$Tennis/Squash"
+-msgstr "¬’››ÿ·/¡⁄“ﬁË"
++msgstr "–¢–µ–Ω–Ω–∏—Å/–°–∫–≤–æ—à"
+ 
+ msgid "Content$Team Sports"
+-msgstr "∫ﬁ‹‹–›‘›Î’ “ÿ‘Î ·ﬂﬁ‡‚–"
++msgstr "–ö–æ–º–º–∞–Ω–¥–Ω—ã–µ –≤–∏–¥—ã —Å–ø–æ—Ä—Ç–∞"
+ 
+ msgid "Content$Athletics"
+-msgstr "∞‚€’‚ÿ⁄–"
++msgstr "–ê—Ç–ª–µ—Ç–∏–∫–∞"
+ 
+ msgid "Content$Motor Sport"
+-msgstr "ºﬁ‚ﬁ‡·ﬂﬁ‡‚"
++msgstr "–ú–æ—Ç–æ—Ä—Å–ø–æ—Ä—Ç"
+ 
+ msgid "Content$Water Sport"
+-msgstr "≤ﬁ‘›ÎŸ “ÿ‘Î ·ﬂﬁ‡‚–"
++msgstr "–í–æ–¥–Ω—ã–π –≤–∏–¥—ã —Å–ø–æ—Ä—Ç–∞"
+ 
+ msgid "Content$Winter Sports"
+-msgstr "∑ÿ‹›ÿ’ “ÿ‘Î ·ﬂﬁ‡‚–"
++msgstr "–ó–∏–º–Ω–∏–µ –≤–∏–¥—ã —Å–ø–æ—Ä—Ç–∞"
+ 
+ msgid "Content$Equestrian"
+-msgstr "∫ﬁ››ÎŸ ·ﬂﬁ‡‚"
++msgstr "–ö–æ–Ω–Ω—ã–π —Å–ø–æ—Ä—Ç"
+ 
+ msgid "Content$Martial Sports"
+-msgstr "±ﬁ’“Î’ ÿ·⁄„··‚“–"
++msgstr "–ë–æ–µ–≤—ã–µ –∏—Å–∫—É—Å—Å—Ç–≤–∞"
+ 
+ msgid "Content$Children's/Youth Programme"
+-msgstr "¥’‚·⁄–Ô/Œ›’Ë’·⁄–Ô ﬂ‡ﬁ”‡–‹‹–"
++msgstr "–î–µ—Ç—Å–∫–∞—è/–Æ–Ω–µ—à–µ—Å–∫–∞—è –ø—Ä–æ–≥—Ä–∞–º–º–∞"
+ 
+ msgid "Content$Pre-school Children's Programme"
+-msgstr "ø‡ﬁ”‡–‹‹– ‘€Ô ‘ﬁË⁄ﬁ€Ï›ÿ⁄ﬁ“"
++msgstr "–ü—Ä–æ–≥—Ä–∞–º–º–∞ –¥–ª—è –¥–æ—à–∫–æ–ª—å–Ω–∏–∫–æ–≤"
+ 
+ msgid "Content$Entertainment Programme for 6 to 14"
+-msgstr "¿–◊“€’⁄–‚’€Ï›–Ô ﬂ‡ﬁ”‡–‹‹– ﬁ‚ 6 ‘ﬁ 14"
++msgstr "–†–∞–∑–≤–ª–µ–∫–∞—Ç–µ–ª—å–Ω–∞—è –ø—Ä–æ–≥—Ä–∞–º–º–∞ –æ—Ç 6 –¥–æ 14"
+ 
+ msgid "Content$Entertainment Programme for 10 to 16"
+-msgstr "¿–◊“€’⁄–‚’€Ï›–Ô ﬂ‡ﬁ”‡–‹‹– ﬁ‚ 10 ‘ﬁ 16"
++msgstr "–†–∞–∑–≤–ª–µ–∫–∞—Ç–µ–ª—å–Ω–∞—è –ø—Ä–æ–≥—Ä–∞–º–º–∞ –æ—Ç 10 –¥–æ 16"
+ 
+ msgid "Content$Informational/Educational/School Programme"
+-msgstr "∏›‰ﬁ‡‹–Êÿﬁ››–Ô/æ—‡–◊ﬁ“–‚’€Ï›–Ô/»⁄ﬁ€Ï›–Ô ﬂ‡ﬁ”‡–‹‹–"
++msgstr "–ò–Ω—Ñ–æ—Ä–º–∞—Ü–∏–æ–Ω–Ω–∞—è/–û–±—Ä–∞–∑–æ–≤–∞—Ç–µ–ª—å–Ω–∞—è/–®–∫–æ–ª—å–Ω–∞—è –ø—Ä–æ–≥—Ä–∞–º–º–∞"
+ 
+ msgid "Content$Cartoons/Puppets"
+-msgstr "º„€‚ÿﬂ€ÿ⁄–ÊÿÔ/∫„⁄€Î"
++msgstr "–ú—É–ª—Ç–∏–ø–ª–∏–∫–∞—Ü–∏—è/–ö—É–∫–ª—ã"
+ 
+ msgid "Content$Music/Ballet/Dance"
+-msgstr "º„◊Î⁄–/±–€’‚/¬–›’Ê"
++msgstr "–ú—É–∑—ã–∫–∞/–ë–∞–ª–µ—Ç/–¢–∞–Ω–µ—Ü"
+ 
+ msgid "Content$Rock/Pop"
+-msgstr "¿ﬁ⁄/øﬁﬂ"
++msgstr "–†–æ–∫/–ü–æ–ø"
+ 
+ msgid "Content$Serious/Classical Music"
+-msgstr "∫€–··ÿÁ’·⁄–Ô ‹„◊Î⁄–"
++msgstr "–ö–ª–∞—Å—Å–∏—á–µ—Å–∫–∞—è –º—É–∑—ã–∫–∞"
+ 
+ msgid "Content$Folk/Tradional Music"
+-msgstr "ƒﬁ€Ï⁄€ﬁ‡/¬‡–‘ÿÊÿﬁ››–Ô ‹„◊Î⁄–"
++msgstr "–§–æ–ª—å–∫–ª–æ—Ä/–¢—Ä–∞–¥–∏—Ü–∏–æ–Ω–Ω–∞—è –º—É–∑—ã–∫–∞"
+ 
+ msgid "Content$Jazz"
+-msgstr "¥÷–◊"
++msgstr "–î–∂–∞–∑"
+ 
+ msgid "Content$Musical/Opera"
+-msgstr "ºÓ◊ÿ⁄€/æﬂ’‡–"
++msgstr "–ú—é–∑–∏–∫–ª/–û–ø–µ—Ä–∞"
+ 
+ msgid "Content$Ballet"
+-msgstr "±–€’‚"
++msgstr "–ë–∞–ª–µ—Ç"
+ 
+ msgid "Content$Arts/Culture"
+-msgstr "∏·⁄„··‚“ﬁ/∫„€Ï‚„‡–"
++msgstr "–ò—Å–∫—É—Å—Å—Ç–≤–æ/–ö—É–ª—å—Ç—É—Ä–∞"
+ 
+ msgid "Content$Performing Arts"
+-msgstr "ø’‡‰ﬁ‡‹Ì›·–‡‚"
++msgstr "–ü–µ—Ä—Ñ–æ—Ä–º—ç–Ω—Å–∞—Ä—Ç"
+ 
+ msgid "Content$Fine Arts"
+-msgstr "∏◊ÔÈ›ﬁ’ ÿ·⁄„··‚“ﬁ"
++msgstr "–ò–∑—è—â–Ω–æ–µ –∏—Å–∫—É—Å—Å—Ç–≤–æ"
+ 
+ msgid "Content$Religion"
+-msgstr "¿’€ÿ”ÿÔ"
++msgstr "–†–µ–ª–∏–≥–∏—è"
+ 
+ msgid "Content$Popular Culture/Traditional Arts"
+-msgstr "øﬁﬂ⁄„€Ï‚„‡–/¬‡–‘ÿÊÿﬁ››–Ô ⁄„€Ï‚„‡–"
++msgstr "–ü–æ–ø–∫—É–ª—å—Ç—É—Ä–∞/–¢—Ä–∞–¥–∏—Ü–∏–æ–Ω–Ω–∞—è –∫—É–ª—å—Ç—É—Ä–∞"
+ 
+ msgid "Content$Literature"
+-msgstr "ªÿ‚’‡–‚„‡–"
++msgstr "–õ–∏—Ç–µ—Ä–∞—Ç—É—Ä–∞"
+ 
+ msgid "Content$Film/Cinema"
+-msgstr "ƒÿ€Ï‹/∫ÿ›Ÿﬁ"
++msgstr "–§–∏–ª—å–º/–ö–∏–Ω–æ"
+ 
+ msgid "Content$Experimental Film/Video"
+-msgstr "Õ⁄·ﬂ’‡ÿ‹’›‚–€Ï›ÎŸ ‰ÿ€Ï‹/≤ÿ‘’ﬁ"
++msgstr "–≠–∫—Å–ø–µ—Ä–∏–º–µ–Ω—Ç–∞–ª—å–Ω—ã–π —Ñ–∏–ª—å–º/–í–∏–¥–µ–æ"
+ 
+ msgid "Content$Broadcasting/Press"
+-msgstr "»ÿ‡ﬁ⁄ﬁ’ “’È–›ÿ’/ø’Á–‚Ï"
++msgstr "–®–∏—Ä–æ–∫–æ–µ –≤–µ—â–∞–Ω–∏–µ/–ü–µ—á–∞—Ç—å"
+ 
+ msgid "Content$New Media"
+-msgstr "Ωﬁ“Î’ ·‡’‘·‚“–"
++msgstr "–ù–æ–≤—ã–µ —Å—Ä–µ–¥—Å—Ç–≤–∞"
+ 
+ msgid "Content$Arts/Culture Magazine"
+-msgstr "∏·⁄„··‚“ﬁ/∫„€Ï‚„‡›ÎŸ ÷„‡›–€"
++msgstr "–ò—Å–∫—É—Å—Å—Ç–≤–æ/–ö—É–ª—å—Ç—É—Ä–Ω—ã–π –∂—É—Ä–Ω–∞–ª"
+ 
+ msgid "Content$Fashion"
+-msgstr "ºﬁ‘–"
++msgstr "–ú–æ–¥–∞"
+ 
+ msgid "Content$Social/Political/Economics"
+-msgstr "¡ﬁÊÿ–€Ï›ﬁ’/øﬁ€ÿ‚ÿÁ’·⁄ﬁ’/Õ⁄ﬁ›ﬁ‹ÿÁ’·⁄ﬁ’"
++msgstr "–°–æ—Ü–∏–∞–ª—å–Ω–æ–µ/–ü–æ–ª–∏—Ç–∏—á–µ—Å–∫–æ–µ/–≠–∫–æ–Ω–æ–º–∏—á–µ—Å–∫–æ–µ"
+ 
+ msgid "Content$Magazine/Report/Documentary"
+-msgstr "∂„‡›–€/Õ⁄ﬁ›ﬁ‹ÿ⁄–/¥ﬁ⁄„‹’›‚–ÊÿÔ"
++msgstr "–ñ—É—Ä–Ω–∞–ª/–≠–∫–æ–Ω–æ–º–∏–∫–∞/–î–æ–∫—É–º–µ–Ω—Ç–∞–ª—å–Ω—ã–µ"
+ 
+ msgid "Content$Economics/Social Advisory"
+-msgstr "Õ⁄ﬁ›ﬁ‹ÿ⁄–/æ—È’·‚“’››ﬁ·‚Ï"
++msgstr "–≠–∫–æ–Ω–æ–º–∏–∫–∞/–û–±—â–µ—Å—Ç–≤–µ–Ω–Ω–æ—Å—Ç—å"
+ 
+ msgid "Content$Remarkable People"
+-msgstr "∑›–‹’›ÿ‚Î’ €Ó‘ÿ"
++msgstr "–ó–Ω–∞–º–µ–Ω–∏—Ç—ã–µ –ª—é–¥–∏"
+ 
+ msgid "Content$Education/Science/Factual"
+-msgstr "æ—‡–◊ﬁ“–›ÿ’/Ω–„⁄–/ƒ–⁄‚Î"
++msgstr "–û–±—Ä–∞–∑–æ–≤–∞–Ω–∏–µ/–ù–∞—É–∫–∞/–§–∞–∫—Ç—ã"
+ 
+ msgid "Content$Nature/Animals/Environment"
+-msgstr "ø‡ÿ‡ﬁ‘–/∂ÿ“ﬁ‚›Î’/æ⁄‡„÷’›ÿ’"
++msgstr "–ü—Ä–∏—Ä–æ–¥–∞/–ñ–∏–≤–æ—Ç–Ω—ã–µ/–û–∫—Ä—É–∂–µ–Ω–∏–µ"
+ 
+ msgid "Content$Technology/Natural Sciences"
+-msgstr "¬’Â›ﬁ€ﬁ”ÿÿ/µ·‚’·‚“’››Î’ ›–„⁄ÿ"
++msgstr "–¢–µ—Ö–Ω–æ–ª–æ–≥–∏–∏/–ï—Å—Ç–µ—Å—Ç–≤–µ–Ω–Ω—ã–µ –Ω–∞—É–∫–∏"
+ 
+ msgid "Content$Medicine/Physiology/Psychology"
+-msgstr "º’‘ÿÊÿ›–/ƒÿ◊ÿﬁ€ﬁ”ÿÔ/ø·ÿÂﬁ€ﬁ”ÿÔ"
++msgstr "–ú–µ–¥–∏—Ü–∏–Ω–∞/–§–∏–∑–∏–æ–ª–æ–≥–∏—è/–ü—Å–∏—Ö–æ–ª–æ–≥–∏—è"
+ 
+ msgid "Content$Foreign Countries/Expeditions"
+-msgstr "¡‚‡–›Î/Õ⁄·ﬂ’‘ÿÊÿÿ"
++msgstr "–°—Ç—Ä–∞–Ω—ã/–≠–∫—Å–ø–µ–¥–∏—Ü–∏–∏"
+ 
+ msgid "Content$Social/Spiritual Sciences"
+-msgstr "¡ﬁÊÿ–€Ï›ﬁ’/¡ﬂÿ‡ÿ‚„–€Ï›Î’ ›–„⁄ÿ"
++msgstr "–°–æ—Ü–∏–∞–ª—å–Ω–æ–µ/–°–ø–∏—Ä–∏—Ç—É–∞–ª—å–Ω—ã–µ –Ω–∞—É–∫–∏"
+ 
+ msgid "Content$Further Education"
+-msgstr "øﬁ“ÎË’›ÿ’ ⁄“–€ÿ‰ÿ⁄–Êÿÿ"
++msgstr "–ü–æ–≤—ã—à–µ–Ω–∏–µ –∫–≤–∞–ª–∏—Ñ–∏–∫–∞—Ü–∏–∏"
+ 
+ msgid "Content$Languages"
+-msgstr "œ◊Î⁄ÿ"
++msgstr "–Ø–∑—ã–∫–∏"
+ 
+ msgid "Content$Leisure/Hobbies"
+-msgstr "¡“ﬁ—ﬁ‘›ﬁ’ “‡’‹Ô/≈ﬁ——ÿ"
++msgstr "–°–≤–æ–±–æ–¥–Ω–æ–µ –≤—Ä–µ–º—è/–•–æ–±–±–∏"
+ 
+ msgid "Content$Tourism/Travel"
+-msgstr "¬„‡ÿ◊‹/ø„‚’Ë’·‚“ÿÔ"
++msgstr "–¢—É—Ä–∏–∑–º/–ü—É—Ç–µ—à–µ—Å—Ç–≤–∏—è"
+ 
+ msgid "Content$Handicraft"
+-msgstr "¿’‹’·€ﬁ"
++msgstr "–†–µ–º–µ—Å–ª–æ"
+ 
+ msgid "Content$Motoring"
+-msgstr "ºﬁ‚ﬁ‡"
++msgstr "–ú–æ—Ç–æ—Ä"
+ 
+ msgid "Content$Fitness & Health"
+-msgstr "ƒÿ‚›’· ÿ ◊‘ﬁ‡ﬁ“Ï’"
++msgstr "–§–∏—Ç–Ω–µ—Å –∏ –∑–¥–æ—Ä–æ–≤—å–µ"
+ 
+ msgid "Content$Cooking"
+-msgstr "∫„€ÿ›–‡ÿÔ"
++msgstr "–ö—É–ª–∏–Ω–∞—Ä–∏—è"
+ 
+ msgid "Content$Advertisement/Shopping"
+-msgstr "¿’⁄€–‹–/øﬁ⁄„ﬂ⁄ÿ"
++msgstr "–†–µ–∫–ª–∞–º–∞/–ü–æ–∫—É–ø–∫–∏"
+ 
+ msgid "Content$Gardening"
+-msgstr "¡–‘ﬁ“ﬁ‘·‚“ﬁ"
++msgstr "–°–∞–¥–æ–≤–æ–¥—Å—Ç–≤–æ"
+ 
+ msgid "Content$Original Language"
+-msgstr "æ‡ÿ”ÿ›–€Ï›ÎŸ Ô◊Î⁄"
++msgstr "–û—Ä–∏–≥–∏–Ω–∞–ª—å–Ω—ã–π —è–∑—ã–∫"
+ 
+ msgid "Content$Black & White"
+-msgstr "«’‡›ﬁ—’€ﬁ’"
++msgstr "–ß–µ—Ä–Ω–æ–±–µ–ª–æ–µ"
+ 
+ msgid "Content$Unpublished"
+-msgstr "Ω’ﬁﬂ„—€ÿ⁄ﬁ“–››ﬁ’"
++msgstr "–ù–µ–æ–ø—É–±–ª–∏–∫–æ–≤–∞–Ω–Ω–æ–µ"
+ 
+ msgid "Content$Live Broadcast"
+-msgstr "ø‡Ô‹ﬁ’ “’È–›ÿ’"
++msgstr "–ü—Ä—è–º–æ–µ –≤–µ—â–∞–Ω–∏–µ"
+ 
+ #, c-format
+ msgid "ParentalRating$from %d"
+-msgstr "ﬁ‚ %d"
++msgstr "–æ—Ç %d"
+ 
+ msgid "No title"
+-msgstr "±’◊ ›–◊“–›ÿÔ"
++msgstr "–ë–µ–∑ –Ω–∞–∑–≤–∞–Ω–∏—è"
+ 
+ #. TRANSLATORS: The name of the language, as written natively
+ msgid "LanguageName$English"
+-msgstr "¿„··⁄ÿŸ"
++msgstr "–†—É—Å—Å–∫–∏–π"
+ 
+ #. TRANSLATORS: The 3-letter code of the language
+ msgid "LanguageCode$eng"
+ msgstr "rus"
+ 
+ msgid "Phase 1: Detecting RC code type"
+-msgstr "»–” 1: æﬂ‡’‘’€’›ÿ’ ‚ÿﬂ– ⁄ﬁ‘– ﬂ„€Ï‚–"
++msgstr "–®–∞–≥ 1: –û–ø—Ä–µ–¥–µ–ª–µ–Ω–∏–µ —Ç–∏–ø–∞ –∫–æ–¥–∞ –ø—É–ª—å—Ç–∞"
+ 
+ msgid "Press any key on the RC unit"
+-msgstr "Ω–÷‹ÿ‚’ €Ó—„Ó ⁄›ﬁﬂ⁄„ ›– ﬂ„€Ï‚’"
++msgstr "–ù–∞–∂–º–∏—Ç–µ –ª—é–±—É—é –∫–Ω–æ–ø–∫—É –Ω–∞ –ø—É–ª—å—Ç–µ"
+ 
+ msgid "RC code detected!"
+-msgstr "æ—›–‡„÷’› ⁄ﬁ‘ ﬂ„€Ï‚–!"
++msgstr "–û–±–Ω–∞—Ä—É–∂–µ–Ω –∫–æ–¥ –ø—É–ª—å—Ç–∞!"
+ 
+ msgid "Do not press any key..."
+-msgstr "Ω’ ›–÷ÿ‹–Ÿ‚’ ⁄›ﬁﬂ⁄ÿ..."
++msgstr "–ù–µ –Ω–∞–∂–∏–º–∞–π—Ç–µ –∫–Ω–æ–ø–∫–∏..."
+ 
+ msgid "Phase 2: Learning specific key codes"
+-msgstr "»–” 2: ∑–‘–›ÿ’ ⁄ﬁ‘ﬁ“ ﬁ‚‘’€Ï›ÎÂ ⁄›ﬁﬂﬁ⁄"
++msgstr "–®–∞–≥ 2: –ó–∞–¥–∞–Ω–∏–µ –∫–æ–¥–æ–≤ –æ—Ç–¥–µ–ª—å–Ω—ã—Ö –∫–Ω–æ–ø–æ–∫"
+ 
+ #, c-format
+ msgid "Press key for '%s'"
+-msgstr "Ω–÷‹ÿ‚’ ⁄›ﬁﬂ⁄„ '%s'"
++msgstr "–ù–∞–∂–º–∏—Ç–µ –∫–Ω–æ–ø–∫—É '%s'"
+ 
+ msgid "Press 'Up' to confirm"
+-msgstr "Ω–÷‹ÿ‚’ '≤“’‡Â' Á‚ﬁ—Î ﬂﬁ‘‚“’‡‘ÿ‚Ï"
++msgstr "–ù–∞–∂–º–∏—Ç–µ '–í–≤–µ—Ä—Ö' —á—Ç–æ–±—ã –ø–æ–¥—Ç–≤–µ—Ä–¥–∏—Ç—å"
+ 
+ msgid "Press 'Down' to continue"
+-msgstr "Ω–÷‹ÿ‚’ '≤›ÿ◊' Á‚ﬁ—Î ﬂ‡ﬁ‘ﬁ€÷ÿ‚Ï"
++msgstr "–ù–∞–∂–º–∏—Ç–µ '–í–Ω–∏–∑' —á—Ç–æ–±—ã –ø—Ä–æ–¥–æ–ª–∂–∏—Ç—å"
+ 
+ msgid "(press 'Up' to go back)"
+-msgstr "(Ω–÷‹ÿ‚’ '≤“’‡Â' Á‚ﬁ—Î “’‡›„‚Ï·Ô)"
++msgstr "(–ù–∞–∂–º–∏—Ç–µ '–í–≤–µ—Ä—Ö' —á—Ç–æ–±—ã –≤–µ—Ä–Ω—É—Ç—å—Å—è)"
+ 
+ msgid "(press 'Down' to end key definition)"
+-msgstr "(Ω–÷‹ÿ‚’ '≤›ÿ◊' Á‚ﬁ—Î ◊–⁄ﬁ›Áÿ‚Ï ›–·‚‡ﬁŸ⁄„ ﬂ„€Ï‚–)"
++msgstr "(–ù–∞–∂–º–∏—Ç–µ '–í–Ω–∏–∑' —á—Ç–æ–±—ã –∑–∞–∫–æ–Ω—á–∏—Ç—å –Ω–∞—Å—Ç—Ä–æ–π–∫—É –ø—É–ª—å—Ç–∞)"
+ 
+ msgid "(press 'Menu' to skip this key)"
+-msgstr "(Ω–÷‹ÿ‚’ 'º’›Ó' Á‚ﬁ—Î ﬂ‡ﬁﬂ„·‚ÿ‚Ï ⁄›ﬁﬂ⁄„)"
++msgstr "(–ù–∞–∂–º–∏—Ç–µ '–ú–µ–Ω—é' —á—Ç–æ–±—ã –ø—Ä–æ–ø—É—Å—Ç–∏—Ç—å –∫–Ω–æ–ø–∫—É)"
+ 
+ msgid "Learning Remote Control Keys"
+-msgstr "æ—„Á’›ÿ’ ﬂ„€Ï‚–"
++msgstr "–û–±—É—á–µ–Ω–∏–µ –ø—É–ª—å—Ç–∞"
+ 
+ msgid "Phase 3: Saving key codes"
+-msgstr "»–” 3: ∑–ﬂﬁ‹ÿ›–›ÿ’ ⁄ﬁ‘ﬁ“ ⁄›ﬁﬂﬁ⁄"
++msgstr "–®–∞–≥ 3: –ó–∞–ø–æ–º–∏–Ω–∞–Ω–∏–µ –∫–æ–¥–æ–≤ –∫–Ω–æ–ø–æ–∫"
+ 
+ msgid "Press 'Up' to save, 'Down' to cancel"
+-msgstr "Ω–÷‹ÿ‚’ '≤“’‡Â' Á‚ﬁ—Î ◊–ﬂﬁ‹›ÿ‚Ï, '≤›ÿ◊' Á‚ﬁ—Î ﬁ‚⁄–◊–‚Ï·Ô"
++msgstr "–ù–∞–∂–º–∏—Ç–µ '–í–≤–µ—Ä—Ö' —á—Ç–æ–±—ã –∑–∞–ø–æ–º–Ω–∏—Ç—å, '–í–Ω–∏–∑' —á—Ç–æ–±—ã –æ—Ç–∫–∞–∑–∞—Ç—å—Å—è"
+ 
+ msgid "Key$Up"
+-msgstr "≤“’‡Â"
++msgstr "–í–≤–µ—Ä—Ö"
+ 
+ msgid "Key$Down"
+-msgstr "≤›ÿ◊"
++msgstr "–í–Ω–∏–∑"
+ 
+ msgid "Key$Menu"
+-msgstr "º’›Ó"
++msgstr "–ú–µ–Ω—é"
+ 
+ msgid "Key$Ok"
+-msgstr "Ok"
++msgstr "–û–∫"
+ 
+ msgid "Key$Back"
+-msgstr "Ω–◊–‘"
++msgstr "–ù–∞–∑–∞–¥"
+ 
+ msgid "Key$Left"
+-msgstr "Ω–€’“ﬁ"
++msgstr "–ù–∞–ª–µ–≤–æ"
+ 
+ msgid "Key$Right"
+-msgstr "Ω–ﬂ‡–“ﬁ"
++msgstr "–ù–∞–ø—Ä–∞–≤–æ"
+ 
+ msgid "Key$Red"
+-msgstr "∫‡–·›ÎŸ"
++msgstr "–ö—Ä–∞—Å–Ω—ã–π"
+ 
+ msgid "Key$Green"
+-msgstr "∑’€Ò›ÎŸ"
++msgstr "–ó–µ–ª—ë–Ω—ã–π"
+ 
+ msgid "Key$Yellow"
+-msgstr "∂Ò€‚ÎŸ"
++msgstr "–ñ—ë–ª—Ç—ã–π"
+ 
+ msgid "Key$Blue"
+-msgstr "¡ÿ›ÿŸ"
++msgstr "–°–∏–Ω–∏–π"
+ 
+ msgid "Key$Info"
+-msgstr "∏›‰ﬁ"
++msgstr "–ò–Ω—Ñ–æ"
+ 
+ msgid "Key$Play/Pause"
+-msgstr "≤ﬁ·ﬂ‡ﬁÿ◊“’‘’›ÿ’/ø–„◊–"
++msgstr "–í–æ—Å–ø—Ä–æ–∏–∑–≤–µ–¥–µ–Ω–∏–µ/–ü–∞—É–∑–∞"
+ 
+ msgid "Key$Play"
+-msgstr "≤ﬁ·ﬂ‡ﬁÿ◊“’‘’›ÿ’"
++msgstr "–í–æ—Å–ø—Ä–æ–∏–∑–≤–µ–¥–µ–Ω–∏–µ"
+ 
+ msgid "Key$Pause"
+-msgstr "ø–„◊–"
++msgstr "–ü–∞—É–∑–∞"
+ 
+ msgid "Key$Stop"
+-msgstr "¡‚ﬁﬂ"
++msgstr "–°—Ç–æ–ø"
+ 
+ msgid "Key$Record"
+-msgstr "∑–ﬂÿ·Ï"
++msgstr "–ó–∞–ø–∏—Å—å"
+ 
+ msgid "Key$FastFwd"
+-msgstr "ø‡ﬁ⁄‡„‚⁄– “ﬂ’‡Ò‘"
++msgstr "–ü—Ä–æ–∫—Ä—É—Ç–∫–∞ –≤–ø–µ—Ä—ë–¥"
+ 
+ msgid "Key$FastRew"
+-msgstr "ø‡ﬁ⁄‡„‚⁄– ›–◊–‘"
++msgstr "–ü—Ä–æ–∫—Ä—É—Ç–∫–∞ –Ω–∞–∑–∞–¥"
+ 
+ msgid "Key$Next"
+-msgstr "≤ﬂ’‡’‘"
++msgstr "–í–ø–µ—Ä–µ–¥"
+ 
+ msgid "Key$Prev"
+-msgstr "Ω–◊–‘"
++msgstr "–ù–∞–∑–∞–¥"
+ 
+ msgid "Key$Power"
+-msgstr "≤Î⁄€ÓÁÿ‚Ï"
++msgstr "–í—ã–∫–ª—é—á–∏—Ç—å"
+ 
+ msgid "Key$Channel+"
+-msgstr "∫–›–€ +"
++msgstr "–ö–∞–Ω–∞–ª +"
+ 
+ msgid "Key$Channel-"
+-msgstr "∫–›–€ -"
++msgstr "–ö–∞–Ω–∞–ª -"
+ 
+ msgid "Key$PrevChannel"
+-msgstr "ø‡’‘Î‘„ÈÿŸ ⁄–›–€"
++msgstr "–ü—Ä–µ–¥—ã–¥—É—â–∏–π –∫–∞–Ω–∞–ª"
+ 
+ msgid "Key$Volume+"
+-msgstr "≥‡ﬁ‹⁄ﬁ·‚Ï +"
++msgstr "–ì—Ä–æ–º–∫–æ—Å—Ç—å +"
+ 
+ msgid "Key$Volume-"
+-msgstr "≥‡ﬁ‹⁄ﬁ·‚Ï -"
++msgstr "–ì—Ä–æ–º–∫–æ—Å—Ç—å -"
+ 
+ msgid "Key$Mute"
+-msgstr "≤Î⁄€ÓÁÿ‚Ï ◊“„⁄"
++msgstr "–í—ã–∫–ª—é—á–∏—Ç—å –∑–≤—É–∫"
+ 
+ msgid "Key$Audio"
+-msgstr "œ◊Î⁄"
++msgstr "–Ø–∑—ã–∫"
+ 
+ msgid "Key$Subtitles"
+-msgstr "¡„—‚ÿ‚‡Î"
++msgstr "–°—É–±—Ç–∏—Ç—Ä—ã"
+ 
+ msgid "Key$Schedule"
+-msgstr "¬’€’”ÿ‘"
++msgstr "–¢–µ–ª–µ–≥–∏–¥"
+ 
+ msgid "Key$Channels"
+-msgstr "∫–›–€Î"
++msgstr "–ö–∞–Ω–∞–ª—ã"
+ 
+ msgid "Key$Timers"
+-msgstr "¬–Ÿ‹’‡Î"
++msgstr "–¢–∞–π–º–µ—Ä—ã"
+ 
+ msgid "Key$Recordings"
+-msgstr "∑–ﬂÿ·ÿ"
++msgstr "–ó–∞–ø–∏—Å–∏"
+ 
+ msgid "Key$Setup"
+-msgstr "Ω–·‚‡ﬁŸ⁄–"
++msgstr "–ù–∞—Å—Ç—Ä–æ–π–∫–∞"
+ 
+ msgid "Key$Commands"
+-msgstr "∫ﬁ‹–›‘Î"
++msgstr "–ö–æ–º–∞–Ω–¥—ã"
+ 
+ msgid "Key$User0"
+-msgstr "øﬁ€Ï◊ﬁ“–‚’€Ï0"
++msgstr "–ü–æ–ª—å–∑–æ–≤–∞—Ç–µ–ª—å0"
+ 
+ msgid "Key$User1"
+-msgstr "øﬁ€Ï◊ﬁ“–‚’€Ï1"
++msgstr "–ü–æ–ª—å–∑–æ–≤–∞—Ç–µ–ª—å1"
+ 
+ msgid "Key$User2"
+-msgstr "øﬁ€Ï◊ﬁ“–‚’€Ï2"
++msgstr "–ü–æ–ª—å–∑–æ–≤–∞—Ç–µ–ª—å2"
+ 
+ msgid "Key$User3"
+-msgstr "øﬁ€Ï◊ﬁ“–‚’€Ï3"
++msgstr "–ü–æ–ª—å–∑–æ–≤–∞—Ç–µ–ª—å3"
+ 
+ msgid "Key$User4"
+-msgstr "øﬁ€Ï◊ﬁ“–‚’€Ï4"
++msgstr "–ü–æ–ª—å–∑–æ–≤–∞—Ç–µ–ª—å4"
+ 
+ msgid "Key$User5"
+-msgstr "øﬁ€Ï◊ﬁ“–‚’€Ï5"
++msgstr "–ü–æ–ª—å–∑–æ–≤–∞—Ç–µ–ª—å5"
+ 
+ msgid "Key$User6"
+-msgstr "øﬁ€Ï◊ﬁ“–‚’€Ï6"
++msgstr "–ü–æ–ª—å–∑–æ–≤–∞—Ç–µ–ª—å6"
+ 
+ msgid "Key$User7"
+-msgstr "øﬁ€Ï◊ﬁ“–‚’€Ï7"
++msgstr "–ü–æ–ª—å–∑–æ–≤–∞—Ç–µ–ª—å7"
+ 
+ msgid "Key$User8"
+-msgstr "øﬁ€Ï◊ﬁ“–‚’€Ï8"
++msgstr "–ü–æ–ª—å–∑–æ–≤–∞—Ç–µ–ª—å8"
+ 
+ msgid "Key$User9"
+-msgstr "øﬁ€Ï◊ﬁ“–‚’€Ï9"
++msgstr "–ü–æ–ª—å–∑–æ–≤–∞—Ç–µ–ª—å9"
+ 
+ msgid "Free To Air"
+-msgstr "FTA (›’◊–⁄ﬁ‘ÿ‡ﬁ“–›ﬁ)"
++msgstr "FTA (–Ω–µ–∑–∞–∫–æ–¥–∏—Ä–æ–≤–∞–Ω–æ)"
+ 
+ msgid "encrypted"
+-msgstr "◊–⁄ﬁ‘ÿ‡ﬁ“–›ﬁ"
++msgstr "–∑–∞–∫–æ–¥–∏—Ä–æ–≤–∞–Ω–æ"
+ 
+ msgid "Edit channel"
+-msgstr "¿’‘–⁄‚ÿ‡ﬁ“–›ÿ’ ⁄–›–€–"
++msgstr "–†–µ–¥–∞–∫—Ç–∏—Ä–æ–≤–∞–Ω–∏–µ –∫–∞–Ω–∞–ª–∞"
+ 
+ msgid "Name"
+-msgstr "Ω–◊“–›ÿ’"
++msgstr "–ù–∞–∑–≤–∞–Ω–∏–µ"
+ 
+ msgid "Source"
+-msgstr "∏·‚ﬁÁ›ÿ⁄"
++msgstr "–ò—Å—Ç–æ—á–Ω–∏–∫"
+ 
+ msgid "Frequency"
+-msgstr "«–·‚ﬁ‚–"
++msgstr "–ß–∞—Å—Ç–æ—Ç–∞"
+ 
+ msgid "Vpid"
+-msgstr "Vpid (“ÿ‘’ﬁ)"
++msgstr "Vpid (–≤–∏–¥–µ–æ)"
+ 
+ msgid "Ppid"
+ msgstr "Ppid"
+ 
+ msgid "Apid1"
+-msgstr "Apid1 (–„‘ÿﬁ 1)"
++msgstr "Apid1 (–∞—É–¥–∏–æ 1)"
+ 
+ msgid "Apid2"
+-msgstr "Apid2 (–„‘ÿﬁ 2)"
++msgstr "Apid2 (–∞—É–¥–∏–æ 2)"
+ 
+ msgid "Dpid1"
+ msgstr "Dpid1 (AC3 1)"
+@@ -562,754 +562,754 @@
+ msgstr "Dpid2 (AC3 2)"
+ 
+ msgid "Spid1"
+-msgstr "¡„—‚ÿ‚‡Î ø∏¥1"
++msgstr "–°—É–±—Ç–∏—Ç—Ä—ã –ü–ò–î1"
+ 
+ msgid "Spid2"
+-msgstr "¡„—‚ÿ‚‡Î ø∏¥2"
++msgstr "–°—É–±—Ç–∏—Ç—Ä—ã –ü–ò–î2"
+ 
+ msgid "Tpid"
+-msgstr "Tpid (‚’€’‚’⁄·‚)"
++msgstr "Tpid (—Ç–µ–ª–µ—Ç–µ–∫—Å—Ç)"
+ 
+ msgid "CA"
+-msgstr "CA (‘’⁄ﬁ‘’‡)"
++msgstr "CA (–º–æ–¥—É–ª—å –¥–æ—Å—Ç—É–ø–∞)"
+ 
+ msgid "Sid"
+ msgstr "Sid"
+ 
+ msgid "Nid"
+-msgstr ""
++msgstr "Nid"
+ 
+ msgid "Tid"
+-msgstr ""
++msgstr "Tid"
+ 
+ msgid "Channel settings are not unique!"
+-msgstr "Ω–·‚‡ﬁŸ⁄ÿ ⁄–›–€– ›’ „›ÿ⁄–€Ï›Î!"
++msgstr "–ù–∞—Å—Ç—Ä–æ–π–∫–∏ –∫–∞–Ω–∞–ª–∞ –Ω–µ —É–Ω–∏–∫–∞–ª—å–Ω—ã!"
+ 
+ msgid "Channels"
+-msgstr "∫–›–€Î"
++msgstr "–ö–∞–Ω–∞–ª—ã"
+ 
+ msgid "Button$Edit"
+-msgstr "¿’‘–⁄‚ÿ‡ﬁ“–‚Ï"
++msgstr "–†–µ–¥–∞–∫—Ç–∏—Ä–æ–≤–∞—Ç—å"
+ 
+ msgid "Button$New"
+-msgstr "¥ﬁ—–“ÿ‚Ï"
++msgstr "–î–æ–±–∞–≤–∏—Ç—å"
+ 
+ msgid "Button$Delete"
+-msgstr "√‘–€ÿ‚Ï"
++msgstr "–£–¥–∞–ª–∏—Ç—å"
+ 
+ msgid "Button$Mark"
+-msgstr "ø’‡’‹’·‚ÿ‚Ï"
++msgstr "–ü–µ—Ä–µ–º–µ—Å—Ç–∏—Ç—å"
+ 
+ msgid "Channel is being used by a timer!"
+-msgstr "∫–›–€ ◊–›Ô‚ ‚–Ÿ‹’‡ﬁ‹!"
++msgstr "–ö–∞–Ω–∞–ª –∑–∞–Ω—è—Ç —Ç–∞–π–º–µ—Ä–æ–º!"
+ 
+ msgid "Delete channel?"
+-msgstr "√‘–€ÿ‚Ï ⁄–›–€?"
++msgstr "–£–¥–∞–ª–∏—Ç—å –∫–∞–Ω–∞–ª?"
+ 
+ msgid "Edit folder"
+-msgstr "¿’‘–⁄ÊÿÔ ‘ÿ‡’⁄‚ﬁ‡ÿÿ"
++msgstr "–†–µ–¥–∞–∫—Ü–∏—è –¥–∏—Ä–µ–∫—Ç–æ—Ä–∏–∏"
+ 
+ msgid "New folder"
+-msgstr "Ωﬁ“–Ô ‘ÿ‡’⁄‚ﬁ‡ÿÔ"
++msgstr "–ù–æ–≤–∞—è –¥–∏—Ä–µ–∫—Ç–æ—Ä–∏—è"
+ 
+ msgid "Sub folder"
+-msgstr "ﬂﬁ‘‘ÿ‡’⁄‚ﬁ‡ÿÔ"
++msgstr "–ø–æ–¥–¥–∏—Ä–µ–∫—Ç–æ—Ä–∏—è"
+ 
+ msgid "Folder name already exists!"
+-msgstr "¥ÿ‡’⁄‚ﬁ‡ÿÔ „÷’ ·„È’·‚“„’‚!"
++msgstr "–î–∏—Ä–µ–∫—Ç–æ—Ä–∏—è —É–∂–µ —Å—É—â–µ—Å—Ç–≤—É–µ—Ç!"
+ 
+ #, c-format
+ msgid "Folder name must not contain '%c'!"
+-msgstr "∏‹Ô ‘ÿ‡’⁄‚ﬁ‡ÿÿ ›’ ‘ﬁ€÷›ﬁ ·ﬁ‘’‡÷–‚Ï '%c'!"
++msgstr "–ò–º—è –¥–∏—Ä–µ–∫—Ç–æ—Ä–∏–∏ –Ω–µ –¥–æ–ª–∂–Ω–æ —Å–æ–¥–µ—Ä–∂–∞—Ç—å '%c'!"
+ 
+ msgid "Button$Open"
+-msgstr "æ‚⁄‡Î‚Ï"
++msgstr "–û—Ç–∫—Ä—ã—Ç—å"
+ 
+ msgid "Delete folder and all sub folders?"
+-msgstr "√‘–€ÿ‚Ï ‘ÿ‡’⁄‚ﬁ‡ÿÓ ÿ “·’ ﬂﬁ‘‘ÿ‡’⁄‚ﬁ‡ÿÿ?"
++msgstr "–£–¥–∞–ª–∏—Ç—å –¥–∏—Ä–µ–∫—Ç–æ—Ä–∏—é –∏ –≤—Å–µ –ø–æ–¥–¥–∏—Ä–µ–∫—Ç–æ—Ä–∏–∏?"
+ 
+ msgid "Delete folder?"
+-msgstr "√‘–€ÿ‚Ï ‘ÿ‡’⁄‚ﬁ‡ÿÓ?"
++msgstr "–£–¥–∞–ª–∏—Ç—å –¥–∏—Ä–µ–∫—Ç–æ—Ä–∏—é?"
+ 
+ msgid "Edit timer"
+-msgstr "√·‚–›ﬁ“⁄– ‚–Ÿ‹’‡–"
++msgstr "–£—Å—Ç–∞–Ω–æ–≤–∫–∞ —Ç–∞–π–º–µ—Ä–∞"
+ 
+ msgid "Active"
+-msgstr "∞⁄‚ÿ“ÿ‡ﬁ“–›"
++msgstr "–ê–∫—Ç–∏–≤–∏—Ä–æ–≤–∞–Ω"
+ 
+ msgid "Channel"
+-msgstr "∫–›–€"
++msgstr "–ö–∞–Ω–∞–ª"
+ 
+ msgid "Day"
+-msgstr "¥’›Ï"
++msgstr "–î–µ–Ω—å"
+ 
+ msgid "Start"
+-msgstr "Ω–Á–€ﬁ"
++msgstr "–ù–∞—á–∞–ª–æ"
+ 
+ msgid "Stop"
+-msgstr "∫ﬁ›’Ê"
++msgstr "–ö–æ–Ω–µ—Ü"
+ 
+ msgid "VPS"
+-msgstr "VPS ﬂﬁﬂ‡–“⁄–"
++msgstr "VPS –ø–æ–ø—Ä–∞–≤–∫–∞"
+ 
+ msgid "Priority"
+-msgstr "ø‡ÿﬁ‡ÿ‚’‚"
++msgstr "–ü—Ä–∏–æ—Ä–∏—Ç–µ—Ç"
+ 
+ msgid "Lifetime"
+-msgstr "¡‡ﬁ⁄ Â‡–›’›ÿÔ"
++msgstr "–°—Ä–æ–∫ —Ö—Ä–∞–Ω–µ–Ω–∏—è"
+ 
+ msgid "File"
+-msgstr "ƒ–Ÿ€"
++msgstr "–§–∞–π–ª"
+ 
+ msgid "Record on"
+-msgstr ""
++msgstr "–ó–∞–ø–∏—Å—å –≤–∫–ª."
+ 
+ msgid "Button$Folder"
+-msgstr "¥ÿ‡’⁄‚ﬁ‡ÿÔ"
++msgstr "–î–∏—Ä–µ–∫—Ç–æ—Ä–∏—è"
+ 
+ msgid "Button$Single"
+-msgstr "æ‘ÿ› ‡–◊"
++msgstr "–û–¥–∏–Ω —Ä–∞–∑"
+ 
+ msgid "Button$Repeating"
+-msgstr "øﬁ“‚ﬁ‡"
++msgstr "–ü–æ–≤—Ç–æ—Ä"
+ 
+ msgid "First day"
+-msgstr "ø’‡“ÎŸ ‘’›Ï"
++msgstr "–ü–µ—Ä–≤—ã–π –¥–µ–Ω—å"
+ 
+ msgid "Error while accessing remote timer"
+-msgstr ""
++msgstr "–û—à–∏–±–∫–∞ –¥–æ—Å—Ç—É–ø–∞ –∫ —Ç–∞–π–º–µ—Ä—É"
+ 
+ msgid "Timer has been deleted!"
+-msgstr ""
++msgstr "–¢–∞–π–º–µ—Ä –±—ã–ª —É–¥–∞–ª—ë–Ω!"
+ 
+ msgid "Select folder"
+-msgstr "≤Î—ﬁ‡ ‘ÿ‡’⁄‚ﬁ‡ÿÿ"
++msgstr "–í—ã–±–æ—Ä –¥–∏—Ä–µ–∫—Ç–æ—Ä–∏–∏"
+ 
+ msgid "Timers"
+-msgstr "¬–Ÿ‹’‡Î"
++msgstr "–¢–∞–π–º–µ—Ä—ã"
+ 
+ msgid "Button$On/Off"
+-msgstr "≤⁄€/≤Î⁄€"
++msgstr "–í–∫–ª/–í—ã–∫–ª"
+ 
+ msgid "Button$Info"
+-msgstr "∏›‰ﬁ"
++msgstr "–ò–Ω—Ñ–æ"
+ 
+ msgid "Delete timer?"
+-msgstr "√‘–€ÿ‚Ï ‚–Ÿ‹’‡?"
++msgstr "–£–¥–∞–ª–∏—Ç—å —Ç–∞–π–º–µ—Ä?"
+ 
+ msgid "Timer still recording - really delete?"
+-msgstr "∏‘Ò‚ ◊–ﬂÿ·Ï ﬂﬁ ‚–Ÿ‹’‡„ - ‘’Ÿ·‚“ÿ‚’€Ï›ﬁ „‘–€ÿ‚Ï?"
++msgstr "–ò–¥—ë—Ç –∑–∞–ø–∏—Å—å –ø–æ —Ç–∞–π–º–µ—Ä—É - –¥–µ–π—Å—Ç–≤–∏—Ç–µ–ª—å–Ω–æ —É–¥–∞–ª–∏—Ç—å?"
+ 
+ msgid "Event"
+-msgstr "ø’‡’‘–Á–"
++msgstr "–ü–µ—Ä–µ–¥–∞—á–∞"
+ 
+ msgid "Button$Timer"
+-msgstr "¬–Ÿ‹’‡"
++msgstr "–¢–∞–π–º–µ—Ä"
+ 
+ msgid "Button$Record"
+-msgstr "∑–ﬂÿ·Ï"
++msgstr "–ó–∞–ø–∏—Å—å"
+ 
+ msgid "Button$Switch"
+-msgstr "ø’‡’⁄€ÓÁÿ‚Ï"
++msgstr "–ü–µ—Ä–µ–∫–ª—é—á–∏—Ç—å"
+ 
+ msgid "What's on now?"
+-msgstr "¡’ŸÁ–· “ Ì‰ÿ‡’:"
++msgstr "–°–µ–π—á–∞—Å –≤ —ç—Ñ–∏—Ä–µ:"
+ 
+ msgid "What's on next?"
+-msgstr "¥–€’’ “ ﬂ‡ﬁ”‡–‹‹’:"
++msgstr "–î–∞–ª–µ–µ –≤ –ø—Ä–æ–≥—Ä–∞–º–º–µ:"
+ 
+ msgid "Button$Next"
+-msgstr "¥–€’’"
++msgstr "–î–∞–ª–µ–µ"
+ 
+ msgid "Button$Now"
+-msgstr "¡’ŸÁ–·"
++msgstr "–°–µ–π—á–∞—Å"
+ 
+ msgid "Button$Schedule"
+-msgstr "ø‡ﬁ”‡–‹‹–"
++msgstr "–ü—Ä–æ–≥—Ä–∞–º–º–∞"
+ 
+ msgid "Can't switch channel!"
+-msgstr "Ω’“ﬁ◊‹ﬁ÷›ﬁ ﬂ’‡’⁄€ÓÁÿ‚Ï ⁄–›–€!"
++msgstr "–ù–µ–≤–æ–∑–º–æ–∂–Ω–æ –ø–µ—Ä–µ–∫–ª—é—á–∏—Ç—å –∫–∞–Ω–∞–ª!"
+ 
+ #, c-format
+ msgid "Schedule - %s"
+-msgstr "ø‡ﬁ”‡–‹‹– - %s"
++msgstr "–ü—Ä–æ–≥—Ä–∞–º–º–∞ - %s"
+ 
+ #, c-format
+ msgid "This event - %s"
+-msgstr "Õ‚– ﬂ’‡’‘–Á– - %s"
++msgstr "–≠—Ç–∞ –ø–µ—Ä–µ–¥–∞—á–∞ - %s"
+ 
+ msgid "This event - all channels"
+-msgstr "Õ‚– ﬂ’‡’‘–Á– - “·’ ⁄–›–€Î"
++msgstr "–≠—Ç–∞ –ø–µ—Ä–µ–¥–∞—á–∞ - –≤—Å–µ –∫–∞–Ω–∞–ª—ã"
+ 
+ msgid "All events - all channels"
+-msgstr "≤·’ ﬂ’‡’‘–Áÿ - “·’ ⁄–›–€Î"
++msgstr "–í—Å–µ –ø–µ—Ä–µ–¥–∞—á–∏ - –≤—Å–µ –∫–∞–Ω–∞–ª—ã"
+ 
+ #, c-format
+ msgid "Please enter %d digits!"
+-msgstr "Ω–÷‹ÿ‚’ %d Êÿ‰‡Î"
++msgstr "–ù–∞–∂–º–∏—Ç–µ %d —Ü–∏—Ñ—Ä—ã"
+ 
+ msgid "CAM not responding!"
+-msgstr "CAM ›’ ﬁ‚“’Á–’‚"
++msgstr "CAM –Ω–µ –æ—Ç–≤–µ—á–∞–µ—Ç"
+ 
+ msgid "Edit path"
+-msgstr ""
++msgstr "–ò–∑–º–µ–Ω–∏—Ç—å –ø—É—Ç—å"
+ 
+ msgid "Folder"
+-msgstr ""
++msgstr "–ü–∞–ø–∫–∞"
+ 
+ msgid "This folder is currently in use - no changes are possible!"
+-msgstr ""
++msgstr "–ü–∞–ø–∫–∞ –∏—Å–ø–æ–ª—å–∑—É–µ—Ç—Å—è - –Ω–µ –∏–∑–º–µ–Ω–µ–Ω–æ!"
+ 
+ #, c-format
+ msgid "Move entire folder containing %d recordings?"
+-msgstr ""
++msgstr "–ü–µ—Ä–µ–º–µ—Å—Ç–∏—Ç—å –ø–∞–ø–∫—É —Å %d –∑–∞–ø–∏—Å—è–º–∏?"
+ 
+ msgid "Error while moving folder!"
+-msgstr ""
++msgstr "–û—à–∏–±–∫–∞ –ø–µ—Ä–µ–º–µ—â–µ–Ω–∏—è –ø–∞–ø–∫–∏!"
+ 
+ msgid "Edit recording"
+-msgstr ""
++msgstr "–ò–∑–º–µ–Ω–∏—Ç—å –∑–∞–ø–∏—Å—å"
+ 
+ msgid "This recording is currently in use - no changes are possible!"
+-msgstr ""
++msgstr "–ó–∞–ø–∏—Å—å –∏—Å–ø–æ–ª—å–∑—É–µ—Ç—Å—è - –∏–∑–º–µ–Ω–µ–Ω–∏–µ –Ω–µ –≤–æ–∑–º–æ–∂–Ω–æ!"
+ 
+ msgid "Button$Cancel cutting"
+-msgstr ""
++msgstr "–û—Ç–º–µ–Ω–∞ –æ–±—Ä–µ–∑–∫–∏"
+ 
+ msgid "Button$Stop cutting"
+-msgstr ""
++msgstr "–û—Å—Ç–∞–Ω–æ–≤. –æ–±—Ä–µ–∑–∫—É"
+ 
+ msgid "Button$Cancel moving"
+-msgstr ""
++msgstr "–û—Ç–º–µ–Ω–∞ –ø–µ—Ä–µ–º–µ—â–µ–Ω–∏—è"
+ 
+ msgid "Button$Stop moving"
+-msgstr ""
++msgstr "–û—Å—Ç–∞–Ω–æ–≤. –ø–µ—Ä–µ–º–µ—â–µ–Ω–∏–µ"
+ 
+ msgid "Button$Cancel copying"
+-msgstr ""
++msgstr "–û—Ç–º–µ–Ω–∞ –∫–æ–ø–∏—Ä–æ–≤–∞–Ω–∏—è"
+ 
+ msgid "Button$Stop copying"
+-msgstr ""
++msgstr "–û—Å—Ç–∞–Ω–æ–≤. –∫–æ–ø–∏—Ä–æ–≤–∞–Ω–∏–µ"
+ 
+ msgid "Button$Cut"
+-msgstr ""
++msgstr "–û–±—Ä–µ–∑–∫–∞"
+ 
+ msgid "Button$Delete marks"
+-msgstr ""
++msgstr "–£–¥–∞–ª–∏—Ç—å –º–µ—Ç–∫–∏"
+ 
+ msgid "Recording vanished!"
+-msgstr ""
++msgstr "–ó–∞–ø–∏—Å—å –∏—Å—á–µ–∑–ª–∞!"
+ 
+ msgid "Edited version already exists - overwrite?"
+-msgstr ""
++msgstr "–ò–∑–º–µ–Ω—ë–Ω–Ω–∞—è –≤–µ—Ä—Å–∏—è —É–∂–µ –µ—Å—Ç—å - –ø–µ—Ä–µ–ø–∏—Å–∞—Ç—å?"
+ 
+ msgid "Error while queueing recording for cutting!"
+-msgstr ""
++msgstr "–û—à–∏–±–∫–∞ –æ—á–µ—Ä–µ–¥–∏ –∑–∞–ø–∏—Å–∏ –¥–ª—è –æ–±—Ä–µ–∑–∫–∏!"
+ 
+ msgid "Rename recording to folder name?"
+-msgstr ""
++msgstr "–ü–µ—Ä–µ–∏–º–µ–Ω–æ–≤–∞—Ç—å –∑–∞–ø–∏—Å—å –≤ –∏–º—è –ø–∞–ø–∫–∏?"
+ 
+ msgid "Delete editing marks for this recording?"
+-msgstr ""
++msgstr "–£–¥–∞–ª–∏—Ç—å –º–µ—Ç–∫–∏ –¥–ª—è —ç—Ç–æ–π –∑–∞–ø–∏—Å–∏?"
+ 
+ msgid "Error while deleting editing marks!"
+-msgstr ""
++msgstr "–û—à–∏–±–∫–∞ —É–¥–∞–ª–µ–Ω–∏—è –º–µ—Ç–æ–∫!"
+ 
+ msgid "Error while changing priority/lifetime!"
+-msgstr ""
++msgstr "–û—à–∏–±–∫–∞ –∏–∑–º–µ–Ω–µ–Ω–∏—è –ø—Ä–∏–æ—Ä–∏—Ç–µ—Ç–∞/–¥–ª–∏—Ç–µ–ª—å–Ω–æ—Å—Ç–∏"
+ 
+ msgid "Error while changing folder/name!"
+-msgstr ""
++msgstr "–û—à–∏–±–∫–∞ –∏–∑–º–µ–Ω–µ–Ω–∏—è –ø–∞–ø–∫–∏/–∏–º–µ–Ω–∏!"
+ 
+ msgid "Recording info"
+-msgstr "∏›‰ﬁ ﬁ ◊–ﬂÿ·ÿ"
++msgstr "–ò–Ω—Ñ–æ –æ –∑–∞–ø–∏—Å–∏"
+ 
+ msgid "Button$Play"
+-msgstr "≤ﬁ·ﬂ‡ﬁÿ◊“’·‚ÿ"
++msgstr "–í–æ—Å–ø—Ä–æ–∏–∑–≤–µ—Å—Ç–∏"
+ 
+ msgid "Button$Rewind"
+-msgstr "Ω–◊–‘"
++msgstr "–ù–∞–∑–∞–¥"
+ 
+ msgid "Recordings"
+-msgstr "∑–ﬂÿ·ÿ"
++msgstr "–ó–∞–ø–∏—Å–∏"
+ 
+ msgid "Commands"
+-msgstr "∫ﬁ‹–›‘Î"
++msgstr "–ö–æ–º–∞–Ω–¥—ã"
+ 
+ msgid "Delete recording?"
+-msgstr "¡‚’‡’‚Ï ◊–ﬂÿ·Ï?"
++msgstr "–°—Ç–µ—Ä–µ—Ç—å –∑–∞–ø–∏—Å—å?"
+ 
+ msgid "Recording is being edited - really delete?"
+-msgstr "∑–ﬂÿ·Ï ÿ◊‹’›’›– - ‘’Ÿ·‚“ÿ‚’€Ï›ﬁ „‘–€ÿ‚Ï?"
++msgstr "–ó–∞–ø–∏—Å—å –∏–∑–º–µ–Ω–µ–Ω–∞ - –¥–µ–π—Å—Ç–≤–∏—Ç–µ–ª—å–Ω–æ —É–¥–∞–ª–∏—Ç—å?"
+ 
+ msgid "Error while deleting recording!"
+-msgstr "æËÿ—⁄– „‘–€’›ÿÔ ◊–ﬂÿ·ÿ!"
++msgstr "–û—à–∏–±–∫–∞ —É–¥–∞–ª–µ–Ω–∏—è –∑–∞–ø–∏—Å–∏!"
+ 
+ msgid "Recording commands"
+-msgstr "∫ﬁ‹–›‘Î ◊–ﬂÿ·ÿ"
++msgstr "–ö–æ–º–∞–Ω–¥—ã –∑–∞–ø–∏—Å–∏"
+ 
+ msgid "never"
+-msgstr "›ÿ⁄ﬁ”‘–"
++msgstr "–Ω–∏–∫–æ–≥–¥–∞"
+ 
+ msgid "skin dependent"
+-msgstr "·ﬁ”€–·›ﬁ ·‚ÿ€Ô"
++msgstr "—Å–æ–≥–ª–∞—Å–Ω–æ —Å—Ç–∏–ª—è"
+ 
+ msgid "always"
+-msgstr "“·’”‘–"
++msgstr "–≤—Å–µ–≥–¥–∞"
+ 
+ msgid "by name"
+-msgstr ""
++msgstr "–ø–æ –∏–º–µ–Ω–∏"
+ 
+ msgid "by time"
+-msgstr ""
++msgstr "–ø–æ –≤—Ä–µ–º–µ–Ω–∏"
+ 
+ msgid "OSD"
+-msgstr "º’›Ó"
++msgstr "–ú–µ–Ω—é"
+ 
+ msgid "Setup.OSD$Language"
+-msgstr "œ◊Î⁄"
++msgstr "–Ø–∑—ã–∫"
+ 
+ msgid "Setup.OSD$Skin"
+-msgstr "¡‚ÿ€Ï"
++msgstr "–°—Ç–∏–ª—å"
+ 
+ msgid "Setup.OSD$Theme"
+-msgstr "¬’‹–"
++msgstr "–¢–µ–º–∞"
+ 
+ msgid "Setup.OSD$Left (%)"
+-msgstr "æ‚·‚„ﬂ ·€’“– (%)"
++msgstr "–û—Ç—Å—Ç—É–ø —Å–ª–µ–≤–∞ (%)"
+ 
+ msgid "Setup.OSD$Top (%)"
+-msgstr "æ‚·‚„ﬂ ·“’‡Â„ (%)"
++msgstr "–û—Ç—Å—Ç—É–ø —Å–≤–µ—Ä—Ö—É (%)"
+ 
+ msgid "Setup.OSD$Width (%)"
+-msgstr "»ÿ‡ÿ›– (%)"
++msgstr "–®–∏—Ä–∏–Ω–∞ (%)"
+ 
+ msgid "Setup.OSD$Height (%)"
+-msgstr "≤Î·ﬁ‚– (%)"
++msgstr "–í—ã—Å–æ—Ç–∞ (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+-msgstr "¥€ÿ‚’€Ï›ﬁ·‚Ï ﬂﬁ⁄–◊– ·ﬁﬁ—È’›ÿŸ (·’⁄)"
++msgstr "–î–ª–∏—Ç–µ–ª—å–Ω–æ—Å—Ç—å –ø–æ–∫–∞–∑–∞ —Å–æ–æ–±—â–µ–Ω–∏–π (—Å–µ–∫)"
+ 
+ msgid "Setup.OSD$Use small font"
+-msgstr "∏·ﬂﬁ€Ï◊ﬁ“–‚Ï ‹’€⁄ÿŸ Ë‡ÿ‰‚"
++msgstr "–ò—Å–ø–æ–ª—å–∑–æ–≤–∞—Ç—å –º–µ–ª–∫–∏–π —à—Ä–∏—Ñ—Ç"
+ 
+ msgid "Setup.OSD$Anti-alias"
+-msgstr "¡”€–÷ÿ“–›ÿ’ Ë‡ÿ‰‚ﬁ“"
++msgstr "–°–≥–ª–∞–∂–∏–≤–∞–Ω–∏–µ —à—Ä–∏—Ñ—Ç–æ–≤"
+ 
+ msgid "Setup.OSD$Default font"
+-msgstr "¡‚–›‘–‡‚›ÎŸ ‰ﬁ›‚"
++msgstr "–°—Ç–∞–Ω–¥–∞—Ä—Ç–Ω—ã–π —à—Ä–∏—Ñ—Ç"
+ 
+ msgid "Setup.OSD$Small font"
+-msgstr "º’€⁄ÿŸ ‰ﬁ›‚"
++msgstr "–ú–µ–ª–∫–∏–π —à—Ä–∏—Ñ—Ç"
+ 
+ msgid "Setup.OSD$Fixed font"
+-msgstr "ƒÿ⁄·ÿ‡ﬁ“–››ÎŸ ‰ﬁ›‚"
++msgstr "–§–∏–∫—Å–∏—Ä–æ–≤–∞–Ω–Ω—ã–π —à—Ä–∏—Ñ—Ç"
+ 
+ msgid "Setup.OSD$Default font size (%)"
+-msgstr "¿–◊‹’‡ ‰ﬁ›‚– ‘€Ô ‹’›Ó (%)"
++msgstr "–†–∞–∑–º–µ—Ä —à—Ä–∏—Ñ—Ç–∞ –¥–ª—è –º–µ–Ω—é (%)"
+ 
+ msgid "Setup.OSD$Small font size (%)"
+-msgstr "¿–◊‹’‡ ‹’€⁄ﬁ”ﬁ ‰ﬁ›‚– (%)"
++msgstr "–†–∞–∑–º–µ—Ä –º–µ–ª–∫–æ–≥–æ —à—Ä–∏—Ñ—Ç–∞ (%)"
+ 
+ msgid "Setup.OSD$Fixed font size (%)"
+-msgstr "¿–◊‹’‡ ‰ÿ⁄·ÿ‡ﬁ“–››ﬁ”ﬁ ‰ﬁ›‚– (%)"
++msgstr "–†–∞–∑–º–µ—Ä —Ñ–∏–∫—Å–∏—Ä–æ–≤–∞–Ω–Ω–æ–≥–æ —à—Ä–∏—Ñ—Ç–∞ (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+-msgstr "øﬁ€ﬁ÷’›ÿ’ ﬁ⁄›– ÿ›‰ﬁ‡‹–Êÿÿ ﬁ ⁄–›–€’"
++msgstr "–ü–æ–ª–æ–∂–µ–Ω–∏–µ –æ–∫–Ω–∞ –∏–Ω—Ñ–æ—Ä–º–∞—Ü–∏–∏ –æ –∫–∞–Ω–∞–ª–µ"
+ 
+ msgid "bottom"
+-msgstr "·›ÿ◊„"
++msgstr "—Å–Ω–∏–∑—É"
+ 
+ msgid "top"
+-msgstr "·“’‡Â„"
++msgstr "—Å–≤–µ—Ä—Ö—É"
+ 
+ msgid "Setup.OSD$Channel info time (s)"
+-msgstr "øﬁ⁄–◊ ÿ›‰ﬁ‡‹–Êÿÿ ﬁ ⁄–›–€’ (·’⁄)"
++msgstr "–ü–æ–∫–∞–∑ –∏–Ω—Ñ–æ—Ä–º–∞—Ü–∏–∏ –æ –∫–∞–Ω–∞–ª–µ (—Å–µ–∫)"
+ 
+ msgid "Setup.OSD$Info on channel switch"
+-msgstr "øﬁ⁄–◊Î“–‚Ï ÿ›‰ﬁ‡‹–ÊÿÓ ﬁ ⁄–›–€’"
++msgstr "–ü–æ–∫–∞–∑—ã–≤–∞—Ç—å –∏–Ω—Ñ–æ—Ä–º–∞—Ü–∏—é –æ –∫–∞–Ω–∞–ª–µ"
+ 
+ msgid "Setup.OSD$Timeout requested channel info"
+-msgstr "∏›‰ﬁ‡‹–ÊÿÓ ﬁ ⁄–›–€’ ◊–⁄‡Î‚Ï"
++msgstr "–ò–Ω—Ñ–æ—Ä–º–∞—Ü–∏—é –æ –∫–∞–Ω–∞–ª–µ –∑–∞–∫—Ä—ã—Ç—å"
+ 
+ msgid "Setup.OSD$Scroll pages"
+-msgstr "ø‡ﬁ⁄‡„‚⁄– ·‚‡–›ÿÊ ‹’›Ó"
++msgstr "–ü—Ä–æ–∫—Ä—É—Ç–∫–∞ —Å—Ç—Ä–∞–Ω–∏—Ü –º–µ–Ω—é"
+ 
+ msgid "Setup.OSD$Scroll wraps"
+-msgstr "∆ÿ⁄€ÿÁ’·⁄–Ô ﬂ‡ﬁ⁄‡„‚⁄–"
++msgstr "–¶–∏–∫–ª–∏—á–µ—Å–∫–∞—è –ø—Ä–æ–∫—Ä—É—Ç–∫–∞"
+ 
+ msgid "Setup.OSD$Menu key closes"
+-msgstr "∫›ﬁﬂ⁄„ º’›Ó ◊–⁄‡Î‚Ï"
++msgstr "–ö–Ω–æ–ø–∫—É –ú–µ–Ω—é –∑–∞–∫—Ä—ã—Ç—å"
+ 
+ msgid "Setup.OSD$Recording directories"
+-msgstr "∫–‚–€ﬁ”ÿ Â‡–›’›ÿÔ ◊–ﬂÿ·’Ÿ"
++msgstr "–ö–∞—Ç–∞–ª–æ–≥–∏ —Ö—Ä–∞–Ω–µ–Ω–∏—è –∑–∞–ø–∏—Å–µ–π"
+ 
+ msgid "Setup.OSD$Folders in timer menu"
+-msgstr "¥ÿ‡’⁄‚ﬁ‡ÿÿ “ ‹’›Ó ‚–Ÿ‹’‡"
++msgstr "–î–∏—Ä–µ–∫—Ç–æ—Ä–∏–∏ –≤ –º–µ–Ω—é —Ç–∞–π–º–µ—Ä"
+ 
+ msgid "Setup.OSD$Always sort folders first"
+-msgstr "¥ÿ‡’⁄‚ﬁ‡ÿÿ “·’”‘– “ ﬂ’‡“„Ó ﬁÁ’‡’‘Ï ·ﬁ‡‚ÿ‡ﬁ“–‚Ï"
++msgstr "–î–∏—Ä–µ–∫—Ç–æ—Ä–∏–∏ –≤—Å–µ–≥–¥–∞ –≤ –ø–µ—Ä–≤—É—é –æ—á–µ—Ä–µ–¥—å —Å–æ—Ä—Ç–∏—Ä–æ–≤–∞—Ç—å"
+ 
+ msgid "Setup.OSD$Default sort mode for recordings"
+-msgstr ""
++msgstr "–°–æ—Ä—Ç–∏—Ä–æ–≤–∫–∞ –ø–æ —É–º–æ–ª—á–∞–Ω–∏—é"
+ 
+ msgid "Setup.OSD$Number keys for characters"
+-msgstr "∫ﬁ€ÿÁ’·‚“ﬁ ⁄›ﬁﬂﬁ⁄ ‘€Ô ·ÿ‹“ﬁ€ﬁ“"
++msgstr "–ö–æ–ª–∏—á–µ—Å—Ç–≤–æ –∫–Ω–æ–ø–æ–∫ –¥–ª—è —Å–∏–º–≤–æ–ª–æ–≤"
+ 
+ msgid "Setup.OSD$Color key 0"
+-msgstr "∆“’‚›–Ô ⁄›ﬁﬂ⁄– 0"
++msgstr "–¶–≤–µ—Ç–Ω–∞—è –∫–Ω–æ–ø–∫–∞ 0"
+ 
+ msgid "Setup.OSD$Color key 1"
+-msgstr "∆“’‚›–Ô ⁄›ﬁﬂ⁄– 1"
++msgstr "–¶–≤–µ—Ç–Ω–∞—è –∫–Ω–æ–ø–∫–∞ 1"
+ 
+ msgid "Setup.OSD$Color key 2"
+-msgstr "∆“’‚›–Ô ⁄›ﬁﬂ⁄– 2"
++msgstr "–¶–≤–µ—Ç–Ω–∞—è –∫–Ω–æ–ø–∫–∞ 2"
+ 
+ msgid "Setup.OSD$Color key 3"
+-msgstr "∆“’‚›–Ô ⁄›ﬁﬂ⁄– 3"
++msgstr "–¶–≤–µ—Ç–Ω–∞—è –∫–Ω–æ–ø–∫–∞ 3"
+ 
+ msgid "EPG"
+-msgstr "¬’€’”ÿ‘"
++msgstr "–¢–µ–ª–µ–≥–∏–¥"
+ 
+ msgid "Button$Scan"
+-msgstr "¡⁄–›ÿ‡ﬁ“–‚Ï"
++msgstr "–°–∫–∞–Ω–∏—Ä–æ–≤–∞—Ç—å"
+ 
+ msgid "Setup.EPG$EPG scan timeout (h)"
+-msgstr "∑–‘’‡÷⁄– ·⁄–›ÿ‡ﬁ“–›ÿÔ ‚’€’”ÿ‘– (Á)"
++msgstr "–ó–∞–¥–µ—Ä–∂–∫–∞ —Å–∫–∞–Ω–∏—Ä–æ–≤–∞–Ω–∏—è —Ç–µ–ª–µ–≥–∏–¥–∞ (—á)"
+ 
+ msgid "Setup.EPG$EPG bugfix level"
+-msgstr "√‡ﬁ“’›Ï ⁄ﬁ‡‡’⁄Êÿÿ ﬁËÿ—ﬁ⁄"
++msgstr "–£—Ä–æ–≤–µ–Ω—å –∫–æ—Ä—Ä–µ–∫—Ü–∏–∏ –æ—à–∏–±–æ–∫"
+ 
+ msgid "Setup.EPG$EPG linger time (min)"
+-msgstr "≈‡–›’›ÿ’ „·‚–‡’“ËÿÂ ‘–››ÎÂ (‹ÿ›)"
++msgstr "–•—Ä–∞–Ω–µ–Ω–∏–µ —É—Å—Ç–∞—Ä–µ–≤—à–∏—Ö –¥–∞–Ω–Ω—ã—Ö (–º–∏–Ω)"
+ 
+ msgid "Setup.EPG$Set system time"
+-msgstr "√·‚–›ﬁ“ÿ‚Ï ·ÿ·‚’‹›ﬁ’ “‡’‹Ô"
++msgstr "–£—Å—Ç–∞–Ω–æ–≤–∏—Ç—å —Å–∏—Å—Ç–µ–º–Ω–æ–µ –≤—Ä–µ–º—è"
+ 
+ msgid "Setup.EPG$Use time from transponder"
+-msgstr "∏·ﬂﬁ€Ï◊ﬁ“–‚Ï “‡’‹Ô ‚‡–›·ﬂﬁ›‘’‡–"
++msgstr "–ò—Å–ø–æ–ª—å–∑–æ–≤–∞—Ç—å –≤—Ä–µ–º—è —Ç—Ä–∞–Ω—Å–ø–æ–Ω–¥–µ—Ä–∞"
+ 
+ #. TRANSLATORS: note the plural!
+ msgid "Setup.EPG$Preferred languages"
+-msgstr "ø‡’‘ﬂﬁÁÿ‚–’‹Î’ Ô◊Î⁄ÿ (‚’€’”ÿ‘)"
++msgstr "–ü—Ä–µ–¥–ø–æ—á–∏—Ç–∞–µ–º—ã–µ —è–∑—ã–∫–∏ (—Ç–µ–ª–µ–≥–∏–¥)"
+ 
+ #. TRANSLATORS: note the singular!
+ msgid "Setup.EPG$Preferred language"
+-msgstr "≤Î—‡–›"
++msgstr "–í—ã–±—Ä–∞–Ω–Ω—ã–π —è–∑—ã–∫"
+ 
+ msgid "pan&scan"
+-msgstr "ﬂ–›ﬁ‡–‹ÿ‡ﬁ“–‚Ï"
++msgstr "–ø–∞–Ω–æ—Ä–∞–º–∏—Ä–æ–≤–∞—Ç—å"
+ 
+ msgid "letterbox"
+-msgstr "„‹’›ÏË–‚Ï"
++msgstr "—É–º–µ–Ω—å—à–∞—Ç—å"
+ 
+ msgid "center cut out"
+-msgstr "ﬁ—‡’◊–‚Ï ·—ﬁ⁄„"
++msgstr "–æ–±—Ä–µ–∑–∞—Ç—å —Å–±–æ–∫—É"
+ 
+ msgid "no"
+-msgstr "›’‚"
++msgstr "–Ω–µ—Ç"
+ 
+ msgid "names only"
+-msgstr "‚ﬁ€Ï⁄ﬁ ›–◊“–›ÿÔ"
++msgstr "—Ç–æ–ª—å–∫–æ –Ω–∞–∑–≤–∞–Ω–∏—è"
+ 
+ msgid "PIDs only"
+-msgstr "¬ﬁ€Ï⁄ﬁ PIDÎ"
++msgstr "–¢–æ–ª—å–∫–æ PID—ã"
+ 
+ msgid "names and PIDs"
+-msgstr "›–◊“–›ÿÔ ÿ PIDÎ"
++msgstr "–Ω–∞–∑–≤–∞–Ω–∏—è –∏ PID—ã"
+ 
+ msgid "add new channels"
+-msgstr "›ﬁ“Î’ ⁄–›–€Î"
++msgstr "–Ω–æ–≤—ã–µ –∫–∞–Ω–∞–ª—ã"
+ 
+ msgid "add new transponders"
+-msgstr "›ﬁ“. ‚‡–›·ﬂﬁ›‘’‡Î"
++msgstr "–Ω–æ–≤. —Ç—Ä–∞–Ω—Å–ø–æ–Ω–¥–µ—Ä—ã"
+ 
+ msgid "DVB"
+ msgstr "DVB"
+ 
+ msgid "Button$Audio"
+-msgstr "œ◊Î⁄"
++msgstr "–Ø–∑—ã–∫"
+ 
+ msgid "Button$Subtitles"
+-msgstr "¡„—‚ÿ‚‡Î"
++msgstr "–°—É–±—Ç–∏—Ç—Ä—ã"
+ 
+ msgid "Setup.DVB$Primary DVB interface"
+-msgstr "æ·›ﬁ“›ﬁ’ DVB-„·‚‡ﬁŸ·‚“ﬁ"
++msgstr "–û—Å–Ω–æ–≤–Ω–æ–µ DVB-—É—Å—Ç—Ä–æ–π—Å—Ç–≤–æ"
+ 
+ msgid "Setup.DVB$Standard compliance"
+-msgstr "¡‚–›‘–‡‚›ﬁ’ ﬂﬁ“’‘’›ÿ’"
++msgstr "–°—Ç–∞–Ω–¥–∞—Ä—Ç–Ω–æ–µ –ø–æ–≤–µ–¥–µ–Ω–∏–µ"
+ 
+ msgid "Setup.DVB$Video format"
+-msgstr "ƒﬁ‡‹–‚ “ÿ‘’ﬁ"
++msgstr "–§–æ—Ä–º–∞—Ç –≤–∏–¥–µ–æ"
+ 
+ msgid "Setup.DVB$Video display format"
+-msgstr "»ÿ‡ﬁ⁄ﬁÌ⁄‡–››ﬁ’ ÿ◊ﬁ—‡–÷’›ÿ’"
++msgstr "–®–∏—Ä–æ–∫–æ—ç–∫—Ä–∞–Ω–Ω–æ–µ –∏–∑–æ–±—Ä–∞–∂–µ–Ω–∏–µ"
+ 
+ msgid "Setup.DVB$Use Dolby Digital"
+-msgstr "≤⁄€ÓÁÿ‚Ï Dolby Digital"
++msgstr "–í–∫–ª—é—á–∏—Ç—å Dolby Digital"
+ 
+ msgid "Setup.DVB$Update channels"
+-msgstr "æ—›ﬁ“€Ô‚Ï ›–·‚‡ﬁŸ⁄ÿ ⁄–›–€ﬁ“"
++msgstr "–û–±–Ω–æ–≤–ª—è—Ç—å –Ω–∞—Å—Ç—Ä–æ–π–∫–∏ –∫–∞–Ω–∞–ª–æ–≤"
+ 
+ msgid "Setup.DVB$Audio languages"
+-msgstr "ø‡’‘ﬂﬁÁÿ‚–’‹Î’ Ô◊Î⁄ÿ (◊“„⁄)"
++msgstr "–ü—Ä–µ–¥–ø–æ—á–∏—Ç–∞–µ–º—ã–µ —è–∑—ã–∫–∏ (–∑–≤—É–∫)"
+ 
+ msgid "Setup.DVB$Audio language"
+-msgstr "≤Î—‡–›"
++msgstr "–í—ã–±—Ä–∞–Ω"
+ 
+ msgid "Setup.DVB$Display subtitles"
+-msgstr "øﬁ⁄–◊Î“–‚Ï ·„—‚ÿ‚‡Î"
++msgstr "–ü–æ–∫–∞–∑—ã–≤–∞—Ç—å —Å—É–±—Ç–∏—Ç—Ä—ã"
+ 
+ msgid "Setup.DVB$Subtitle languages"
+-msgstr "œ◊Î⁄ÿ ·„—‚ÿ‚‡ﬁ“"
++msgstr "–Ø–∑—ã–∫–∏ —Å—É–±—Ç–∏—Ç—Ä–æ–≤"
+ 
+ msgid "Setup.DVB$Subtitle language"
+-msgstr "œ◊Î⁄ ·„—‚ÿ‚‡ﬁ“"
++msgstr "–Ø–∑—ã–∫ —Å—É–±—Ç–∏—Ç—Ä–æ–≤"
+ 
+ msgid "Setup.DVB$Subtitle offset"
+-msgstr "¡‘“ÿ” ·„—‚ÿ‚‡ﬁ“"
++msgstr "–°–¥–≤–∏–≥ —Å—É–±—Ç–∏—Ç—Ä–æ–≤"
+ 
+ msgid "Setup.DVB$Subtitle foreground transparency"
+-msgstr "ø‡ﬁ◊‡–Á›ﬁ·‚Ï ﬂ’‡’‘›’”ﬁ ﬂ€–›– ·„—‚ÿ‚‡ﬁ“"
++msgstr "–ü—Ä–æ–∑—Ä–∞—á–Ω–æ—Å—Ç—å –ø–µ—Ä–µ–¥–Ω–µ–≥–æ –ø–ª–∞–Ω–∞ —Å—É–±—Ç–∏—Ç—Ä–æ–≤"
+ 
+ msgid "Setup.DVB$Subtitle background transparency"
+-msgstr "ø‡ﬁ◊‡–Á›ﬁ·‚Ï ‰ﬁ›– ·„—‚ÿ‚‡ﬁ“"
++msgstr "–ü—Ä–æ–∑—Ä–∞—á–Ω–æ—Å—Ç—å —Ñ–æ–Ω–∞ —Å—É–±—Ç–∏—Ç—Ä–æ–≤"
+ 
+ msgid "LNB"
+-msgstr "∫ﬁ›“’‡‚’‡"
++msgstr "–ö–æ–Ω–≤–µ—Ä—Ç–µ—Ä"
+ 
+ msgid "Setup.LNB$Use DiSEqC"
+-msgstr "∏·ﬂﬁ€Ï◊ﬁ“–‚Ï DiSEqC"
++msgstr "–ò—Å–ø–æ–ª—å–∑–æ–≤–∞—Ç—å DiSEqC"
+ 
+ msgid "Setup.LNB$SLOF (MHz)"
+-msgstr "«–·‚ﬁ‚– ﬂ’‡’⁄€ÓÁ’›ÿÔ (SLOF) (º≥Ê)"
++msgstr "–ß–∞—Å—Ç–æ—Ç–∞ –ø–µ—Ä–µ–∫–ª—é—á–µ–Ω–∏—è (SLOF) (–ú–ì—Ü)"
+ 
+ msgid "Setup.LNB$Low LNB frequency (MHz)"
+-msgstr "Ωÿ÷›ÔÔ Á–·‚ﬁ‚– ⁄ﬁ›“’‡‚’‡– (º≥Ê)"
++msgstr "–ù–∏–∂–Ω—è—è —á–∞—Å—Ç–æ—Ç–∞ –∫–æ–Ω–≤–µ—Ä—Ç–µ—Ä–∞ (–ú–ì—Ü)"
+ 
+ msgid "Setup.LNB$High LNB frequency (MHz)"
+-msgstr "≤’‡Â›ÔÔ Á–·‚ﬁ‚– ⁄ﬁ›“’‡‚’‡– (º≥Ê)"
++msgstr "–í–µ—Ä—Ö–Ω—è—è —á–∞—Å—Ç–æ—Ç–∞ –∫–æ–Ω–≤–µ—Ä—Ç–µ—Ä–∞ (–ú–ì—Ü)"
+ 
+ #, c-format
+ msgid "Setup.LNB$Device %d connected to sat cable"
+-msgstr "√·‚‡ﬁŸ·‚“ﬁ %d ﬂﬁ‘⁄€ÓÁ’›ﬁ’ ⁄ ·–‚⁄–—’€Ó"
++msgstr "–£—Å—Ç—Ä–æ–π—Å—Ç–≤–æ %d –ø–æ–¥–∫–ª—é—á–µ–Ω–æ–µ –∫ —Å–∞—Ç–∫–∞–±–µ–ª—é"
+ 
+ msgid "Setup.LNB$own"
+-msgstr "·“ﬁŸ"
++msgstr "—Å–≤–æ–π"
+ 
+ msgid "Setup.LNB$Use dish positioner"
+-msgstr ""
++msgstr "–ò—Å–ø–æ–ª—å–∑–æ–≤–∞—Ç—å –ø–æ–∑–∏—Ü–∏–æ–Ω–µ—Ä"
+ 
+ msgid "Setup.LNB$Site latitude (degrees)"
+-msgstr ""
++msgstr "–®–∏—Ä–æ—Ç–∞ (–≥—Ä–∞–¥.)"
+ 
+ msgid "South"
+-msgstr ""
++msgstr "–Æ–≥"
+ 
+ msgid "North"
+-msgstr ""
++msgstr "–°–µ–≤–µ—Ä"
+ 
+ msgid "Setup.LNB$Site longitude (degrees)"
+-msgstr ""
++msgstr "–î–æ–ª–≥–æ—Ç–∞ (–≥—Ä–∞–¥.)"
+ 
+ msgid "West"
+-msgstr ""
++msgstr "–ó–∞–ø–∞–¥"
+ 
+ msgid "East"
+-msgstr ""
++msgstr "–í–æ—Å—Ç–æ–∫"
+ 
+ msgid "Setup.LNB$Max. positioner swing (degrees)"
+-msgstr ""
++msgstr "–ú–∞–∫—Å —Ö–æ–¥ –ø–æ–∑–∏—Ü–∏–æ–Ω–µ—Ä–∞ (–≥—Ä–∞–¥.)"
+ 
+ msgid "Setup.LNB$Positioner speed (degrees/s)"
+-msgstr ""
++msgstr "–°–∫–æ—Ä–æ—Å—Ç—å –ø–æ–∑–∏—Ü–∏–æ–Ω–µ—Ä–∞ (–≥—Ä–∞–¥./—Å–µ–∫)"
+ 
+ msgid "CAM reset"
+-msgstr "CAM ﬂ’‡’”‡„÷’›"
++msgstr "CAM —Å–±—Ä–æ—Å"
+ 
+ msgid "CAM present"
+-msgstr "CAM ﬂ‡ÿ·„‚·‚“„’‚"
++msgstr "CAM –ø—Ä–∏—Å—É—Ç—Å—Ç–≤—É–µ—Ç"
+ 
+ msgid "CAM ready"
+-msgstr "CAM ”ﬁ‚ﬁ“"
++msgstr "CAM –≥–æ—Ç–æ–≤"
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " (activating)"
+-msgstr ""
++msgstr " (–∑–∞–ø—É—Å–∫–∞–µ—Ç—Å—è)"
+ 
+ msgid "@ device"
+-msgstr ""
++msgstr "@ —É—Å—Ç—Ä–æ–π—Å—Ç–≤–æ"
+ 
+ msgid "CAM"
+-msgstr "√·€ﬁ“›ÎŸ ‘ﬁ·‚„ﬂ"
++msgstr "–£—Å–ª–æ–≤–Ω—ã–π –¥–æ—Å—Ç—É–ø"
+ 
+ msgid "Button$Cancel activation"
+-msgstr ""
++msgstr "–û—Ç–º–µ–Ω–∞ –∑–∞–ø—É—Å–∫–∞"
+ 
+ msgid "Button$Activate"
+-msgstr ""
++msgstr "–ó–∞–ø—É—Å–∫"
+ 
+ msgid "Button$Menu"
+-msgstr "º’›Ó"
++msgstr "–ú–µ–Ω—é"
+ 
+ msgid "Button$Reset"
+-msgstr "¡—‡ﬁ·"
++msgstr "–°–±—Ä–æ—Å"
+ 
+ msgid "Opening CAM menu..."
+-msgstr "æ‚⁄‡Î“–Ó ‹’›Ó ‹ﬁ‘„€Ô „·€ﬁ“›ﬁ”ﬁ ‘ﬁ·‚„ﬂ– (CAM)"
++msgstr "–û—Ç–∫—Ä—ã–≤–∞—é –º–µ–Ω—é –º–æ–¥—É–ª—è —É—Å–ª–æ–≤–Ω–æ–≥–æ –¥–æ—Å—Ç—É–ø–∞ (CAM)"
+ 
+ msgid "Can't open CAM menu!"
+-msgstr "º’›Ó CAM-‹ﬁ‘„€Ô ›’‘ﬁ·‚„ﬂ›ﬁ!"
++msgstr "–ú–µ–Ω—é CAM-–º–æ–¥—É–ª—è –Ω–µ–¥–æ—Å—Ç—É–ø–Ω–æ!"
+ 
+ msgid "Can't activate CAM!"
+-msgstr ""
++msgstr "CAM –Ω–µ –∑–∞–ø—É—â–µ–Ω!"
+ 
+ msgid "CAM is in use - really reset?"
+-msgstr "CAM ÿ·ﬂﬁ€Ï◊„’‚·Ô - ‘’Ÿ·‚“ÿ‚’€Ï›ﬁ ﬂ’‡’”‡„◊ÿ‚Ï?"
++msgstr "CAM –∏—Å–ø–æ–ª—å–∑—É–µ—Ç—Å—è - –¥–µ–π—Å—Ç–≤–∏—Ç–µ–ª—å–Ω–æ –ø–µ—Ä–µ–≥—Ä—É–∑–∏—Ç—å?"
+ 
+ msgid "Can't reset CAM!"
+-msgstr "æËÿ—⁄– ﬂ’‡’◊–ﬂ„·⁄– CAM-‹ﬁ‘„€Ô!"
++msgstr "–û—à–∏–±–∫–∞ –ø–µ—Ä–µ–∑–∞–ø—É—Å–∫–∞ CAM-–º–æ–¥—É–ª—è!"
+ 
+ msgid "no instant recording"
+-msgstr ""
++msgstr "–Ω–µ—Ç –±—ã—Å—Ç—Ä–æ–π –∑–∞–ø–∏—Å–∏"
+ 
+ msgid "confirm instant recording"
+-msgstr ""
++msgstr "–ø–æ–¥—Ç–≤. –±—ã—Å—Ç—Ä—É—é –∑–∞–ø–∏—Å—å"
+ 
+ msgid "record instantly"
+-msgstr ""
++msgstr "–±—ã—Å—Ç—Ä–∞—è –∑–∞–ø–∏—Å—å"
+ 
+ msgid "do not pause live video"
+-msgstr "›’ ﬁ·‚–›–“€ÿ“–‚Ï live video"
++msgstr "–Ω–µ –æ—Å—Ç–∞–Ω–∞–≤–ª–∏–≤–∞—Ç—å live video"
+ 
+ msgid "confirm pause live video"
+-msgstr "ﬂﬁ‘‚“’‡÷‘’›ÿ’ ﬁ·‚–›ﬁ“⁄ÿ live video"
++msgstr "–ø–æ–¥—Ç–≤–µ—Ä–∂–¥–µ–Ω–∏–µ –æ—Å—Ç–∞–Ω–æ–≤–∫–∏ live video"
+ 
+ msgid "pause live video"
+-msgstr "ﬁ·‚–›ﬁ“⁄– live video"
++msgstr "–æ—Å—Ç–∞–Ω–æ–≤–∫–∞ live video"
+ 
+ msgid "confirm"
+-msgstr "ﬂﬁ‘‚“’‡÷‘’›ÿ’"
++msgstr "–ø–æ–¥—Ç–≤–µ—Ä–∂–¥–µ–Ω–∏–µ"
+ 
+ msgid "yes"
+-msgstr "‘–"
++msgstr "–¥–∞"
+ 
+ msgid "Recording"
+-msgstr "∑–ﬂÿ·Ï"
++msgstr "–ó–∞–ø–∏—Å—å"
+ 
+ msgid "Setup.Recording$Margin at start (min)"
+-msgstr "æﬂ’‡’÷’›ÿ’ ›–Á–€– ◊–ﬂÿ·ÿ (‹ÿ›)"
++msgstr "–û–ø–µ—Ä–µ–∂–µ–Ω–∏–µ –Ω–∞—á–∞–ª–∞ –∑–∞–ø–∏—Å–∏ (–º–∏–Ω)"
+ 
+ msgid "Setup.Recording$Margin at stop (min)"
+-msgstr "∑–ﬂ–◊‘Î“–›ÿ’ ﬁ·‚–›ﬁ“⁄ÿ ◊–ﬂÿ·ÿ (‹ÿ›)"
++msgstr "–ó–∞–ø–∞–∑–¥—ã–≤–∞–Ω–∏–µ –æ—Å—Ç–∞–Ω–æ–≤–∫–∏ –∑–∞–ø–∏—Å–∏ (–º–∏–Ω)"
+ 
+ msgid "Setup.Recording$Default priority"
+-msgstr "ø‡ÿﬁ‡ÿ‚’‚ ‚–Ÿ‹’‡– ﬂﬁ „‹ﬁ€Á–›ÿÓ"
++msgstr "–ü—Ä–∏–æ—Ä–∏—Ç–µ—Ç —Ç–∞–π–º–µ—Ä–∞ –ø–æ —É–º–æ–ª—á–∞–Ω–∏—é"
+ 
+ msgid "Setup.Recording$Default lifetime (d)"
+-msgstr "¡‡ﬁ⁄ Â‡–›’›ÿÔ ◊–ﬂÿ·ÿ ﬂﬁ „‹ﬁ€Á–›ÿÓ (‘)"
++msgstr "–°—Ä–æ–∫ —Ö—Ä–∞–Ω–µ–Ω–∏—è –∑–∞–ø–∏—Å–∏ –ø–æ —É–º–æ–ª—á–∞–Ω–∏—é (–¥)"
+ 
+ msgid "Setup.Recording$Record key handling"
+-msgstr ""
++msgstr "–§—É–Ω–∫—Ü–∏—è –∫–Ω–æ–ø–∫–∏ –∑–∞–ø–∏—Å—å"
+ 
+ msgid "Setup.Recording$Pause key handling"
+-msgstr "ƒ„›⁄ÊÿÔ ⁄›ﬁﬂ⁄ÿ ﬂ–„◊–"
++msgstr "–§—É–Ω–∫—Ü–∏—è –∫–Ω–æ–ø–∫–∏ –ø–∞—É–∑–∞"
+ 
+ msgid "Setup.Recording$Pause priority"
+-msgstr "ø‡ÿﬁ‡ÿ‚’‚ ﬁ‚€ﬁ÷’››ﬁ”ﬁ ﬂ‡ﬁ·‹ﬁ‚‡–"
++msgstr "–ü—Ä–∏–æ—Ä–∏—Ç–µ—Ç –æ—Ç–ª–æ–∂–µ–Ω–Ω–æ–≥–æ –ø—Ä–æ—Å–º–æ—Ç—Ä–∞"
+ 
+ msgid "Setup.Recording$Pause lifetime (d)"
+-msgstr "≈‡–›’›ÿ’ ﬁ‚€ﬁ÷’››ﬁ”ﬁ ﬂ‡ﬁ·‹ﬁ‚‡– (‘)"
++msgstr "–•—Ä–∞–Ω–µ–Ω–∏–µ –æ—Ç–ª–æ–∂–µ–Ω–Ω–æ–≥–æ –ø—Ä–æ—Å–º–æ—Ç—Ä–∞ (–¥)"
+ 
+ msgid "Setup.Recording$Use episode name"
+-msgstr "≥‡„ﬂﬂÿ‡ﬁ“–‚Ï ‰–Ÿ€Î ﬂﬁ Ìﬂÿ◊ﬁ‘–‹"
++msgstr "–ì—Ä—É–ø–ø–∏—Ä–æ–≤–∞—Ç—å —Ñ–∞–π–ª—ã –ø–æ —ç–ø–∏–∑–æ–¥–∞–º"
+ 
+ msgid "Setup.Recording$Use VPS"
+-msgstr "∏·ﬂﬁ€Ï◊ﬁ“–‚Ï ·ÿ”›–€Î VPS"
++msgstr "–ò—Å–ø–æ–ª—å–∑–æ–≤–∞—Ç—å —Å–∏–≥–Ω–∞–ª—ã VPS"
+ 
+ msgid "Setup.Recording$VPS margin (s)"
+-msgstr "±„‰’‡›ﬁ’ “‡’‹Ô VPS (·’⁄)"
++msgstr "–ë—É—Ñ–µ—Ä–Ω–æ–µ –≤—Ä–µ–º—è VPS (—Å–µ–∫)"
+ 
+ msgid "Setup.Recording$Mark instant recording"
+-msgstr "æ‚‹’Á–‚Ï ·‘’€–››Î’ “‡„Á›„Ó ◊–ﬂÿ·ÿ"
++msgstr "–û—Ç–º–µ—á–∞—Ç—å –±—ã—Å—Ç—Ä—ã–µ –∑–∞–ø–∏—Å–∏"
+ 
+ msgid "Setup.Recording$Name instant recording"
+-msgstr "¡Â’‹– ÿ‹’›ﬁ“–›ÿÔ ‡„Á›ÎÂ ◊–ﬂÿ·’Ÿ"
++msgstr "–ò–º—è –±—ã—Å—Ç—Ä–æ–π –∑–∞–ø–∏—Å–∏"
+ 
+ msgid "Setup.Recording$Instant rec. time (min)"
+-msgstr "¥€ÿ‚’€Ï›ﬁ·‚Ï ‡„Á›ﬁŸ ◊–ﬂÿ·ÿ (‹ÿ›)"
++msgstr "–î–ª–∏—Ç–µ–ª—å–Ω–æ—Å—Ç—å –±—ã—Å—Ç—Ä–æ–π –∑–∞–ø–∏—Å–∏ (–º–∏–Ω)"
+ 
+ msgid "Setup.Recording$present event"
+-msgstr "‚’⁄„È–Ô ﬂ’‡’‘–Á–"
++msgstr "—Ç–µ–∫—É—â–∞—è –ø–µ—Ä–µ–¥–∞—á–∞"
+ 
+ msgid "Setup.Recording$Max. video file size (MB)"
+-msgstr "º–⁄·. ‡–◊‹’‡ “ÿ‘’ﬁ‰–Ÿ€– (º—)"
++msgstr "–ú–∞–∫—Å. —Ä–∞–∑–º–µ—Ä –≤–∏–¥–µ–æ—Ñ–∞–π–ª–∞ (–ú–±)"
+ 
+ msgid "Setup.Recording$Split edited files"
+-msgstr "¥’€ÿ‚Ï ﬁ‚‡’‘–⁄‚ÿ‡ﬁ“–››Î’ ‰–Ÿ€Î"
++msgstr "–î–µ–ª–∏—Ç—å –æ—Ç—Ä–µ–¥–∞–∫—Ç–∏—Ä–æ–≤–∞–Ω–Ω—ã–µ —Ñ–∞–π–ª—ã"
+ 
+ msgid "Setup.Recording$Delete timeshift recording"
+-msgstr "„‘–€’›ÿÔ ﬁ‚€ﬁ÷’››ﬁŸ ◊–ﬂÿ·ÿ"
++msgstr "—É–¥–∞–ª–µ–Ω–∏—è –æ—Ç–ª–æ–∂–µ–Ω–Ω–æ–π –∑–∞–ø–∏—Å–∏"
+ 
+ msgid "Replay"
+-msgstr "≤ﬁ·ﬂ‡ﬁÿ◊“’‘’›ÿ’"
++msgstr "–í–æ—Å–ø—Ä–æ–∏–∑–≤–µ–¥–µ–Ω–∏–µ"
+ 
+ msgid "Setup.Replay$Multi speed mode"
+-msgstr "º›ﬁ”ﬁ·⁄ﬁ‡ﬁ·‚›ﬁŸ ‡’÷ÿ‹"
++msgstr "–ú–Ω–æ–≥–æ—Å–∫–æ—Ä–æ—Å—Ç–Ω–æ–π —Ä–µ–∂–∏–º"
+ 
+ msgid "Setup.Replay$Show replay mode"
+-msgstr "æ‚ﬁ—‡–÷–‚Ï ‡’÷ÿ‹ “ﬁ·ﬂ‡ﬁÿ◊“’‘’›ÿÔ"
++msgstr "–û—Ç–æ–±—Ä–∞–∂–∞—Ç—å —Ä–µ–∂–∏–º –≤–æ—Å–ø—Ä–æ–∏–∑–≤–µ–¥–µ–Ω–∏—è"
+ 
+ msgid "Setup.Replay$Show remaining time"
+-msgstr "øﬁ⁄–◊ ﬁ·‚–“Ë’”ﬁ·Ô “‡’‹’›ÿ"
++msgstr "–ü–æ–∫–∞–∑ –æ—Å—Ç–∞–≤—à–µ–≥–æ—Å—è –≤—Ä–µ–º–µ–Ω–∏"
+ 
+ msgid "Setup.Replay$Progress display time (s)"
+-msgstr "øﬁ⁄–◊ ﬂ‡ﬁ”‡’··– (s)"
++msgstr "–ü–æ–∫–∞–∑ –ø—Ä–æ–≥—Ä–µ—Å—Å–∞ (s)"
+ 
+ msgid "Setup.Replay$Pause replay when setting mark"
+-msgstr "ø–„◊– ﬂ‡ÿ „·‚–›ﬁ“⁄’ ‹–‡⁄ÿ‡ﬁ“⁄ÿ"
++msgstr "–ü–∞—É–∑–∞ –ø—Ä–∏ —É—Å—Ç–∞–Ω–æ–≤–∫–µ –º–∞—Ä–∫–∏—Ä–æ–≤–∫–∏"
+ 
+ msgid "Setup.Replay$Pause replay when jumping to a mark"
+-msgstr ""
++msgstr "–ü–∞—É–∑–∞ –ø–æ—Å–ª–µ –ø–µ—Ä–µ–º–µ—â–µ–Ω–∏—è –∫ –º–µ—Ç–∫–µ"
+ 
+ msgid "Setup.Replay$Skip edited parts"
+-msgstr ""
++msgstr "–ü—Ä–æ–ø—É—Å–∫ –∏–∑–º–µ–Ω—ë–Ω–Ω–æ–π —á–∞—Å—Ç–∏"
+ 
+ msgid "Setup.Replay$Pause replay at last mark"
+-msgstr ""
++msgstr "–ü–∞—É–∑–∞ –Ω–∞ –ø–æ—Å–ª–µ–¥–Ω–µ–π –º–µ—Ç–∫–µ"
+ 
+ msgid "Setup.Replay$Initial duration for adaptive skipping (s)"
+-msgstr ""
++msgstr "–ù–∞—á–∞–ª—å–Ω—ã–π –∏–Ω—Ç–µ—Ä–≤–∞–ª –∞–¥–∞–ø—Ç–∏–≤–Ω–æ–≥–æ –ø—Ä–æ–ø—É—Å–∫–∞ (—Å–µ–∫)"
+ 
+ msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+-msgstr ""
++msgstr "–°–±—Ä–æ—Å –æ–∂–∏–¥–∞–Ω–∏—è –∞–¥–∞–ø—Ç–∏–≤–Ω–æ–≥–æ –ø—Ä–æ–ø—É—Å–∫–∞ (—Å–µ–∫)"
+ 
+ msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+-msgstr ""
++msgstr "–î—Ä—É–≥–æ–µ –ø–æ–≤–µ–¥–µ–Ω–∏–µ –∞–¥–∞–ø—Ç–∏–≤–Ω–æ–≥–æ –ø—Ä–æ–ø—É—Å–∫–∞"
+ 
+ msgid "Setup.Replay$Use Prev/Next keys for adaptive skipping"
+-msgstr ""
++msgstr "–ò—Å–ø–æ–ª—å–∑–æ–≤–∞—Ç—å –ù–∞–∑–∞–¥/–í–ø–µ—Ä—ë–¥ –¥–ª—è –∞–¥–∞–ø—Ç–∏–≤–Ω–æ–≥–æ –ø–æ–∏—Å–∫–∞"
+ 
+ msgid "Setup.Replay$Skip distance with Green/Yellow keys (s)"
+-msgstr ""
++msgstr "–ü—Ä–æ–ø—É—Å–∫ –∏–Ω—Ç–µ—Ä–≤–∞–ª–∞ –ó–µ–ª—ë–Ω—ã–π/–ñ—ë–ª—Ç—ã–π (—Å–µ–∫)"
+ 
+ msgid "Setup.Replay$Skip distance with Green/Yellow keys in repeat (s)"
+-msgstr ""
++msgstr "–ü—Ä–æ–ø—É—Å–∫ –∏–Ω—Ç–µ—Ä–≤–∞–ª–∞ –ó–µ–ª—ë–Ω—ã–π/–ñ—ë–ª—Ç—ã–π –≤ –ø–æ–≤—Ç–æ—Ä–µ (—Å–µ–∫)"
+ 
+ msgid "Setup.Replay$Resume ID"
+-msgstr "ID “ﬁ·ﬂ‡ﬁÿ◊“’‘’›ÿÔ"
++msgstr "ID –≤–æ—Å–ø—Ä–æ–∏–∑–≤–µ–¥–µ–Ω–∏—è"
+ 
+ msgid "Miscellaneous"
+-msgstr "ø‡ﬁÁ’’"
++msgstr "–ü—Ä–æ—á–µ–µ"
+ 
+ msgid "Setup.Miscellaneous$Min. event timeout (min)"
+-msgstr "ºÿ›. “‡’‹Ô ﬁ÷ÿ‘–›ÿÔ ·ﬁ—Î‚ÿÔ (‹ÿ›)"
++msgstr "–ú–∏–Ω. –≤—Ä–µ–º—è –æ–∂–∏–¥–∞–Ω–∏—è —Å–æ–±—ã—Ç–∏—è (–º–∏–Ω)"
+ 
+ msgid "Setup.Miscellaneous$Min. user inactivity (min)"
+-msgstr "ºÿ›. “‡’‹Ô ﬁ÷ÿ‘–›ÿÔ ““ﬁ‘– (‹ÿ›)"
++msgstr "–ú–∏–Ω. –≤—Ä–µ–º—è –æ–∂–∏–¥–∞–Ω–∏—è –≤–≤–æ–¥–∞ (–º–∏–Ω)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP timeout (s)"
+-msgstr "∑–‘’‡÷⁄– ﬁ—‡Î“– ·ﬁ’‘. SVDRP (·’⁄)"
++msgstr "–ó–∞–¥–µ—Ä–∂–∫–∞ –æ–±—Ä—ã–≤–∞ —Å–æ–µ–¥. SVDRP (—Å–µ–∫)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP peering"
+ msgstr ""
+@@ -1321,288 +1321,288 @@
+ msgstr ""
+ 
+ msgid "Setup.Miscellaneous$Zap timeout (s)"
+-msgstr "∑–‘’‡÷⁄– ﬂ’‡’⁄€ÓÁ’›ÿÔ ⁄–›–€– (·’⁄)"
++msgstr "–ó–∞–¥–µ—Ä–∂–∫–∞ –ø–µ—Ä–µ–∫–ª—é—á–µ–Ω–∏—è –∫–∞–Ω–∞–ª–∞ (—Å–µ–∫)"
+ 
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+-msgstr "ø‡’‘’€ “‡’‹’›ÿ ‘€Ô ““ﬁ‘– ⁄–›–€– (ms)"
++msgstr "–ü—Ä–µ–¥–µ–ª –≤—Ä–µ–º–µ–Ω–∏ –¥–ª—è –≤–≤–æ–¥–∞ –∫–∞–Ω–∞–ª–∞ (ms)"
+ 
+ msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
+-msgstr "∑–‘’‡÷⁄– ﬁ‚“’‚– ﬁ‚ ﬂ„€Ï‚– (ms)"
++msgstr "–ó–∞–¥–µ—Ä–∂–∫–∞ –æ—Ç–≤–µ—Ç–∞ –æ—Ç –ø—É–ª—å—Ç–∞ (ms)"
+ 
+ msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
+-msgstr "∑–‘’‡÷⁄– ﬁ‚“’‚– ﬁ‚ ﬂ„€Ï‚– (ms)"
++msgstr "–ò–Ω—Ç–µ—Ä–≤–∞–ª –æ—Ç–≤–µ—Ç–æ–≤ –æ—Ç –ø—É–ª—å—Ç–∞ (ms)"
+ 
+ msgid "Setup.Miscellaneous$Initial channel"
+-msgstr "∫–›–€ ﬂ‡ÿ “⁄€ÓÁ’›ÿÿ"
++msgstr "–ö–∞–Ω–∞–ª –ø—Ä–∏ –≤–∫–ª—é—á–µ–Ω–∏–∏"
+ 
+ msgid "Setup.Miscellaneous$as before"
+-msgstr "⁄–⁄ ‡–›ÏË’"
++msgstr "–∫–∞–∫ —Ä–∞–Ω—å—à–µ"
+ 
+ msgid "Setup.Miscellaneous$Initial volume"
+-msgstr "≥‡ﬁ‹⁄ﬁ·‚Ï ﬂ‡ÿ “⁄€ÓÁ’›ÿÿ"
++msgstr "–ì—Ä–æ–º–∫–æ—Å—Ç—å –ø—Ä–∏ –≤–∫–ª—é—á–µ–Ω–∏–∏"
+ 
+ msgid "Setup.Miscellaneous$Volume steps"
+-msgstr ""
++msgstr "–®–∞–≥ –≥—Ä–æ–º–∫–æ—Å—Ç–∏"
+ 
+ msgid "Setup.Miscellaneous$Volume linearize"
+-msgstr ""
++msgstr "–õ–∏–Ω–µ–π–Ω–æ—Å—Ç—å –≥—Ä–æ–º–∫–æ—Å—Ç–∏"
+ 
+ msgid "Setup.Miscellaneous$Channels wrap"
+-msgstr "ﬂ‡ﬁ⁄‡„‚⁄– ⁄–›–€ﬁ“"
++msgstr "–ø—Ä–æ–∫—Ä—É—Ç–∫–∞ –∫–∞–Ω–∞–ª–æ–≤"
+ 
+ msgid "Setup.Miscellaneous$Show channel names with source"
+-msgstr "øﬁ⁄–◊ ÿ‹’›ÿ ⁄–›–€– ÿ ÿ·‚ﬁÁ›ÿ⁄–"
++msgstr "–ü–æ–∫–∞–∑ –∏–º–µ–Ω–∏ –∫–∞–Ω–∞–ª–∞ –∏ –∏—Å—Ç–æ—á–Ω–∏–∫–∞"
+ 
+ msgid "Setup.Miscellaneous$Emergency exit"
+-msgstr "∞“–‡ÿŸ›ÎŸ “ÎÂﬁ‘"
++msgstr "–ê–≤–∞—Ä–∏–π–Ω—ã–π –≤—ã—Ö–æ–¥"
+ 
+ msgid "Plugins"
+-msgstr "ºﬁ‘„€ÿ ‡–·Ëÿ‡’›ÿÔ"
++msgstr "–ú–æ–¥—É–ª–∏ —Ä–∞—Å—à–∏—Ä–µ–Ω–∏—è"
+ 
+ msgid "This plugin has no setup parameters!"
+-msgstr "ºﬁ‘„€Ï ›’ ÿ‹’’‚ ﬂ–‡–‹’‚‡ﬁ“ ›–·‚‡ﬁŸ⁄ÿ!"
++msgstr "–ú–æ–¥—É–ª—å –Ω–µ –∏–º–µ–µ—Ç –ø–∞—Ä–∞–º–µ—Ç—Ä–æ–≤ –Ω–∞—Å—Ç—Ä–æ–π–∫–∏!"
+ 
+ msgid "Setup"
+-msgstr "Ω–·‚‡ﬁŸ⁄–"
++msgstr "–ù–∞—Å—Ç—Ä–æ–π–∫–∞"
+ 
+ msgid "Restart"
+-msgstr "ø’‡’◊–ﬂ„·‚ÿ‚Ï"
++msgstr "–ü–µ—Ä–µ–∑–∞–ø—É—Å—Ç–∏—Ç—å"
+ 
+ msgid "Really restart?"
+-msgstr "¥’Ÿ·‚“ÿ‚’€Ï›ﬁ ﬂ’‡’◊–ﬂ„·‚ÿ‚Ï?"
++msgstr "–î–µ–π—Å—Ç–≤–∏—Ç–µ–ª—å–Ω–æ –ø–µ—Ä–µ–∑–∞–ø—É—Å—Ç–∏—Ç—å?"
+ 
+ #. TRANSLATORS: note the leading and trailing blanks!
+ msgid " Stop recording "
+-msgstr " ø‡’⁄‡–‚ÿ‚Ï ◊–ﬂÿ·Ï "
++msgstr " –ü—Ä–µ–∫—Ä–∞—Ç–∏—Ç—å –∑–∞–ø–∏—Å—å "
+ 
+ msgid "Schedule"
+-msgstr "¬’€’”ÿ‘"
++msgstr "–¢–µ–ª–µ–≥–∏–¥"
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " Stop replaying"
+-msgstr " ø‡’⁄‡–‚ÿ‚Ï “ﬁ·ﬂ‡ﬁÿ◊“’‘’›ÿ’"
++msgstr " –ü—Ä–µ–∫—Ä–∞—Ç–∏—Ç—å –≤–æ—Å–ø—Ä–æ–∏–∑–≤–µ–¥–µ–Ω–∏–µ"
+ 
+ msgid "Button$Pause"
+-msgstr "ø–„◊–"
++msgstr "–ü–∞—É–∑–∞"
+ 
+ msgid "Button$Stop"
+-msgstr "¡‚ﬁﬂ"
++msgstr "–°—Ç–æ–ø"
+ 
+ msgid "Button$Resume"
+-msgstr "ø‡ﬁ‘ﬁ€÷ÿ‚Ï"
++msgstr "–ü—Ä–æ–¥–æ–ª–∂–∏—Ç—å"
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " Cancel editing"
+-msgstr " ø‡’‡“–‚Ï ‹ﬁ›‚–÷ ◊–ﬂÿ·ÿ"
++msgstr " –ü—Ä–µ—Ä–≤–∞—Ç—å –º–æ–Ω—Ç–∞–∂ –∑–∞–ø–∏—Å–∏"
+ 
+ msgid "Stop recording?"
+-msgstr "ø‡’⁄‡–‚ÿ‚Ï ◊–ﬂÿ·Ï?"
++msgstr "–ü—Ä–µ–∫—Ä–∞—Ç–∏—Ç—å –∑–∞–ø–∏—Å—å?"
+ 
+ msgid "Cancel editing?"
+-msgstr "ø‡’‡“–‚Ï ‡’‘–⁄‚ÿ‡ﬁ“–›ÿ’?"
++msgstr "–ü—Ä–µ—Ä–≤–∞—Ç—å —Ä–µ–¥–∞–∫—Ç–∏—Ä–æ–≤–∞–Ω–∏–µ?"
+ 
+ msgid "No audio available!"
+-msgstr "æ‚·„‚·‚“„’‚ ◊“„⁄!"
++msgstr "–û—Ç—Å—É—Ç—Å—Ç–≤—É–µ—Ç –∑–≤—É–∫!"
+ 
+ msgid "No subtitles"
+-msgstr "Ω’‚ ·„—‚ÿ‚‡ﬁ“"
++msgstr "–ù–µ—Ç —Å—É–±—Ç–∏—Ç—Ä–æ–≤"
+ 
+ msgid "No subtitles available!"
+-msgstr "¡„—‚ÿ‚‡Î ›’‘ﬁ·‚„ﬂ›Î!"
++msgstr "–°—É–±—Ç–∏—Ç—Ä—ã –Ω–µ–¥–æ—Å—Ç—É–ø–Ω—ã!"
+ 
+ msgid "Not enough disk space to start recording!"
+-msgstr "Ω’‘ﬁ·‚–‚ﬁÁ›ﬁ ‹’·‚– ›– ‘ÿ·⁄’ ‘€Ô ›–Á–€– ◊–ﬂÿ·ÿ"
++msgstr "–ù–µ–¥–æ—Å—Ç–∞—Ç–æ—á–Ω–æ –º–µ—Å—Ç–∞ –Ω–∞ –¥–∏—Å–∫–µ –¥–ª—è –Ω–∞—á–∞–ª–∞ –∑–∞–ø–∏—Å–∏"
+ 
+ msgid "No free DVB device to record!"
+-msgstr "Ω’‚ ·“ﬁ—ﬁ‘›ﬁ”ﬁ DVB-„·‚‡ﬁŸ·‚“– ‘€Ô ◊–ﬂÿ·ÿ!"
++msgstr "–ù–µ—Ç —Å–≤–æ–±–æ–¥–Ω–æ–≥–æ DVB-—É—Å—Ç—Ä–æ–π—Å—Ç–≤–∞ –¥–ª—è –∑–∞–ø–∏—Å–∏!"
+ 
+ msgid "Pausing live video..."
+-msgstr "¿’÷ÿ‹ ﬁ‚€ﬁ÷’››ﬁ”ﬁ ﬂ‡ﬁ·‹ﬁ‚‡–..."
++msgstr "–†–µ–∂–∏–º –æ—Ç–ª–æ–∂–µ–Ω–Ω–æ–≥–æ –ø—Ä–æ—Å–º–æ—Ç—Ä–∞..."
+ 
+ msgid "Delete timeshift recording?"
+-msgstr "√‘–€ÿ‚Ï ﬁ‚€ﬁ÷’››„Ó ◊–ﬂÿ·Ï?"
++msgstr "–£–¥–∞–ª–∏—Ç—å –æ—Ç–ª–æ–∂–µ–Ω–Ω—É—é –∑–∞–ø–∏—Å—å?"
+ 
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+-msgstr "ø’‡’Ÿ‚ÿ: "
++msgstr "–ü–µ—Ä–µ–π—Ç–∏: "
+ 
+ msgid "No editing marks defined!"
+-msgstr "Ω’ ◊–‘–›Î ‹’‚⁄ÿ ‘€Ô ‹ﬁ›‚–÷–!"
++msgstr "–ù–µ –∑–∞–¥–∞–Ω—ã –º–µ—Ç–∫–∏ –¥–ª—è –º–æ–Ω—Ç–∞–∂–∞!"
+ 
+ msgid "No editing sequences defined!"
+-msgstr "øﬁ‡Ô‘ﬁ⁄ ‡’‘⁄–‚ÿ‡ﬁ“–›ÿÔ ›’ ﬁﬂ‡’‘’€’›!"
++msgstr "–ü–æ—Ä—è–¥–æ–∫ —Ä–µ–¥–∞–∫—Ç–∏—Ä–æ–≤–∞–Ω–∏—è –Ω–µ –æ–ø—Ä–µ–¥–µ–ª–µ–Ω!"
+ 
+ msgid "Can't start editing process!"
+-msgstr "Ω’“ﬁ◊‹ﬁ÷›ﬁ ›–Á–‚Ï ‹ﬁ›‚–÷ ◊–ﬂÿ·ÿ!"
++msgstr "–ù–µ–≤–æ–∑–º–æ–∂–Ω–æ –Ω–∞—á–∞—Ç—å –º–æ–Ω—Ç–∞–∂ –∑–∞–ø–∏—Å–∏!"
+ 
+ msgid "Editing process started"
+-msgstr "Ω–Á–‚ ‹ﬁ›‚–÷ ◊–ﬂÿ·ÿ"
++msgstr "–ù–∞—á–∞—Ç –º–æ–Ω—Ç–∞–∂ –∑–∞–ø–∏—Å–∏"
+ 
+ msgid "Editing process already active!"
+-msgstr "ø‡ﬁÊ’·· “ÿ‘’ﬁ‹ﬁ›‚–÷– „÷’ ◊–ﬂ„È’›!"
++msgstr "–ü—Ä–æ—Ü–µ—Å—Å –≤–∏–¥–µ–æ–º–æ–Ω—Ç–∞–∂–∞ —É–∂–µ –∑–∞–ø—É—â–µ–Ω!"
+ 
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+-msgstr " abcdefghijklmnopqrstuvwxyz–—“”‘’Ò÷◊ÿŸ⁄€‹›ﬁﬂ‡·‚„‰ÂÊÁËÈÍÎÏÓÔ0123456789-.,#~\\^$[]|()*+?{}/:%@&"
++msgstr " abcdefghijklmnopqrstuvwxyz–∞–±–≤–≥–¥–µ—ë–∂–∑–∏–π–∫–ª–º–Ω–æ–ø—Ä—Å—Ç—É—Ñ—Ö—Ü—á—à—â—ä—ã—å—é—è0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+-msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc–—“”2\tdef‘’Ò÷◊3\tghiÿŸ⁄€4\tjkl‹›ﬁ5\tmnoﬂ‡·6\tpqrs‚„‰Â7\ttuvÊÁËÈÍ8\twxyzÎÏÌÓÔ9"
++msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc–∞–±–≤–≥2\tdef–¥–µ—ë–∂–∑3\tghi–∏–π–∫–ª4\tjkl–º–Ω–æ5\tmno–ø—Ä—Å6\tpqrs—Ç—É—Ñ—Ö7\ttuv—Ü—á—à—â—ä8\twxyz—ã—å—ç—é—è9"
+ 
+ msgid "Button$ABC/abc"
+-msgstr "∞±≤/–—“"
++msgstr "–ê–ë–í/–∞–±–≤"
+ 
+ msgid "Button$Overwrite"
+-msgstr "∑–‹’›–"
++msgstr "–ó–∞–º–µ–Ω–∞"
+ 
+ msgid "Button$Insert"
+-msgstr "≤·‚–“⁄–"
++msgstr "–í—Å—Ç–∞–≤–∫–∞"
+ 
+ msgid "Plugin"
+-msgstr "ºﬁ‘„€Ï"
++msgstr "–ú–æ–¥—É–ª—å"
+ 
+ msgid "Up/Dn for new location - OK to move"
+-msgstr "Ω–÷ÿ‹–Ÿ‚’ \"≤“’‡Â\"/\"≤›ÿ◊\" ‘€Ô “Î—ﬁ‡– ﬂﬁ◊ÿÊÿÿ, – ◊–‚’‹ \"OK\""
++msgstr "–ù–∞–∂–∏–º–∞–π—Ç–µ \"–í–≤–µ—Ä—Ö\"/\"–í–Ω–∏–∑\" –¥–ª—è –≤—ã–±–æ—Ä–∞ –ø–æ–∑–∏—Ü–∏–∏, –∞ –∑–∞—Ç–µ–º \"OK\""
+ 
+ msgid "Channel locked (recording)!"
+-msgstr "∫–›–€ ◊–—€ﬁ⁄ÿ‡ﬁ“–› (ÿ‘Ò‚ ◊–ﬂÿ·Ï)!"
++msgstr "–ö–∞–Ω–∞–ª –∑–∞–±–ª–æ–∫–∏—Ä–æ–≤–∞–Ω (–∏–¥—ë—Ç –∑–∞–ø–∏—Å—å)!"
+ 
+ msgid "Low disk space!"
+-msgstr "Ω’‘ﬁ·‚–‚ﬁÁ›ﬁ ‹’·‚– ›– ‘ÿ·⁄’!"
++msgstr "–ù–µ–¥–æ—Å—Ç–∞—Ç–æ—á–Ω–æ –º–µ—Å—Ç–∞ –Ω–∞ –¥–∏—Å–∫–µ!"
+ 
+ msgid "Regenerating index file"
+-msgstr "¿’”’›’‡–ÊÿÔ ÿ›‘’⁄·›ﬁ”ﬁ ‰–Ÿ€–"
++msgstr "–†–µ–≥–µ–Ω–µ—Ä–∞—Ü–∏—è –∏–Ω–¥–µ–∫—Å–Ω–æ–≥–æ —Ñ–∞–π–ª–∞"
+ 
+ msgid "Index file regeneration complete"
+-msgstr "¿’”’›’‡–ÊÿÔ ÿ›‘’⁄·›ﬁ”ﬁ ‰–Ÿ€– ﬁ⁄ﬁ›Á’›–"
++msgstr "–†–µ–≥–µ–Ω–µ—Ä–∞—Ü–∏—è –∏–Ω–¥–µ–∫—Å–Ω–æ–≥–æ —Ñ–∞–π–ª–∞ –æ–∫–æ–Ω—á–µ–Ω–∞"
+ 
+ msgid "Index file regeneration failed!"
+-msgstr "æËÿ—⁄– ‡’”’›’‡–ÊÿÔ ÿ›‘’⁄·›ﬁ”ﬁ ‰–Ÿ€–"
++msgstr "–û—à–∏–±–∫–∞ —Ä–µ–≥–µ–Ω–µ—Ä–∞—Ü–∏—è –∏–Ω–¥–µ–∫—Å–Ω–æ–≥–æ —Ñ–∞–π–ª–∞!"
+ 
+ msgid "Can't shutdown - option '-s' not given!"
+-msgstr "≤Î⁄€ÓÁ’›ÿ’ ›’“ﬁ◊‹ﬁ÷›ﬁ - ›’ ◊–‘–› ﬂ–‡–‹’‚‡ '-s'!"
++msgstr "–í—ã–∫–ª—é—á–µ–Ω–∏–µ –Ω–µ–≤–æ–∑–º–æ–∂–Ω–æ - –Ω–µ –∑–∞–¥–∞–Ω –ø–∞—Ä–∞–º–µ—Ç—Ä '-s'!"
+ 
+ msgid "Editing - shut down anyway?"
+-msgstr "∏‘’‚ ‹ﬁ›‚–÷ - ‘’Ÿ·‚“ÿ‚’€Ï›ﬁ “Î⁄€ÓÁÿ‚Ï?"
++msgstr "–ò–¥–µ—Ç –º–æ–Ω—Ç–∞–∂ - –¥–µ–π—Å—Ç–≤–∏—Ç–µ–ª—å–Ω–æ –≤—ã–∫–ª—é—á–∏—Ç—å?"
+ 
+ msgid "Recording - shut down anyway?"
+-msgstr "∏‘Ò‚ ◊–ﬂÿ·Ï - ‘’Ÿ·‚“ÿ‚’€Ï›ﬁ “Î⁄€ÓÁÿ‚Ï?"
++msgstr "–ò–¥—ë—Ç –∑–∞–ø–∏—Å—å - –¥–µ–π—Å—Ç–≤–∏—Ç–µ–ª—å–Ω–æ –≤—ã–∫–ª—é—á–∏—Ç—å?"
+ 
+ #, c-format
+ msgid "Recording in %ld minutes, shut down anyway?"
+-msgstr "«’‡’◊ %ld ‹ÿ›„‚ ›–Á›Ò‚·Ô ◊–ﬂÿ·Ï - ‘’Ÿ·‚“ÿ‚’€Ï›ﬁ “Î⁄€ÓÁÿ‚Ï?"
++msgstr "–ß–µ—Ä–µ–∑ %ld –º–∏–Ω—É—Ç –Ω–∞—á–Ω—ë—Ç—Å—è –∑–∞–ø–∏—Å—å - –¥–µ–π—Å—Ç–≤–∏—Ç–µ–ª—å–Ω–æ –≤—ã–∫–ª—é—á–∏—Ç—å?"
+ 
+ msgid "shut down anyway?"
+-msgstr "‘’Ÿ·‚“ÿ‚’€Ï›ﬁ “Î⁄€ÓÁÿ‚Ï?"
++msgstr "–¥–µ–π—Å—Ç–≤–∏—Ç–µ–ª—å–Ω–æ –≤—ã–∫–ª—é—á–∏—Ç—å?"
+ 
+ #, c-format
+ msgid "Plugin %s wakes up in %ld min, continue?"
+-msgstr "Plugin %s ﬂ‡ﬁ·›’‚·Ô Á’‡’◊ %ld ‹ÿ›„‚ - ﬂ‡ﬁ‘ﬁ€÷ÿ‚Ï?"
++msgstr "Plugin %s –ø—Ä–æ—Å–Ω–µ—Ç—Å—è —á–µ—Ä–µ–∑ %ld –º–∏–Ω—É—Ç - –ø—Ä–æ–¥–æ–ª–∂–∏—Ç—å?"
+ 
+ msgid "Editing - restart anyway?"
+-msgstr "ø‡ﬁÊ’·· ‹ﬁ›‚–÷– - ‘’Ÿ·‚“ÿ‚’€Ï›ﬁ ﬂ’‡’◊–ﬂ„·‚ÿ‚Ï?"
++msgstr "–ü—Ä–æ—Ü–µ—Å—Å –º–æ–Ω—Ç–∞–∂–∞ - –¥–µ–π—Å—Ç–≤–∏—Ç–µ–ª—å–Ω–æ –ø–µ—Ä–µ–∑–∞–ø—É—Å—Ç–∏—Ç—å?"
+ 
+ msgid "Recording - restart anyway?"
+-msgstr "∏‘Ò‚ ◊–ﬂÿ·Ï - ‘’Ÿ·‚“ÿ‚’€Ï›ﬁ ﬂ’‡’◊–ﬂ„·‚ÿ‚Ï?"
++msgstr "–ò–¥—ë—Ç –∑–∞–ø–∏—Å—å - –¥–µ–π—Å—Ç–≤–∏—Ç–µ–ª—å–Ω–æ –ø–µ—Ä–µ–∑–∞–ø—É—Å—Ç–∏—Ç—å?"
+ 
+ msgid "restart anyway?"
+-msgstr "‘’Ÿ·‚“ÿ‚’€Ï›ﬁ ﬂ’‡’◊–ﬂ„·‚ÿ‚Ï?"
++msgstr "–¥–µ–π—Å—Ç–≤–∏—Ç–µ–ª—å–Ω–æ –ø–µ—Ä–µ–∑–∞–ø—É—Å—Ç–∏—Ç—å?"
+ 
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Volume "
+-msgstr "≥‡ﬁ‹⁄ﬁ·‚Ï "
++msgstr "–ì—Ä–æ–º–∫–æ—Å—Ç—å "
+ 
+ msgid "Classic VDR"
+-msgstr "∫€–··ÿÁ’·⁄ÿŸ"
++msgstr "–ö–ª–∞—Å—Å–∏—á–µ—Å–∫–∏–π"
+ 
+ msgid "DISK"
+-msgstr "¥ÿ·⁄"
++msgstr "–î–ò–°–ö"
+ 
+ msgid "LOAD"
+-msgstr "∑–”‡„÷’››ﬁ·‚Ï"
++msgstr "–ó–ê–ì–†–£–ó–ö–ê"
+ 
+ msgid "TIMERS"
+-msgstr "¬–Ÿ‹’‡Î"
++msgstr "–¢–§–ô–ú–ï–†–´"
+ 
+ msgid "DEVICES"
+-msgstr "√·‚‡ﬁŸ·‚“–"
++msgstr "–£–°–¢–†–û–ô–°–¢–í–ê"
+ 
+ msgid "LIVE"
+ msgstr "LIVE"
+ 
+ msgid "PLAY"
+-msgstr "≤ﬁ·ﬂ‡ﬁÿ◊“’‘’›ÿ’"
++msgstr "–í–æ—Å–ø—Ä–æ–∏–∑–≤–µ–¥–µ–Ω–∏–µ"
+ 
+ #, c-format
+ msgid "Moving dish to %.1f..."
+-msgstr ""
++msgstr "–°–¥–≤–∏–Ω—É—Ç—å —Ç–∞—Ä–µ–ª—å –∫ %.1f..."
+ 
+ msgid "ST:TNG Panels"
+-msgstr "ST:TNG ﬂ–›’€ÿ"
++msgstr "ST:TNG –ø–∞–Ω–µ–ª–∏"
+ 
+ #. TRANSLATORS: the first character of each weekday, beginning with monday
+ msgid "MTWTFSS"
+-msgstr "ø≤¡«ø¡≤"
++msgstr "–ü–í–°–ß–ü–°–í"
+ 
+ #. TRANSLATORS: abbreviated weekdays, beginning with monday (must all be 3 letters!)
+ msgid "MonTueWedThuFriSatSun"
+-msgstr "øﬁ›≤‚‡¡‡‘«‚“ø‚›¡„—≤·⁄"
++msgstr "–ü–æ–Ω–í—Ç—Ä–°—Ä–¥–ß—Ç–≤–ü—Ç–Ω–°—É–±–í—Å–∫"
+ 
+ msgid "Monday"
+-msgstr "øﬁ›’‘’€Ï›ÿ⁄"
++msgstr "–ü–æ–Ω–µ–¥–µ–ª—å–Ω–∏–∫"
+ 
+ msgid "Tuesday"
+-msgstr "≤‚ﬁ‡›ÿ⁄"
++msgstr "–í—Ç–æ—Ä–Ω–∏–∫"
+ 
+ msgid "Wednesday"
+-msgstr "¡‡’‘–"
++msgstr "–°—Ä–µ–¥–∞"
+ 
+ msgid "Thursday"
+-msgstr "«’‚“’‡”"
++msgstr "–ß–µ—Ç–≤–µ—Ä–≥"
+ 
+ msgid "Friday"
+-msgstr "øÔ‚›ÿÊ–"
++msgstr "–ü—è—Ç–Ω–∏—Ü–∞"
+ 
+ msgid "Saturday"
+-msgstr "¡„——ﬁ‚–"
++msgstr "–°—É–±–±–æ—Ç–∞"
+ 
+ msgid "Sunday"
+-msgstr "≤ﬁ·⁄‡’·’›Ï’"
++msgstr "–í–æ—Å–∫—Ä–µ—Å–µ–Ω—å–µ"
+ 
+ msgid "Upcoming recording!"
+-msgstr "∑–ﬂÿ·Ï ·⁄ﬁ‡ﬁ ›–Á›’‚·Ô"
++msgstr "–ó–∞–ø–∏—Å—å —Å–∫–æ—Ä–æ –Ω–∞—á–Ω–µ—Ç—Å—è!"
+ 
+ msgid "Pause live video?"
+-msgstr "æ·‚–›ﬁ“ÿ‚Ï live video?"
++msgstr "–û—Å—Ç–∞–Ω–æ–≤–∏—Ç—å live video?"
+ 
+ msgid "Start recording?"
+-msgstr ""
++msgstr "–ó–∞–ø—É—Å—Ç–∏—Ç—å –∑–∞–ø–∏—Å—å?"
+ 
+ msgid "Recording started"
+-msgstr "∑–ﬂÿ·Ï ›–Á–‚–"
++msgstr "–ó–∞–ø–∏—Å—å –Ω–∞—á–∞—Ç–∞"
+ 
+ msgid "VDR will shut down later - press Power to force"
+-msgstr "VDR “Î⁄€ÓÁÿ‚·Ô ﬂﬁ◊÷’ - ›–÷‹ÿ‚’ Power ‘€Ô „·⁄ﬁ‡’›ÿÔ"
++msgstr "VDR –≤—ã–∫–ª—é—á–∏—Ç—Å—è –ø–æ–∑–∂–µ - –Ω–∞–∂–º–∏—Ç–µ –ü–∏—Ç–∞–Ω–∏–µ –¥–ª—è —É—Å–∫–æ—Ä–µ–Ω–∏—è"
+ 
+ msgid "Press any key to cancel shutdown"
+-msgstr "Ω–÷‹ÿ‚’ €Ó—„Ó ⁄›ﬁﬂ⁄„ Á‚ﬁ—Î ﬁ‚‹’›ÿ‚Ï “Î⁄€ÓÁ’›ÿ’."
++msgstr "–ù–∞–∂–º–∏—Ç–µ –ª—é–±—É—é –∫–Ω–æ–ø–∫—É —á—Ç–æ–±—ã –æ—Ç–º–µ–Ω–∏—Ç—å –≤—ã–∫–ª—é—á–µ–Ω–∏–µ"
+ 
+ msgid "Switching primary DVB..."
+-msgstr "¡‹’›– ﬁ·›ﬁ“›ﬁ”ﬁ DVB-„·‚‡ﬁŸ·‚“–..."
++msgstr "–°–º–µ–Ω–∞ –æ—Å–Ω–æ–≤–Ω–æ–≥–æ DVB-—É—Å—Ç—Ä–æ–π—Å—Ç–≤–∞..."
+ 
+ msgid "Editing process failed!"
+-msgstr "æËÿ—⁄– “ﬁ “‡’‹Ô ‹ﬁ›‚–÷– ◊–ﬂÿ·ÿ!"
++msgstr "–û—à–∏–±–∫–∞ –≤–æ –≤—Ä–µ–º—è –º–æ–Ω—Ç–∞–∂–∞ –∑–∞–ø–∏—Å–∏!"
+ 
+ msgid "Editing process finished"
+-msgstr "ºﬁ›‚–÷ ﬁ⁄ﬁ›Á’›"
++msgstr "–ú–æ–Ω—Ç–∞–∂ –æ–∫–æ–Ω—á–µ–Ω"
+ 
+ msgid "Press any key to cancel restart"
+-msgstr "Ω–÷‹ÿ‚’ €Ó—„Ó ⁄›ﬁﬂ⁄„ ‘€Ô ﬁ‚‹’›Î ﬂ’‡’◊–”‡„◊⁄ÿ"
++msgstr "–ù–∞–∂–º–∏—Ç–µ –ª—é–±—É—é –∫–Ω–æ–ø–∫—É –¥–ª—è –æ—Ç–º–µ–Ω—ã –ø–µ—Ä–µ–∑–∞–≥—Ä—É–∑–∫–∏"
+ 
+ #, c-format
+ msgid "VDR will shut down in %s minutes"
+-msgstr "VDR “Î⁄€ÓÁÿ‚·Ô Á’‡’◊ %s ‹ÿ›„‚"
++msgstr "VDR –≤—ã–∫–ª—é—á–∏—Ç—Å—è —á–µ—Ä–µ–∑ %s –º–∏–Ω—É—Ç"
+ 
+ msgid "Disk"
+-msgstr "¥ÿ·⁄"
++msgstr "–î–∏—Å–∫"
+ 
+ msgid "free"
+-msgstr "·“ﬁ—ﬁ‘›ﬁ"
++msgstr "—Å–≤–æ–±–æ–¥–Ω–æ"
+diff -ruN vdr-2.3.2/receiver.c vdr-2.3.3/receiver.c
+--- vdr-2.3.2/receiver.c	2015-09-16 13:19:47.000000000 +0200
++++ vdr-2.3.3/receiver.c	2017-02-21 11:59:27.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: receiver.c 4.1 2015/09/16 11:19:47 kls Exp $
++ * $Id: receiver.c 4.2 2017/02/21 10:59:27 kls Exp $
+  */
+ 
+ #include "receiver.h"
+@@ -38,8 +38,11 @@
+ {
+   if (Pid) {
+      if (numPids < MAXRECEIVEPIDS) {
+-        if (!WantsPid(Pid))
++        if (!WantsPid(Pid)) {
+            pids[numPids++] = Pid;
++           if (device)
++              device->AddPid(Pid);
++           }
+         }
+      else {
+         dsyslog("too many PIDs in cReceiver (Pid = %d)", Pid);
+@@ -87,6 +90,8 @@
+             for ( ; i < numPids; i++) // we also copy the terminating 0!
+                 pids[i] = pids[i + 1];
+             numPids--;
++            if (device)
++               device->DelPid(Pid);
+             return;
+             }
+          }
+diff -ruN vdr-2.3.2/recording.c vdr-2.3.3/recording.c
+--- vdr-2.3.2/recording.c	2016-12-22 13:58:20.000000000 +0100
++++ vdr-2.3.3/recording.c	2017-01-01 18:52:51.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 4.6 2016/12/22 12:58:20 kls Exp $
++ * $Id: recording.c 4.7 2017/01/01 17:52:51 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -1914,16 +1914,20 @@
+ void cRecordingsHandler::Action(void)
+ {
+   while (Running()) {
++        bool Sleep = false;
+         {
+           cMutexLock MutexLock(&mutex);
+-          while (cRecordingsHandlerEntry *r = operations.First()) {
+-                if (!r->Active(error))
+-                   operations.Del(r);
+-                }
+-          if (!operations.Count())
++          if (cRecordingsHandlerEntry *r = operations.First()) {
++             if (!r->Active(error))
++                operations.Del(r);
++             else
++                Sleep = true;
++             }
++          else
+              break;
+         }
+-        cCondWait::SleepMs(100);
++        if (Sleep)
++           cCondWait::SleepMs(100);
+         }
+ }
+ 
+diff -ruN vdr-2.3.2/remux.c vdr-2.3.3/remux.c
+--- vdr-2.3.2/remux.c	2016-12-22 13:58:20.000000000 +0100
++++ vdr-2.3.3/remux.c	2017-03-26 15:07:01.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 4.3 2016/12/22 12:58:20 kls Exp $
++ * $Id: remux.c 4.5 2017/03/26 13:07:01 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -144,6 +144,19 @@
+      }
+ }
+ 
++int TsSync(const uchar *Data, int Length, const char *File, const char *Function, int Line)
++{
++  int Skipped = 0;
++  while (Length > 0 && (*Data != TS_SYNC_BYTE || Length > TS_SIZE && Data[TS_SIZE] != TS_SYNC_BYTE)) {
++        Data++;
++        Length--;
++        Skipped++;
++        }
++  if (Skipped && File && Function && Line)
++     esyslog("ERROR: skipped %d bytes to sync on start of TS packet at %s/%s(%d)", Skipped, File, Function, Line);
++  return Skipped;
++}
++
+ int64_t TsGetPts(const uchar *p, int l)
+ {
+   // Find the first packet with a PTS and use it:
+@@ -1557,13 +1570,8 @@
+   newFrame = independentFrame = false;
+   while (Length >= MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE) { // makes sure we are looking at enough data, in case the frame type is not stored in the first TS packet
+         // Sync on TS packet borders:
+-        if (Data[0] != TS_SYNC_BYTE) {
+-           int Skipped = 1;
+-           while (Skipped < Length && (Data[Skipped] != TS_SYNC_BYTE || Length - Skipped > TS_SIZE && Data[Skipped + TS_SIZE] != TS_SYNC_BYTE))
+-                 Skipped++;
+-           esyslog("ERROR: skipped %d bytes to sync on start of TS packet", Skipped);
++        if (int Skipped = TS_SYNC(Data, Length))
+            return Processed + Skipped;
+-           }
+         // Handle one TS packet:
+         int Handled = TS_SIZE;
+         if (TsHasPayload(Data) && !TsIsScrambled(Data)) {
+@@ -1629,7 +1637,7 @@
+                           Div += parser->IFrameTemporalReferenceOffset();
+                        if (Div <= 0)
+                           Div = 1;
+-                       uint32_t Delta = ptsValues[0] / Div;
++                       int Delta = ptsValues[0] / Div;
+                        // determine frame info:
+                        if (isVideo) {
+                           if (Delta == 3753)
+diff -ruN vdr-2.3.2/remux.h vdr-2.3.3/remux.h
+--- vdr-2.3.2/remux.h	2016-12-22 14:09:54.000000000 +0100
++++ vdr-2.3.3/remux.h	2017-03-26 15:06:37.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 4.1 2016/12/22 13:09:54 kls Exp $
++ * $Id: remux.h 4.3 2017/03/26 13:06:37 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+@@ -83,6 +83,12 @@
+   return (p[1] & TS_PID_MASK_HI) * 256 + p[2];
+ }
+ 
++inline void TsSetPid(uchar *p, int Pid)
++{
++  p[1] = (p[1] & ~TS_PID_MASK_HI) | ((Pid >> 8) & TS_PID_MASK_HI);
++  p[2] = Pid & 0x00FF;
++}
++
+ inline bool TsIsScrambled(const uchar *p)
+ {
+   return p[3] & TS_SCRAMBLING_CONTROL;
+@@ -138,6 +144,15 @@
+ void TsHidePayload(uchar *p);
+ void TsSetPcr(uchar *p, int64_t Pcr);
+ 
++// Helper macro and function to quickly check whether Data points to the beginning
++// of a TS packet. The return value is the number of bytes that need to be skipped
++// to synchronize on the next TS packet (zero if already sync'd). TsSync() can be
++// called directly, the macro just performs the initial check inline and adds some
++// debug information for logging.
++
++#define TS_SYNC(Data, Length) (*Data == TS_SYNC_BYTE ? 0 : TsSync(Data, Length, __FILE__, __FUNCTION__, __LINE__))
++int TsSync(const uchar *Data, int Length, const char *File = NULL, const char *Function = NULL, int Line = 0);
++
+ // The following functions all take a pointer to a sequence of complete TS packets.
+ 
+ int64_t TsGetPts(const uchar *p, int l);
+diff -ruN vdr-2.3.2/ringbuffer.c vdr-2.3.3/ringbuffer.c
+--- vdr-2.3.2/ringbuffer.c	2016-12-22 11:26:13.000000000 +0100
++++ vdr-2.3.3/ringbuffer.c	2017-03-19 13:43:36.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Parts of this file were inspired by the 'ringbuffy.c' from the
+  * LinuxDVB driver (see linuxtv.org).
+  *
+- * $Id: ringbuffer.c 4.1 2016/12/22 10:26:13 kls Exp $
++ * $Id: ringbuffer.c 4.2 2017/03/19 12:43:36 kls Exp $
+  */
+ 
+ #include "ringbuffer.h"
+@@ -216,9 +216,10 @@
+ 
+ void cRingBufferLinear::Clear(void)
+ {
+-  tail = head = margin;
++  int Head = head;
++  tail = Head;
+ #ifdef DEBUGRINGBUFFERS
+-  lastHead = head;
++  lastHead = Head;
+   lastTail = tail;
+   lastPut = lastGet = -1;
+ #endif
+diff -ruN vdr-2.3.2/ringbuffer.h vdr-2.3.3/ringbuffer.h
+--- vdr-2.3.2/ringbuffer.h	2016-12-22 11:26:13.000000000 +0100
++++ vdr-2.3.3/ringbuffer.h	2017-03-19 14:11:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ringbuffer.h 4.1 2016/12/22 10:26:13 kls Exp $
++ * $Id: ringbuffer.h 4.2 2017/03/19 13:11:39 kls Exp $
+  */
+ 
+ #ifndef __RINGBUFFER_H
+@@ -80,6 +80,8 @@
+   virtual int Free(void) { return Size() - Available() - 1 - margin; }
+   virtual void Clear(void);
+     ///< Immediately clears the ring buffer.
++    ///< This function may safely be called from the reading thread without additional
++    ///< locking. If called from the writing thread, proper locking must be used.
+   int Read(int FileHandle, int Max = 0);
+     ///< Reads at most Max bytes from FileHandle and stores them in the
+     ///< ring buffer. If Max is 0, reads as many bytes as possible.
+diff -ruN vdr-2.3.2/skinlcars.c vdr-2.3.3/skinlcars.c
+--- vdr-2.3.2/skinlcars.c	2016-12-22 15:05:56.000000000 +0100
++++ vdr-2.3.3/skinlcars.c	2017-01-19 16:27:48.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinlcars.c 4.2 2016/12/22 14:05:56 kls Exp $
++ * $Id: skinlcars.c 4.3 2017/01/19 15:27:48 kls Exp $
+  */
+ 
+ // "Star Trek: The Next Generation"(R) is a registered trademark of Paramount Pictures,
+@@ -254,7 +254,7 @@
+      LastDeviceType = DeviceType;
+      // CAM:
+      if (CamSlot) {
+-        cString s = cString::sprintf("CAM %d", CamSlot->SlotNumber());
++        cString s = cString::sprintf("CAM %d", CamSlot->MasterSlotNumber());
+         Osd->DrawText(x, y1 - TinyFont->Height(), s, ColorFg, ColorBg, TinyFont);
+         xs = max(xs, x + TinyFont->Width(s));
+         }
+diff -ruN vdr-2.3.2/sources.conf vdr-2.3.3/sources.conf
+--- vdr-2.3.2/sources.conf	2016-12-22 14:31:45.000000000 +0100
++++ vdr-2.3.3/sources.conf	2016-12-27 12:43:11.000000000 +0100
+@@ -182,6 +182,7 @@
+ S7W     Nilesat 101/201 & Eutelsat 7 West A
+ S5W     Eutelsat 5 West A
+ S4W     Amos 2/3
++S3W     ABS-3A
+ S1W     Thor 5/6
+ S0.8W   Intelsat 10-02
+ 
+diff -ruN vdr-2.3.2/tools.h vdr-2.3.3/tools.h
+--- vdr-2.3.2/tools.h	2016-12-23 14:56:35.000000000 +0100
++++ vdr-2.3.3/tools.h	2017-03-16 17:04:43.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 4.5 2016/12/23 13:56:35 kls Exp $
++ * $Id: tools.h 4.6 2017/03/16 16:04:43 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -242,6 +242,17 @@
+     ///< the decimal point, independent of the currently selected locale.
+     ///< If Format is given, it will be used instead of the default.
+ cString itoa(int n);
++inline uint16_t Peek13(const uchar *p)
++{
++  uint16_t v = uint16_t(*p++ & 0x1F) << 8;
++  return v + (*p & 0xFF);
++}
++inline void Poke13(uchar *p, uint16_t v)
++{
++  v |= uint16_t(*p & ~0x1F) << 8;
++  *p++ = v >> 8;
++  *p = v & 0xFF;
++}
+ cString AddDirectory(const char *DirName, const char *FileName);
+ bool EntriesOnSameFileSystem(const char *File1, const char *File2);
+     ///< Checks whether the given files are on the same file system. If either of the
+@@ -744,6 +755,11 @@
+   }
+   };
+ 
++inline int CompareInts(const void *a, const void *b)
++{
++  return *(const int *)a > *(const int *)b;
++}
++
+ inline int CompareStrings(const void *a, const void *b)
+ {
+   return strcmp(*(const char **)a, *(const char **)b);
+diff -ruN vdr-2.3.2/vdr.5 vdr-2.3.3/vdr.5
+--- vdr-2.3.2/vdr.5	2015-02-17 14:43:53.000000000 +0100
++++ vdr-2.3.3/vdr.5	2017-01-09 14:35:08.000000000 +0100
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 4.0 2015/02/17 13:43:53 kls Exp $
++.\" $Id: vdr.5 4.1 2017/01/09 13:35:08 kls Exp $
+ .\"
+ .TH vdr 5 "19 Feb 2015" "2.2" "Video Disk Recorder Files"
+ .SH NAME
+@@ -899,6 +899,20 @@
+ just 16 bit wide. The internal representation in VDR allows for 32 bit to
+ be used, so that external tools can generate EPG data that is guaranteed
+ not to collide with the ids of existing data.
++.SS CAM DATA
++The file \fIcam.data\fR contains information about which CAM in the system can
++decrypt a particular channel.
++Each line in this file contains a channel id, followed by one or more (blank
++separated) numbers, indicating the CAMs that have successfully decrypted this
++channel earlier.
++
++When tuning to an encrypted channel, this information is used to select the
++proper CAM for decrypting this channel. This channel/CAM relationship is not
++hardcoded, though. If a given channel can't be decrypted with a CAM listed
++in this file, other CAMs will be tried just as well. The main purpose of this
++file is to speed up channel switching in systems with more than one CAM.
++
++This file will be read at program startup and saved when the program ends.
+ .SS COMMANDLINE OPTIONS
+ If started without any options, vdr tries to read any files in the directory
+ /etc/vdr/conf.d with names that do not begin with a '.' and that end with '.conf'.
+diff -ruN vdr-2.3.2/vdr.c vdr-2.3.3/vdr.c
+--- vdr-2.3.2/vdr.c	2016-12-23 15:34:37.000000000 +0100
++++ vdr-2.3.3/vdr.c	2017-03-25 15:20:30.000000000 +0100
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 4.9 2016/12/23 14:34:37 kls Exp $
++ * $Id: vdr.c 4.11 2017/03/25 14:20:30 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -878,6 +878,10 @@
+   if (!cPositioner::GetPositioner()) // no plugin has created a positioner
+      new cDiseqcPositioner;
+ 
++  // CAM data:
++
++  ChannelCamRelations.Load(AddDirectory(CacheDirectory, "cam.data"));
++
+   // Channel:
+ 
+   if (!cDevice::WaitForAllDevicesReady(DEVICEREADYTIMEOUT))
+@@ -1555,8 +1559,9 @@
+ 
+   StopSVDRPClientHandler();
+   StopSVDRPServerHandler();
+-  PluginManager.StopPlugins();
++  ChannelCamRelations.Save();
+   cRecordControls::Shutdown();
++  PluginManager.StopPlugins();
+   RecordingsHandler.DelAll();
+   delete Menu;
+   cControl::Shutdown();

@@ -1,0 +1,522 @@
+diff -ruN vdr-2.0.2/CONTRIBUTORS vdr-2.0.3/CONTRIBUTORS
+--- vdr-2.0.2/CONTRIBUTORS	2013-05-19 14:09:55.000000000 +0200
++++ vdr-2.0.3/CONTRIBUTORS	2013-09-01 11:20:07.000000000 +0200
+@@ -700,6 +700,8 @@
+  for helping to debug a problem with reduced number of retries in Transfer Mode on
+  SD-FF cards
+  for reporting a problem with resuming replay of PES recordings
++ for suggesting to make all bonded devices (except for the master) turn off their LNB
++ power completely to avoid problems when receiving vertically polarized transponders
+ 
+ Reinhard Walter Buchner <rw.buchner@freenet.de>
+  for adding some satellites to 'sources.conf'
+@@ -2017,6 +2019,8 @@
+  be escaped
+  for changing the template for PLGCFG to $(CONFDIR)/plugins.mk
+  for updating the help and man page entry about the location of the epg.data file
++ for reporting a possible crash when shutting down VDR while subtitles are being
++ displayed
+ 
+ Steffen Beyer <cpunk@reactor.de>
+  for fixing setting the colored button help after deleting a recording in case the next
+@@ -2953,6 +2957,7 @@
+ Dave Pickles <dave@pickles.me.uk>
+  for adding support for "content identifier descriptor" and "default authority
+  descriptor" to 'libsi'
++ for reporting that old EPG events are not cleaned up in case no epg data file is given
+ 
+ Holger Dengler <holger.dengler@gmx.de>
+  for making the isnumber() function check the given pointer for NULL
+@@ -3154,3 +3159,7 @@
+ 
+ Dominique Dumont <domi.dumont@free.fr>
+  for reporting a crash in the LCARS skin's main menu in case there is no current channel
++
++Manfred Völkel <mvoelkel@digitaldevices.de>
++ for suggesting to make all bonded devices (except for the master) turn off their LNB
++ power completely to avoid problems when receiving vertically polarized transponders
+diff -ruN vdr-2.0.2/HISTORY vdr-2.0.3/HISTORY
+--- vdr-2.0.2/HISTORY	2013-05-19 14:09:35.000000000 +0200
++++ vdr-2.0.3/HISTORY	2013-09-01 11:19:27.000000000 +0200
+@@ -7812,3 +7812,22 @@
+   by Stefan Braun).
+ - Fixed a crash in the LCARS skin's main menu in case there is no current channel
+   (reported by Dominique Dumont).
++
++2013-09-01: Version 2.0.3
++
++- Fixed asserting free disk space in the cutter.
++- No longer trying to delete old recordings in AssertFreeDiskSpace() if the given
++  Priority is less than 1.
++- Fixed handling LIRC events in case repeated events are lost.
++- Fixed a possible crash when shutting down VDR while subtitles are being displayed
++  (reported by Ville Skyttä).
++- cDevice::IsPrimaryDevice() now also checks whether the primary device actually has
++  a decoder and returns false otherwise. This should improve device allocation on
++  systems that are only used as a receiver and don't actually display anything.
++- Increased the value of MAXRETRIES to 20 to reduce the probability of disturbances
++  in transfer mode.
++- All bonded devices (except for the master) now turn off their LNB power completely
++  to avoid problems when receiving vertically polarized transponders (suggested by
++  Manfred Völkel and Oliver Endriss).
++- Fixed cleaning up old EPG events in case no epg data file is given (reported by
++  Dave Pickles).
+diff -ruN vdr-2.0.2/PLUGINS/src/dvbhddevice/HISTORY vdr-2.0.3/PLUGINS/src/dvbhddevice/HISTORY
+--- vdr-2.0.2/PLUGINS/src/dvbhddevice/HISTORY	2013-04-11 10:40:20.000000000 +0200
++++ vdr-2.0.3/PLUGINS/src/dvbhddevice/HISTORY	2013-08-28 10:19:49.000000000 +0200
+@@ -75,3 +75,8 @@
+ 2013-04-11: Version 2.0.1
+ 
+ - Fixed aspect ratio and position of scaled video.
++
++2013-08-26: Version 2.0.2
++
++- Added yellow button in main menu to send CEC TV-Off command.
++- Updated the Finnish OSD texts (thanks to Rolf Ahrenberg).
+diff -ruN vdr-2.0.2/PLUGINS/src/dvbhddevice/dvbhddevice.c vdr-2.0.3/PLUGINS/src/dvbhddevice/dvbhddevice.c
+--- vdr-2.0.2/PLUGINS/src/dvbhddevice/dvbhddevice.c	2013-04-11 10:40:32.000000000 +0200
++++ vdr-2.0.3/PLUGINS/src/dvbhddevice/dvbhddevice.c	2013-08-23 12:14:44.000000000 +0200
+@@ -10,7 +10,7 @@
+ #include "menu.h"
+ #include "setup.h"
+ 
+-static const char *VERSION        = "2.0.1";
++static const char *VERSION        = "2.0.2";
+ static const char *DESCRIPTION    = trNOOP("HD Full Featured DVB device");
+ static const char *MAINMENUENTRY  = "dvbhddevice";
+ 
+diff -ruN vdr-2.0.2/PLUGINS/src/dvbhddevice/menu.c vdr-2.0.3/PLUGINS/src/dvbhddevice/menu.c
+--- vdr-2.0.2/PLUGINS/src/dvbhddevice/menu.c	2012-02-07 20:29:05.000000000 +0100
++++ vdr-2.0.3/PLUGINS/src/dvbhddevice/menu.c	2013-08-23 12:15:23.000000000 +0200
+@@ -13,7 +13,7 @@
+ {
+     mVideoConversionItem = new cOsdItem("", osUnknown, false);
+     Add(mVideoConversionItem);
+-    SetHelp(tr("Video Conversion"), tr("TV on"));
++    SetHelp(tr("Video Conversion"), tr("TV on"), tr("TV off"));
+     SetVideoConversion();
+ }
+ 
+@@ -38,6 +38,11 @@
+                 state = osEnd;
+                 break;
+ 
++            case kYellow:
++                mHdffCmdIf->CmdHdmiSendCecCommand(HDFF_CEC_COMMAND_TV_OFF);
++                state = osEnd;
++                break;
++
+             case kOk:
+                 state = osEnd;
+                 break;
+diff -ruN vdr-2.0.2/PLUGINS/src/dvbhddevice/po/de_DE.po vdr-2.0.3/PLUGINS/src/dvbhddevice/po/de_DE.po
+--- vdr-2.0.2/PLUGINS/src/dvbhddevice/po/de_DE.po	2012-12-18 14:17:07.000000000 +0100
++++ vdr-2.0.3/PLUGINS/src/dvbhddevice/po/de_DE.po	2013-08-23 12:17:57.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: vdr-dvbhddevice 0.0.4\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+-"POT-Creation-Date: 2012-11-13 20:08+0100\n"
++"POT-Creation-Date: 2013-08-23 12:10+0200\n"
+ "PO-Revision-Date: 2011-04-25 21:44+0200\n"
+ "Last-Translator: Christoph Haubrich\n"
+ "Language-Team: <see README>\n"
+@@ -25,6 +25,9 @@
+ msgid "TV on"
+ msgstr "TV ein"
+ 
++msgid "TV off"
++msgstr "TV aus"
++
+ msgid "Automatic"
+ msgstr "automatisch"
+ 
+diff -ruN vdr-2.0.2/PLUGINS/src/dvbhddevice/po/fi_FI.po vdr-2.0.3/PLUGINS/src/dvbhddevice/po/fi_FI.po
+--- vdr-2.0.2/PLUGINS/src/dvbhddevice/po/fi_FI.po	2013-02-18 09:48:07.000000000 +0100
++++ vdr-2.0.3/PLUGINS/src/dvbhddevice/po/fi_FI.po	2013-08-28 10:17:27.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: vdr-dvbhddevice 0.0.4\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+-"POT-Creation-Date: 2012-11-13 20:08+0100\n"
++"POT-Creation-Date: 2013-08-23 12:10+0200\n"
+ "PO-Revision-Date: 2011-04-25 21:44+0200\n"
+ "Last-Translator: Rolf Ahrenberg\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
+@@ -25,6 +25,9 @@
+ msgid "TV on"
+ msgstr "TV pÃ¤Ã¤lle"
+ 
++msgid "TV off"
++msgstr "TV kiinni"
++
+ msgid "Automatic"
+ msgstr "automaattinen"
+ 
+diff -ruN vdr-2.0.2/PLUGINS/src/dvbhddevice/po/it_IT.po vdr-2.0.3/PLUGINS/src/dvbhddevice/po/it_IT.po
+--- vdr-2.0.2/PLUGINS/src/dvbhddevice/po/it_IT.po	2013-02-19 10:03:33.000000000 +0100
++++ vdr-2.0.3/PLUGINS/src/dvbhddevice/po/it_IT.po	2013-08-23 12:16:19.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: vdr-dvbhddevice 0.0.4\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+-"POT-Creation-Date: 2012-11-13 20:08+0100\n"
++"POT-Creation-Date: 2013-08-23 12:10+0200\n"
+ "PO-Revision-Date: 2013-02-18 23:42+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team:  <see README>\n"
+@@ -29,6 +29,9 @@
+ msgid "TV on"
+ msgstr "TV accesa"
+ 
++msgid "TV off"
++msgstr ""
++
+ msgid "Automatic"
+ msgstr "Automatica"
+ 
+diff -ruN vdr-2.0.2/PLUGINS/src/dvbsddevice/HISTORY vdr-2.0.3/PLUGINS/src/dvbsddevice/HISTORY
+--- vdr-2.0.2/PLUGINS/src/dvbsddevice/HISTORY	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.0.3/PLUGINS/src/dvbsddevice/HISTORY	2013-08-22 10:30:18.000000000 +0200
+@@ -45,3 +45,8 @@
+ 2013-03-31: Version 2.0.0
+ 
+ - Official release.
++
++2013-08-22: Version 2.0.1
++
++- Fixed handling the -o option (short form of --outputonly; problem reported by
++  Mario Edelmann).
+diff -ruN vdr-2.0.2/PLUGINS/src/dvbsddevice/dvbsddevice.c vdr-2.0.3/PLUGINS/src/dvbsddevice/dvbsddevice.c
+--- vdr-2.0.2/PLUGINS/src/dvbsddevice/dvbsddevice.c	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.0.3/PLUGINS/src/dvbsddevice/dvbsddevice.c	2013-08-22 10:30:52.000000000 +0200
+@@ -3,14 +3,14 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsddevice.c 1.10 2013/03/31 09:30:18 kls Exp $
++ * $Id: dvbsddevice.c 1.10.1.1 2013/08/22 08:30:52 kls Exp $
+  */
+ 
+ #include <getopt.h>
+ #include <vdr/plugin.h>
+ #include "dvbsdffdevice.h"
+ 
+-static const char *VERSION        = "2.0.0";
++static const char *VERSION        = "2.0.1";
+ static const char *DESCRIPTION    = "SD Full Featured DVB device";
+ 
+ class cPluginDvbsddevice : public cPlugin {
+@@ -48,7 +48,7 @@
+      };
+ 
+   int c;
+-  while ((c = getopt_long(argc, argv, "", long_options, NULL)) != -1) {
++  while ((c = getopt_long(argc, argv, "o", long_options, NULL)) != -1) {
+         switch (c) {
+           case 'o': probe->SetOutputOnly(true);
+                     break;
+diff -ruN vdr-2.0.2/config.h vdr-2.0.3/config.h
+--- vdr-2.0.2/config.h	2013-04-27 12:18:08.000000000 +0200
++++ vdr-2.0.3/config.h	2013-08-21 15:44:59.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.76.1.2 2013/04/27 10:18:08 kls Exp $
++ * $Id: config.h 2.76.1.3 2013/08/21 13:44:59 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,8 +22,8 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.0.2"
+-#define VDRVERSNUM   20002  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.0.3"
++#define VDRVERSNUM   20003  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+diff -ruN vdr-2.0.2/cutter.c vdr-2.0.3/cutter.c
+--- vdr-2.0.2/cutter.c	2013-05-02 11:21:18.000000000 +0200
++++ vdr-2.0.3/cutter.c	2013-08-21 15:43:46.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: cutter.c 2.25.1.1 2013/05/02 09:21:18 kls Exp $
++ * $Id: cutter.c 2.25.1.2 2013/08/21 13:43:46 kls Exp $
+  */
+ 
+ #include "cutter.h"
+@@ -556,6 +556,8 @@
+       bool Independent;
+       int Length;
+       if (LoadFrame(Index, Buffer, Independent, Length)) {
++         // Make sure there is enough disk space:
++         AssertFreeDiskSpace(-1);
+          bool CutIn = !SeamlessBegin && Index == BeginIndex;
+          bool CutOut = !SeamlessEnd && Index == EndIndex - 1;
+          bool DeletedFrame = false;
+@@ -608,8 +610,6 @@
+               cCondWait::SleepMs(100);
+               continue;
+               }
+-           // Make sure there is enough disk space:
+-           AssertFreeDiskSpace(-1);
+            // Determine the actual begin and end marks, skipping any marks at the same position:
+            cMark *EndMark = fromMarks.GetNextEnd(BeginMark);
+            // Process the current sequence:
+diff -ruN vdr-2.0.2/device.c vdr-2.0.3/device.c
+--- vdr-2.0.2/device.c	2013-04-05 12:47:38.000000000 +0200
++++ vdr-2.0.3/device.c	2013-08-22 12:35:30.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.74.1.1 2013/04/05 10:47:38 kls Exp $
++ * $Id: device.c 2.74.1.2 2013/08/22 10:35:30 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -118,6 +118,8 @@
+   DetachAllReceivers();
+   delete liveSubtitle;
+   delete dvbSubtitleConverter;
++  if (this == primaryDevice)
++     primaryDevice = NULL;
+ }
+ 
+ bool cDevice::WaitForAllDevicesReady(int Timeout)
+@@ -362,7 +364,6 @@
+ void cDevice::Shutdown(void)
+ {
+   deviceHooks.Clear();
+-  primaryDevice = NULL;
+   for (int i = 0; i < numDevices; i++) {
+       delete device[i];
+       device[i] = NULL;
+diff -ruN vdr-2.0.2/device.h vdr-2.0.3/device.h
+--- vdr-2.0.2/device.h	2013-02-16 16:20:01.000000000 +0100
++++ vdr-2.0.3/device.h	2013-08-22 14:01:48.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 2.47 2013/02/16 15:20:01 kls Exp $
++ * $Id: device.h 2.47.1.1 2013/08/22 12:01:48 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -196,7 +196,7 @@
+          ///< A derived class must call the MakePrimaryDevice() function of its
+          ///< base class.
+ public:
+-  bool IsPrimaryDevice(void) const { return this == primaryDevice; }
++  bool IsPrimaryDevice(void) const { return this == primaryDevice && HasDecoder(); }
+   int CardIndex(void) const { return cardIndex; }
+          ///< Returns the card index of this device (0 ... MAXDEVICES - 1).
+   int DeviceNumber(void) const;
+diff -ruN vdr-2.0.2/dvbdevice.c vdr-2.0.3/dvbdevice.c
+--- vdr-2.0.2/dvbdevice.c	2013-04-09 15:42:26.000000000 +0200
++++ vdr-2.0.3/dvbdevice.c	2013-08-23 11:52:14.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.88.1.1 2013/04/09 13:42:26 kls Exp $
++ * $Id: dvbdevice.c 2.88.1.2 2013/08/23 09:52:14 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -697,7 +697,7 @@
+ 
+ void cDvbTuner::ResetToneAndVoltage(void)
+ {
+-  CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, SEC_VOLTAGE_13));
++  CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, bondedTuner ? SEC_VOLTAGE_OFF : SEC_VOLTAGE_13));
+   CHECK(ioctl(fd_frontend, FE_SET_TONE, SEC_TONE_OFF));
+ }
+ 
+diff -ruN vdr-2.0.2/epg.c vdr-2.0.3/epg.c
+--- vdr-2.0.2/epg.c	2013-02-17 15:12:07.000000000 +0100
++++ vdr-2.0.3/epg.c	2013-09-01 11:16:53.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 2.23 2013/02/17 14:12:07 kls Exp $
++ * $Id: epg.c 2.23.1.1 2013/09/01 09:16:53 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -1140,16 +1140,19 @@
+ class cEpgDataWriter : public cThread {
+ private:
+   cMutex mutex;
++  bool dump;
+ protected:
+   virtual void Action(void);
+ public:
+   cEpgDataWriter(void);
++  void SetDump(bool Dump) { dump = Dump; }
+   void Perform(void);
+   };
+ 
+ cEpgDataWriter::cEpgDataWriter(void)
+ :cThread("epg data writer", true)
+ {
++  dump = false;
+ }
+ 
+ void cEpgDataWriter::Action(void)
+@@ -1169,7 +1172,8 @@
+            p->Cleanup(now);
+        }
+   }
+-  cSchedules::Dump();
++  if (dump)
++     cSchedules::Dump();
+ }
+ 
+ static cEpgDataWriter EpgDataWriter;
+@@ -1203,6 +1207,7 @@
+ {
+   free(epgDataFileName);
+   epgDataFileName = FileName ? strdup(FileName) : NULL;
++  EpgDataWriter.SetDump(epgDataFileName != NULL);
+ }
+ 
+ void cSchedules::SetModified(cSchedule *Schedule)
+@@ -1217,12 +1222,10 @@
+      lastDump = 0;
+   time_t now = time(NULL);
+   if (now - lastDump > EPGDATAWRITEDELTA) {
+-     if (epgDataFileName) {
+-        if (Force)
+-           EpgDataWriter.Perform();
+-        else if (!EpgDataWriter.Active())
+-           EpgDataWriter.Start();
+-        }
++     if (Force)
++        EpgDataWriter.Perform();
++     else if (!EpgDataWriter.Active())
++        EpgDataWriter.Start();
+      lastDump = now;
+      }
+ }
+diff -ruN vdr-2.0.2/lirc.c vdr-2.0.3/lirc.c
+--- vdr-2.0.2/lirc.c	2013-02-11 16:25:42.000000000 +0100
++++ vdr-2.0.3/lirc.c	2013-08-22 11:36:49.000000000 +0200
+@@ -6,7 +6,7 @@
+  *
+  * LIRC support added by Carsten Koch <Carsten.Koch@icem.de>  2000-06-16.
+  *
+- * $Id: lirc.c 2.5 2013/02/11 15:25:42 kls Exp $
++ * $Id: lirc.c 2.5.1.1 2013/08/22 09:36:49 kls Exp $
+  */
+ 
+ #include "lirc.h"
+@@ -111,6 +111,7 @@
+            else if (LastTime.Elapsed() < (uint)Setup.RcRepeatDelta)
+               continue; // skip same keys coming in too fast
+            else {
++              pressed = true;
+               repeat = true;
+               timeout = Delta * 10 / 9;
+               }
+diff -ruN vdr-2.0.2/recording.c vdr-2.0.3/recording.c
+--- vdr-2.0.2/recording.c	2013-04-11 10:20:03.000000000 +0200
++++ vdr-2.0.3/recording.c	2013-08-21 15:58:35.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.91.1.1 2013/04/11 08:20:03 kls Exp $
++ * $Id: recording.c 2.91.1.2 2013/08/21 13:58:35 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -178,34 +178,38 @@
+               return; // the next call will actually remove it
+            }
+         // No "deleted" files to remove, so let's see if we can delete a recording:
+-        isyslog("...no deleted recording found, trying to delete an old recording...");
+-        cThreadLock RecordingsLock(&Recordings);
+-        if (Recordings.Count()) {
+-           cRecording *r = Recordings.First();
+-           cRecording *r0 = NULL;
+-           while (r) {
+-                 if (r->IsOnVideoDirectoryFileSystem()) { // only delete recordings that will actually increase the free video disk space
+-                    if (!r->IsEdited() && r->Lifetime() < MAXLIFETIME) { // edited recordings and recordings with MAXLIFETIME live forever
+-                       if ((r->Lifetime() == 0 && Priority > r->Priority()) || // the recording has no guaranteed lifetime and the new recording has higher priority
+-                           (r->Lifetime() > 0 && (time(NULL) - r->Start()) / SECSINDAY >= r->Lifetime())) { // the recording's guaranteed lifetime has expired
+-                          if (r0) {
+-                             if (r->Priority() < r0->Priority() || (r->Priority() == r0->Priority() && r->Start() < r0->Start()))
+-                                r0 = r; // in any case we delete the one with the lowest priority (or the older one in case of equal priorities)
++        if (Priority > 0) {
++           isyslog("...no deleted recording found, trying to delete an old recording...");
++           cThreadLock RecordingsLock(&Recordings);
++           if (Recordings.Count()) {
++              cRecording *r = Recordings.First();
++              cRecording *r0 = NULL;
++              while (r) {
++                    if (r->IsOnVideoDirectoryFileSystem()) { // only delete recordings that will actually increase the free video disk space
++                       if (!r->IsEdited() && r->Lifetime() < MAXLIFETIME) { // edited recordings and recordings with MAXLIFETIME live forever
++                          if ((r->Lifetime() == 0 && Priority > r->Priority()) || // the recording has no guaranteed lifetime and the new recording has higher priority
++                              (r->Lifetime() > 0 && (time(NULL) - r->Start()) / SECSINDAY >= r->Lifetime())) { // the recording's guaranteed lifetime has expired
++                             if (r0) {
++                                if (r->Priority() < r0->Priority() || (r->Priority() == r0->Priority() && r->Start() < r0->Start()))
++                                   r0 = r; // in any case we delete the one with the lowest priority (or the older one in case of equal priorities)
++                                }
++                             else
++                                r0 = r;
+                              }
+-                          else
+-                             r0 = r;
+                           }
+                        }
++                    r = Recordings.Next(r);
+                     }
+-                 r = Recordings.Next(r);
++              if (r0 && r0->Delete()) {
++                 Recordings.Del(r0);
++                 return;
+                  }
+-           if (r0 && r0->Delete()) {
+-              Recordings.Del(r0);
+-              return;
+               }
++           // Unable to free disk space, but there's nothing we can do about that...
++           isyslog("...no old recording found, giving up");
+            }
+-        // Unable to free disk space, but there's nothing we can do about that...
+-        isyslog("...no old recording found, giving up");
++        else
++           isyslog("...no deleted recording found, priority %d too low to trigger deleting an old recording", Priority);
+         Skins.QueueMessage(mtWarning, tr("Low disk space!"), 5, -1);
+         }
+      LastFreeDiskCheck = time(NULL);
+diff -ruN vdr-2.0.2/transfer.c vdr-2.0.3/transfer.c
+--- vdr-2.0.2/transfer.c	2013-03-01 10:50:15.000000000 +0100
++++ vdr-2.0.3/transfer.c	2013-08-22 14:37:02.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: transfer.c 2.8 2013/03/01 09:50:15 kls Exp $
++ * $Id: transfer.c 2.8.1.1 2013/08/22 12:37:02 kls Exp $
+  */
+ 
+ #include "transfer.h"
+@@ -35,7 +35,7 @@
+      cPlayer::Detach();
+ }
+ 
+-#define MAXRETRIES     5 // max. number of retries for a single TS packet
++#define MAXRETRIES    20 // max. number of retries for a single TS packet
+ #define RETRYWAIT      5 // time (in ms) between two retries
+ 
+ void cTransfer::Receive(uchar *Data, int Length)

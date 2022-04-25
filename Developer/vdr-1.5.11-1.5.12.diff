@@ -1,0 +1,383 @@
+diff -ruN vdr-1.5.11/CONTRIBUTORS vdr-1.5.12/CONTRIBUTORS
+--- vdr-1.5.11/CONTRIBUTORS	2007-11-04 12:24:07.000000000 +0100
++++ vdr-1.5.12/CONTRIBUTORS	2007-11-17 14:59:08.000000000 +0100
+@@ -1149,6 +1149,9 @@
+  for adding a debug error message to cReceiver::~cReceiver() in case it is still
+  attached to a device
+  for reporting a missing SetVolumeDevice() call in cDevice::SetPrimaryDevice()
++ for fixing assembling PS1 packets in cTS2PES::instant_repack()
++ for a patch that was used to fix handling small PES packets that caused subtitles
++ to be displayed late in live mode
+ 
+ Richard Robson <richard_robson@beeb.net>
+  for reporting freezing replay if a timer starts while in Transfer Mode from the
+diff -ruN vdr-1.5.11/HISTORY vdr-1.5.12/HISTORY
+--- vdr-1.5.11/HISTORY	2007-11-04 12:22:45.000000000 +0100
++++ vdr-1.5.12/HISTORY	2007-11-18 16:21:51.000000000 +0100
+@@ -5518,3 +5518,13 @@
+   Kirchgatterer).
+ - Fixed decoding filename characters in case there are not two hex digits after
+   the '#' (reported by Helmut Auer).
++
++2007-11-18: Version 1.5.12
++
++- Fixed assembling PS1 packets in cTS2PES::instant_repack() (thanks to Reinhard
++  Nissl).
++- Updated the Russian OSD texts (thanks to Oleg Roitburd).
++- Fixed handling small PES packets that caused subtitles to be displayed late
++  in live mode (based on a patch from Reinhard Nissl).
++- Fixed stopping live subtitles when a player is attached to the device.
++- Fixed suddenly stopping subtitles in live mode.
+diff -ruN vdr-1.5.11/config.h vdr-1.5.12/config.h
+--- vdr-1.5.11/config.h	2007-10-17 20:34:17.000000000 +0200
++++ vdr-1.5.12/config.h	2007-11-10 14:38:19.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.300 2007/10/17 18:34:17 kls Exp $
++ * $Id: config.h 1.301 2007/11/10 13:38:19 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.5.11"
+-#define VDRVERSNUM   10511  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.5.12"
++#define VDRVERSNUM   10512  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.5.11"
+-#define APIVERSNUM   10511  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.5.12"
++#define APIVERSNUM   10512  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-1.5.11/device.c vdr-1.5.12/device.c
+--- vdr-1.5.11/device.c	2007-11-03 14:30:09.000000000 +0100
++++ vdr-1.5.12/device.c	2007-11-17 16:39:28.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 1.147 2007/11/03 13:30:09 kls Exp $
++ * $Id: device.c 1.148 2007/11/17 15:39:28 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -1148,6 +1148,8 @@
+   if (CanReplay()) {
+      if (player)
+         Detach(player);
++     DELETENULL(liveSubtitle);
++     DELETENULL(dvbSubtitleConverter);
+      pesAssembler->Reset();
+      player = Player;
+      if (!Transferring())
+diff -ruN vdr-1.5.11/po/ru_RU.po vdr-1.5.12/po/ru_RU.po
+--- vdr-1.5.11/po/ru_RU.po	2007-11-04 11:52:41.000000000 +0100
++++ vdr-1.5.12/po/ru_RU.po	2007-11-16 17:39:26.000000000 +0100
+@@ -2,15 +2,16 @@
+ # Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Vyacheslav Dikonov <sdiconov@mail.ru>, 2004
++# Oleg Roitburd <oleg@roitburd.de>, 2007
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:29+0200\n"
+-"PO-Revision-Date: 2007-08-12 14:17+0200\n"
+-"Last-Translator: Vyacheslav Dikonov <sdiconov@mail.ru>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"PO-Revision-Date: 2007-11-05 14:24+0100\n"
++"Last-Translator: Oleg Roitburd <oleg@roitburd.de>\n"
++"Language-Team:  <vdr@linuxtv.org>\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-5\n"
+ "Content-Transfer-Encoding: 8bit\n"
+@@ -166,7 +167,7 @@
+ msgstr "Язык"
+ 
+ msgid "Key$Subtitles"
+-msgstr ""
++msgstr "Субтитры"
+ 
+ msgid "Key$Schedule"
+ msgstr "Телегид"
+@@ -187,31 +188,31 @@
+ msgstr "Команды"
+ 
+ msgid "Key$User1"
+-msgstr ""
++msgstr "Пользователь1"
+ 
+ msgid "Key$User2"
+-msgstr ""
++msgstr "Пользователь2"
+ 
+ msgid "Key$User3"
+-msgstr ""
++msgstr "Пользователь3"
+ 
+ msgid "Key$User4"
+-msgstr ""
++msgstr "Пользователь4"
+ 
+ msgid "Key$User5"
+-msgstr ""
++msgstr "Пользователь5"
+ 
+ msgid "Key$User6"
+-msgstr ""
++msgstr "Пользователь6"
+ 
+ msgid "Key$User7"
+-msgstr ""
++msgstr "Пользователь7"
+ 
+ msgid "Key$User8"
+-msgstr ""
++msgstr "Пользователь8"
+ 
+ msgid "Key$User9"
+-msgstr ""
++msgstr "Пользователь9"
+ 
+ msgid "Free To Air"
+ msgstr "FTA (незакодировано)"
+@@ -253,10 +254,10 @@
+ msgstr "Dpid2 (AC3 2)"
+ 
+ msgid "Spid1"
+-msgstr ""
++msgstr "Субтитры ПИД1"
+ 
+ msgid "Spid2"
+-msgstr ""
++msgstr "Субтитры ПИД2"
+ 
+ msgid "Tpid"
+ msgstr "Tpid (телетекст)"
+@@ -627,22 +628,22 @@
+ msgstr "Выбран"
+ 
+ msgid "Setup.DVB$Display subtitles"
+-msgstr ""
++msgstr "Показывать субтитры"
+ 
+ msgid "Setup.DVB$Subtitle languages"
+-msgstr ""
++msgstr "Языки субтитров"
+ 
+ msgid "Setup.DVB$Subtitle language"
+-msgstr ""
++msgstr "Язык субтитров"
+ 
+ msgid "Setup.DVB$Subtitle offset"
+-msgstr ""
++msgstr "Сдвиг субтитров"
+ 
+ msgid "Setup.DVB$Subtitle foreground transparency"
+-msgstr ""
++msgstr "Прозрачность переднего плана субтитров"
+ 
+ msgid "Setup.DVB$Subtitle background transparency"
+-msgstr ""
++msgstr "Прозрачность фона субтитров"
+ 
+ msgid "LNB"
+ msgstr "Конвертер"
+@@ -837,13 +838,13 @@
+ msgstr "Отсутствует звук!"
+ 
+ msgid "No subtitles"
+-msgstr ""
++msgstr "Нет субтитров"
+ 
+ msgid "Button$Subtitles"
+-msgstr ""
++msgstr "Субтитры"
+ 
+ msgid "No subtitles available!"
+-msgstr ""
++msgstr "Субтитры недоступны!"
+ 
+ msgid "Not enough disk space to start recording!"
+ msgstr "Недостаточно места на диске для начала записи"
+diff -ruN vdr-1.5.11/remux.c vdr-1.5.12/remux.c
+--- vdr-1.5.11/remux.c	2007-11-03 15:18:07.000000000 +0100
++++ vdr-1.5.12/remux.c	2007-11-18 15:45:28.000000000 +0100
+@@ -11,7 +11,7 @@
+  * The cRepacker family's code was originally written by Reinhard Nissl <rnissl@gmx.de>,
+  * and adapted to the VDR coding style by Klaus.Schmidinger@cadsoft.de.
+  *
+- * $Id: remux.c 1.60 2007/11/03 14:18:07 kls Exp $
++ * $Id: remux.c 1.63 2007/11/18 14:45:28 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -1427,7 +1427,6 @@
+ #define MMAX_PLENGTH (64*MAX_PLENGTH) // some stations send PES packets that are extremely large, e.g. DVB-T in Finland or HDTV 1920x1080
+ 
+ #define IPACKS 2048
+-#define SUBTITLE_PACKS  KILOBYTE(32)
+ 
+ // Start codes:
+ #define SC_SEQUENCE 0xB3  // "sequence header code"
+@@ -1750,13 +1749,13 @@
+        case VIDEO_STREAM_S ... VIDEO_STREAM_E:
+        case PRIVATE_STREAM1:
+ 
+-            if (mpeg == 2 && found == 9) {
++            if (mpeg == 2 && found == 9 && count < found) { // make sure to not write the data twice by looking at count
+                write_ipack(&flag1, 1);
+                write_ipack(&flag2, 1);
+                write_ipack(&hlength, 1);
+                }
+ 
+-            if (mpeg == 1 && found == mpeg1_required) {
++            if (mpeg == 1 && found == mpeg1_required && count < found) { // make sure to not write the data twice by looking at count
+                write_ipack(&flag1, 1);
+                if (mpeg1_required > 7) {
+                   write_ipack(&flag2, 1);
+@@ -1870,6 +1869,29 @@
+      instant_repack(Buf + 4 + off, TS_SIZE - 4 - off);
+ }
+ 
++// --- cRingBufferLinearPes --------------------------------------------------
++
++class cRingBufferLinearPes : public cRingBufferLinear {
++protected:
++  virtual int DataReady(const uchar *Data, int Count);
++public:
++  cRingBufferLinearPes(int Size, int Margin = 0, bool Statistics = false, const char *Description = NULL)
++  :cRingBufferLinear(Size, Margin, Statistics, Description) {}
++  };
++
++int cRingBufferLinearPes::DataReady(const uchar *Data, int Count)
++{
++  int c = cRingBufferLinear::DataReady(Data, Count);
++  if (!c && Count >= 6) {
++     if (!Data[0] && !Data[1] && Data[2] == 0x01) {
++        int Length = 6 + Data[4] * 256 + Data[5];
++        if (Length <= Count)
++           return Length;
++        }
++     }
++  return c;
++}
++
+ // --- cRemux ----------------------------------------------------------------
+ 
+ #define RESULTBUFFERSIZE KILOBYTE(256)
+@@ -1883,7 +1905,7 @@
+   skipped = 0;
+   numTracks = 0;
+   resultSkipped = 0;
+-  resultBuffer = new cRingBufferLinear(RESULTBUFFERSIZE, IPACKS, false, "Result");
++  resultBuffer = new cRingBufferLinearPes(RESULTBUFFERSIZE, IPACKS, false, "Result");
+   resultBuffer->SetTimeouts(0, 100);
+   if (VPid)
+ #define TEST_cVideoRepacker
+@@ -1912,7 +1934,7 @@
+   if (SPids) {
+      int n = 0;
+      while (*SPids && numTracks < MAXTRACKS && n < MAXSPIDS)
+-           ts2pes[numTracks++] = new cTS2PES(*SPids++, resultBuffer, SUBTITLE_PACKS, 0x00, 0x20 + n++);
++           ts2pes[numTracks++] = new cTS2PES(*SPids++, resultBuffer, IPACKS, 0x00, 0x20 + n++);
+      }
+ }
+ 
+@@ -2010,7 +2032,7 @@
+          break;
+       if (Data[i] != TS_SYNC_BYTE)
+          break;
+-      if (resultBuffer->Free() < SUBTITLE_PACKS)
++      if (resultBuffer->Free() < 2 * IPACKS)
+          break; // A cTS2PES might write one full packet and also a small rest
+       int pid = GetPid(Data + i + 1);
+       if (Data[i + 3] & 0x10) { // got payload
+diff -ruN vdr-1.5.11/ringbuffer.c vdr-1.5.12/ringbuffer.c
+--- vdr-1.5.11/ringbuffer.c	2006-06-16 11:32:13.000000000 +0200
++++ vdr-1.5.12/ringbuffer.c	2007-11-17 14:49:34.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Parts of this file were inspired by the 'ringbuffy.c' from the
+  * LinuxDVB driver (see linuxtv.org).
+  *
+- * $Id: ringbuffer.c 1.24 2006/06/16 09:32:13 kls Exp $
++ * $Id: ringbuffer.c 1.25 2007/11/17 13:49:34 kls Exp $
+  */
+ 
+ #include "ringbuffer.h"
+@@ -187,6 +187,11 @@
+   free(description);
+ }
+ 
++int cRingBufferLinear::DataReady(const uchar *Data, int Count)
++{
++  return Count >= margin ? Count : 0;
++}
++
+ int cRingBufferLinear::Available(void)
+ {
+   int diff = head - tail;
+@@ -284,7 +289,6 @@
+ 
+ uchar *cRingBufferLinear::Get(int &Count)
+ {
+-  uchar *p = NULL;
+   int Head = head;
+   if (getThreadTid <= 0)
+      getThreadTid = cThread::ThreadId();
+@@ -299,13 +303,13 @@
+   int cont = (diff >= 0) ? diff : Size() + diff - margin;
+   if (cont > rest)
+      cont = rest;
+-  if (cont >= margin) {
+-     p = buffer + tail;
++  uchar *p = buffer + tail;
++  if ((cont = DataReady(p, cont)) > 0) {
+      Count = gotten = cont;
++     return p;
+      }
+-  if (!p)
+-     WaitForGet();
+-  return p;
++  WaitForGet();
++  return NULL;
+ }
+ 
+ void cRingBufferLinear::Del(int Count)
+diff -ruN vdr-1.5.11/ringbuffer.h vdr-1.5.12/ringbuffer.h
+--- vdr-1.5.11/ringbuffer.h	2005-12-10 11:54:51.000000000 +0100
++++ vdr-1.5.12/ringbuffer.h	2007-11-17 14:49:34.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ringbuffer.h 1.17 2005/12/10 10:54:51 kls Exp $
++ * $Id: ringbuffer.h 1.18 2007/11/17 13:49:34 kls Exp $
+  */
+ 
+ #ifndef __RINGBUFFER_H
+@@ -60,6 +60,13 @@
+   int gotten;
+   uchar *buffer;
+   char *description;
++protected:
++  virtual int DataReady(const uchar *Data, int Count);
++    ///< By default a ring buffer has data ready as soon as there are at least
++    ///< 'margin' bytes available. A derived class can reimplement this function
++    ///< if it has other conditions that define when data is ready.
++    ///< The return value is either 0 if there is not yet enough data available,
++    ///< or the number of bytes from the beginning of Data that are "ready".
+ public:
+   cRingBufferLinear(int Size, int Margin = 0, bool Statistics = false, const char *Description = NULL);
+     ///< Creates a linear ring buffer.

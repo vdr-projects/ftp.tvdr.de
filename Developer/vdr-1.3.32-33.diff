@@ -1,0 +1,1362 @@
+diff -ruN vdr-1.3.32/CONTRIBUTORS vdr-1.3.33/CONTRIBUTORS
+--- vdr-1.3.32/CONTRIBUTORS	2005-09-11 15:23:49.000000000 +0200
++++ vdr-1.3.33/CONTRIBUTORS	2005-09-25 16:31:23.000000000 +0200
+@@ -14,6 +14,8 @@
+  for fixing the watchdog timer if the program hangs in OSD activities
+  for his support in keeping the Premiere World channels up to date in 'channels.conf'
+  for fixing converting summary.vdr files that would result in a very long 'short text'
++ for his help in testing and debugging reading the list of recordings in a
++ separate thread
+ 
+ Plamen Ganev <pganev@com-it.net>
+  for fixing the frequency offset for Hotbird channels
+@@ -522,6 +524,7 @@
+  DVB data stream
+  for implementing a default cRemote::Initialize()
+  for suggesting to increase the default value for 'Min. user inactivity' to 300 minutes
++ for suggesting to add cChannel::LinkChannels() and cChannel::RefChannel()
+ 
+ Jeremy Hall <jhall@UU.NET>
+  for fixing an incomplete initialization of the filter parameters in eit.c
+@@ -880,6 +883,7 @@
+  for reporting a bug in handling menu status messages when the list contents is scrolled
+  for reporting that without the usleep() call in cDvbPlayer::Action() VDR runs on NPTL
+  systems
++ for reporting a missing include statement in the 'sky' plugin
+ 
+ Matthias Raus <matthias-raus@web.de>
+  for reporting a problem with starting the editing process if no marks have been set
+@@ -900,6 +904,7 @@
+  for making pressing the Power button not stop Transfer Mode or replay immediately
+  for making EPG events without a title display "No title" instead of "(null)"
+  for changing the title of the recording info menu
++ for reporting a bug in handling key macros with keys after @plugin
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1286,6 +1291,7 @@
+ Lucian Muresan <lucianm@users.sourceforge.net>
+  for updating the Romanian language texts and the iso8859-2 fonts
+  for making VDR actually use the iso8859-15 fonts
++ for suggesting to make the function ExchangeChars()
+ 
+ Mattias Grönlund <Mattias@Gronlund.net>
+  for pointing out a missing cleanup at program exit in case there is a problem
+@@ -1431,6 +1437,7 @@
+  '& 0xff' in CRC32::crc32() of libsi/util.c
+  for suggesting to reduce the priority of the section handler threads
+  for a patch that was used to implement a hash for the channels
++ for reporting a problem with error handling in cCiTransportConnection::RecvTPDU()
+ 
+ Henrik Niehaus <henrik.niehaus@gmx.de>
+  for reporting a problem with timers with a day given as MTWTF--@6, i.e. a repeating
+@@ -1458,6 +1465,8 @@
+  editing mark, or '9' after the last one
+  for suggesting to move cMenuEditTimer and cMenuEvent to menu.h so that plugins
+  can use it
++ for fixing converting arbitrarily formatted summary.vdr files
++ for making the 'new' indicator in the Recordings menu kept up-to-date
+ 
+ David Woodhouse <dwmw2@infradead.org>
+  for his help in replacing the get/put_unaligned() macros from asm/unaligned.h with
+@@ -1479,3 +1488,9 @@
+ 
+ Patrick Rother <krd-vdr@gulu.net>
+  for reporting a bug in defining timers that only differ in the day of week
++
++Alexander Rieger <Alexander.Rieger@inka.de>
++ for fixing two errors in 'newplugin'
++ for fixing handling color buttons in cMenuEditStrItem
++ for making the '.update' file in the video directory be touched when a recording is
++ added or deleted, so that other VDR instances can update their lists
+diff -ruN vdr-1.3.32/HISTORY vdr-1.3.33/HISTORY
+--- vdr-1.3.32/HISTORY	2005-09-11 15:23:12.000000000 +0200
++++ vdr-1.3.33/HISTORY	2005-09-25 16:30:58.000000000 +0200
+@@ -3806,3 +3806,46 @@
+   (thanks to Carsten Koch).
+ - Implemented a hash for the channels to reduce the system load in the EIT scanning
+   thread (based on a patch by Georg Acher).
++
++2005-09-25: Version 1.3.33
++
++- Fixed two errors in 'newplugin' (thanks to Alexander Rieger).
++- Fixed converting arbitrarily formatted summary.vdr files (thanks to Thomas Günther).
++- Fixed handling color buttons in cMenuEditStrItem (thanks to Alexander Rieger).
++- Added cChannel::LinkChannels() and cChannel::RefChannel() (suggested by Helmut Auer).
++  Note that VDR itself doesn't actually use the linked channels, yet, so there is
++  no guarantee that this really works under all circumstances.
++- Added a missing include statement to the 'sky' plugin (thanks to Alfred Zastrow
++  for reporting this one).
++- Fixed handling key macros with keys after @plugin (thanks to Rolf Ahrenberg for
++  reporting this one).
++- Fixed error handling in cCiTransportConnection::RecvTPDU() (thanks to Georg Acher
++  for reporting this one).
++- Removed obsolete 'shift' code in device.[hc].
++- The SVDRP command DELR no longer triggers a complete reload of the global Recordings
++  list, but rather deletes that particular entry.
++- The list of recordings is now read in a separate thread, resulting in a faster
++  startup if there are a great many of recordings, or the disk(s) have to spin up.
++  If the Recordings menu is opened while the list of recordings is still being read,
++  the menu will be updated accordingly.
++  Plugins that access the global Recordings variable should lock the thread, either
++  by calling
++
++    Recordings.Lock();
++    ...
++    Recordings.Unlock();
++
++  or by putting something like
++
++    cThreadLock RecordingsLock(&Recordings);
++
++  into the respective code block. Thanks to Carsten Koch for his help in testing
++  and debugging this.
++- The 'new' indicator in the Recordings menu is now kept up-to-date (thanks to
++  Thomas Günther).
++- Updated the Romanian OSD texts (thanks to Lucian Muresan).
++- Updated the Russian OSD texts (thanks to Oleg ???).
++- The '.update' file in the video directory is now touched when a recording is
++  added or deleted, so that other VDR instances can update their lists (thanks to
++  Alexander Rieger).
++- Made the function ExchangeChars() public (suggested by Lucian Muresan).
+diff -ruN vdr-1.3.32/PLUGINS/src/sky/HISTORY vdr-1.3.33/PLUGINS/src/sky/HISTORY
+--- vdr-1.3.32/PLUGINS/src/sky/HISTORY	2004-12-19 18:22:13.000000000 +0100
++++ vdr-1.3.33/PLUGINS/src/sky/HISTORY	2005-09-17 12:41:01.000000000 +0200
+@@ -37,3 +37,7 @@
+ 
+ - Made several functions threadsafe.
+ - Removed delay_ms(), using cCondWait::SleepMs() instead.
++
++2005-09-17: Version 0.3.4
++
++- Added a missing include statement.
+diff -ruN vdr-1.3.32/PLUGINS/src/sky/sky.c vdr-1.3.33/PLUGINS/src/sky/sky.c
+--- vdr-1.3.32/PLUGINS/src/sky/sky.c	2004-12-26 13:45:22.000000000 +0100
++++ vdr-1.3.33/PLUGINS/src/sky/sky.c	2005-09-17 12:39:35.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: sky.c 1.11 2004/12/26 12:45:22 kls Exp $
++ * $Id: sky.c 1.12 2005/09/17 10:39:35 kls Exp $
+  */
+ 
+ #include <sys/socket.h>
+@@ -11,10 +11,11 @@
+ #include <sys/time.h>
+ #include <sys/un.h>
+ #include <unistd.h>
++#include <vdr/device.h>
+ #include <vdr/plugin.h>
+ #include <vdr/sources.h>
+ 
+-static const char *VERSION        = "0.3.3";
++static const char *VERSION        = "0.3.4";
+ static const char *DESCRIPTION    = "Sky Digibox interface";
+ 
+ // --- cDigiboxDevice --------------------------------------------------------
+diff -ruN vdr-1.3.32/channels.conf vdr-1.3.33/channels.conf
+--- vdr-1.3.32/channels.conf	2005-09-11 16:27:50.000000000 +0200
++++ vdr-1.3.33/channels.conf	2005-09-25 16:32:26.000000000 +0200
+@@ -1,6 +1,6 @@
+ RTL Television,RTL;RTL World:12187:hC34:S19.2E:27500:163:104=deu:105:0:12003:1:1089:0
+ SAT.1;ProSiebenSat.1:12480:vC34:S19.2E:27500:1791:1792=deu;1795=deu:34:0:46:133:33:0
+-ProSieben;ProSiebenSat.1:12480:vC34:S19.2E:27500:0:0:0:0:898:133:33:0
++ProSieben;ProSiebenSat.1:12480:vC34:S19.2E:27500:255:256=deu;257=deu:32:0:898:133:33:0
+ RTL2;RTL World:12187:hC34:S19.2E:27500:166:128=deu:68:0:12020:1:1089:0
+ Das Erste;ARD:11836:hC34:S19.2E:27500:101:102=deu:104:0:28106:1:1101:0
+ Bayerisches FS;ARD:11836:hC34:S19.2E:27500:201:202=deu:204:0:28107:1:1101:0
+@@ -46,11 +46,11 @@
+ PREMIERE START,START;PREMIERE:11797:hC34:S19.2E:27500:255:256=deu:32:1:8:133:2:0
+ PREMIERE 1,PREM 1;PREMIERE:11797:hC34:S19.2E:27500:511:512=deu,513=deu;515=deu:32:1:10:133:2:0
+ PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu,1793=deu;1795=deu:32:1:11:133:2:0
+-PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu,2305=deu:32:1722,1801,1702:43:133:2:0
++PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu,2305=deu:32:1:43:133:2:0
+ PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu,769=deu:32:1801,1722,1702:9:133:2:0
+-PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu:32:1722,1801,1702:29:133:2:0
+-PREMIERE 6,PREM 6;PREMIERE:11797:hC34:S19.2E:27500:1535:1536=deu:32:1702,1801,1722:41:133:2:0
+-PREMIERE 7,PREM 7;PREMIERE:11797:hC34:S19.2E:27500:1023:1024=deu:32:1801,1722,1702:20:133:2:0
++PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu:32:1702,1801,1722:29:133:2:0
++PREMIERE 6,PREM 6;PREMIERE:11797:hC34:S19.2E:27500:1535:1536=deu:32:1:41:133:2:0
++PREMIERE 7,PREM 7;PREMIERE:11797:hC34:S19.2E:27500:1023:1024=deu:32:1702,1801,1722:20:133:2:0
+ DISNEY CHANNEL,DISNEY;PREMIERE:11758:hC34:S19.2E:27500:2559:2560=deu:32:1722,1801,1702:34:133:17:0
+ :Premiere Direkt
+ PREMIERE DIREKT,DIREKT;PREMIERE:12031:hC34:S19.2E:27500:2815:2816=deu,2817=deu;2819=deu:0:0:18:133:4:0
+@@ -79,8 +79,8 @@
+ ASTRA-Mosaic 5;SES ASTRA:12551:vC56:S19.2E:22000:163:164:0:0:3984:1:1108:0
+ Chamber TV;Chambre des Députées:12551:vC56:S19.2E:22000:55:56=ltz:0:0:12180:1:1108:0
+ RTL TELE Letzebuerg:12551:vC56:S19.2E:22000:168:144=eng,146=fra,151=ltz:74:0:3994:1:1108:0
+-Test;CANALDIGITAAL:12574:hC56:S19.2E:22000:512+8190:84=dut:33:622,100:5010:53:1109:0
+-Nickelodeon;MTV Networks:12226:hC34:S19.2E:27500:513+8190:661=deu:577:0:28640:1:1091:0
++Nick/Talpa;CANALDIGITAAL:12574:hC56:S19.2E:22000:512+8190:84=dut:33:622,100:5010:53:1109:0
++NICK;MTV Networks:12226:hC34:S19.2E:27500:513+8190:661=deu:577:0:28640:1:1091:0
+ MTV Central;MTV Networks:11739:vC34:S19.2E:27500:3031:3032:3034:0:28653:1:1066:0
+ VIVA;VIVA Fernsehen GmbH & Co. KG:12669:vC56:S19.2E:22000:309:310=deu:311:0:12732:1:1116:0
+ VIVA PLUS;VIVA Fernsehen GmbH & Co. KG:12551:vC56:S19.2E:22000:171:172=deu:173:0:12120:1:1108:0
+@@ -108,12 +108,12 @@
+ Sky Cinema 2;BSkyB:12285:vC23:S28.2E:27500:517+8190:645=eng,665=NAR:581:960,961:4802:2:2030:0
+ :@900 Some 'seed' channels
+ Chelsea TV;BskyB:11778:vC23:S28.2E:27500:2308+2304:2309=eng:0:960,961:9307:2:2004:0
+-WDR Münster;ARD:12421:hC34:S19.2E:27500:101:102=deu:104:0:28310:1:1201:0
++WDR Münster;ARD:12421:hC34:S19.2E:27500:701:702=deu:104:0:28310:1:1201:0
+ Animal Plnt+;BSkyB:12070:hC23:S28.2E:27500:2314+2307:2315=eng:0:960,961:50002:2:2019:0
+ S1T;BSkyB:12285:vC23:S28.2E:27500:513+8190:641=eng,661=NAR:577:960,961:4409:2:2030:0
+ CNN;BSkyB:12051:vC23:S28.2E:27500:2313:2315=eng:2314:0:7140:2:2018:0
+ BBC PARL'MNT;BSkyB:10847:vC56:S28.2E:22000:2327:2328=eng:2331:0:6902:2:2050:0
+-JGLESIA MME;T-Systems/MTI:11200:vC56:S13.0E:27500:413:414:0:0:4733:318:13400:0
++IGLESIA MME;T-Systems/MTI:11200:vC56:S13.0E:27500:4097:4098:0:0:4733:318:13400:0
+ Euro1080;EURO1080:12168:vC34:S19.2E:27500:308:256:0:FF:21100:1:1088:0
+ Astra HD:12441:vC34:S19.2E:27500:133+80:134=eng:0:FF:29700:0:0:0
+ eng-WRN-multi;WRN:12597:vC34:S13.0E:27500:0:2132:0:0:8230:318:9400:0
+diff -ruN vdr-1.3.32/channels.h vdr-1.3.33/channels.h
+--- vdr-1.3.32/channels.h	2005-09-11 13:17:19.000000000 +0200
++++ vdr-1.3.33/channels.h	2005-09-17 11:59:14.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.h 1.35 2005/09/11 11:17:19 kls Exp $
++ * $Id: channels.h 1.36 2005/09/17 09:59:14 kls Exp $
+  */
+ 
+ #ifndef __CHANNELS_H
+@@ -184,6 +184,8 @@
+   int Transmission(void) const { return transmission; }
+   int Guard(void) const { return guard; }
+   int Hierarchy(void) const { return hierarchy; }
++  const cLinkChannels* LinkChannels(void) const { return linkChannels; }
++  const cChannel *RefChannel(void) const { return refChannel; }
+   bool IsCable(void) const { return cSource::IsCable(source); }
+   bool IsSat(void) const { return cSource::IsSat(source); }
+   bool IsTerr(void) const { return cSource::IsTerr(source); }
+diff -ruN vdr-1.3.32/ci.c vdr-1.3.33/ci.c
+--- vdr-1.3.32/ci.c	2005-08-21 16:10:27.000000000 +0200
++++ vdr-1.3.33/ci.c	2005-09-17 13:43:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 1.27 2005/08/21 14:10:27 kls Exp $
++ * $Id: ci.c 1.28 2005/09/17 11:43:08 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -358,8 +358,8 @@
+                         break;
+        }
+      }
+-  else {
+-     esyslog("ERROR: CAM: Read failed: slot %d, tcid %d\n", slot, tcid);
++  else if (FATALERRNO) {
++     esyslog("ERROR: CAM: Read failed: slot %d, tcid %d - %m\n", slot, tcid);
+      Init(-1, slot, tcid);
+      }
+   return lastResponse;
+diff -ruN vdr-1.3.32/config.h vdr-1.3.33/config.h
+--- vdr-1.3.32/config.h	2005-09-04 12:49:24.000000000 +0200
++++ vdr-1.3.33/config.h	2005-09-14 18:04:09.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.227 2005/09/04 10:49:24 kls Exp $
++ * $Id: config.h 1.228 2005/09/14 16:04:09 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -19,8 +19,8 @@
+ #include "i18n.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.3.32"
+-#define VDRVERSNUM   10332  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.3.33"
++#define VDRVERSNUM   10333  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+diff -ruN vdr-1.3.32/device.c vdr-1.3.33/device.c
+--- vdr-1.3.32/device.c	2005-09-04 16:28:16.000000000 +0200
++++ vdr-1.3.33/device.c	2005-09-17 16:29:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 1.109 2005/09/04 14:28:16 kls Exp $
++ * $Id: device.c 1.110 2005/09/17 14:29:44 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -310,22 +310,6 @@
+             }
+          }
+       }
+-
+-  /*XXX+ too complex with multiple recordings per device
+-  if (!d && Ca > MAXDEVICES) {
+-     // We didn't find one the easy way, so now we have to try harder:
+-     int ShiftLevel = -1;
+-     for (int i = 0; i < numDevices; i++) {
+-         if (Provides[i]) { // this device is basicly able to do the job, but for some reason we didn't get it above
+-            int sl = device[i]->CanShift(Ca, Priority); // asks this device to shift its job to another device
+-            if (sl >= 0 && (ShiftLevel < 0 || sl < ShiftLevel)) {
+-               d = device[i]; // found one that can be shifted with the fewest number of subsequent shifts
+-               ShiftLevel = sl;
+-               }
+-            }
+-         }
+-     }
+-  XXX*/
+   return d;
+ }
+ 
+@@ -1084,43 +1068,6 @@
+   return priority;
+ }
+ 
+-int cDevice::CanShift(int Ca, int Priority, int UsedCards) const
+-{
+-  return -1;//XXX+ too complex with multiple recordings per device
+-  /*XXX
+-  // Test whether a receiver on this device can be shifted to another one
+-  // in order to perform a new receiving with the given Ca and Priority on this device:
+-  int ShiftLevel = -1; // default means this device can't be shifted
+-  if (UsedCards & (1 << CardIndex()) != 0)
+-     return ShiftLevel; // otherwise we would get into a loop
+-  if (Receiving()) {
+-     if (ProvidesCa(Ca) // this device provides the requested Ca
+-        && (Ca != this->Ca() // the requested Ca is different from the one currently used...
+-           || Priority > this->Priority())) { // ...or the request comes from a higher priority
+-        cDevice *d = NULL;
+-        int Provides[MAXDEVICES];
+-        UsedCards |= (1 << CardIndex());
+-        for (int i = 0; i < numDevices; i++) {
+-            if ((Provides[i] = device[i]->ProvidesCa(this->Ca())) != 0) { // this device is basicly able to do the job
+-               if (device[i] != this) { // it is not _this_ device
+-                  int sl = device[i]->CanShift(this->Ca(), Priority, UsedCards); // this is the original Priority!
+-                  if (sl >= 0 && (ShiftLevel < 0 || sl < ShiftLevel)) {
+-                     d = device[i];
+-                     ShiftLevel = sl;
+-                     }
+-                  }
+-               }
+-            }
+-        if (ShiftLevel >= 0)
+-           ShiftLevel++; // adds the device's own shift
+-        }
+-     }
+-  else if (Priority > this->Priority())
+-     ShiftLevel = 0; // no shifting necessary, this device can do the job
+-  return ShiftLevel;
+-  XXX*/
+-}
+-
+ bool cDevice::Ready(void)
+ {
+   return true;
+diff -ruN vdr-1.3.32/device.h vdr-1.3.33/device.h
+--- vdr-1.3.32/device.h	2005-09-10 13:54:02.000000000 +0200
++++ vdr-1.3.33/device.h	2005-09-17 16:29:28.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 1.64 2005/09/10 11:54:02 kls Exp $
++ * $Id: device.h 1.65 2005/09/17 14:29:28 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -485,7 +485,6 @@
+ private:
+   cMutex mutexReceiver;
+   cReceiver *receiver[MAXRECEIVERS];
+-  int CanShift(int Ca, int Priority, int UsedCards = 0) const;
+ protected:
+   int Priority(void) const;
+       ///< Returns the priority of the current receiving session (0..MAXPRIORITY),
+diff -ruN vdr-1.3.32/i18n.c vdr-1.3.33/i18n.c
+--- vdr-1.3.32/i18n.c	2005-09-10 12:20:48.000000000 +0200
++++ vdr-1.3.33/i18n.c	2005-09-25 13:57:04.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.208 2005/09/10 10:20:48 kls Exp $
++ * $Id: i18n.c 1.210 2005/09/25 11:57:04 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -265,10 +265,10 @@
+     "",// TODO
+     "",// TODO
+     "Inspelning",
++    "Detaliile înregistrãrii",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
+-    "",// TODO
++    "¸ÝäÞ Þ ×ÐßØáØ",
+     "",// TODO
+     "",// TODO
+     "Optagelses info",
+@@ -328,7 +328,7 @@
+     "Órdenes de grabación",
+     "ÅíôïëÝò ãéÜ åããñáöÝò",
+     "Inspelningskommandon",
+-    "Comenzi înregistrare",
++    "Comenzi pentru înregistrãri",
+     "Parancsok a felvett filmekhez",
+     "Ordres de gravació",
+     "ºÞÜÐÝÔë ×ÐßØáØ",
+@@ -433,10 +433,10 @@
+     "",//TODO
+     "",//TODO
+     "Info",
++    "Info",
+     "",//TODO
+     "",//TODO
+-    "",//TODO
+-    "",//TODO
++    "¸ÝäÞ",
+     "Info",
+     "Info",
+     "Info",
+@@ -2349,7 +2349,7 @@
+     "",//TODO
+     "",//TODO
+     "Ljud saknas!"
+-    "",//TODO
++    "Lipseºte sunetul!",
+     "",//TODO
+     "",//TODO
+     "¾âáãâáâÒãÕâ ×ÒãÚ!",
+@@ -2876,7 +2876,7 @@
+     "",// TODO
+     "",// TODO
+     "Kanal information (s)",
+-    "",// TODO
++    "Durata afiºãrii info-canal (s)",
+     "",// TODO
+     "",// TODO
+     "¿ÞÚÐ× ØÝäÞàÜÐæØØ Þ ÚÐÝÐÛÕ (áÕÚ)",
+@@ -2939,10 +2939,10 @@
+     "",// TODO
+     "",// TODO
+     "Rulla texten",
++    "Derulare circularã",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
+-    "",// TODO
++    "ÆØÚÛØçÕáÚÐï ßàÞÚàãâÚÐ",
+     "S kraja skoèi na poèetak",
+     "Ridade kerimine",
+     "Scroll rundt",
+@@ -3170,7 +3170,7 @@
+     "",//TODO
+     "",//TODO
+     "Format för video display",
+-    "",//TODO
++    "Formatul redãrii video",
+     "",//TODO
+     "",//TODO
+     "ÈØàÞÚÞíÚàÐÝÝÞÕ Ø×ÞÑàÐÖÕÝØÕ",
+@@ -3275,7 +3275,7 @@
+     "",//TODO
+     "",//TODO
+     "Använd Dolby Digital",
+-    "",//TODO
++    "Sunet Dolby Digital",
+     "",//TODO
+     "",//TODO
+     "²ÚÛîçØâì Dolby Digital",
+@@ -3401,7 +3401,7 @@
+     "",//TODO
+     "",//TODO
+     "Antal ljudspråk",
+-    "",//TODO
++    "Limbi sunet",
+     "",//TODO
+     "",//TODO
+     "¿àÕÔßÞçØâÐÕÜëÕ ï×ëÚØ (×ÒãÚ)",
+@@ -3422,7 +3422,7 @@
+     "",//TODO
+     "",//TODO
+     "Ljudspråk",
+-    "",//TODO
++    "Limba sunetului",
+     "",//TODO
+     "",//TODO
+     "²ëÑàÐÝ",
+@@ -4079,7 +4079,7 @@
+     "Învãþare taste telecomandã",
+     "Távirányító betanítása",
+     "Aprenent les tecles del comandament a distància",
+-    "²ÒÞÔ ÚÞÔÞÒ ÚÝÞßÞÚ ßãÛìâÐ",
++    "¾ÑãçÕÝØÕ ßãÛìâÐ",
+     "Uèenje kôda daljinskog upravljaèa",
+     "Kaugjuhtimispuldi õpetamine",
+     "Lærer fjernbetjeningstaster",
+@@ -4854,7 +4854,7 @@
+     "",// TODO
+     "",// TODO
+     "Ljud",
+-    "",// TODO
++    "Sunet",
+     "",// TODO
+     "",// TODO
+     "Ï×ëÚ",
+@@ -5317,10 +5317,10 @@
+     "",// TODO
+     "",// TODO
+     "Påbörjar EPG skanning",
++    "Pornesc achiziþia EPG",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
+-    "",// TODO
++    "½ÐçØÝÐî EPG-áÚÐÝØàÞÒÐÝØÕ",
+     "Poèinjem EPG-scan",
+     "EPG skaneerimine käivitatud",
+     "Starter EPG skanning",
+@@ -5401,10 +5401,10 @@
+     "",// TODO
+     "",// TODO
+     "ingen titel",
++    "Fãrã titlu",
+     "",// TODO
+     "",// TODO
+-    "",// TODO
+-    "",// TODO
++    "±Õ× ÝÐ×ÒÐÝØï",
+     "Bez titla",
+     "",// TODO
+     "Ingen titel",
+diff -ruN vdr-1.3.32/keys.c vdr-1.3.33/keys.c
+--- vdr-1.3.32/keys.c	2005-09-03 13:28:34.000000000 +0200
++++ vdr-1.3.33/keys.c	2005-09-17 13:27:40.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: keys.c 1.8 2005/09/03 11:28:34 kls Exp $
++ * $Id: keys.c 1.9 2005/09/17 11:27:40 kls Exp $
+  */
+ 
+ #include "keys.h"
+@@ -208,7 +208,7 @@
+                  esyslog("ERROR: @plugin can't be first in macro");
+                  return false;
+                  }
+-              macro[n++] = k_Plugin;
++              macro[n] = k_Plugin;
+               if (n < MAXKEYSINMACRO) {
+                  plugin = strdup(p + 1);
+                  if (!cPluginManager::GetPlugin(plugin)) {
+diff -ruN vdr-1.3.32/menu.c vdr-1.3.33/menu.c
+--- vdr-1.3.32/menu.c	2005-09-03 13:42:27.000000000 +0200
++++ vdr-1.3.33/menu.c	2005-09-25 15:37:21.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.359 2005/09/03 11:42:27 kls Exp $
++ * $Id: menu.c 1.362 2005/09/25 13:37:21 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -1506,35 +1506,12 @@
+ {
+   base = Base ? strdup(Base) : NULL;
+   level = Setup.RecordingDirs ? Level : -1;
++  Recordings.StateChanged(recordingsState); // just to get the current state
+   Display(); // this keeps the higher level menus from showing up briefly when pressing 'Back' during replay
+-  const char *LastReplayed = cReplayControl::LastReplayed();
+-  cMenuRecordingItem *LastItem = NULL;
+-  char *LastItemText = NULL;
+-  if (!Base)
+-     Recordings.Sort();
+-  for (cRecording *recording = Recordings.First(); recording; recording = Recordings.Next(recording)) {
+-      if (!Base || (strstr(recording->Name(), Base) == recording->Name() && recording->Name()[strlen(Base)] == '~')) {
+-         cMenuRecordingItem *Item = new cMenuRecordingItem(recording, level);
+-         if (*Item->Text() && (!LastItem || strcmp(Item->Text(), LastItemText) != 0)) {
+-            Add(Item);
+-            LastItem = Item;
+-            free(LastItemText);
+-            LastItemText = strdup(LastItem->Text()); // must use a copy because of the counters!
+-            }
+-         else
+-            delete Item;
+-         if (LastItem) {
+-            if (LastReplayed && strcmp(LastReplayed, recording->FileName()) == 0)
+-               SetCurrent(LastItem);
+-            if (LastItem->IsDirectory())
+-               LastItem->IncrementCounter(recording->IsNew());
+-            }
+-         }
+-      }
+-  free(LastItemText);
++  Set();
+   if (Current() < 0)
+      SetCurrent(First());
+-  else if (OpenSubMenus && Open(true))
++  else if (OpenSubMenus && cReplayControl::LastReplayed() && Open(true))
+      return;
+   SetHelpKeys();
+ }
+@@ -1570,6 +1547,45 @@
+      }
+ }
+ 
++void cMenuRecordings::Set(bool Refresh)
++{
++  const char *CurrentRecording = cReplayControl::LastReplayed();
++  cMenuRecordingItem *LastItem = NULL;
++  char *LastItemText = NULL;
++  cThreadLock RecordingsLock(&Recordings);
++  if (Refresh) {
++     cMenuRecordingItem *ri = (cMenuRecordingItem *)Get(Current());
++     if (ri) {
++        cRecording *Recording = GetRecording(ri);
++        if (Recording)
++           CurrentRecording = Recording->FileName();
++        }
++     }
++  Clear();
++  Recordings.Sort();
++  for (cRecording *recording = Recordings.First(); recording; recording = Recordings.Next(recording)) {
++      if (!base || (strstr(recording->Name(), base) == recording->Name() && recording->Name()[strlen(base)] == '~')) {
++         cMenuRecordingItem *Item = new cMenuRecordingItem(recording, level);
++         if (*Item->Text() && (!LastItem || strcmp(Item->Text(), LastItemText) != 0)) {
++            Add(Item);
++            LastItem = Item;
++            free(LastItemText);
++            LastItemText = strdup(LastItem->Text()); // must use a copy because of the counters!
++            }
++         else
++            delete Item;
++         if (LastItem) {
++            if (CurrentRecording && strcmp(CurrentRecording, recording->FileName()) == 0)
++               SetCurrent(LastItem);
++            if (LastItem->IsDirectory())
++               LastItem->IncrementCounter(recording->IsNew());
++            }
++         }
++      }
++  free(LastItemText);
++  Display();
++}
++
+ cRecording *cMenuRecordings::GetRecording(cMenuRecordingItem *Item)
+ {
+   cRecording *recording = Recordings.GetByName(Item->FileName());
+@@ -1654,8 +1670,8 @@
+         if (recording) {
+            if (recording->Delete()) {
+               cReplayControl::ClearLastReplayed(ri->FileName());
++              Recordings.DelByName(ri->FileName());
+               cOsdMenu::Del(Current());
+-              Recordings.Del(recording);
+               SetHelpKeys();
+               Display();
+               if (!Count())
+@@ -1716,6 +1732,9 @@
+        case kYellow: return Delete();
+        case kBlue:   return Info();
+        case k1...k9: return Commands(Key);
++       case kNone:   if (Recordings.StateChanged(recordingsState))
++                        Set(true);
++                     break;
+        default: break;
+        }
+      }
+@@ -2202,6 +2221,8 @@
+ // --- cMenuSetupReplay ------------------------------------------------------
+ 
+ class cMenuSetupReplay : public cMenuSetupBase {
++protected:
++  virtual void Store(void);
+ public:
+   cMenuSetupReplay(void);
+   };
+@@ -2214,6 +2235,13 @@
+   Add(new cMenuEditIntItem(tr("Setup.Replay$Resume ID"), &data.ResumeID, 0, 99));
+ }
+ 
++void cMenuSetupReplay::Store(void)
++{
++  if (Setup.ResumeID != data.ResumeID)
++     Recordings.ResetResume();
++  cMenuSetupBase::Store();
++}
++
+ // --- cMenuSetupMisc --------------------------------------------------------
+ 
+ class cMenuSetupMisc : public cMenuSetupBase {
+@@ -2597,6 +2625,7 @@
+         }
+      }
+   else if (cReplayControl::LastReplayed()) {
++     cThreadLock RecordingsLock(&Recordings);
+      cRecording *Recording = Recordings.GetByName(cReplayControl::LastReplayed());
+      if (Recording)
+         Components = Recording->Info()->Components();
+diff -ruN vdr-1.3.32/menu.h vdr-1.3.33/menu.h
+--- vdr-1.3.32/menu.h	2005-09-03 13:41:41.000000000 +0200
++++ vdr-1.3.33/menu.h	2005-09-25 11:03:32.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 1.73 2005/09/03 11:41:41 kls Exp $
++ * $Id: menu.h 1.74 2005/09/25 09:03:32 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -147,8 +147,10 @@
+ private:
+   char *base;
+   int level;
++  int recordingsState;
+   static int helpKeys;
+   void SetHelpKeys(void);
++  void Set(bool Refresh = false);
+   cRecording *GetRecording(cMenuRecordingItem *Item);
+   bool Open(bool OpenSubMenus = false);
+   eOSState Play(void);
+diff -ruN vdr-1.3.32/menuitems.c vdr-1.3.33/menuitems.c
+--- vdr-1.3.32/menuitems.c	2005-03-19 16:33:34.000000000 +0100
++++ vdr-1.3.33/menuitems.c	2005-09-17 11:36:31.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.c 1.22 2005/03/19 15:33:34 kls Exp $
++ * $Id: menuitems.c 1.23 2005/09/17 09:36:31 kls Exp $
+  */
+ 
+ #include "menuitems.h"
+@@ -322,10 +322,14 @@
+ {
+   switch (Key) {
+     case kRed:   // Switch between upper- and lowercase characters
+-                 if (pos >= 0 && (!insert || !newchar)) {
+-                    uppercase = !uppercase;
+-                    value[pos] = uppercase ? toupper(value[pos]) : tolower(value[pos]);
++                 if (pos >= 0) {
++                    if (!insert || !newchar) {
++                       uppercase = !uppercase;
++                       value[pos] = uppercase ? toupper(value[pos]) : tolower(value[pos]);
++                       }
+                     }
++                 else
++                    return osUnknown;
+                  break;
+     case kGreen: // Toggle insert/overwrite modes
+                  if (pos >= 0) {
+@@ -333,6 +337,8 @@
+                     newchar = true;
+                     SetHelpKeys();
+                     }
++                 else
++                    return osUnknown;
+                  break;
+     case kYellow|k_Repeat:
+     case kYellow: // Remove the character at current position; in insert mode it is the character to the right of cursor
+@@ -350,6 +356,15 @@
+                        uppercase = isupper(value[pos]);
+                     newchar = true;
+                     }
++                 else
++                    return osUnknown;
++                 break;
++    case kBlue|k_Repeat:
++    case kBlue:  // consume the key only if in edit-mode
++                 if (pos >= 0)
++                    ;
++                 else
++                    return osUnknown;
+                  break;
+     case kLeft|k_Repeat:
+     case kLeft:  if (pos > 0) {
+diff -ruN vdr-1.3.32/newplugin vdr-1.3.33/newplugin
+--- vdr-1.3.32/newplugin	2005-08-27 18:13:29.000000000 +0200
++++ vdr-1.3.33/newplugin	2005-09-14 18:02:06.000000000 +0200
+@@ -12,7 +12,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: newplugin 1.20 2005/08/27 16:13:29 kls Exp $
++# $Id: newplugin 1.21 2005/09/14 16:02:06 kls Exp $
+ 
+ $PLUGIN_NAME = $ARGV[0] || die "Usage: newplugin <name>\n";
+ 
+@@ -245,13 +245,13 @@
+   return false;
+ }
+ 
+-const char **cPlugin${PLUGIN_CLASS}::SVDRPHelpPages(vo<F3>id)
++const char **cPlugin${PLUGIN_CLASS}::SVDRPHelpPages(void)
+ {
+   // Return help text for SVDRP commands this plugin implements
+   return NULL;
+ }
+ 
+-const char *cPlugin${PLUGIN_CLASS}::SVDRPCommand(const char *Command, const char *Option, int &ReplyCode)
++cString cPlugin${PLUGIN_CLASS}::SVDRPCommand(const char *Command, const char *Option, int &ReplyCode)
+ {
+   // Process SVDRP commands this plugin implements
+   return NULL;
+diff -ruN vdr-1.3.32/recording.c vdr-1.3.33/recording.c
+--- vdr-1.3.32/recording.c	2005-09-10 14:36:48.000000000 +0200
++++ vdr-1.3.33/recording.c	2005-09-25 16:29:49.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 1.113 2005/09/10 12:36:48 kls Exp $
++ * $Id: recording.c 1.119 2005/09/25 14:29:49 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -60,17 +60,23 @@
+ 
+ bool VfatFileSystem = false;
+ 
++static cRecordings DeletedRecordings(true);
++
+ void RemoveDeletedRecordings(void)
+ {
+   static time_t LastRemoveCheck = 0;
+-  if (time(NULL) - LastRemoveCheck > REMOVECHECKDELTA) {
++  if (LastRemoveCheck == 0) {
++     DeletedRecordings.Update();
++     LastRemoveCheck = time(NULL) - REMOVECHECKDELTA * 9 / 10;
++     }
++  else if (time(NULL) - LastRemoveCheck > REMOVECHECKDELTA) {
+      // Make sure only one instance of VDR does this:
+      cLockFile LockFile(VideoDirectory);
+      if (!LockFile.Lock())
+         return;
+      // Remove the oldest file that has been "deleted":
+-     cRecordings DeletedRecordings(true);
+-     if (DeletedRecordings.Load()) {
++     cThreadLock DeletedRecordingsLock(&DeletedRecordings);
++     if (DeletedRecordings.Count()) {
+         cRecording *r = DeletedRecordings.First();
+         cRecording *r0 = r;
+         while (r) {
+@@ -80,11 +86,14 @@
+               }
+         if (r0 && time(NULL) - r0->start > DELETEDLIFETIME * 3600) {
+            r0->Remove();
++           DeletedRecordings.Del(r0);
+            RemoveEmptyVideoDirectories();
+            LastRemoveCheck += REMOVELATENCY;
+            return;
+            }
+         }
++     else
++        DeletedRecordings.Update();
+      LastRemoveCheck = time(NULL);
+      }
+ }
+@@ -104,8 +113,8 @@
+            return;
+         // Remove the oldest file that has been "deleted":
+         isyslog("low disk space while recording, trying to remove a deleted recording...");
+-        cRecordings DeletedRecordings(true);
+-        if (DeletedRecordings.Load()) {
++        cThreadLock DeletedRecordingsLock(&DeletedRecordings);
++        if (DeletedRecordings.Count()) {
+            cRecording *r = DeletedRecordings.First();
+            cRecording *r0 = r;
+            while (r) {
+@@ -114,13 +123,20 @@
+                  r = DeletedRecordings.Next(r);
+                  }
+            if (r0 && r0->Remove()) {
++              DeletedRecordings.Del(r0);
+               LastFreeDiskCheck += REMOVELATENCY / Factor;
+               return;
+               }
+            }
++        // DeletedRecordings was empty, so to be absolutely sure there are no
++        // deleted recordings we need to double check:
++        DeletedRecordings.Update(true);
++        if (DeletedRecordings.Count())
++           return; // the next call will actually remove it
+         // No "deleted" files to remove, so let's see if we can delete a recording:
+         isyslog("...no deleted recording found, trying to delete an old recording...");
+-        if (Recordings.Load()) {
++        cThreadLock RecordingsLock(&Recordings);
++        if (Recordings.Count()) {
+            cRecording *r = Recordings.First();
+            cRecording *r0 = NULL;
+            while (r) {
+@@ -199,6 +215,7 @@
+         if (safe_write(f, &Index, sizeof(Index)) < 0)
+            LOG_ERROR_STR(fileName);
+         close(f);
++        Recordings.ResetResume(fileName);
+         return true;
+         }
+      }
+@@ -210,6 +227,7 @@
+   if (fileName) {
+      if (remove(fileName) < 0 && errno != ENOENT)
+         LOG_ERROR_STR(fileName);
++     Recordings.ResetResume(fileName);
+      }
+ }
+ 
+@@ -288,7 +306,7 @@
+   { 0, 0 }
+   };
+ 
+-static char *ExchangeChars(char *s, bool ToFileSystem)
++char *ExchangeChars(char *s, bool ToFileSystem)
+ {
+   char *p = s;
+   while (*p) {
+@@ -454,6 +472,7 @@
+         name[p - FileName] = 0;
+         name = ExchangeChars(name, false);
+         }
++     GetResume();
+      // read an optional info file:
+      char *InfoFileName = NULL;
+      asprintf(&InfoFileName, "%s%s", fileName, INFOFILESUFFIX);
+@@ -492,11 +511,11 @@
+                     line++;
+                  }
+            fclose(f);
+-           if (line == 1) {
++           if (!data[2]) {
+               data[2] = data[1];
+               data[1] = NULL;
+               }
+-           else if (line == 2) {
++           else if (data[1] && data[2]) {
+               // if line 1 is too long, it can't be the short text,
+               // so assume the short text is missing and concatenate
+               // line 1 and line 2 to be the long text:
+@@ -715,21 +734,50 @@
+   return RemoveVideoFile(FileName());
+ }
+ 
++void cRecording::ResetResume(void) const
++{
++  resume = RESUME_NOT_INITIALIZED;
++}
++
+ // --- cRecordings -----------------------------------------------------------
+ 
+ cRecordings Recordings;
+ 
+ cRecordings::cRecordings(bool Deleted)
++:cThread("video directory scanner")
+ {
++  updateFileName = strdup(AddDirectory(VideoDirectory, ".update"));
+   deleted = Deleted;
+   lastUpdate = 0;
++  state = 0;
++}
++
++cRecordings::~cRecordings()
++{
++  Cancel(3);
++  free(updateFileName);
++}
++
++void cRecordings::Action(void)
++{
++  Refresh();
++}
++
++void cRecordings::Refresh(bool Foreground)
++{
++  lastUpdate = time(NULL); // doing this first to make sure we don't miss anything
++  Lock();
++  Clear();
++  ChangeState();
++  Unlock();
++  ScanVideoDir(VideoDirectory, Foreground);
+ }
+ 
+-void cRecordings::ScanVideoDir(const char *DirName)
++void cRecordings::ScanVideoDir(const char *DirName, bool Foreground)
+ {
+   cReadDir d(DirName);
+   struct dirent *e;
+-  while ((e = d.Next()) != NULL) {
++  while ((Foreground || Running()) && (e = d.Next()) != NULL) {
+         if (strcmp(e->d_name, ".") && strcmp(e->d_name, "..")) {
+            char *buffer;
+            asprintf(&buffer, "%s/%s", DirName, e->d_name);
+@@ -749,13 +797,17 @@
+               if (S_ISDIR(st.st_mode)) {
+                  if (endswith(buffer, deleted ? DELEXT : RECEXT)) {
+                     cRecording *r = new cRecording(buffer);
+-                    if (r->Name())
++                    if (r->Name()) {
++                       Lock();
+                        Add(r);
++                       ChangeState();
++                       Unlock();
++                       }
+                     else
+                        delete r;
+                     }
+                  else
+-                    ScanVideoDir(buffer);
++                    ScanVideoDir(buffer, Foreground);
+                  }
+               }
+            free(buffer);
+@@ -763,18 +815,34 @@
+         }
+ }
+ 
++bool cRecordings::StateChanged(int &State)
++{
++  int NewState = state;
++  bool Result = State != NewState;
++  State = state;
++  return Result;
++}
++
++void cRecordings::TouchUpdate(void)
++{
++  TouchFile(updateFileName);
++  lastUpdate = time(NULL); // make sure we don't tigger ourselves
++}
++
+ bool cRecordings::NeedsUpdate(void)
+ {
+-  return lastUpdate <= LastModifiedTime(AddDirectory(VideoDirectory, ".update"));
++  return lastUpdate < LastModifiedTime(updateFileName);
+ }
+ 
+-bool cRecordings::Load(void)
++bool cRecordings::Update(bool Wait)
+ {
+-  lastUpdate = time(NULL); // doing this first to make sure we don't miss anything
+-  Clear();
+-  ScanVideoDir(VideoDirectory);
+-  Sort();
+-  return Count() > 0;
++  if (Wait) {
++     Refresh(true);
++     return Count() > 0;
++     }
++  else
++     Start();
++  return false;
+ }
+ 
+ cRecording *cRecordings::GetByName(const char *FileName)
+@@ -788,18 +856,35 @@
+ 
+ void cRecordings::AddByName(const char *FileName)
+ {
++  LOCK_THREAD;
+   cRecording *recording = GetByName(FileName);
+   if (!recording) {
+      recording = new cRecording(FileName);
+      Add(recording);
++     ChangeState();
++     TouchUpdate();
+      }
+ }
+ 
+ void cRecordings::DelByName(const char *FileName)
+ {
++  LOCK_THREAD;
+   cRecording *recording = GetByName(FileName);
+-  if (recording)
++  if (recording) {
+      Del(recording);
++     ChangeState();
++     TouchUpdate();
++     }
++}
++
++void cRecordings::ResetResume(const char *ResumeFileName)
++{
++  LOCK_THREAD;
++  for (cRecording *recording = First(); recording; recording = Next(recording)) {
++      if (!ResumeFileName || strncmp(ResumeFileName, recording->FileName(), strlen(recording->FileName())) == 0)
++         recording->ResetResume();
++      }
++  ChangeState();
+ }
+ 
+ // --- cMark -----------------------------------------------------------------
+diff -ruN vdr-1.3.32/recording.h vdr-1.3.33/recording.h
+--- vdr-1.3.32/recording.h	2005-09-03 15:04:41.000000000 +0200
++++ vdr-1.3.33/recording.h	2005-09-25 16:30:13.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 1.40 2005/09/03 13:04:41 kls Exp $
++ * $Id: recording.h 1.44 2005/09/25 14:30:13 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -71,7 +71,7 @@
+   int lifetime;
+   cRecording(cTimer *Timer, const cEvent *Event);
+   cRecording(const char *FileName);
+-  ~cRecording();
++  virtual ~cRecording();
+   virtual int Compare(const cListObject &ListObject) const;
+   const char *Name(void) const { return name; }
+   const char *FileName(void) const;
+@@ -79,6 +79,7 @@
+   const cRecordingInfo *Info(void) const { return info; }
+   const char *PrefixFileName(char Prefix);
+   int HierarchyLevels(void) const;
++  void ResetResume(void) const;
+   bool IsNew(void) const { return GetResume() <= 0; }
+   bool IsEdited(void) const;
+   bool WriteInfo(void);
+@@ -90,16 +91,37 @@
+        // Returns false in case of error
+   };
+ 
+-class cRecordings : public cList<cRecording> {
++class cRecordings : public cList<cRecording>, public cThread {
+ private:
++  char *updateFileName;
+   bool deleted;
+   time_t lastUpdate;
+-  void ScanVideoDir(const char *DirName);
++  int state;
++  void Refresh(bool Foreground = false);
++  void ScanVideoDir(const char *DirName, bool Foreground = false);
++protected:
++  void Action(void);
+ public:
+   cRecordings(bool Deleted = false);
+-  bool Load(void);
+-  void TriggerUpdate(void) { lastUpdate = 0; }
++  virtual ~cRecordings();
++  bool Load(void) { return Update(true); }
++       ///< Loads the current list of recordings and returns true if there
++       ///< is anything in it (for compatibility with older plugins - use
++       ///< Update(true) instead).
++  bool Update(bool Wait = false);
++       ///< Triggers an update of the list of recordings, which will run
++       ///< as a separate thread if Wait is false. If Wait is true, the
++       ///< function returns only after the update has completed.
++       ///< Returns true if Wait is true and there is anyting in the list
++       ///< of recordings, false otherwise.
++  void TouchUpdate(void);
++       ///< Touches the '.update' file in the video directory, so that other
++       ///< instances of VDR that access the same video directory can be triggered
++       ///< to update their recordings list.
+   bool NeedsUpdate(void);
++  void ChangeState(void) { state++; }
++  bool StateChanged(int &State);
++  void ResetResume(const char *ResumeFileName = NULL);
+   cRecording *GetByName(const char *FileName);
+   void AddByName(const char *FileName);
+   void DelByName(const char *FileName);
+@@ -112,7 +134,7 @@
+   int position;
+   char *comment;
+   cMark(int Position = 0, const char *Comment = NULL);
+-  ~cMark();
++  virtual ~cMark();
+   cString ToText(void);
+   bool Parse(const char *s);
+   bool Save(FILE *f);
+@@ -205,4 +227,10 @@
+ 
+ int ReadFrame(int f, uchar *b, int Length, int Max);
+ 
++char *ExchangeChars(char *s, bool ToFileSystem);
++      // Exchanges the characters in the given string to or from a file system
++      // specific representation (depending on ToFileSystem). The given string will
++      // be modified and may be reallocated if more space is needed. The return
++      // value points to the resulting string, which may be different from s.
++
+ #endif //__RECORDING_H
+diff -ruN vdr-1.3.32/sections.c vdr-1.3.33/sections.c
+--- vdr-1.3.32/sections.c	2005-08-14 12:54:39.000000000 +0200
++++ vdr-1.3.33/sections.c	2005-09-18 13:30:29.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sections.c 1.13 2005/08/14 10:54:39 kls Exp $
++ * $Id: sections.c 1.14 2005/09/18 11:30:29 kls Exp $
+  */
+ 
+ #include "sections.h"
+@@ -40,7 +40,7 @@
+ // --- cSectionHandler -------------------------------------------------------
+ 
+ cSectionHandler::cSectionHandler(cDevice *Device)
+-:cThread("Section handler")
++:cThread("section handler")
+ {
+   shp = new cSectionHandlerPrivate;
+   device = Device;
+diff -ruN vdr-1.3.32/summary2info.pl vdr-1.3.33/summary2info.pl
+--- vdr-1.3.32/summary2info.pl	2005-09-10 14:40:40.000000000 +0200
++++ vdr-1.3.33/summary2info.pl	2005-09-17 11:20:31.000000000 +0200
+@@ -10,7 +10,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: summary2info.pl 1.4 2005/09/10 12:40:40 kls Exp $
++# $Id: summary2info.pl 1.5 2005/09/17 09:20:31 kls Exp $
+ 
+ $VideoDir = $ARGV[0] || die "please provide the name of the video directory\n";
+ 
+@@ -33,11 +33,11 @@
+              }
+           }
+     close(F);
+-    if ($line == 1) {
++    if (!$data[2]) {
+        $data[2] = $data[1];
+        $data[1] = "";
+        }
+-    elsif ($line == 2) {
++    elsif ($data[1] && $data[2]) {
+        # if line 1 is too long, it can't be the short text,
+        # so assume the short text is missing and concatenate
+        # line 1 and line 2 to be the long text:
+diff -ruN vdr-1.3.32/svdrp.c vdr-1.3.33/svdrp.c
+--- vdr-1.3.32/svdrp.c	2005-09-03 16:09:02.000000000 +0200
++++ vdr-1.3.33/svdrp.c	2005-09-25 12:36:59.000000000 +0200
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 1.80 2005/09/03 14:09:02 kls Exp $
++ * $Id: svdrp.c 1.82 2005/09/25 10:36:59 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -569,7 +569,7 @@
+            if (!rc) {
+               if (recording->Delete()) {
+                  Reply(250, "Recording \"%s\" deleted", Option);
+-                 ::Recordings.Load(); // must make sure the global recordings list is updated
++                 ::Recordings.DelByName(recording->FileName());
+                  }
+               else
+                  Reply(554, "Error while deleting recording!");
+@@ -890,7 +890,7 @@
+ 
+ void cSVDRP::CmdLSTR(const char *Option)
+ {
+-  bool recordings = Recordings.Load();
++  bool recordings = Recordings.Update(true);
+   if (*Option) {
+      if (isnumber(Option)) {
+         cRecording *recording = Recordings.Get(strtol(Option, NULL, 10) - 1);
+diff -ruN vdr-1.3.32/tools.c vdr-1.3.33/tools.c
+--- vdr-1.3.32/tools.c	2005-09-11 15:11:05.000000000 +0200
++++ vdr-1.3.33/tools.c	2005-09-25 14:56:06.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 1.98 2005/09/11 13:11:05 kls Exp $
++ * $Id: tools.c 1.99 2005/09/25 12:56:06 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -17,6 +17,7 @@
+ #include <sys/vfs.h>
+ #include <time.h>
+ #include <unistd.h>
++#include <utime.h>
+ #include "i18n.h"
+ 
+ int SysLogLevel = 3;
+@@ -475,6 +476,12 @@
+   return false;
+ }
+ 
++void TouchFile(const char *FileName)
++{
++  if (utime(FileName, NULL) == -1 && errno != ENOENT)
++     LOG_ERROR_STR(FileName);
++}
++
+ time_t LastModifiedTime(const char *FileName)
+ {
+   struct stat fs;
+diff -ruN vdr-1.3.32/tools.h vdr-1.3.33/tools.h
+--- vdr-1.3.32/tools.h	2005-09-11 15:04:03.000000000 +0200
++++ vdr-1.3.33/tools.h	2005-09-25 14:54:58.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 1.76 2005/09/11 13:04:03 kls Exp $
++ * $Id: tools.h 1.78 2005/09/25 12:54:58 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -111,8 +111,9 @@
+ bool MakeDirs(const char *FileName, bool IsDirectory = false);
+ bool RemoveFileOrDir(const char *FileName, bool FollowSymlinks = false);
+ bool RemoveEmptyDirectories(const char *DirName, bool RemoveThis = false);
+-char *ReadLink(const char *FileName); ///< returns a new strings allocated on the heap, which the caller must delete (or NULL in case of an error)
++char *ReadLink(const char *FileName); ///< returns a new string allocated on the heap, which the caller must delete (or NULL in case of an error)
+ bool SpinUpDisk(const char *FileName);
++void TouchFile(const char *FileName);
+ time_t LastModifiedTime(const char *FileName);
+ cString WeekDayName(int WeekDay);
+ cString WeekDayName(time_t t);
+diff -ruN vdr-1.3.32/vdr.c vdr-1.3.33/vdr.c
+--- vdr-1.3.32/vdr.c	2005-09-04 10:57:15.000000000 +0200
++++ vdr-1.3.33/vdr.c	2005-09-24 15:27:26.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.216 2005/09/04 08:57:15 kls Exp $
++ * $Id: vdr.c 1.217 2005/09/24 13:27:26 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -437,6 +437,10 @@
+ 
+   cFont::SetCode(I18nCharSets()[Setup.OSDLanguage]);
+ 
++  // Recordings:
++
++  Recordings.Update();
++
+   // EPG data:
+ 
+   if (EpgDataFileName) {
+@@ -539,10 +543,6 @@
+   else
+      cDevice::PrimaryDevice()->SetVolume(Setup.CurrentVolume, true);
+ 
+-  // Recordings:
+-
+-  Recordings.Load();
+-
+   // Signal handlers:
+ 
+   if (signal(SIGHUP,  SignalHandler) == SIG_IGN) signal(SIGHUP,  SIG_IGN);
+@@ -674,7 +674,7 @@
+                }
+            }
+         if (!Menu && Recordings.NeedsUpdate())
+-           Recordings.Load();
++           Recordings.Update();
+         // CAM control:
+         if (!Menu && !cOsd::IsOpen()) {
+            Menu = CamControl();

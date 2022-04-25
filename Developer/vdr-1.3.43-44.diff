@@ -1,0 +1,1463 @@
+diff -ruN vdr-1.3.43/CONTRIBUTORS vdr-1.3.44/CONTRIBUTORS
+--- vdr-1.3.43/CONTRIBUTORS	2006-02-19 15:23:17.000000000 +0100
++++ vdr-1.3.44/CONTRIBUTORS	2006-02-26 16:10:02.000000000 +0100
+@@ -73,6 +73,8 @@
+  is currently recording
+  for suggesting to make the SVDRP command LSTT optionally list the channels
+  of the timers with their unique channel ids instead of their numbers
++ for suggesting to extend the 'event id' in EPG data to 32 bit, so that external tools
++ can generate ids that don't collide with those from the DVB data stream
+ 
+ Miha Setina <mihasetina@softhome.net>
+  for translating OSD texts to the Slovenian language
+@@ -961,6 +963,7 @@
+  for making the channel number be reset if the number entered through the numeric keys
+  exceeds the maximum channel number
+  for suggesting to also set the language codes when setting the audio track descriptions
++ for reporting a problem in setting the audio language codes in 'Transfer-Mode'
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -977,6 +980,7 @@
+  for reporting a leftover 'summary.vdr' in vdr.5
+  for adding more error messages and line numbers when reading EPG data and info.vdr
+  for fixing handling "more than 3 byte" key sequences in cKbdRemote::ReadKeySequence()
++ for suggesting to ignore lines tagged with '#' in the 'info.vdr' file of a recording
+ 
+ Alexander Damhuis <ad@phonedation.de>
+  for reporting problems when deleting a timer that is currently recording
+@@ -1412,6 +1416,8 @@
+  for reporting missing calls to cStatus::MsgOsdClear() in cSkins::Message()
+  for fixing a NULL pointer access with the cUnbufferedFile when a replay session
+  runs all the way until the end of the recording
++ for fixing removing the '-' when entering a channel number where there is no other
++ one that fits the input
+ 
+ Sascha Klek <sklek@gmx.de>
+  for reporting a problem with the '0' key in the "Day" item of the "Timers" menu
+@@ -1742,6 +1748,8 @@
+ Alexander Hans <cleditor@arcor.de>
+  for reporting a crash when pressing '0' in the "Schedule" menu on a channel that
+  doesn't have any EPG data 
++ for giving the DrawBitmap() function a new parameter 'Overlay' that allows a bitmap
++ to be drawn with a transparent background
+ 
+ Daniel Karsubka <dkar@gmx.de>
+  for suggesting to write the epg.data file when VDR exits
+@@ -1755,3 +1763,11 @@
+ 
+ Bárta Vladimír <vladimir.barta@k2atmitec.cz>
+  for translating OSD texts to the Czech language
++
++Christoph Haubrich <christoph1.haubrich@arcor.de>
++ for making the "Ok" key in the "Jump" mode of the replay progress display confirm
++ the jump instead of closing the display
++
++Pekka Mauno <pekka.mauno@iki.fi>
++ for fixing cSchedule::GetFollowingEvent() in case there is currently no present
++ event running
+diff -ruN vdr-1.3.43/HISTORY vdr-1.3.44/HISTORY
+--- vdr-1.3.43/HISTORY	2006-02-19 15:41:15.000000000 +0100
++++ vdr-1.3.44/HISTORY	2006-02-26 16:09:14.000000000 +0100
+@@ -4359,3 +4359,58 @@
+   Reinhard Nissl).
+ - Added a comment to tChannelID::nid, explaining that is is actually the "original"
+   network id.
++
++2006-02-26: Version 1.3.44
++
++- Fixed setting the audio language codes in 'Transfer-Mode' (reported by Rolf
++  Ahrenberg). The actual problem was the call to the Transferring() function in
++  cDevice::AttachPlayer() before assigning the player.
++- Fixed removing the '-' when entering a channel number where there is no other
++  one that fits the input (thanks to Joachim Wilke).
++- Fixed the 'libsi' function CharArray::checkSize(), which made a previous workaround
++  in libsi/descriptor.c obsolete (thanks to Marcel Wiesweg).
++- The "Ok" key in the "Jump" mode of the replay progress display now confirms the
++  jump instead of closing the display (thanks to Christoph Haubrich).
++- The 'summary' field of a timer definition has been renamed to 'aux', and is now
++  only used for external applications to store auxiliary information with a timer,
++  which has no meaning whatsoever to VDR itself.
++  The contents of the 'aux' field of a timer is copied into the recording's
++  'info.vdr' file, using the tag character '@'.
++- The description of a recording is now taken exclusively from its related EPG
++  data. If an application wants to use a different description it needs to set
++  it with SVDRP/PUTE and use table ID 0x00, so that it won't be overwritten (as
++  a side effect, however, this also disables VPS for such an event).
++- There is no more "Summary" menu when pressing "Ok" in the "Timers" menu.
++  The "Ok" key now always opens the "Edit timer" menu.
++- The upper 16 bit of a timer's "flags" are no longer treated specially when a timer
++  is modified in the "Edit timer" menu. If an external application needs to know if
++  a timer was modified, it has to keep a copy of the timer's data and compare that
++  to the actual data.
++- The new function cRecordingInfo::ChannelID() can be used to retrieve the ID of
++  the channel a recording was made from.
++- The 'info.vdr' file of a recording now also contains the 'E' and 'V' records of
++  the EPG event used when creating it.
++- The option "Setup/OSD/Sort timers" has been removed. Timers are always sorted
++  by their start time and priority.
++- The "Blue" key in the "Timers" menu now displays the EPG info of the event the
++  selected timer will record (if available). The "On/Off" function has been shifted
++  to the "Red" button. Editing a timer is done by pressing "Ok".
++- When determining which event a timer is going to record, all available events
++  in the future are now taken into account (no more limit to 4 hours in the
++  future). This has been done so that the event info is available in the "Timers"
++  menu when pressing the "Blue" button. In order to avoid unnecessary work, each
++  timer now has its own timestamp to control whether its schedule has changed
++  since the last time its event has been set.
++- Fixed setting events to timers in case a non-VPS event has expired.
++- There is now a log message "timer ... set to event ..." when defining a timer
++  from the EPG menu.
++- Lines tagged with '#' in the 'info.vdr' file of a recording are now silently
++  ignored when reading that file (suggested by Peter Bieringer). Such lines can
++  be used by external tools to store arbitrary information.
++- The 'event id' in EPG data has been extended to 32 bit, so that external tools
++  can generate ids that don't collide with those from the DVB data stream
++  (suggested by Matthias Schniedermeyer).
++- The DrawBitmap() function now has a new parameter 'Overlay' that allows a bitmap
++  to be drawn with a transparent background (thanks to Alexander Hans).
++- Fixed cSchedule::GetFollowingEvent() in case there is currently no present event
++  running (thanks to Pekka Mauno).
+diff -ruN vdr-1.3.43/MANUAL vdr-1.3.44/MANUAL
+--- vdr-1.3.43/MANUAL	2006-01-15 14:09:16.000000000 +0100
++++ vdr-1.3.44/MANUAL	2006-02-25 15:27:18.000000000 +0100
+@@ -20,11 +20,11 @@
+   Ok      Ch display  Select       Switch     Edit       Accept        Play              Progress disp.   Switch & Close
+   Menu    Menu on     Menu off     Menu off   Menu off   Menu off      Menu off          Menu off         Menu off
+   Back    -           Menu off     VDR menu   VDR menu   Discard       VDR menu          Recordings menu  Close
+-  Red     -           Record       Edit       Edit       ABC/abc       Play/Commands(2)  Jump             -
++  Red     -           Record       Edit       On/Off     ABC/abc       Play/Commands(1)  Jump             -
+   Green   -           Audio        New        New        Ins/Ovr       Rewind            Skip -60s        -
+   Yellow  -           Pause live   Delete     Delete     Delete        Delete            Skip +60s        -
+-  Blue    -           Stop/Resume  Mark       On/Off(1)  -             Info              Stop             -
+-  0..9    Ch select   -            Sort(3)    Day(4)     Numeric inp.  Exec cmd(2)       Editing          -
++  Blue    -           Stop/Resume  Mark       Info       -             Info              Stop             -
++  0..9    Ch select   -            Sort(2)    Day(3)     Numeric inp.  Exec cmd(1)       Editing          -
+ 
+   In a numerical input field (like the response to a CAM enquiry) the keys 0..9
+   are used to enter the data, and the Left key can be used to delete the last
+@@ -75,18 +75,15 @@
+   Yellow    Info
+   Blue      Timers menu
+ 
+-  (1) The "On/Off" button in the "Timers" menu only works if sorting the timers
+-      has been enabled in the "Setup" menu. Otherwise the Blue button is used
+-      to "mark" a timer for moving.
+-  (2) See "Processing Recordings" below.
+-  (3) In the "Channels" menu the '0' key switches the sort mode through "by number",
++  (1) See "Processing Recordings" below.
++  (2) In the "Channels" menu the '0' key switches the sort mode through "by number",
+       "by name" and "by provider". Other numeric input positions the cursor to
+       the channel with the number entered so far. If there is no channel with that
+       number, nothing happens. While entering a channel number, the '0' key will
+       be treated as part of that number, not as a sort mode toggle. If no numeric
+       key has been pressed for more than one second, the number is reset and '0'
+       functions as sort mode toggle again.
+-  (4) In the "Timers" menu, when on the "Day" item, the '0' key toggles between
++  (3) In the "Timers" menu, when on the "Day" item, the '0' key toggles between
+       a single shot and a repeating timer. If "Day" indicates a repeating timer,
+       the keys '1'...'7' can be used to toggle the individual days ('1' is Monday).
+ 
+@@ -101,12 +98,10 @@
+   any changes that might have been made in the current menu.
+ 
+   In the "Timers" menu, the current timer can be enabled or disabled with
+-  the "Blue" key (this is only possible if the "Timers" list is sorted,
+-  otherwise the "Blue" key is used to mark a timer in order to move it to
+-  another position in the list). Enabled timers are marked with '>', timers
++  the "Red" key. Enabled timers are marked with '>', timers
+   that are currently recording are marked with '#'. If a timer has the
+   "First day" set so that it will start recording only on the given date,
+-  it is marked with '!'. The "Blue" key toggles through the "enabled" and
++  it is marked with '!'. The "Red" key toggles through the "enabled" and
+   "disabled" states, and for repeating timers that are currently recording
+   also a state that ends this recording prematurely and sets the "First day"
+   date so that it will record again the next time the timer hits.
+@@ -539,10 +534,6 @@
+                          closing a temporary display, like, for instance, the channel
+                          display.
+ 
+-  Sort timers = yes      Turns sorting the timers in the "Timers" menu on/off.
+-                         Timers are sorted by ascending start times, with the
+-                         first one being the next timer that will start.
+-
+   Recording directories = yes
+                          Turns displaying the Recordings menu as a hierarchical
+                          directory structure on or off.
+diff -ruN vdr-1.3.43/channels.conf vdr-1.3.44/channels.conf
+--- vdr-1.3.43/channels.conf	2006-02-19 16:00:54.000000000 +0100
++++ vdr-1.3.44/channels.conf	2006-02-26 16:37:22.000000000 +0100
+@@ -48,8 +48,8 @@
+ PREMIERE 1,PREM 1;PREMIERE:11797:hC34:S19.2E:27500:511:512=deu,513=deu;515=deu:32:1801,1722,1702:10:133:2:0
+ PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu,1793=deu;1795=deu:32:1801,1722,1702:11:133:2:0
+ PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu,2305=deu:32:1722,1702,1801:43:133:2:0
+-PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu,769=deu:32:1801,1722,1702:9:133:2:0
+-PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu,1281=deu:32:1722,1702,1801:29:133:2:0
++PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu:32:1801,1722,1702:9:133:2:0
++PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu:32:1722,1702,1801:29:133:2:0
+ PREMIERE 6,PREM 6;PREMIERE:11797:hC34:S19.2E:27500:1535:1536=deu:32:1801,1722,1702:41:133:2:0
+ PREMIERE 7,PREM 7;PREMIERE:11797:hC34:S19.2E:27500:1023:1024=deu:32:1801,1702,1722:20:133:2:0
+ DISNEY CHANNEL,DISNEY;PREMIERE:11758:hC34:S19.2E:27500:2559:2560=deu:32:1801,1722,1702:34:133:17:0
+@@ -108,7 +108,7 @@
+ Sky One;BSkyB:12226:hC23:S28.2E:27500:515+8190:643=eng:579:960,961:4705:2:2027:0
+ Sky Two;BSkyB:12226:hC23:S28.2E:27500:514+8190:642=eng,662=NAR:578:960,961:5104:2:2027:0
+ ITV2;BSkyB:10758:vC56:S28.2E:22000:2314:2315=eng,2363=NAR:2317:0:10070:2:2044:0
+-Sci-Fi;BSkyB:12148:hC23:S28.2E:27500:512+8190:640=eng:576:960,961:4905:2:2023:0
++Sci-Fi;BSkyB:12148:hC23:S28.2E:27500:512+8190:640=eng,660=NAR:576:960,961:4905:2:2023:0
+ ParaComedy 1;BSkyB:12187:hC23:S28.2E:27500:518+8190:666=eng,686=NAR:582:960,961:5904:2:2025:0
+ Paramount;BSkyB:11526:vC23:S28.2E:27500:2317+2306:2318=eng:2319:960,961:50305:2:2404:0
+ ParaComedy 2;BSkyB:11914:hC23:S28.2E:27500:514+8190:642=eng,662=NAR:578:960,961:4504:2:2011:0
+@@ -120,7 +120,7 @@
+ Sky Movies 5;BSkyB:11914:hC23:S28.2E:27500:515+8190:643=eng,656=NAR:579:960,961:4503:2:2011:0
+ Sky Movies 6;BSkyB:11914:hC23:S28.2E:27500:513+8190:641=eng,657=NAR:577:960,961:4502:2:2011:0
+ Sky Movies 7;BSkyB:12285:vC23:S28.2E:27500:515+8190:643=eng,663=NAR:579:960,961:4603:2:2030:0
+-Sky Movies 8;BSkyB:11836:hC23:S28.2E:27500:515+8190:643=eng,656=NAR:579:960,961:5502:2:2007:0
++Sky Movies 8;BSkyB:11836:hC23:S28.2E:27500:515+8190:643=eng,656=NAR;663=eng:579:960,961:5502:2:2007:0
+ Sky Movies 9;BSkyB:12285:vC23:S28.2E:27500:518+8190:646=eng,666=NAR:582:960,961:4602:2:2030:0
+ Sky Cinema 1;BSkyB:12285:vC23:S28.2E:27500:519+8190:647=eng,667=NAR:583:960,961:4809:2:2030:0
+ Sky Cinema 2;BSkyB:12285:vC23:S28.2E:27500:517+8190:645=eng,665=NAR:581:960,961:4802:2:2030:0
+diff -ruN vdr-1.3.43/config.c vdr-1.3.44/config.c
+--- vdr-1.3.43/config.c	2006-01-13 16:19:37.000000000 +0100
++++ vdr-1.3.44/config.c	2006-02-25 15:12:16.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 1.141 2006/01/13 15:19:37 kls Exp $
++ * $Id: config.c 1.142 2006/02/25 14:12:16 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -240,7 +240,6 @@
+   EPGLinger = 0;
+   SVDRPTimeout = 300;
+   ZapTimeout = 3;
+-  SortTimers = 1;
+   PrimaryLimit = 0;
+   DefaultPriority = 50;
+   DefaultLifetime = 99;
+@@ -400,7 +399,6 @@
+   else if (!strcasecmp(Name, "EPGLinger"))           EPGLinger          = atoi(Value);
+   else if (!strcasecmp(Name, "SVDRPTimeout"))        SVDRPTimeout       = atoi(Value);
+   else if (!strcasecmp(Name, "ZapTimeout"))          ZapTimeout         = atoi(Value);
+-  else if (!strcasecmp(Name, "SortTimers"))          SortTimers         = atoi(Value);
+   else if (!strcasecmp(Name, "PrimaryLimit"))        PrimaryLimit       = atoi(Value);
+   else if (!strcasecmp(Name, "DefaultPriority"))     DefaultPriority    = atoi(Value);
+   else if (!strcasecmp(Name, "DefaultLifetime"))     DefaultLifetime    = atoi(Value);
+@@ -467,7 +465,6 @@
+   Store("EPGLinger",          EPGLinger);
+   Store("SVDRPTimeout",       SVDRPTimeout);
+   Store("ZapTimeout",         ZapTimeout);
+-  Store("SortTimers",         SortTimers);
+   Store("PrimaryLimit",       PrimaryLimit);
+   Store("DefaultPriority",    DefaultPriority);
+   Store("DefaultLifetime",    DefaultLifetime);
+diff -ruN vdr-1.3.43/config.h vdr-1.3.44/config.h
+--- vdr-1.3.43/config.h	2006-02-12 11:07:44.000000000 +0100
++++ vdr-1.3.44/config.h	2006-02-25 15:12:20.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.244 2006/02/12 10:07:44 kls Exp $
++ * $Id: config.h 1.246 2006/02/25 14:12:20 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -19,8 +19,8 @@
+ #include "i18n.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.3.43"
+-#define VDRVERSNUM   10343  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.3.44"
++#define VDRVERSNUM   10344  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+@@ -212,7 +212,6 @@
+   int EPGLinger;
+   int SVDRPTimeout;
+   int ZapTimeout;
+-  int SortTimers;
+   int PrimaryLimit;
+   int DefaultPriority, DefaultLifetime;
+   int PausePriority, PauseLifetime;
+diff -ruN vdr-1.3.43/device.c vdr-1.3.44/device.c
+--- vdr-1.3.43/device.c	2006-02-04 15:58:24.000000000 +0100
++++ vdr-1.3.44/device.c	2006-02-24 15:05:26.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 1.123 2006/02/04 14:58:24 kls Exp $
++ * $Id: device.c 1.124 2006/02/24 14:05:26 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -934,10 +934,10 @@
+   if (CanReplay()) {
+      if (player)
+         Detach(player);
+-     if (!Transferring())
+-        ClrAvailableTracks();
+      pesAssembler->Reset();
+      player = Player;
++     if (!Transferring())
++        ClrAvailableTracks();
+      SetPlayMode(player->playMode);
+      player->device = this;
+      player->Activate(true);
+diff -ruN vdr-1.3.43/epg.c vdr-1.3.44/epg.c
+--- vdr-1.3.43/epg.c	2006-02-19 13:50:26.000000000 +0100
++++ vdr-1.3.44/epg.c	2006-02-26 16:07:17.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 1.61 2006/02/19 12:50:26 kls Exp $
++ * $Id: epg.c 1.64 2006/02/26 15:07:17 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -97,7 +97,7 @@
+ 
+ // --- cEvent ----------------------------------------------------------------
+ 
+-cEvent::cEvent(u_int16_t EventID)
++cEvent::cEvent(tEventID EventID)
+ {
+   schedule = NULL;
+   eventID = EventID;
+@@ -133,7 +133,7 @@
+   return schedule ? schedule->ChannelID() : tChannelID();
+ }
+ 
+-void cEvent::SetEventID(u_int16_t EventID)
++void cEvent::SetEventID(tEventID EventID)
+ {
+   if (eventID != EventID) {
+      if (schedule)
+@@ -249,8 +249,7 @@
+ void cEvent::Dump(FILE *f, const char *Prefix, bool InfoOnly) const
+ {
+   if (InfoOnly || startTime + duration + Setup.EPGLinger * 60 >= time(NULL)) {
+-     if (!InfoOnly)
+-        fprintf(f, "%sE %u %ld %d %X %X\n", Prefix, eventID, startTime, duration, tableID, version);
++     fprintf(f, "%sE %u %ld %d %X %X\n", Prefix, eventID, startTime, duration, tableID, version);
+      if (!isempty(title))
+         fprintf(f, "%sT %s\n", Prefix, title);
+      if (!isempty(shortText))
+@@ -268,7 +267,7 @@
+             fprintf(f, "%sX %s\n", Prefix, *p->ToString());
+             }
+         }
+-     if (!InfoOnly && vps)
++     if (vps)
+         fprintf(f, "%sV %ld\n", Prefix, vps);
+      if (!InfoOnly)
+         fprintf(f, "%se\n", Prefix);
+@@ -692,10 +691,17 @@
+   const cEvent *p = GetPresentEvent();
+   if (p)
+      p = events.Next(p);
++  else { 
++     time_t now = time(NULL);
++     for (p = events.First(); p; p = events.Next(p)) {
++         if (p->StartTime() >= now)
++            break;
++         }
++     }
+   return p;
+ }
+ 
+-const cEvent *cSchedule::GetEvent(u_int16_t EventID, time_t StartTime) const
++const cEvent *cSchedule::GetEvent(tEventID EventID, time_t StartTime) const
+ {
+   // Returns either the event info with the given EventID or, if that one can't
+   // be found, the one with the given StartTime (or NULL if neither can be found)
+diff -ruN vdr-1.3.43/epg.h vdr-1.3.44/epg.h
+--- vdr-1.3.43/epg.h	2006-02-19 13:51:41.000000000 +0100
++++ vdr-1.3.44/epg.h	2006-02-26 14:58:57.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.h 1.32 2006/02/19 12:51:41 kls Exp $
++ * $Id: epg.h 1.33 2006/02/26 13:58:57 kls Exp $
+  */
+ 
+ #ifndef __EPG_H
+@@ -47,11 +47,13 @@
+ 
+ class cSchedule;
+ 
++typedef u_int32_t tEventID;
++
+ class cEvent : public cListObject {
+   friend class cSchedule;
+ private:
+   cSchedule *schedule;     // The Schedule this event belongs to
+-  u_int16_t eventID;       // Event ID of this event
++  tEventID eventID;        // Event ID of this event
+   uchar tableID;           // Table ID this event came from
+   uchar version;           // Version number of section this event came from
+   int runningStatus;       // 0=undefined, 1=not running, 2=starts in a few seconds, 3=pausing, 4=running
+@@ -64,12 +66,12 @@
+   time_t vps;              // Video Programming Service timestamp (VPS, aka "Programme Identification Label", PIL)
+   time_t seen;             // When this event was last seen in the data stream
+ public:
+-  cEvent(u_int16_t EventID);
++  cEvent(tEventID EventID);
+   ~cEvent();
+   virtual int Compare(const cListObject &ListObject) const;
+   tChannelID ChannelID(void) const;
+   const cSchedule *Schedule(void) const { return schedule; }
+-  u_int16_t EventID(void) const { return eventID; }
++  tEventID EventID(void) const { return eventID; }
+   uchar TableID(void) const { return tableID; }
+   uchar Version(void) const { return version; }
+   int RunningStatus(void) const { return runningStatus; }
+@@ -89,7 +91,7 @@
+   cString GetTimeString(void) const;
+   cString GetEndTimeString(void) const;
+   cString GetVpsString(void) const;
+-  void SetEventID(u_int16_t EventID);
++  void SetEventID(tEventID EventID);
+   void SetTableID(uchar TableID);
+   void SetVersion(uchar Version);
+   void SetRunningStatus(int RunningStatus, cChannel *Channel = NULL);
+@@ -140,7 +142,7 @@
+   const cList<cEvent> *Events(void) const { return &events; }
+   const cEvent *GetPresentEvent(void) const;
+   const cEvent *GetFollowingEvent(void) const;
+-  const cEvent *GetEvent(u_int16_t EventID, time_t StartTime = 0) const;
++  const cEvent *GetEvent(tEventID EventID, time_t StartTime = 0) const;
+   const cEvent *GetEventAround(time_t Time) const;
+   void Dump(FILE *f, const char *Prefix = "", eDumpMode DumpMode = dmAll, time_t AtTime = 0) const;
+   static bool Read(FILE *f, cSchedules *Schedules);
+diff -ruN vdr-1.3.43/i18n.c vdr-1.3.44/i18n.c
+--- vdr-1.3.43/i18n.c	2006-02-04 15:17:54.000000000 +0100
++++ vdr-1.3.44/i18n.c	2006-02-25 15:21:28.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.247 2006/02/04 14:17:54 kls Exp $
++ * $Id: i18n.c 1.250 2006/02/25 14:21:28 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -569,28 +569,6 @@
+     "Hvad vises som det næste?",
+     "Následující program",
+   },
+-  { "Summary",
+-    "Inhalt",
+-    "Vsebina",
+-    "Sommario",
+-    "Inhoud",
+-    "Resumo",
+-    "Résumé",
+-    "Sammendrag",
+-    "Yhteenveto",
+-    "Podsumowanie",
+-    "Resumen",
+-    "Ðåñéå÷üìåíï",
+-    "Sammanfattning",
+-    "Cuprins",
+-    "Tartalom",
+-    "Resum",
+-    "¾ßØáÐÝØÕ",
+-    "Sadr¾aj",
+-    "Ülevaade",
+-    "Omtale",
+-    "Obsah",
+-  },
+   // Button texts (should not be more than 10 characters!):
+   { "Button$Edit",
+     "Editieren",
+@@ -746,6 +724,28 @@
+     "Optag",
+     "Nahrát",
+   },
++  { "Button$Info",
++    "Info",
++    "Info",
++    "",//TODO
++    "Info",
++    "",//TODO
++    "Info",
++    "",//TODO
++    "Tiedot",
++    "Info",
++    "Info",
++    "Ðëçñïöïñßåò",
++    "Info",
++    "Info",
++    "",//TODO
++    "",//TODO
++    "¸ÝäÞ",
++    "Info",
++    "Info",
++    "Info",
++    "Info",
++  },
+   { "Button$Play",
+     "Wiedergabe",
+     "Predvajaj",
+@@ -3304,28 +3304,6 @@
+     "Menu taste lukker",
+     "Klávesa Menu zavírá",
+   },
+-  { "Setup.OSD$Sort timers",
+-    "Timer sortieren",
+-    "Sortiraj termine",
+-    "Ordinamento timer",
+-    "Timers sorteren",
+-    "Ordenar os timers",
+-    "Trier les programmations",
+-    "Sorter timere",
+-    "Järjestä ajastimet",
+-    "Sortuj timery",
+-    "Ordenar programas de grabación",
+-    "ÏñãÜíùóç ÷ñïíïðñïãñáììáôéóìþí",
+-    "Sortera timers",
+-    "Sortare timer-e",
+-    "A beprogramozott felvételek elrendezése",
+-    "Ordenar gravacions programades",
+-    "ÁÞàâØàÞÒÚÐ âÐÙÜÕàÞÒ",
+-    "Sortiraj termine",
+-    "Taimeri sorteerimine",
+-    "Sorter timere",
+-    "Tøídìní èasovaèù",
+-  },
+   { "Setup.OSD$Recording directories",
+     "Aufnahmeverzeichnisse",
+     "Direktoriji za posnetke",
+diff -ruN vdr-1.3.43/libsi/descriptor.c vdr-1.3.44/libsi/descriptor.c
+--- vdr-1.3.43/libsi/descriptor.c	2006-02-18 12:02:25.000000000 +0100
++++ vdr-1.3.44/libsi/descriptor.c	2006-02-25 11:06:05.000000000 +0100
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: descriptor.c 1.17 2006/02/18 11:02:25 kls Exp $
++ *   $Id: descriptor.c 1.18 2006/02/25 10:06:05 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -331,8 +331,6 @@
+    data.setPointerAndOffset<const descr_ca>(s, offset);
+    if (checkSize(getLength()-offset))
+       privateData.assign(data.getData(offset), getLength()-offset);
+-   else
+-      privateData.assign(NULL, 0);
+ }
+ 
+ int StreamIdentifierDescriptor::getComponentTag() const {
+@@ -640,8 +638,6 @@
+    data.setPointerAndOffset<const descr_linkage>(s, offset);
+    if (checkSize(getLength()-offset))
+       privateData.assign(data.getData(offset), getLength()-offset);
+-   else
+-      privateData.assign(NULL, 0);
+ }
+ 
+ int LinkageDescriptor::getTransportStreamId() const {
+diff -ruN vdr-1.3.43/libsi/util.h vdr-1.3.44/libsi/util.h
+--- vdr-1.3.43/libsi/util.h	2006-02-18 11:38:20.000000000 +0100
++++ vdr-1.3.44/libsi/util.h	2006-02-25 11:13:28.000000000 +0100
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: util.h 1.6 2006/02/18 10:38:20 kls Exp $
++ *   $Id: util.h 1.7 2006/02/25 10:13:28 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -59,7 +59,7 @@
+    u_int32_t FourBytes(const int index) const { return data_->data ? data_->FourBytes(off+index) : 0; }
+ 
+    bool isValid() const { return data_->valid; }
+-   bool checkSize(int offset) { return (data_->valid && offset>=0 && (data_->valid=(off+offset < data_->size))); }
++   bool checkSize(int offset) { return (data_->valid && (data_->valid=(offset>=0 && off+offset < data_->size))); }
+ 
+    void addOffset(int offset) { off+=offset; }
+ private:
+diff -ruN vdr-1.3.43/menu.c vdr-1.3.44/menu.c
+--- vdr-1.3.43/menu.c	2006-02-19 11:18:28.000000000 +0100
++++ vdr-1.3.44/menu.c	2006-02-25 16:41:40.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.413 2006/02/19 10:18:28 kls Exp $
++ * $Id: menu.c 1.422 2006/02/25 15:41:40 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -686,14 +686,12 @@
+                        if (!*data.file)
+                           strcpy(data.file, data.Channel()->ShortName(true));
+                        if (timer) {
+-                          if (memcmp(timer, &data, sizeof(data)) != 0) {
++                          if (memcmp(timer, &data, sizeof(data)) != 0)
+                              *timer = data;
+-                             if (timer->HasFlags(tfActive))
+-                                timer->ClrFlags(~tfAll); // allows external programs to mark active timers with values > 0xFFFF and recognize if the user has modified them
+-                             }
+                           if (addIfConfirmed)
+                              Timers.Add(timer);
+                           timer->Matches();
++                          timer->SetEventFromSchedule();
+                           Timers.SetModified();
+                           isyslog("timer %s %s (%s)", *timer->ToDescr(), addIfConfirmed ? "added" : "modified", timer->HasFlags(tfActive) ? "active" : "inactive");
+                           addIfConfirmed = false;
+@@ -771,13 +769,14 @@
+ 
+ class cMenuTimers : public cOsdMenu {
+ private:
++  int helpKeys;
+   eOSState Edit(void);
+   eOSState New(void);
+   eOSState Delete(void);
+   eOSState OnOff(void);
+-  virtual void Move(int From, int To);
+-  eOSState Summary(void);
++  eOSState Info(void);
+   cTimer *CurrentTimer(void);
++  void SetHelpKeys(void);
+ public:
+   cMenuTimers(void);
+   virtual ~cMenuTimers();
+@@ -787,11 +786,12 @@
+ cMenuTimers::cMenuTimers(void)
+ :cOsdMenu(tr("Timers"), 2, CHNUMWIDTH, 10, 6, 6)
+ {
++  helpKeys = -1;
+   for (cTimer *timer = Timers.First(); timer; timer = Timers.Next(timer))
+       Add(new cMenuTimerItem(timer));
+-  if (Setup.SortTimers)
+-     Sort();
+-  SetHelp(tr("Button$Edit"), tr("Button$New"), tr("Button$Delete"), Setup.SortTimers ? tr("Button$On/Off") : tr("Button$Mark"));
++  Sort();
++  SetCurrent(First());
++  SetHelpKeys();
+   Timers.IncBeingEdited();
+ }
+ 
+@@ -806,11 +806,30 @@
+   return item ? item->Timer() : NULL;
+ }
+ 
++void cMenuTimers::SetHelpKeys(void)
++{
++  int NewHelpKeys = 0;
++  cTimer *timer = CurrentTimer();
++  if (timer) {
++     if (timer->Event())
++        NewHelpKeys = 2;
++     else
++        NewHelpKeys = 1;
++     }
++  if (NewHelpKeys != helpKeys) {
++     helpKeys = NewHelpKeys;
++     SetHelp(helpKeys > 0 ? tr("Button$On/Off") : NULL, tr("Button$New"), helpKeys > 0 ? tr("Button$Delete") : NULL, helpKeys == 2 ? tr("Button$Info") : NULL);
++     }
++}
++
+ eOSState cMenuTimers::OnOff(void)
+ {
++  if (HasSubMenu())
++     return osContinue;
+   cTimer *timer = CurrentTimer();
+   if (timer) {
+      timer->OnOff();
++     timer->SetEventFromSchedule();
+      RefreshCurrent();
+      DisplayCurrent(true);
+      if (timer->FirstDay())
+@@ -861,23 +880,14 @@
+   return osContinue;
+ }
+ 
+-void cMenuTimers::Move(int From, int To)
+-{
+-  Timers.Move(From, To);
+-  cOsdMenu::Move(From, To);
+-  Timers.SetModified();
+-  Display();
+-  isyslog("timer %d moved to %d", From + 1, To + 1);
+-}
+-
+-eOSState cMenuTimers::Summary(void)
++eOSState cMenuTimers::Info(void)
+ {
+   if (HasSubMenu() || Count() == 0)
+      return osContinue;
+   cTimer *ti = CurrentTimer();
+-  if (ti && !isempty(ti->Summary()))
+-     return AddSubMenu(new cMenuText(tr("Summary"), ti->Summary()));
+-  return Edit(); // convenience for people not using the Summary feature ;-)
++  if (ti && ti->Event())
++     return AddSubMenu(new cMenuEvent(ti->Event()));
++  return osContinue;
+ }
+ 
+ eOSState cMenuTimers::ProcessKey(eKeys Key)
+@@ -887,14 +897,11 @@
+ 
+   if (state == osUnknown) {
+      switch (Key) {
+-       case kOk:     return Summary();
+-       case kRed:    return Edit();
++       case kOk:     return Edit();
++       case kRed:    state = OnOff(); break; // must go through SetHelpKeys()!
+        case kGreen:  return New();
+        case kYellow: return Delete();
+-       case kBlue:   if (Setup.SortTimers)
+-                        OnOff();
+-                     else
+-                        Mark();
++       case kBlue:   return Info();
+                      break;
+        default: break;
+        }
+@@ -904,12 +911,14 @@
+      Add(new cMenuTimerItem(Timers.Get(TimerNumber)), true);
+      Display();
+      }
++  if (Key != kNone)
++     SetHelpKeys();
+   return state;
+ }
+ 
+ // --- cMenuEvent ------------------------------------------------------------
+ 
+-cMenuEvent::cMenuEvent(const cEvent *Event, bool CanSwitch)
++cMenuEvent::cMenuEvent(const cEvent *Event, bool CanSwitch, bool Buttons)
+ :cOsdMenu(tr("Event"))
+ {
+   event = Event;
+@@ -919,7 +928,8 @@
+         SetTitle(channel->Name());
+         int TimerMatch = tmNone;
+         Timers.GetMatch(event, &TimerMatch);
+-        SetHelp(TimerMatch == tmFull ? tr("Button$Timer") : tr("Button$Record"), NULL, NULL, CanSwitch ? tr("Button$Switch") : NULL);
++        if (Buttons)
++           SetHelp(TimerMatch == tmFull ? tr("Button$Timer") : tr("Button$Record"), NULL, NULL, CanSwitch ? tr("Button$Switch") : NULL);
+         }
+      }
+ }
+@@ -1173,7 +1183,7 @@
+                      break;
+        case kBlue:   return Switch();
+        case kOk:     if (Count())
+-                        return AddSubMenu(new cMenuEvent(((cMenuScheduleItem *)Get(Current()))->event, true));
++                        return AddSubMenu(new cMenuEvent(((cMenuScheduleItem *)Get(Current()))->event, true, true));
+                      break;
+        default:      break;
+        }
+@@ -1442,7 +1452,7 @@
+                         return Switch();
+                      break;
+        case kOk:     if (Count())
+-                        return AddSubMenu(new cMenuEvent(((cMenuScheduleItem *)Get(Current()))->event, otherChannel));
++                        return AddSubMenu(new cMenuEvent(((cMenuScheduleItem *)Get(Current()))->event, otherChannel, true));
+                      break;
+        default:      break;
+        }
+@@ -1850,7 +1860,7 @@
+        case 0: SetHelp(NULL); break;
+        case 1: SetHelp(tr("Button$Open")); break;
+        case 2:
+-       case 3: SetHelp(RecordingCommands.Count() ? tr("Commands") : tr("Button$Play"), tr("Button$Rewind"), tr("Button$Delete"), NewHelpKeys == 3 ? tr("Info") : NULL);
++       case 3: SetHelp(RecordingCommands.Count() ? tr("Commands") : tr("Button$Play"), tr("Button$Rewind"), tr("Button$Delete"), NewHelpKeys == 3 ? tr("Button$Info") : NULL);
+        }
+      helpKeys = NewHelpKeys;
+      }
+@@ -2142,7 +2152,6 @@
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Scroll pages"),           &data.MenuScrollPage));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Scroll wraps"),           &data.MenuScrollWrap));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Menu button closes"),     &data.MenuButtonCloses));
+-  Add(new cMenuEditBoolItem(tr("Setup.OSD$Sort timers"),            &data.SortTimers));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Recording directories"),  &data.RecordingDirs));
+   SetCurrent(Get(current));
+   Display();
+@@ -3110,9 +3119,8 @@
+             else
+                number = number * 10 + Key - k0;
+             channel = Channels.GetByNumber(number);
+-            displayChannel->SetEvents(NULL, NULL);
++            Refresh();
+             withInfo = false;
+-            DisplayChannel();
+             // Lets see if there can be any useful further input:
+             int n = channel ? number * 10 : 0;
+             int m = 10;
+@@ -3131,10 +3139,10 @@
+                   }
+             if (n > 0) {
+                // This channel is the only one that fits the input, so let's take it right away:
+-               displayChannel->Flush(); // makes sure the user sees his last input
+                NewChannel = channel;
+                withInfo = true;
+                number = 0;
++               Refresh();
+                }
+             }
+          break;
+@@ -3159,8 +3167,7 @@
+                group = SaveGroup;
+             channel = Channels.Get(group);
+             if (channel) {
+-               displayChannel->SetEvents(NULL, NULL);
+-               DisplayChannel();
++               Refresh();
+                if (!channel->GroupSep())
+                   group = -1;
+                }
+@@ -3940,8 +3947,9 @@
+     case kUp:
+     case kPause:
+     case kDown:
++    case kOk:
+          Seconds = min(Total - STAY_SECONDS_OFF_END, Seconds);
+-         Goto(Seconds * FRAMESPERSEC, Key == kDown || Key == kPause);
++         Goto(Seconds * FRAMESPERSEC, Key == kDown || Key == kPause || Key == kOk);
+          timeSearchActive = false;
+          break;
+     default:
+diff -ruN vdr-1.3.43/menu.h vdr-1.3.44/menu.h
+--- vdr-1.3.43/menu.h	2006-02-17 16:38:40.000000000 +0100
++++ vdr-1.3.44/menu.h	2006-02-25 14:41:21.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 1.83 2006/02/17 15:38:40 kls Exp $
++ * $Id: menu.h 1.84 2006/02/25 13:41:21 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -49,7 +49,7 @@
+ private:
+   const cEvent *event;
+ public:
+-  cMenuEvent(const cEvent *Event, bool CanSwitch = false);
++  cMenuEvent(const cEvent *Event, bool CanSwitch = false, bool Buttons = false);
+   virtual void Display(void);
+   virtual eOSState ProcessKey(eKeys Key);
+   };
+diff -ruN vdr-1.3.43/osd.c vdr-1.3.44/osd.c
+--- vdr-1.3.43/osd.c	2006-02-05 14:46:37.000000000 +0100
++++ vdr-1.3.44/osd.c	2006-02-26 15:31:31.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 1.66 2006/02/05 13:46:37 kls Exp $
++ * $Id: osd.c 1.67 2006/02/26 14:31:31 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -344,7 +344,7 @@
+      SetIndex(x, y, Index(Color));
+ }
+ 
+-void cBitmap::DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg, tColor ColorBg, bool ReplacePalette)
++void cBitmap::DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg, tColor ColorBg, bool ReplacePalette, bool Overlay)
+ {
+   if (bitmap && Bitmap.bitmap && Intersects(x, y, x + Bitmap.Width() - 1, y + Bitmap.Height() - 1)) {
+      if (Covers(x, y, x + Bitmap.Width() - 1, y + Bitmap.Height() - 1))
+@@ -354,16 +354,20 @@
+      if (ReplacePalette && Covers(x + x0, y + y0, x + x0 + Bitmap.Width() - 1, y + y0 + Bitmap.Height() - 1)) {
+         Replace(Bitmap);
+         for (int ix = 0; ix < Bitmap.width; ix++) {
+-            for (int iy = 0; iy < Bitmap.height; iy++)
+-                SetIndex(x + ix, y + iy, Bitmap.bitmap[Bitmap.width * iy + ix]);
++            for (int iy = 0; iy < Bitmap.height; iy++) {
++                if (!Overlay || Bitmap.bitmap[Bitmap.width * iy + ix] != 0)
++                   SetIndex(x + ix, y + iy, Bitmap.bitmap[Bitmap.width * iy + ix]);
++                }
+             }
+         }
+      else {
+         tIndexes Indexes;
+         Take(Bitmap, &Indexes, ColorFg, ColorBg);
+         for (int ix = 0; ix < Bitmap.width; ix++) {
+-            for (int iy = 0; iy < Bitmap.height; iy++)
+-                SetIndex(x + ix, y + iy, Indexes[int(Bitmap.bitmap[Bitmap.width * iy + ix])]);
++            for (int iy = 0; iy < Bitmap.height; iy++) {
++                if (!Overlay || Bitmap.bitmap[Bitmap.width * iy + ix] != 0)
++                   SetIndex(x + ix, y + iy, Indexes[int(Bitmap.bitmap[Bitmap.width * iy + ix])]);
++                }
+             }
+         }
+      }
+@@ -683,10 +687,10 @@
+       bitmaps[i]->DrawPixel(x, y, Color);
+ }
+ 
+-void cOsd::DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg, tColor ColorBg, bool ReplacePalette)
++void cOsd::DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg, tColor ColorBg, bool ReplacePalette, bool Overlay)
+ {
+   for (int i = 0; i < numBitmaps; i++)
+-      bitmaps[i]->DrawBitmap(x, y, Bitmap, ColorFg, ColorBg, ReplacePalette);
++      bitmaps[i]->DrawBitmap(x, y, Bitmap, ColorFg, ColorBg, ReplacePalette, Overlay);
+ }
+ 
+ void cOsd::DrawText(int x, int y, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width, int Height, int Alignment)
+diff -ruN vdr-1.3.43/osd.h vdr-1.3.44/osd.h
+--- vdr-1.3.43/osd.h	2006-02-05 14:46:37.000000000 +0100
++++ vdr-1.3.44/osd.h	2006-02-26 15:45:05.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.h 1.51 2006/02/05 13:46:37 kls Exp $
++ * $Id: osd.h 1.53 2006/02/26 14:45:05 kls Exp $
+  */
+ 
+ #ifndef __OSD_H
+@@ -157,13 +157,16 @@
+        ///< Sets the pixel at the given coordinates to the given Color, which is
+        ///< a full 32 bit ARGB value.
+        ///< If the coordinates are outside the bitmap area, no pixel will be set.
+-  void DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg = 0, tColor ColorBg = 0, bool ReplacePalette = false);
++  void DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg = 0, tColor ColorBg = 0, bool ReplacePalette = false, bool Overlay = false);
+        ///< Sets the pixels in this bitmap with the data from the given
+        ///< Bitmap, putting the upper left corner of the Bitmap at (x, y).
+        ///< If ColorFg or ColorBg is given, the first palette entry of the Bitmap
+        ///< will be mapped to ColorBg and the second palette entry will be mapped to
+        ///< ColorFg (palette indexes are defined so that 0 is the background and
+-       ///< 1 is the foreground color).
++       ///< 1 is the foreground color). ReplacePalette controls whether the target
++       ///< area shall have its palette replaced with the one from Bitmap.
++       ///< If Overlay is true, any pixel in Bitmap that has color index 0 will
++       ///< not overwrite the corresponding pixel in the target area.
+   void DrawText(int x, int y, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width = 0, int Height = 0, int Alignment = taDefault);
+        ///< Draws the given string at coordinates (x, y) with the given foreground
+        ///< and background color and font. If Width and Height are given, the text
+@@ -278,13 +281,16 @@
+        ///< If the OSD area has been divided into separate sub-areas, and the
+        ///< given coordinates don't fall into any of these sub-areas, no pixel will
+        ///< be set.
+-  virtual void DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg = 0, tColor ColorBg = 0, bool ReplacePalette = false);
++  virtual void DrawBitmap(int x, int y, const cBitmap &Bitmap, tColor ColorFg = 0, tColor ColorBg = 0, bool ReplacePalette = false, bool Overlay = false);
+        ///< Sets the pixels in the OSD with the data from the given
+        ///< Bitmap, putting the upper left corner of the Bitmap at (x, y).
+        ///< If ColorFg or ColorBg is given, the first palette entry of the Bitmap
+        ///< will be mapped to ColorBg and the second palette entry will be mapped to
+        ///< ColorFg (palette indexes are defined so that 0 is the background and
+-       ///< 1 is the foreground color).
++       ///< 1 is the foreground color). ReplacePalette controls whether the target
++       ///< area shall have its palette replaced with the one from Bitmap.
++       ///< If Overlay is true, any pixel in Bitmap that has color index 0 will
++       ///< not overwrite the corresponding pixel in the target area.
+   virtual void DrawText(int x, int y, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width = 0, int Height = 0, int Alignment = taDefault);
+        ///< Draws the given string at coordinates (x, y) with the given foreground
+        ///< and background color and font. If Width and Height are given, the text
+diff -ruN vdr-1.3.43/recording.c vdr-1.3.44/recording.c
+--- vdr-1.3.43/recording.c	2006-02-19 14:09:29.000000000 +0100
++++ vdr-1.3.44/recording.c	2006-02-26 12:59:59.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 1.137 2006/02/19 13:09:29 kls Exp $
++ * $Id: recording.c 1.140 2006/02/26 11:59:59 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -261,6 +261,7 @@
+   channelID = Channel ? Channel->GetChannelID() : tChannelID::InvalidID;
+   ownEvent = Event ? NULL : new cEvent(0);
+   event = ownEvent ? ownEvent : Event;
++  aux = NULL;
+   if (Channel) {
+      // Since the EPG data's component records can carry only a single
+      // language code, let's see whether the channel's PID data has
+@@ -299,6 +300,7 @@
+ cRecordingInfo::~cRecordingInfo()
+ {
+   delete ownEvent;
++  free(aux);
+ }
+ 
+ void cRecordingInfo::SetData(const char *Title, const char *ShortText, const char *Description)
+@@ -311,6 +313,12 @@
+      ((cEvent *)event)->SetDescription(Description);
+ }
+ 
++void cRecordingInfo::SetAux(const char *Aux)
++{
++  free(aux);
++  aux = Aux ? strdup(Aux) : NULL;
++}
++
+ bool cRecordingInfo::Read(FILE *f)
+ {
+   if (ownEvent) {
+@@ -329,6 +337,26 @@
+                             channelID = tChannelID::FromString(t);
+                        }
+                        break;
++             case 'E': {
++                         unsigned int EventID;
++                         time_t StartTime;
++                         int Duration;
++                         unsigned int TableID = 0;
++                         unsigned int Version = 0xFF;
++                         int n = sscanf(t, "%u %ld %d %X %X", &EventID, &StartTime, &Duration, &TableID, &Version);
++                         if (n >= 3 && n <= 5) {
++                            ownEvent->SetEventID(EventID);
++                            ownEvent->SetStartTime(StartTime);
++                            ownEvent->SetDuration(Duration);
++                            ownEvent->SetTableID(TableID);
++                            ownEvent->SetVersion(Version);
++                            }
++                       }
++                       break;
++             case '@': free(aux);
++                       aux = strdup(t);
++                       break;
++             case '#': break; // comments are ignored
+              default: if (!ownEvent->Parse(s)) {
+                          esyslog("ERROR: EPG data problem in line %d", line);
+                          return false;
+@@ -346,6 +374,8 @@
+   if (channelID.Valid())
+      fprintf(f, "%sC %s\n", Prefix, *channelID.ToString());
+   event->Dump(f, Prefix, true);
++  if (aux)
++     fprintf(f, "%s@ %s\n", Prefix, aux);
+   return true;
+ }
+ 
+@@ -497,11 +527,7 @@
+   lifetime = Timer->Lifetime();
+   // handle info:
+   info = new cRecordingInfo(Timer->Channel(), Event);
+-  // this is a somewhat ugly hack to get the 'summary' information from the
+-  // timer into the recording info, but it saves us from having to actually
+-  // copy the entire event data:
+-  if (!isempty(Timer->Summary()))
+-     info->SetData(isempty(info->Title()) ? Timer->File() : NULL, NULL, Timer->Summary());
++  info->SetAux(Timer->Aux());
+ }
+ 
+ cRecording::cRecording(const char *FileName)
+diff -ruN vdr-1.3.43/recording.h vdr-1.3.44/recording.h
+--- vdr-1.3.43/recording.h	2006-02-18 15:08:09.000000000 +0100
++++ vdr-1.3.44/recording.h	2006-02-25 13:24:46.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 1.51 2006/02/18 14:08:09 kls Exp $
++ * $Id: recording.h 1.53 2006/02/25 12:24:46 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -44,14 +44,18 @@
+   tChannelID channelID;
+   const cEvent *event;
+   cEvent *ownEvent;
++  char *aux;
+   cRecordingInfo(const cChannel *Channel = NULL, const cEvent *Event = NULL);
+   void SetData(const char *Title, const char *ShortText, const char *Description);
++  void SetAux(const char *Aux);
+ public:
+   ~cRecordingInfo();
++  tChannelID ChannelID(void) { return channelID; }
+   const char *Title(void) const { return event->Title(); }
+   const char *ShortText(void) const { return event->ShortText(); }
+   const char *Description(void) const { return event->Description(); }
+   const cComponents *Components(void) const { return event->Components(); }
++  const char *Aux(void) const { return aux; }
+   bool Read(FILE *f);
+   bool Write(FILE *f, const char *Prefix = "") const;
+   };
+diff -ruN vdr-1.3.43/timers.c vdr-1.3.44/timers.c
+--- vdr-1.3.43/timers.c	2006-02-03 16:20:14.000000000 +0100
++++ vdr-1.3.44/timers.c	2006-02-26 11:50:47.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 1.46 2006/02/03 15:20:14 kls Exp $
++ * $Id: timers.c 1.50 2006/02/26 10:50:47 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -23,6 +23,7 @@
+ cTimer::cTimer(bool Instant, bool Pause, cChannel *Channel)
+ {
+   startTime = stopTime = 0;
++  lastSetEvent = 0;
+   recording = pending = inVpsMargin = false;
+   flags = tfNone;
+   if (Instant)
+@@ -41,7 +42,7 @@
+   priority = Pause ? Setup.PausePriority : Setup.DefaultPriority;
+   lifetime = Pause ? Setup.PauseLifetime : Setup.DefaultLifetime;
+   *file = 0;
+-  summary = NULL;
++  aux = NULL;
+   event = NULL;
+   if (Instant && channel)
+      snprintf(file, sizeof(file), "%s%s", Setup.MarkInstantRecord ? "@" : "", *Setup.NameInstantRecord ? Setup.NameInstantRecord : channel->Name());
+@@ -50,6 +51,7 @@
+ cTimer::cTimer(const cEvent *Event)
+ {
+   startTime = stopTime = 0;
++  lastSetEvent = 0;
+   recording = pending = inVpsMargin = false;
+   flags = tfActive;
+   if (Event->Vps() && Setup.UseVps)
+@@ -76,21 +78,22 @@
+   const char *Title = Event->Title();
+   if (!isempty(Title))
+      strn0cpy(file, Event->Title(), sizeof(file));
+-  summary = NULL;
+-  event = Event;
++  aux = NULL;
++  event = NULL; // let SetEvent() be called to get a log message
+ }
+ 
+ cTimer::~cTimer()
+ {
+-  free(summary);
++  free(aux);
+ }
+ 
+ cTimer& cTimer::operator= (const cTimer &Timer)
+ {
+   memcpy(this, &Timer, sizeof(*this));
+-  if (summary)
+-     summary = strdup(summary);
++  if (aux)
++     aux = strdup(aux);
+   event = NULL;
++  lastSetEvent = 0;
+   return *this;
+ }
+ 
+@@ -109,9 +112,7 @@
+ {
+   char *buffer;
+   strreplace(file, ':', '|');
+-  strreplace(summary, '\n', '|');
+-  asprintf(&buffer, "%u:%s:%s:%04d:%04d:%d:%d:%s:%s\n", flags, UseChannelID ? *Channel()->GetChannelID().ToString() : *itoa(Channel()->Number()), *PrintDay(day, weekdays), start, stop, priority, lifetime, file, summary ? summary : "");
+-  strreplace(summary, '|', '\n');
++  asprintf(&buffer, "%u:%s:%s:%04d:%04d:%d:%d:%s:%s\n", flags, UseChannelID ? *Channel()->GetChannelID().ToString() : *itoa(Channel()->Number()), *PrintDay(day, weekdays), start, stop, priority, lifetime, file, aux ? aux : "");
+   strreplace(file, '|', ':');
+   return cString(buffer, true);
+ }
+@@ -226,8 +227,8 @@
+   char *channelbuffer = NULL;
+   char *daybuffer = NULL;
+   char *filebuffer = NULL;
+-  free(summary);
+-  summary = NULL;
++  free(aux);
++  aux = NULL;
+   //XXX Apparently sscanf() doesn't work correctly if the last %a argument
+   //XXX results in an empty string (this first occured when the EIT gathering
+   //XXX was put into a separate thread - don't know why this happens...
+@@ -244,17 +245,16 @@
+      s = s2;
+      }
+   bool result = false;
+-  if (8 <= sscanf(s, "%u :%a[^:]:%a[^:]:%d :%d :%d :%d :%a[^:\n]:%a[^\n]", &flags, &channelbuffer, &daybuffer, &start, &stop, &priority, &lifetime, &filebuffer, &summary)) {
++  if (8 <= sscanf(s, "%u :%a[^:]:%a[^:]:%d :%d :%d :%d :%a[^:\n]:%a[^\n]", &flags, &channelbuffer, &daybuffer, &start, &stop, &priority, &lifetime, &filebuffer, &aux)) {
+      ClrFlags(tfRecording);
+-     if (summary && !*skipspace(summary)) {
+-        free(summary);
+-        summary = NULL;
++     if (aux && !*skipspace(aux)) {
++        free(aux);
++        aux = NULL;
+         }
+      //TODO add more plausibility checks
+      result = ParseDay(daybuffer, day, weekdays);
+      strn0cpy(file, filebuffer, MaxFileName);
+      strreplace(file, '|', ':');
+-     strreplace(summary, '|', '\n');
+      if (isnumber(channelbuffer))
+         channel = Channels.GetByNumber(atoi(channelbuffer));
+      else
+@@ -426,6 +426,55 @@
+   return stopTime;
+ }
+ 
++#define EPGLIMITPAST   (2 * 3600) // time in seconds in the past within which EPG events will be taken into consideration
++
++void cTimer::SetEventFromSchedule(const cSchedules *Schedules)
++{
++  cSchedulesLock SchedulesLock;
++  if (!Schedules) {
++     lastSetEvent = 0; // forces setting the event, even if the schedule hasn't been modified
++     if (!(Schedules = cSchedules::Schedules(SchedulesLock)))
++        return;
++     }
++  const cSchedule *Schedule = Schedules->GetSchedule(Channel());
++  if (Schedule) {
++     if (!lastSetEvent || Schedule->Modified() >= lastSetEvent) {
++        const cEvent *Event = NULL;
++        int Overlap = 0;
++        int Distance = INT_MIN;
++        time_t now = time(NULL);
++        for (const cEvent *e = Schedule->Events()->First(); e; e = Schedule->Events()->Next(e)) {
++            if (e->EndTime() < now - EPGLIMITPAST)
++               continue; // skip old events
++            int overlap = 0;
++            Matches(e, &overlap);
++            if (overlap && overlap >= Overlap) {
++               int distance = 0;
++               if (now < e->StartTime())
++                  distance = e->StartTime() - now;
++               else if (now > e->EndTime())
++                  distance = e->EndTime() - now;
++               if (Event && overlap == Overlap) {
++                  if (Overlap > FULLMATCH) { // this means VPS
++                     if (abs(Distance) < abs(distance))
++                        break; // we've already found the closest VPS event
++                     }
++                  else if (e->Duration() <= Event->Duration())
++                     continue; // if overlap is the same, we take the longer event
++                  }
++               Overlap = overlap;
++               Distance = distance;
++               Event = e;
++               }
++            }
++        if (Event && Event->EndTime() < now - EXPIRELATENCY && Overlap > FULLMATCH && !Event->IsRunning())
++           Event = NULL;
++        SetEvent(Event);
++        }
++     }
++  lastSetEvent = time(NULL);
++}
++
+ void cTimer::SetEvent(const cEvent *Event)
+ {
+   if (event != Event) { //XXX TODO check event data, too???
+@@ -491,7 +540,7 @@
+ void cTimer::Skip(void)
+ {
+   day = IncDay(SetTime(StartTime(), 0), 1);
+-  event = NULL;
++  SetEvent(NULL);
+ }
+ 
+ void cTimer::OnOff(void)
+@@ -506,7 +555,7 @@
+      Skip();
+   else
+      SetFlags(tfActive);
+-  event = NULL;
++  SetEvent(NULL);
+   Matches(); // refresh start and end time
+ }
+ 
+@@ -594,9 +643,6 @@
+   return Result;
+ }
+ 
+-#define EPGLIMITPAST   (2 * 3600) // time in seconds around now, within which EPG events will be taken into consideration
+-#define EPGLIMITFUTURE (4 * 3600)
+-
+ void cTimers::SetEvents(void)
+ {
+   if (time(NULL) - lastSetEvents < 5)
+@@ -606,46 +652,9 @@
+   if (Schedules) {
+      if (!lastSetEvents || Schedules->Modified() >= lastSetEvents) {
+         for (cTimer *ti = First(); ti; ti = Next(ti)) {
+-            const cSchedule *Schedule = Schedules->GetSchedule(ti->Channel());
+-            if (Schedule) {
+-               if (!lastSetEvents || Schedule->Modified() >= lastSetEvents) {
+-                  const cEvent *Event = NULL;
+-                  int Overlap = 0;
+-                  int Distance = INT_MIN;
+-                  time_t now = time(NULL);
+-                  for (const cEvent *e = Schedule->Events()->First(); e; e = Schedule->Events()->Next(e)) {
+-                      if (cRemote::HasKeys())
+-                         return; // react immediately on user input
+-                      if (e->EndTime() < now - EPGLIMITPAST)
+-                         continue; // skip old events
+-                      if (e->StartTime() > now + EPGLIMITFUTURE)
+-                         break; // no need to process events too far in the future
+-                      int overlap = 0;
+-                      ti->Matches(e, &overlap);
+-                      if (overlap && overlap >= Overlap) {
+-                         int distance = 0;
+-                         if (now < e->StartTime())
+-                            distance = e->StartTime() - now;
+-                         else if (now > e->EndTime())
+-                            distance = e->EndTime() - now;
+-                         if (Event && overlap == Overlap) {
+-                            if (Overlap > FULLMATCH) { // this means VPS
+-                               if (abs(Distance) < abs(distance))
+-                                  break; // we've already found the closest VPS event
+-                               }
+-                            else if (e->Duration() <= Event->Duration())
+-                               continue; // if overlap is the same, we take the longer event
+-                            }
+-                         Overlap = overlap;
+-                         Distance = distance;
+-                         Event = e;
+-                         }
+-                      }
+-                  if (Event && Event->EndTime() < now - EXPIRELATENCY && !Event->IsRunning())
+-                     Event = NULL;
+-                  ti->SetEvent(Event);
+-                  }
+-               }
++            if (cRemote::HasKeys())
++               return; // react immediately on user input
++            ti->SetEventFromSchedule(Schedules);
+             }
+         }
+      }
+diff -ruN vdr-1.3.43/timers.h vdr-1.3.44/timers.h
+--- vdr-1.3.43/timers.h	2006-01-15 14:29:44.000000000 +0100
++++ vdr-1.3.44/timers.h	2006-02-25 16:05:09.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.h 1.24 2006/01/15 13:29:44 kls Exp $
++ * $Id: timers.h 1.26 2006/02/25 15:05:09 kls Exp $
+  */
+ 
+ #ifndef __TIMERS_H
+@@ -28,6 +28,7 @@
+   friend class cMenuEditTimer;
+ private:
+   mutable time_t startTime, stopTime;
++  time_t lastSetEvent;
+   bool recording, pending, inVpsMargin;
+   uint flags;
+   cChannel *channel;
+@@ -38,7 +39,7 @@
+   int priority;
+   int lifetime;
+   char file[MaxFileName];
+-  char *summary;
++  char *aux;
+   const cEvent *event;
+ public:
+   cTimer(bool Instant = false, bool Pause = false, cChannel *Channel = NULL);
+@@ -59,7 +60,7 @@
+   int Lifetime(void) const { return lifetime; }
+   const char *File(void) const { return file; }
+   time_t FirstDay(void) const { return weekdays ? day : 0; }
+-  const char *Summary(void) const { return summary; }
++  const char *Aux(void) const { return aux; }
+   cString ToText(bool UseChannelID = false);
+   cString ToDescr(void) const;
+   const cEvent *Event(void) const { return event; }
+@@ -77,6 +78,7 @@
+   bool Expired(void) const;
+   time_t StartTime(void) const;
+   time_t StopTime(void) const;
++  void SetEventFromSchedule(const cSchedules *Schedules = NULL);
+   void SetEvent(const cEvent *Event);
+   void SetRecording(bool Recording);
+   void SetPending(bool Pending);
+diff -ruN vdr-1.3.43/vdr.5 vdr-1.3.44/vdr.5
+--- vdr-1.3.43/vdr.5	2006-02-19 16:04:21.000000000 +0100
++++ vdr-1.3.44/vdr.5	2006-02-26 15:10:00.000000000 +0100
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 1.49 2006/02/19 15:04:21 kls Exp $
++.\" $Id: vdr.5 1.54 2006/02/26 14:10:00 kls Exp $
+ .\"
+ .TH vdr 5 "19 Feb 2006" "1.3.43" "Video Disk Recorder Files"
+ .SH NAME
+@@ -217,13 +217,8 @@
+ \fB4\fR@this timer uses VPS
+ \fB8\fR@this timer is currently recording (may only be up-to-date with SVDRP)
+ .TE
+-Bits other than these can be used by external programs to mark active timers
+-and recognize if the user has modified them. When a user modifies an active
+-timer, the upper 16 bits of this unsigned 32 bit parameter will be explicitly set to 0.
+-
+-Note: in order to allow future extensibility, external programs using the
+-\fBstatus\fR parameter should only use the upper 16 bit of this 32 bit parameter
+-and leave the lower 16 bit untouched.
++
++All other bits are reserved for future use.
+ .TP
+ .B Channel
+ The channel to record from. This is either the channel number as shown in the
+@@ -321,11 +316,11 @@
+ of these cannot be determined, \fBTITLE\fR will default to the channel name, and
+ \fBEPISODE\fR will default to a blank.
+ .TP
+-.B Summary
+-Arbitrary text that describes the recording made by this timer.
+-Any newline characters in the summary have to be replaced by '|', and
+-the summary may contain ':' characters. If this field is not empty, its
+-contents will be written into the \fIinfo.vdr\fR file of the recording.
++.B Auxiliary data
++An arbitrary string that can be used by external applications to store any
++kind of data related to this timer. The string must not contain any newline
++characters. If this field is not empty, its contents will be written into the
++\fIinfo.vdr\fR file of the recording with the '@' tag.
+ .SS SOURCES
+ The file \fIsources.conf\fR defines the codes to be used in the \fBSource\fR field
+ of channels in \fIchannels.conf\fR and assigns descriptive texts to them.
+@@ -567,10 +562,13 @@
+ .SS INFO
+ The file \fIinfo.vdr\fR (if present in a recording directory) contains
+ a description of the recording, derived from the EPG data at recording time
+-(if such data was available) or the \fBSummary\fR field of the corresponding
+-timer. This is a plain ASCII file and contains tagged lines like the \fBEPG DATA\fR
+-file (see the description of the \fIepg.data\fR file). Note that the tags
+-c, E, e and V will not appear in an \fIinfo.vdr\fR file.
++(if such data was available). The \fBAux\fR field of the corresponding
++timer (if given) is copied into this file, using the '@' tag.
++This is a plain ASCII file and contains tagged lines like the \fBEPG DATA\fR
++file (see the description of the \fIepg.data\fR file). Note that the lowercase
++tags ('c' and 'e') will not appear in an \fIinfo.vdr\fR file.
++Lines tagged with '#' are ignored and can be used by external tools to
++store arbitrary information.
+ .SS RESUME
+ The file \fIresume.vdr\fR (if present in a recording directory) contains
+ the position within the recording where the last replay session left off.
+@@ -626,12 +624,15 @@
+ should at least have a \fBT\fR entry).
+ There may be several \fBX\fR tags, depending on the number of tracks (video, audio etc.)
+ the event provides.
++The special tag character \fB@\fR is used to mark the \fBauxiliary data\fR from
++a timer definition in the \fIinfo.vdr\fR file.
+ 
+ .TS
+ tab (@);
+ l l.
+ <channel id>   @is the "channel ID", made up from the parameters defined in 'channels.conf'
+ <channel name> @is the "name" as in 'channels.conf' (for information only, may be left out)
++<event id>     @is a 32 bit unsigned int, uniquely identifying this event
+ <start time>   @is the time (as a time_t integer) in UTC when this event starts
+ <duration>     @is the time (in seconds) that this event will take
+ <table id>     @is a hex number that indicates the table this event is contained in (if this is left empty or 0 this event will not be overwritten or modified by data that comes from the DVB stream)
+@@ -648,6 +649,11 @@
+ 
+ This file will be read at program startup in order to restore the results of
+ previous EPG scans.
++
++Note that the \fBevent id\fR that comes from the DVB data stream is actually
++just 16 bit wide. The internal representation in VDR allows for 32 bit to
++be used, so that external tools can generate EPG data that is guaranteed
++not to collide with the ids of existing data.
+ .SH SEE ALSO
+ .BR vdr (1)
+ .SH AUTHOR

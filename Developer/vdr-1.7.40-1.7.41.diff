@@ -1,0 +1,1639 @@
+diff -ruN vdr-1.7.40/CONTRIBUTORS vdr-1.7.41/CONTRIBUTORS
+--- vdr-1.7.40/CONTRIBUTORS	2013-03-07 15:47:02.000000000 +0100
++++ vdr-1.7.41/CONTRIBUTORS	2013-03-16 11:39:16.000000000 +0100
+@@ -1,7 +1,8 @@
+ Tons of suggestions, bugreports, patches and other contributions have been
+-provided by the people on the 'linux-dvb' and 'vdr' mailing lists
++provided by the people on the 'linux-dvb' and 'vdr' mailing lists, as well
++as 'vdr-portal.de'.
+ Special thanks go to the following individuals (if your name is missing here,
+-please send an email to kls@tvdr.de):
++please send an email to vdr@tvdr.de):
+ 
+ Carsten Koch <Carsten.Koch@icem.de>
+  for adding LIRC support
+@@ -615,6 +616,8 @@
+  --genindex
+  for suggesting to disable EPG processing for a while after a CLRE command
+  for suggesting to read the epg.data file in a separate thread
++ for some improvements to allowing the parameters PATH and NAME to the --dirnames
++ command line option to be left empty to use the default values if only ENC shall be set
+ 
+ Jeremy Hall <jhall@UU.NET>
+  for fixing an incomplete initialization of the filter parameters in eit.c
+@@ -2011,6 +2014,7 @@
+  for reporting that some special characters are dropped by Doxygen and thus need to
+  be escaped
+  for changing the template for PLGCFG to $(CONFDIR)/plugins.mk
++ for updating the help and man page entry about the location of the epg.data file
+ 
+ Steffen Beyer <cpunk@reactor.de>
+  for fixing setting the colored button help after deleting a recording in case the next
+@@ -2735,6 +2739,7 @@
+  for fixing a busy loop when moving editing marks
+  for making cPalette::ClosestColor() treat fully transparent colors as "equal"
+  for implementing scaling of SPU bitmaps
++ for fixing creating a new VPS timer with the SVDRP command NEWT
+ 
+ Timo Helkio <timolavi@mbnet.fi>
+  for reporting a hangup when replaying a TS recording with subtitles activated
+@@ -2787,6 +2792,8 @@
+  seconds during replay
+  for suggesting to synchronize system time to the transponder time using adjtime() in
+  order to avoid discontinuities
++ for setting the environment variables HOME, USER, LOGNAME and SHELL accordingly
++ when switching to a less privileged user id
+ 
+ Rene van den Braken <rene@vandenbraken.name>
+  for reporting a bug in writing the PCR pid into the PMT in
+@@ -3112,3 +3119,7 @@
+ 
+ Matti Lehtim‰ki <matti.lehtimaki@gmail.com>
+  for translating OSD texts to the Finnish language
++
++Siegfried Bosch <bosch@math.uni-muenster.de>
++ for fixing a possible "Channel not available" if a recording starts on a system with
++ bonded devices
+diff -ruN vdr-1.7.40/HISTORY vdr-1.7.41/HISTORY
+--- vdr-1.7.40/HISTORY	2013-03-10 15:56:22.000000000 +0100
++++ vdr-1.7.41/HISTORY	2013-03-16 11:38:48.000000000 +0100
+@@ -7729,3 +7729,30 @@
+ - Changed the default values for the OSD size back to those before version 1.7.29,
+   to avoid problems with SD-FF cards in case the user switches to the "ST:TNG" or
+   "Classic" skin.
++
++2013-03-16: Version 1.7.41
++
++- Updated the Hungarian OSD texts (thanks to Istv·n F¸ley).
++- Updated the Russian OSD texts (thanks to Oleg Roitburd).
++- Updated the Polish OSD texts (thanks to Marek Nazarko).
++- Fixed using PATH_MAX and NAME_MAX (+/-1 because the first one includes the
++  terminating 0, while the latter doesn't).
++- The 'plugins' target of the VDR Makefile now also copies files matching the wildcard
++  "lib$$i-*.so" (previously only "libvdr-*.so") and also descends into subdirectories
++  of the plugin source.
++- The parameters PATH and NAME to the --dirnames command line option may now be left
++  empty to use the default values if only ENC shall be set (thanks to Helmut Auer for
++  some improvements to this change).
++- Fixed a possible "Channel not available" if a recording starts on a system with
++  bonded devices (thanks to Siegfried Bosch).
++- Fixed stopping an ongoing recording on a system with bonded devices, if a timer with
++  a higher priority requires a different band.
++- Updated the introductory text of the vdr.1 man page.
++- Added a note to the INSTALL file regarding multiple disk setup becoming deprecated
++  in a future version of VDR.
++- When switching to a less privileged user id, VDR now sets the environment variables
++  HOME, USER, LOGNAME and SHELL accordingly (thanks to Manuel Reimer).
++- Updated the help and man page entry about the location of the epg.data file (thanks
++  to Ville Skytt‰).
++- Fixed creating a new VPS timer with the SVDRP command NEWT (thanks to Johann
++  Friedrichs).
+diff -ruN vdr-1.7.40/INSTALL vdr-1.7.41/INSTALL
+--- vdr-1.7.40/INSTALL	2013-02-19 10:48:54.000000000 +0100
++++ vdr-1.7.41/INSTALL	2013-03-14 10:17:20.000000000 +0100
+@@ -1,7 +1,7 @@
+ Installation of the Video Disk Recorder
+ ---------------------------------------
+ 
+-Version 1.7
++Version 2.0
+ -----------
+ 
+ Compiling and running the program:
+@@ -351,7 +351,12 @@
+ To use such a multi directory setup, you need to add the '-v' option
+ with the name of the basic directory when running 'vdr':
+ 
+-   vdr -v /video0
++   vdr -v /srv/vdr/video0
++
++WARNING: Using multiple disks to form one large video directory this way
++is deprecated and will be removed from VDR in a future version! Either
++use one of today's large terabyte disks (preferably with a backup disk
++in a RAID-1 array), or use something like "mhddfs".
+ 
+ Note that you should not copy any non-VDR files into the video directory,
+ since this might cause a lot of unnecessary disk access when VDR cleans up those
+@@ -359,7 +364,7 @@
+ there. If you have a large disk that you want to use for VDR's video data as
+ well as other stuff, you may want to create a subdirectory for VDR, as in
+ 
+-   /mydisk/video0
++   /mydisk/video
+ 
+ and put your other stuff into, say,
+ 
+diff -ruN vdr-1.7.40/MANUAL vdr-1.7.41/MANUAL
+--- vdr-1.7.40/MANUAL	2013-03-04 14:45:33.000000000 +0100
++++ vdr-1.7.41/MANUAL	2013-03-11 13:01:11.000000000 +0100
+@@ -1,7 +1,7 @@
+ Video Disk Recorder User's Manual
+ ---------------------------------
+ 
+-Version 1.6
++Version 2.0
+ -----------
+ 
+ * Remote Control Keys
+diff -ruN vdr-1.7.40/Makefile vdr-1.7.41/Makefile
+--- vdr-1.7.40/Makefile	2013-02-24 11:40:23.000000000 +0100
++++ vdr-1.7.41/Makefile	2013-03-11 16:01:01.000000000 +0100
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 2.53 2013/02/24 10:40:23 kls Exp $
++# $Id: Makefile 2.54 2013/03/11 15:01:01 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -220,7 +220,7 @@
+ 	    INCLUDES="-I$(CWD)/include"\
+ 	    $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" VDRDIR="$(CWD)" || failed="$$failed $$i";\
+ 	    if [ -n "$(LCLBLD)" ] ; then\
+-	       (cd $(PLUGINDIR)/src/$$i; for l in libvdr-*.so; do install $$l $(LIBDIR)/$$l.$(APIVERSION); done);\
++	       (cd $(PLUGINDIR)/src/$$i; for l in `find -name 'libvdr-*.so' -o -name 'lib$$i-*.so'`; do install $$l $(LIBDIR)/`basename $$l`.$(APIVERSION); done);\
+ 	       if [ -d $(PLUGINDIR)/src/$$i/po ]; then\
+ 	          for l in `ls $(PLUGINDIR)/src/$$i/po/*.mo`; do\
+ 	              install -D -m644 $$l $(LOCDIR)/`basename $$l | cut -d. -f1`/LC_MESSAGES/vdr-$$i.mo;\
+diff -ruN vdr-1.7.40/PLUGINS/src/epgtableid0/README vdr-1.7.41/PLUGINS/src/epgtableid0/README
+--- vdr-1.7.40/PLUGINS/src/epgtableid0/README	2012-03-10 15:26:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/epgtableid0/README	2013-03-11 12:20:32.000000000 +0100
+@@ -1,6 +1,6 @@
+ This is a "plugin" for the Video Disk Recorder (VDR).
+ 
+-Written by:                  Klaus Schmidinger <kls@tvdr.de>
++Written by:                  Klaus Schmidinger <vdr@tvdr.de>
+ 
+ Project's homepage:          http://www.tvdr.de
+ 
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/README vdr-1.7.41/PLUGINS/src/hello/README
+--- vdr-1.7.40/PLUGINS/src/hello/README	2009-10-18 16:16:38.000000000 +0200
++++ vdr-1.7.41/PLUGINS/src/hello/README	2013-03-11 12:20:34.000000000 +0100
+@@ -1,6 +1,6 @@
+ This is a "plugin" for the Video Disk Recorder (VDR).
+ 
+-Written by:                  Klaus Schmidinger <kls@tvdr.de>
++Written by:                  Klaus Schmidinger <vdr@tvdr.de>
+ 
+ Project's homepage:          http://www.tvdr.de
+ 
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/ca_ES.po vdr-1.7.41/PLUGINS/src/hello/po/ca_ES.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/ca_ES.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/ca_ES.po	2013-03-11 12:46:32.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Marc Rovira Vall <tm05462@salleURL.edu>, 2003
+ # Ramon Roca <ramon.roca@xcombo.com>, 2003
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/cs_CZ.po vdr-1.7.41/PLUGINS/src/hello/po/cs_CZ.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/cs_CZ.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/cs_CZ.po	2013-03-11 12:46:41.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # VladimÌr B·rta <vladimir.barta@k2atmitec.cz>, 2006
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/da_DK.po vdr-1.7.41/PLUGINS/src/hello/po/da_DK.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/da_DK.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/da_DK.po	2013-03-11 12:46:48.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Mogens Elneff <mogens@elneff.dk>, 2004
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/de_DE.po vdr-1.7.41/PLUGINS/src/hello/po/de_DE.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/de_DE.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/de_DE.po	2013-03-11 12:46:56.000000000 +0100
+@@ -1,7 +1,7 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Klaus Schmidinger <kls@tvdr.de>, 2000
++# Klaus Schmidinger <vdr@tvdr.de>, 2000
+ #
+ msgid ""
+ msgstr ""
+@@ -9,7 +9,7 @@
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+-"Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
++"Last-Translator: Klaus Schmidinger <vdr@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
+ "Language: de\n"
+ "MIME-Version: 1.0\n"
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/el_GR.po vdr-1.7.41/PLUGINS/src/hello/po/el_GR.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/el_GR.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/el_GR.po	2013-03-11 12:47:16.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Dimitrios Dimitrakos <mail@dimitrios.de>, 2002
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/es_ES.po vdr-1.7.41/PLUGINS/src/hello/po/es_ES.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/es_ES.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/es_ES.po	2013-03-11 12:47:21.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Ruben Nunez Francisco <ruben.nunez@tang-it.com>, 2002
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/et_EE.po vdr-1.7.41/PLUGINS/src/hello/po/et_EE.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/et_EE.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/et_EE.po	2013-03-11 12:47:26.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arthur Konovalov <kasjas@hot.ee>, 2004
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/fi_FI.po vdr-1.7.41/PLUGINS/src/hello/po/fi_FI.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/fi_FI.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/fi_FI.po	2013-03-11 12:47:31.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Hannu Savolainen <hannu@opensound.com>, 2002
+ # Jaakko Hyv√§tti <jaakko@hyvatti.iki.fi>, 2002
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/fr_FR.po vdr-1.7.41/PLUGINS/src/hello/po/fr_FR.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/fr_FR.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/fr_FR.po	2013-03-11 12:47:36.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Jean-Claude Repetto <jc@repetto.org>, 2001
+ # Olivier Jacques <jacquesolivier@hotmail.com>, 2003
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/hr_HR.po vdr-1.7.41/PLUGINS/src/hello/po/hr_HR.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/hr_HR.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/hr_HR.po	2013-03-11 12:47:51.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Adrian Caval <anrxc@sysphere.org>, 2008
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/hu_HU.po vdr-1.7.41/PLUGINS/src/hello/po/hu_HU.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/hu_HU.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/hu_HU.po	2013-03-11 12:47:57.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Istvan Koenigsberger <istvnko@hotmail.com>, 2002
+ # Guido Josten <guido.josten@t-online.de>, 2002
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/it_IT.po vdr-1.7.41/PLUGINS/src/hello/po/it_IT.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/it_IT.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/it_IT.po	2013-03-11 12:48:01.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Diego Pierotto <vdr-italian@tiscali.it>, 2008
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/lt_LT.po vdr-1.7.41/PLUGINS/src/hello/po/lt_LT.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/lt_LT.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/lt_LT.po	2013-03-11 12:48:04.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Valdemaras Pipiras <varas@ambernet.lt>, 2009
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/nl_NL.po vdr-1.7.41/PLUGINS/src/hello/po/nl_NL.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/nl_NL.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/nl_NL.po	2013-03-11 12:48:08.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arnold Niessen <niessen@iae.nl> <arnold.niessen@philips.com>, 2001
+ # Hans Dingemans <hans.dingemans@tacticalops.nl>, 2003
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/nn_NO.po vdr-1.7.41/PLUGINS/src/hello/po/nn_NO.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/nn_NO.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/nn_NO.po	2013-03-11 12:48:11.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # J¯rgen Tvedt <pjtvedt@online.no>, 2001
+ # Truls Slevigen <truls@slevigen.no>, 2002
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/pl_PL.po vdr-1.7.41/PLUGINS/src/hello/po/pl_PL.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/pl_PL.po	2012-12-18 14:17:09.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/pl_PL.po	2013-03-11 12:48:14.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Michael Rakowski <mrak@gmx.de>, 2002
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/pt_PT.po vdr-1.7.41/PLUGINS/src/hello/po/pt_PT.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/pt_PT.po	2012-12-18 14:17:09.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/pt_PT.po	2013-03-11 12:48:29.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paulo Lopes <pmml@netvita.pt>, 2001
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/ro_RO.po vdr-1.7.41/PLUGINS/src/hello/po/ro_RO.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/ro_RO.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/ro_RO.po	2013-03-11 12:48:35.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paul Lacatus <paul@campina.iiruc.ro>, 2002
+ # Lucian Muresan <lucianm@users.sourceforge.net>, 2004
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/ru_RU.po vdr-1.7.41/PLUGINS/src/hello/po/ru_RU.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/ru_RU.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/ru_RU.po	2013-03-11 12:48:40.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Vyacheslav Dikonov <sdiconov@mail.ru>, 2004
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/sk_SK.po vdr-1.7.41/PLUGINS/src/hello/po/sk_SK.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/sk_SK.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/sk_SK.po	2013-03-11 12:48:44.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # VladimÌr B·rta <vladimir.barta@k2atmitec.cz>, 2006
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/sl_SI.po vdr-1.7.41/PLUGINS/src/hello/po/sl_SI.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/sl_SI.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/sl_SI.po	2013-03-11 12:48:47.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Miha Setina <mihasetina@softhome.net>, 2000
+ # Matjaz Thaler <matjaz.thaler@guest.arnes.si>, 2003
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/sv_SE.po vdr-1.7.41/PLUGINS/src/hello/po/sv_SE.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/sv_SE.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/sv_SE.po	2013-03-11 12:48:52.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Tomas Prybil <tomas@prybil.se>, 2002
+ # Jan Ekholm <chakie@infa.abo.fi>, 2003
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/tr_TR.po vdr-1.7.41/PLUGINS/src/hello/po/tr_TR.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/tr_TR.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/tr_TR.po	2013-03-11 12:49:06.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Oktay YolgeÁen <oktay_73@yahoo.de>, 2007
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/hello/po/zh_CN.po vdr-1.7.41/PLUGINS/src/hello/po/zh_CN.po
+--- vdr-1.7.40/PLUGINS/src/hello/po/zh_CN.po	2012-12-18 14:17:10.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/hello/po/zh_CN.po	2013-03-11 12:49:10.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Marc Rovira Vall <tm05462@salleURL.edu>, 2003
+ # Ramon Roca <ramon.roca@xcombo.com>, 2003
+diff -ruN vdr-1.7.40/PLUGINS/src/osddemo/README vdr-1.7.41/PLUGINS/src/osddemo/README
+--- vdr-1.7.40/PLUGINS/src/osddemo/README	2013-02-13 14:52:12.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/osddemo/README	2013-03-11 12:21:31.000000000 +0100
+@@ -1,6 +1,6 @@
+ This is a "plugin" for the Video Disk Recorder (VDR).
+ 
+-Written by:                  Klaus Schmidinger <kls@tvdr.de>
++Written by:                  Klaus Schmidinger <vdr@tvdr.de>
+ 
+ Project's homepage:          http://www.tvdr.de
+ 
+diff -ruN vdr-1.7.40/PLUGINS/src/pictures/README vdr-1.7.41/PLUGINS/src/pictures/README
+--- vdr-1.7.40/PLUGINS/src/pictures/README	2009-10-18 16:16:41.000000000 +0200
++++ vdr-1.7.41/PLUGINS/src/pictures/README	2013-03-11 12:21:32.000000000 +0100
+@@ -1,6 +1,6 @@
+ This is a "plugin" for the Video Disk Recorder (VDR).
+ 
+-Written by:                  Klaus Schmidinger <kls@tvdr.de>
++Written by:                  Klaus Schmidinger <vdr@tvdr.de>
+ 
+ Project's homepage:          http://www.tvdr.de
+ 
+diff -ruN vdr-1.7.40/PLUGINS/src/pictures/po/de_DE.po vdr-1.7.41/PLUGINS/src/pictures/po/de_DE.po
+--- vdr-1.7.40/PLUGINS/src/pictures/po/de_DE.po	2012-12-18 14:17:15.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/pictures/po/de_DE.po	2013-03-11 12:49:14.000000000 +0100
+@@ -1,7 +1,7 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Klaus Schmidinger <kls@tvdr.de>, 2008
++# Klaus Schmidinger <vdr@tvdr.de>, 2008
+ #
+ msgid ""
+ msgstr ""
+@@ -9,7 +9,7 @@
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 12:57+0100\n"
+ "PO-Revision-Date: 2008-01-12 17:41+0100\n"
+-"Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
++"Last-Translator: Klaus Schmidinger <vdr@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
+ "Language: de\n"
+ "MIME-Version: 1.0\n"
+diff -ruN vdr-1.7.40/PLUGINS/src/pictures/po/fi_FI.po vdr-1.7.41/PLUGINS/src/pictures/po/fi_FI.po
+--- vdr-1.7.40/PLUGINS/src/pictures/po/fi_FI.po	2012-12-18 14:17:15.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/pictures/po/fi_FI.po	2013-03-11 12:49:17.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Rolf Ahrenberg <rahrenbe@cc.hut.fi>, 2008
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/pictures/po/fr_FR.po vdr-1.7.41/PLUGINS/src/pictures/po/fr_FR.po
+--- vdr-1.7.40/PLUGINS/src/pictures/po/fr_FR.po	2012-12-18 14:17:15.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/pictures/po/fr_FR.po	2013-03-11 12:49:20.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Patrice Staudt <ipatrice.staudt@laposte.net>, 2008
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/pictures/po/it_IT.po vdr-1.7.41/PLUGINS/src/pictures/po/it_IT.po
+--- vdr-1.7.40/PLUGINS/src/pictures/po/it_IT.po	2012-12-18 14:17:15.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/pictures/po/it_IT.po	2013-03-11 12:49:23.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Diego Pierotto <vdr-italian@tiscali.it>, 2008
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/pictures/po/lt_LT.po vdr-1.7.41/PLUGINS/src/pictures/po/lt_LT.po
+--- vdr-1.7.40/PLUGINS/src/pictures/po/lt_LT.po	2012-12-18 14:17:15.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/pictures/po/lt_LT.po	2013-03-11 12:49:27.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Valdemaras Pipiras <varas@ambernet.lt>, 2009
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/pictures/po/ru_RU.po vdr-1.7.41/PLUGINS/src/pictures/po/ru_RU.po
+--- vdr-1.7.40/PLUGINS/src/pictures/po/ru_RU.po	2012-12-18 14:17:15.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/pictures/po/ru_RU.po	2013-03-11 12:49:29.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Alexander Gross <Bikalexander@gmail.com>, 2008
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/pictures/po/sk_SK.po vdr-1.7.41/PLUGINS/src/pictures/po/sk_SK.po
+--- vdr-1.7.40/PLUGINS/src/pictures/po/sk_SK.po	2012-12-18 14:17:15.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/pictures/po/sk_SK.po	2013-03-11 12:49:33.000000000 +0100
+@@ -1,7 +1,7 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Klaus Schmidinger <kls@tvdr.de>, 2008
++# Klaus Schmidinger <vdr@tvdr.de>, 2008
+ #
+ msgid ""
+ msgstr ""
+diff -ruN vdr-1.7.40/PLUGINS/src/skincurses/README vdr-1.7.41/PLUGINS/src/skincurses/README
+--- vdr-1.7.40/PLUGINS/src/skincurses/README	2009-10-18 16:16:45.000000000 +0200
++++ vdr-1.7.41/PLUGINS/src/skincurses/README	2013-03-11 12:22:06.000000000 +0100
+@@ -1,6 +1,6 @@
+ This is a "plugin" for the Video Disk Recorder (VDR).
+ 
+-Written by:                  Klaus Schmidinger <kls@tvdr.de>
++Written by:                  Klaus Schmidinger <vdr@tvdr.de>
+ 
+ Project's homepage:          http://www.tvdr.de
+ 
+diff -ruN vdr-1.7.40/PLUGINS/src/skincurses/po/de_DE.po vdr-1.7.41/PLUGINS/src/skincurses/po/de_DE.po
+--- vdr-1.7.40/PLUGINS/src/skincurses/po/de_DE.po	2012-12-18 14:17:17.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/skincurses/po/de_DE.po	2013-03-11 12:49:36.000000000 +0100
+@@ -1,7 +1,7 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Klaus Schmidinger <kls@tvdr.de>, 2007
++# Klaus Schmidinger <vdr@tvdr.de>, 2007
+ #
+ msgid ""
+ msgstr ""
+@@ -9,7 +9,7 @@
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-15 16:07+0200\n"
+-"Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
++"Last-Translator: Klaus Schmidinger <vdr@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
+ "Language: de\n"
+ "MIME-Version: 1.0\n"
+diff -ruN vdr-1.7.40/PLUGINS/src/skincurses/po/fi_FI.po vdr-1.7.41/PLUGINS/src/skincurses/po/fi_FI.po
+--- vdr-1.7.40/PLUGINS/src/skincurses/po/fi_FI.po	2012-12-18 14:17:17.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/skincurses/po/fi_FI.po	2013-03-11 12:49:39.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Rolf Ahrenberg <rahrenbe@cc.hut.fi>, 2007
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/skincurses/po/it_IT.po vdr-1.7.41/PLUGINS/src/skincurses/po/it_IT.po
+--- vdr-1.7.40/PLUGINS/src/skincurses/po/it_IT.po	2012-12-18 14:17:17.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/skincurses/po/it_IT.po	2013-03-11 12:49:41.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Diego Pierotto <vdr-italian@tiscali.it>, 2008
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/skincurses/po/lt_LT.po vdr-1.7.41/PLUGINS/src/skincurses/po/lt_LT.po
+--- vdr-1.7.40/PLUGINS/src/skincurses/po/lt_LT.po	2012-12-18 14:17:17.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/skincurses/po/lt_LT.po	2013-03-11 12:49:44.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Valdemaras Pipiras <varas@ambernet.lt>, 2010
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/skincurses/po/ru_RU.po vdr-1.7.41/PLUGINS/src/skincurses/po/ru_RU.po
+--- vdr-1.7.40/PLUGINS/src/skincurses/po/ru_RU.po	2012-12-18 14:17:17.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/skincurses/po/ru_RU.po	2013-03-11 12:49:46.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Alexander Gross <Bikalexander@gmail.com>, 2008
+ #
+diff -ruN vdr-1.7.40/PLUGINS/src/skincurses/po/sk_SK.po vdr-1.7.41/PLUGINS/src/skincurses/po/sk_SK.po
+--- vdr-1.7.40/PLUGINS/src/skincurses/po/sk_SK.po	2012-12-18 14:17:17.000000000 +0100
++++ vdr-1.7.41/PLUGINS/src/skincurses/po/sk_SK.po	2013-03-11 12:49:48.000000000 +0100
+@@ -1,7 +1,7 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Klaus Schmidinger <kls@tvdr.de>, 2007
++# Klaus Schmidinger <vdr@tvdr.de>, 2007
+ #
+ msgid ""
+ msgstr ""
+diff -ruN vdr-1.7.40/PLUGINS/src/status/README vdr-1.7.41/PLUGINS/src/status/README
+--- vdr-1.7.40/PLUGINS/src/status/README	2009-10-18 16:16:48.000000000 +0200
++++ vdr-1.7.41/PLUGINS/src/status/README	2013-03-11 12:22:51.000000000 +0100
+@@ -1,6 +1,6 @@
+ This is a "plugin" for the Video Disk Recorder (VDR).
+ 
+-Written by:                  Klaus Schmidinger <kls@tvdr.de>
++Written by:                  Klaus Schmidinger <vdr@tvdr.de>
+ 
+ Project's homepage:          http://www.tvdr.de
+ 
+diff -ruN vdr-1.7.40/PLUGINS.html vdr-1.7.41/PLUGINS.html
+--- vdr-1.7.40/PLUGINS.html	2013-02-17 14:16:13.000000000 +0100
++++ vdr-1.7.41/PLUGINS.html	2013-03-11 14:09:44.000000000 +0100
+@@ -31,10 +31,10 @@
+ <div class="center">
+ <h1>The VDR Plugin System</h1>
+ 
+-<b>Version 1.7</b>
++<b>Version 2.0</b>
+ <p>
+-Copyright &copy; 2009 Klaus Schmidinger<br>
+-<a href="mailto:kls@tvdr.de">kls@tvdr.de</a><br>
++Copyright &copy; 2013 Klaus Schmidinger<br>
++<a href="mailto:vdr@tvdr.de">vdr@tvdr.de</a><br>
+ <a href="http://www.tvdr.de">www.tvdr.de</a>
+ </div>
+ <div class="center">
+diff -ruN vdr-1.7.40/README vdr-1.7.41/README
+--- vdr-1.7.40/README	2013-02-17 14:17:21.000000000 +0100
++++ vdr-1.7.41/README	2013-03-11 14:24:12.000000000 +0100
+@@ -6,9 +6,6 @@
+ For details about the "Video Disk Recorder" project please
+ refer to http://www.tvdr.de.
+ 
+-There is also a remote control unit described on those
+-Web pages, which can be used within this program.
+-
+ Please see the INSTALL file for details on how to install
+ this program on your computer.
+ 
+@@ -17,7 +14,7 @@
+ The CONTRIBUTORS file lists all the people who have contributed to the
+ development of VDR.
+ 
+-The author can be contacted at kls@tvdr.de.
++The author can be contacted at vdr@tvdr.de.
+ 
+ Yet another "set-top box"?
+ --------------------------
+diff -ruN vdr-1.7.40/README.i18n vdr-1.7.41/README.i18n
+--- vdr-1.7.40/README.i18n	2009-10-18 16:06:45.000000000 +0200
++++ vdr-1.7.41/README.i18n	2013-03-11 12:22:57.000000000 +0100
+@@ -52,5 +52,5 @@
+ 
+ Once you have created or updated a translation file, please
+ send it to the maintainer of the respective plugin (in case
+-it belongs to a plugin) or to kls@tvdr.de (for core VDR
++it belongs to a plugin) or to vdr@tvdr.de (for core VDR
+ language files).
+diff -ruN vdr-1.7.40/UPDATE-2.0.0 vdr-1.7.41/UPDATE-2.0.0
+--- vdr-1.7.40/UPDATE-2.0.0	2013-03-07 10:49:57.000000000 +0100
++++ vdr-1.7.41/UPDATE-2.0.0	2013-03-14 10:20:51.000000000 +0100
+@@ -478,3 +478,7 @@
+   to avoid discontinuities. If the time difference is more than 10 seconds, stime() is
+   still used to do the initial sync.
+ - Implemented scaling of SPU bitmaps.
++- WARNING: Using multiple disks to form one large video directory is deprecated and
++  will be removed from VDR in a future version! Either use one of today's large
++  terabyte disks (preferably with a backup disk in a RAID-1 array), or use something
++  like "mhddfs".
+diff -ruN vdr-1.7.40/config.h vdr-1.7.41/config.h
+--- vdr-1.7.40/config.h	2013-03-04 14:58:40.000000000 +0100
++++ vdr-1.7.41/config.h	2013-03-11 12:07:59.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.71 2013/03/04 13:58:40 kls Exp $
++ * $Id: config.h 2.74 2013/03/11 11:07:59 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.40"
+-#define VDRVERSNUM   10740  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.41"
++#define VDRVERSNUM   10741  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.40"
+-#define APIVERSNUM   10740  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.41"
++#define APIVERSNUM   10741  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+@@ -260,7 +260,7 @@
+   int MenuScrollWrap;
+   int MenuKeyCloses;
+   int MarkInstantRecord;
+-  char NameInstantRecord[NAME_MAX];
++  char NameInstantRecord[NAME_MAX + 1];
+   int InstantRecordTime;
+   int LnbSLOF;
+   int LnbFrequLo;
+diff -ruN vdr-1.7.40/dvbdevice.c vdr-1.7.41/dvbdevice.c
+--- vdr-1.7.40/dvbdevice.c	2013-03-07 10:42:29.000000000 +0100
++++ vdr-1.7.41/dvbdevice.c	2013-03-13 12:23:53.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.84 2013/03/07 09:42:29 kls Exp $
++ * $Id: dvbdevice.c 2.87 2013/03/13 11:23:53 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -426,7 +426,7 @@
+      cString BondingParams = GetBondingParams(Channel);
+      do {
+         if (t->device->Priority() > IDLEPRIORITY || ConsiderOccupied && t->device->Occupied()) {
+-           if (strcmp(BondingParams, t->GetBondingParams()) != 0)
++           if (strcmp(BondingParams, t->GetBondedMaster()->GetBondingParams()) != 0)
+               return false;
+            }
+         t = t->bondedTuner;
+@@ -1485,6 +1485,7 @@
+               needsDetachReceivers = Receiving();
+            }
+         if (result) {
++           cMutexLock MutexLock(&bondMutex);
+            if (!BondingOk(Channel)) {
+               // This device is bonded, so we need to check the priorities of the others:
+               for (cDvbDevice *d = bondedDevice; d && d != this; d = d->bondedDevice) {
+@@ -1492,9 +1493,10 @@
+                      result = false;
+                      break;
+                      }
++                  needsDetachReceivers |= d->Receiving();
+                   }
+               needsDetachBondedReceivers = true;
+-              needsDetachReceivers = Receiving();
++              needsDetachReceivers |= Receiving();
+               }
+            }
+         }
+diff -ruN vdr-1.7.40/po/ar.po vdr-1.7.41/po/ar.po
+--- vdr-1.7.40/po/ar.po	2013-03-07 10:51:06.000000000 +0100
++++ vdr-1.7.41/po/ar.po	2013-03-11 14:10:16.000000000 +0100
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Osama Alrawab <alrawab@hotmail.com>, 2010, 2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.7.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2008-10-16 11:16-0400\n"
+diff -ruN vdr-1.7.40/po/ca_ES.po vdr-1.7.41/po/ca_ES.po
+--- vdr-1.7.40/po/ca_ES.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/ca_ES.po	2013-03-11 14:10:23.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Marc Rovira Vall <tm05462@salleURL.edu>, 2003
+ # Ramon Roca <ramon.roca@xcombo.com>, 2003
+@@ -8,7 +8,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+diff -ruN vdr-1.7.40/po/cs_CZ.po vdr-1.7.41/po/cs_CZ.po
+--- vdr-1.7.40/po/cs_CZ.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/cs_CZ.po	2013-03-11 14:10:35.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Vladim√≠r B√°rta <vladimir.barta@k2atmitec.cz>, 2006, 2008
+ # Ji≈ô√≠ Dobr√Ω <jdobry@centrum.cz>, 2008
+@@ -8,7 +8,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.7.14\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2010-05-06 11:00+0200\n"
+diff -ruN vdr-1.7.40/po/da_DK.po vdr-1.7.41/po/da_DK.po
+--- vdr-1.7.40/po/da_DK.po	2013-03-07 10:51:06.000000000 +0100
++++ vdr-1.7.41/po/da_DK.po	2013-03-11 14:11:19.000000000 +0100
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Mogens Elneff <mogens@elneff.dk>, 2004, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+diff -ruN vdr-1.7.40/po/de_DE.po vdr-1.7.41/po/de_DE.po
+--- vdr-1.7.40/po/de_DE.po	2013-03-07 10:51:06.000000000 +0100
++++ vdr-1.7.41/po/de_DE.po	2013-03-11 14:11:24.000000000 +0100
+@@ -1,15 +1,15 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Klaus Schmidinger <kls@tvdr.de>, 2000-2008
++# Klaus Schmidinger <vdr@tvdr.de>, 2000-2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2010-01-16 16:46+0100\n"
+-"Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
++"Last-Translator: Klaus Schmidinger <vdr@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
+ "Language: de\n"
+ "MIME-Version: 1.0\n"
+diff -ruN vdr-1.7.40/po/el_GR.po vdr-1.7.41/po/el_GR.po
+--- vdr-1.7.40/po/el_GR.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/el_GR.po	2013-03-11 14:11:28.000000000 +0100
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Dimitrios Dimitrakos <mail@dimitrios.de>, 2002, 2006
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+diff -ruN vdr-1.7.40/po/es_ES.po vdr-1.7.41/po/es_ES.po
+--- vdr-1.7.40/po/es_ES.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/es_ES.po	2013-03-11 14:11:35.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Ruben Nunez Francisco <ruben.nunez@tang-it.com>, 2002, 2006
+ # Luca Olivetti <luca@ventoso.org>, 2008, 2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+diff -ruN vdr-1.7.40/po/et_EE.po vdr-1.7.41/po/et_EE.po
+--- vdr-1.7.40/po/et_EE.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/et_EE.po	2013-03-11 14:11:39.000000000 +0100
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arthur Konovalov <artlov@gmail.com>, 2004-2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+diff -ruN vdr-1.7.40/po/fi_FI.po vdr-1.7.41/po/fi_FI.po
+--- vdr-1.7.40/po/fi_FI.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/fi_FI.po	2013-03-11 14:11:42.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Hannu Savolainen <hannu@opensound.com>, 2002
+ # Jaakko Hyv√§tti <jaakko@hyvatti.iki.fi>, 2002, 2003
+@@ -9,7 +9,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+diff -ruN vdr-1.7.40/po/fr_FR.po vdr-1.7.41/po/fr_FR.po
+--- vdr-1.7.40/po/fr_FR.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/fr_FR.po	2013-03-11 14:11:49.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Jean-Claude Repetto <jc@repetto.org>, 2001, 2002, 2008
+ # Olivier Jacques <jacquesolivier@hotmail.com>, 2003, 2005
+@@ -15,7 +15,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.7.37\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2013-02-24 12:56+0100\n"
+diff -ruN vdr-1.7.40/po/hr_HR.po vdr-1.7.41/po/hr_HR.po
+--- vdr-1.7.40/po/hr_HR.po	2013-03-07 10:51:06.000000000 +0100
++++ vdr-1.7.41/po/hr_HR.po	2013-03-11 14:12:04.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Drazen Dupor <drazen.dupor@dupor.com>, 2004, 2005
+ # Dino Ravnic <dino.ravnic@fer.hr>, 2004
+@@ -7,7 +7,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+diff -ruN vdr-1.7.40/po/hu_HU.po vdr-1.7.41/po/hu_HU.po
+--- vdr-1.7.40/po/hu_HU.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/hu_HU.po	2013-03-11 14:12:14.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Istvan Koenigsberger <istvnko@hotmail.com>, 2002, 2003, 2006
+ # Guido Josten <guido.josten@t-online.de>, 2002, 2003, 2006
+@@ -8,7 +8,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2013-03-01 19:22+0200\n"
+@@ -851,7 +851,7 @@
+ msgstr "K√∂nyvt√°rv√°laszt√°s az id≈ëz√≠t≈ë men√ºben"
+ 
+ msgid "Setup.OSD$Always sort folders first"
+-msgstr ""
++msgstr "K√∂nyvt√°rakat rendezd el≈ëre"
+ 
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Sz√°mgombok a bet≈±k√∂n"
+diff -ruN vdr-1.7.40/po/it_IT.po vdr-1.7.41/po/it_IT.po
+--- vdr-1.7.40/po/it_IT.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/it_IT.po	2013-03-11 14:12:16.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Alberto Carraro <bertocar@tin.it>, 2001
+ # Antonio Ospite <ospite@studenti.unina.it>, 2003, 2006
+@@ -9,7 +9,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2013-02-11 23:46+0100\n"
+diff -ruN vdr-1.7.40/po/lt_LT.po vdr-1.7.41/po/lt_LT.po
+--- vdr-1.7.40/po/lt_LT.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/lt_LT.po	2013-03-11 14:12:23.000000000 +0100
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2009 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Valdemaras Pipiras <varas@ambernet.lt>, 2009, 2010, 2013.
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.7.37\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2010-10-30 11:55+0200\n"
+diff -ruN vdr-1.7.40/po/mk_MK.po vdr-1.7.41/po/mk_MK.po
+--- vdr-1.7.40/po/mk_MK.po	2013-03-07 10:51:06.000000000 +0100
++++ vdr-1.7.41/po/mk_MK.po	2013-03-11 14:12:47.000000000 +0100
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Dimitar Petrovski <dimeptr@gmail.com>, 2009, 2012, 2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR-1.7.14\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2012-11-19 15:18+0100\n"
+diff -ruN vdr-1.7.40/po/nl_NL.po vdr-1.7.41/po/nl_NL.po
+--- vdr-1.7.40/po/nl_NL.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/nl_NL.po	2013-03-11 14:12:56.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arnold Niessen <niessen@iae.nl> <arnold.niessen@philips.com>, 2001
+ # Hans Dingemans <hans.dingemans@tacticalops.nl>, 2003, 2005
+@@ -10,7 +10,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.7.38\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2008-02-26 17:20+0100\n"
+diff -ruN vdr-1.7.40/po/nn_NO.po vdr-1.7.41/po/nn_NO.po
+--- vdr-1.7.40/po/nn_NO.po	2013-03-07 10:51:06.000000000 +0100
++++ vdr-1.7.41/po/nn_NO.po	2013-03-11 14:13:05.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # J¯rgen Tvedt <pjtvedt@online.no>, 2001
+ # Truls Slevigen <truls@slevigen.no>, 2002
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+diff -ruN vdr-1.7.40/po/pl_PL.po vdr-1.7.41/po/pl_PL.po
+--- vdr-1.7.40/po/pl_PL.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/pl_PL.po	2013-03-11 14:13:08.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Michael Rakowski <mrak@gmx.de>, 2002, 2003, 2008
+ # Jaroslaw Swierczynski <swiergot@gmail.com>, 2006
+@@ -7,7 +7,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2008-03-09 12:59+0100\n"
+@@ -849,7 +849,7 @@
+ msgstr "Katalogi w menu timera"
+ 
+ msgid "Setup.OSD$Always sort folders first"
+-msgstr ""
++msgstr "Sortuj najpierw katalogi"
+ 
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Klawisze numeryczne dla liter"
+diff -ruN vdr-1.7.40/po/pt_PT.po vdr-1.7.41/po/pt_PT.po
+--- vdr-1.7.40/po/pt_PT.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/pt_PT.po	2013-03-11 14:13:14.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paulo Lopes <pmml@netvita.pt>, 2001
+ # Cris Silva <hudokkow@gmail.com>, 2010
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.7.15\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2010-03-28 22:49+0100\n"
+diff -ruN vdr-1.7.40/po/ro_RO.po vdr-1.7.41/po/ro_RO.po
+--- vdr-1.7.40/po/ro_RO.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/ro_RO.po	2013-03-11 14:13:23.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paul Lacatus <paul@campina.iiruc.ro>, 2002
+ # Lucian Muresan <lucianm@users.sourceforge.net>, 2004-2006, 2008, 2010-2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.7.37\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2013-02-09 23:01+0100\n"
+diff -ruN vdr-1.7.40/po/ru_RU.po vdr-1.7.41/po/ru_RU.po
+--- vdr-1.7.40/po/ru_RU.po	2013-03-07 10:51:06.000000000 +0100
++++ vdr-1.7.41/po/ru_RU.po	2013-03-11 14:13:26.000000000 +0100
+@@ -1,15 +1,15 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Vyacheslav Dikonov <sdiconov@mail.ru>, 2004, 2005
+ # Oleg Roitburd <oroitburd@gmail.com>, 2005-2008, 2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+-"PO-Revision-Date: 2013-03-03 13:43+0100\n"
++"PO-Revision-Date: 2013-03-10 17:13+0100\n"
+ "Last-Translator: Oleg Roitburd <oroitburd@gmail.com>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
+ "Language: ru\n"
+@@ -848,7 +848,7 @@
+ msgstr "¥ÿ‡’⁄‚ﬁ‡ÿÿ “ ‹’›Ó ‚–Ÿ‹’‡"
+ 
+ msgid "Setup.OSD$Always sort folders first"
+-msgstr ""
++msgstr "¥ÿ‡’⁄‚ﬁ‡ÿÿ “·’”‘– “ ﬂ’‡“„Ó ﬁÁ’‡’‘Ï ·ﬁ‡‚ÿ‡ﬁ“–‚Ï"
+ 
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "∫ﬁ€ÿÁ’·‚“ﬁ ⁄›ﬁﬂﬁ⁄ ‘€Ô ·ÿ‹“ﬁ€ﬁ“"
+diff -ruN vdr-1.7.40/po/sk_SK.po vdr-1.7.41/po/sk_SK.po
+--- vdr-1.7.40/po/sk_SK.po	2013-03-07 10:51:06.000000000 +0100
++++ vdr-1.7.41/po/sk_SK.po	2013-03-11 14:13:32.000000000 +0100
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Milan Hrala <hrala.milan@gmail.com>, 2011, 2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.7.16\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2013-03-04 21:24+0100\n"
+diff -ruN vdr-1.7.40/po/sl_SI.po vdr-1.7.41/po/sl_SI.po
+--- vdr-1.7.40/po/sl_SI.po	2013-03-07 10:51:06.000000000 +0100
++++ vdr-1.7.41/po/sl_SI.po	2013-03-11 14:13:47.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Miha Setina <mihasetina@softhome.net>, 2000
+ # Matjaz Thaler <matjaz.thaler@guest.arnes.si>, 2003, 2005, 2006, 2008, 2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2013-03-04 12:46+0100\n"
+diff -ruN vdr-1.7.40/po/sr_SR.po vdr-1.7.41/po/sr_SR.po
+--- vdr-1.7.40/po/sr_SR.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/sr_SR.po	2013-03-11 14:13:51.000000000 +0100
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Milan CvijanoviÊ <elcom_cvijo@hotmail.com>, 2010
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.7.1\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2011-01-09 15:57+0100\n"
+diff -ruN vdr-1.7.40/po/sv_SE.po vdr-1.7.41/po/sv_SE.po
+--- vdr-1.7.40/po/sv_SE.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/sv_SE.po	2013-03-11 14:13:53.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Tomas Prybil <tomas@prybil.se>, 2002, 2003, 2005, 2006
+ # Jan Ekholm <chakie@infa.abo.fi>, 2003
+@@ -9,7 +9,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2013-02-18 17:04+0100\n"
+diff -ruN vdr-1.7.40/po/tr_TR.po vdr-1.7.41/po/tr_TR.po
+--- vdr-1.7.40/po/tr_TR.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/tr_TR.po	2013-03-11 14:13:56.000000000 +0100
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Oktay YolgeÁen <oktay_73@yahoo.de>, 2007, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+diff -ruN vdr-1.7.40/po/uk_UA.po vdr-1.7.41/po/uk_UA.po
+--- vdr-1.7.40/po/uk_UA.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/uk_UA.po	2013-03-11 14:13:58.000000000 +0100
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Yarema Aka Knedlyk <yupadmin@gmail.com>, 2007-2010, 2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.7.7\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-03-04 14:46+0100\n"
+ "PO-Revision-Date: 2013-02-09 16:00+0100\n"
+diff -ruN vdr-1.7.40/po/zh_CN.po vdr-1.7.41/po/zh_CN.po
+--- vdr-1.7.40/po/zh_CN.po	2013-03-07 10:51:05.000000000 +0100
++++ vdr-1.7.41/po/zh_CN.po	2013-03-11 14:14:04.000000000 +0100
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# Copyright (C) 2013 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Nan Feng <nfvdr@live.com>, 2008, 2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.7.39\n"
++"Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2013-03-04 14:52+0800\n"
+diff -ruN vdr-1.7.40/recording.c vdr-1.7.41/recording.c
+--- vdr-1.7.40/recording.c	2013-03-04 15:02:40.000000000 +0100
++++ vdr-1.7.41/recording.c	2013-03-11 11:34:41.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.90 2013/03/04 14:02:40 kls Exp $
++ * $Id: recording.c 2.91 2013/03/11 10:34:41 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -66,7 +66,7 @@
+ 
+ #define MAX_LINK_LEVEL  6
+ 
+-int DirectoryPathMax = PATH_MAX;
++int DirectoryPathMax = PATH_MAX - 1;
+ int DirectoryNameMax = NAME_MAX;
+ bool DirectoryEncoding = false;
+ int InstanceId = 0;
+diff -ruN vdr-1.7.40/sources.conf vdr-1.7.41/sources.conf
+--- vdr-1.7.40/sources.conf	2011-09-11 16:26:16.000000000 +0200
++++ vdr-1.7.41/sources.conf	2013-03-11 12:24:07.000000000 +0100
+@@ -12,7 +12,7 @@
+ # '/' means same (or very little deviation) orbital position & host.
+ # A value in () means this satellite is still in it's test phase.
+ #
+-# Please contact kls@tvdr.de before assigning a new code
++# Please contact vdr@tvdr.de before assigning a new code
+ # to a description, in order to keep them unique.
+ 
+ # Satellites
+diff -ruN vdr-1.7.40/svdrpsend.1 vdr-1.7.41/svdrpsend.1
+--- vdr-1.7.40/svdrpsend.1	2013-02-24 11:35:55.000000000 +0100
++++ vdr-1.7.41/svdrpsend.1	2013-03-11 14:16:39.000000000 +0100
+@@ -1,4 +1,4 @@
+-.TH "svdrpsend" "1" "23 Feb 2013" "1.7" "Video Disk Recorder"
++.TH "svdrpsend" "1" "31 Mar 2013" "2.0" "Video Disk Recorder"
+ .SH NAME
+ .LP
+ svdrpsend \- sends commands to VDR
+diff -ruN vdr-1.7.40/timers.c vdr-1.7.41/timers.c
+--- vdr-1.7.40/timers.c	2013-02-05 12:13:20.000000000 +0100
++++ vdr-1.7.41/timers.c	2013-03-16 11:37:10.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 2.16 2013/02/05 11:13:20 kls Exp $
++ * $Id: timers.c 2.17 2013/03/16 10:37:10 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -43,7 +43,7 @@
+   weekdays = 0;
+   start = now->tm_hour * 100 + now->tm_min;
+   stop = 0;
+-  if (!Setup.InstantRecordTime && channel) {
++  if (!Setup.InstantRecordTime && channel && (Instant || Pause)) {
+      cSchedulesLock SchedulesLock;
+      if (const cSchedules *Schedules = cSchedules::Schedules(SchedulesLock)) {
+         if (const cSchedule *Schedule = Schedules->GetSchedule(channel)) {
+diff -ruN vdr-1.7.40/timers.h vdr-1.7.41/timers.h
+--- vdr-1.7.40/timers.h	2013-02-05 12:23:24.000000000 +0100
++++ vdr-1.7.41/timers.h	2013-03-11 11:35:53.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.h 2.6 2013/02/05 11:23:24 kls Exp $
++ * $Id: timers.h 2.7 2013/03/11 10:35:53 kls Exp $
+  */
+ 
+ #ifndef __TIMERS_H
+@@ -39,7 +39,7 @@
+   int stop;
+   int priority;
+   int lifetime;
+-  mutable char file[NAME_MAX * 2]; // *2 to be able to hold 'title' and 'episode', which can each be up to 255 characters long
++  mutable char file[NAME_MAX * 2 + 1]; // *2 to be able to hold 'title' and 'episode', which can each be up to 255 characters long
+   char *aux;
+   const cEvent *event;
+ public:
+diff -ruN vdr-1.7.40/vdr.1 vdr-1.7.41/vdr.1
+--- vdr-1.7.40/vdr.1	2013-02-24 11:41:12.000000000 +0100
++++ vdr-1.7.41/vdr.1	2013-03-15 11:44:54.000000000 +0100
+@@ -2,15 +2,15 @@
+ .\" ** The above line should force tbl to be a preprocessor **
+ .\" Man page for vdr
+ .\"
+-.\" Copyright (C) 2008 Klaus Schmidinger
++.\" Copyright (C) 2013 Klaus Schmidinger
+ .\"
+ .\" You may distribute under the terms of the GNU General Public
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.1 2.12 2013/02/24 10:41:12 kls Exp $
++.\" $Id: vdr.1 2.17 2013/03/15 10:44:54 kls Exp $
+ .\"
+-.TH vdr 1 "10 Feb 2008" "1.6" "Video Disk Recorder"
++.TH vdr 1 "31 Mar 2013" "2.0" "Video Disk Recorder"
+ .SH NAME
+ vdr \- the Video Disk Recorder
+ .SH SYNOPSIS
+@@ -27,13 +27,16 @@
+ It is also possible to start watching a recorded programme before the live
+ broadcast has ended (\fBtime shifting\fR). In order to record from different
+ transponders simultaneously two or more DVB cards are necessary.
+-By default \fBvdr\fR can support up to four
+-DVB cards. The primary DVB card (the one your TV set is connected to) has
+-to be a "full featured" card, which means it must contain an MPEG decoder
+-and provide audio and video signal outputs.
++By default \fBvdr\fR can support up to eight DVB cards.
++The primary DVB card (the one your TV set is connected to) can either
++be a "full featured" card, which means it contains an MPEG decoder
++and provides audio and video signal outputs, or you can use some third party
++plugin that implements software decoding of the MPEG data and displays it via
++the system's graphics adapter.
+ 
+-\fBvdr\fR uses the On Screen Display of the DVB card to display its menus.
+-It can be controlled by the PC keyboard or the "Linux Infrared Remote Control" (LIRC).
++\fBvdr\fR uses an On Screen Display (OSD) to display its menus.
++It can be controlled by the PC keyboard, the "Linux Infrared Remote Control" (LIRC),
++or any other means of remote control, implemented by a third party plugin.
+ 
+ Remote access is possible via the "Simple Video Disk Recorder Protocol" (SVDRP),
+ which can be accessed on port 6419, for instance by \fBtelnet\fR.
+@@ -57,12 +60,13 @@
+ Use only the given DVB device (\fInum\fR = 0, 1, 2...).
+ There may be several \fB\-D\fR options (by default all DVB devices will be used).
+ .TP
+-.BI \-\-dirnames= path[,name[,enc]]
++.BI \-\-dirnames= path [, name [, enc ]]
+ Set the maximum directory path length to \fIpath\fR (default is the maximum value
+ allowed on the system). If \fIname\fR is also given, it defines the maximum directory
+ name length (default is the maximum value allowed on the system).  The optional
+ \fIenc\fR can be 0 or 1, and controls whether special characters in directory names
+ are encoded as hex values (default: 0).
++If \fIpath\fR or \fIname\fR are left empty (as in ",,1" to only set \fIenc\fR), the defaults apply.
+ The length of the video directory name and that of the actual recording directory is
+ subtracted from \fIpath\fR, to make sure the directory path will never become too long.
+ .TP
+@@ -73,7 +77,7 @@
+ .TP
+ .BI \-E\  file ,\ \-\-epgfile= file
+ Write the EPG data into the given \fIfile\fR
+-(default is \fI/video/epg.data\fR).
++(default is \fIepg.data\fR in the cache directory).
+ Use \fB\-E\-\fR to disable this.
+ If \fIfile\fR is a directory, the file \fIepg.data\fR
+ will be created in that directory.
+@@ -282,7 +286,7 @@
+ .SH REPORTING BUGS
+ Report bugs to <vdr\-bugs@tvdr.de>.
+ .SH COPYRIGHT
+-Copyright \(co 2008 Klaus Schmidinger.
++Copyright \(co 2013 Klaus Schmidinger.
+ 
+ This is free software; see the source for copying conditions.  There is NO
+ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+diff -ruN vdr-1.7.40/vdr.5 vdr-1.7.41/vdr.5
+--- vdr-1.7.40/vdr.5	2013-03-07 10:42:29.000000000 +0100
++++ vdr-1.7.41/vdr.5	2013-03-11 14:17:12.000000000 +0100
+@@ -2,15 +2,15 @@
+ .\" ** The above line should force tbl to be a preprocessor **
+ .\" Man page for vdr file formats
+ .\"
+-.\" Copyright (C) 2008 Klaus Schmidinger
++.\" Copyright (C) 2013 Klaus Schmidinger
+ .\"
+ .\" You may distribute under the terms of the GNU General Public
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 2.31 2013/03/07 09:42:29 kls Exp $
++.\" $Id: vdr.5 2.33 2013/03/11 13:17:12 kls Exp $
+ .\"
+-.TH vdr 5 "10 Feb 2008" "1.6" "Video Disk Recorder Files"
++.TH vdr 5 "31 Mar 2013" "2.0" "Video Disk Recorder Files"
+ .SH NAME
+ vdr_files \- the Video Disk Recorder Files
+ .SH DESCRIPTION
+@@ -891,7 +891,7 @@
+ .SH REPORTING BUGS
+ Report bugs to <vdr\-bugs@tvdr.de>.
+ .SH COPYRIGHT
+-Copyright \(co 2008 Klaus Schmidinger.
++Copyright \(co 2013 Klaus Schmidinger.
+ 
+ This is free software; see the source for copying conditions.  There is NO
+ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+diff -ruN vdr-1.7.40/vdr.c vdr-1.7.41/vdr.c
+--- vdr-1.7.40/vdr.c	2013-03-03 11:25:11.000000000 +0100
++++ vdr-1.7.41/vdr.c	2013-03-15 11:44:54.000000000 +0100
+@@ -1,7 +1,7 @@
+ /*
+  * vdr.c: Video Disk Recorder main program
+  *
+- * Copyright (C) 2000, 2003, 2006, 2008 Klaus Schmidinger
++ * Copyright (C) 2000, 2003, 2006, 2008, 2013 Klaus Schmidinger
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License
+@@ -18,11 +18,11 @@
+  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+  * Or, point your browser to http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+  *
+- * The author can be reached at kls@tvdr.de
++ * The author can be reached at vdr@tvdr.de
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 2.50 2013/03/03 10:25:11 kls Exp $
++ * $Id: vdr.c 2.57 2013/03/15 10:44:54 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -87,7 +87,7 @@
+ 
+ static int LastSignal = 0;
+ 
+-static bool SetUser(const char *UserName, bool UserDump)//XXX name?
++static bool SetUser(const char *UserName, bool UserDump)
+ {
+   if (UserName) {
+      struct passwd *user = getpwnam(UserName);
+@@ -109,6 +109,10 @@
+         }
+      if (UserDump && prctl(PR_SET_DUMPABLE, 1, 0, 0, 0) < 0)
+         fprintf(stderr, "vdr: warning - cannot set dumpable: %s\n", strerror(errno));
++     setenv("HOME", user->pw_dir, 1);
++     setenv("USER", user->pw_name, 1);
++     setenv("LOGNAME", user->pw_name, 1);
++     setenv("SHELL", user->pw_shell, 1);
+      }
+   return true;
+ }
+@@ -280,31 +284,41 @@
+                     return 2;
+           case 'd' | 0x100: {
+                     char *s = optarg;
+-                    int n = strtol(s, &s, 10);
+-                    if (n <= 0 || n >= PATH_MAX) {
+-                       fprintf(stderr, "vdr: invalid directory path length: %s\n", optarg);
+-                       return 2;
++                    if (*s != ',') {
++                       int n = strtol(s, &s, 10);
++                       if (n <= 0 || n >= PATH_MAX) { // PATH_MAX includes the terminating 0
++                          fprintf(stderr, "vdr: invalid directory path length: %s\n", optarg);
++                          return 2;
++                          }
++                       DirectoryPathMax = n;
++                       if (!*s)
++                          break;
++                       if (*s != ',') {
++                          fprintf(stderr, "vdr: invalid delimiter: %s\n", optarg);
++                          return 2;
++                          }
+                        }
+-                    DirectoryPathMax = n;
++                    s++;
+                     if (!*s)
+                        break;
+-                    if (*s++ != ',') {
+-                       fprintf(stderr, "vdr: invalid delimiter: %s\n", optarg);
+-                       return 2;
+-                       }
+-                    n = strtol(s, &s, 10);
+-                    if (n <= 0 || n >= NAME_MAX) {
+-                       fprintf(stderr, "vdr: invalid directory name length: %s\n", optarg);
+-                       return 2;
++                    if (*s != ',') {
++                       int n = strtol(s, &s, 10);
++                       if (n <= 0 || n > NAME_MAX) { // NAME_MAX excludes the terminating 0
++                          fprintf(stderr, "vdr: invalid directory name length: %s\n", optarg);
++                          return 2;
++                          }
++                       DirectoryNameMax = n;
++                       if (!*s)
++                          break;
++                       if (*s != ',') {
++                          fprintf(stderr, "vdr: invalid delimiter: %s\n", optarg);
++                          return 2;
++                          }
+                        }
+-                    DirectoryNameMax = n;
++                    s++;
+                     if (!*s)
+                        break;
+-                    if (*s++ != ',') {
+-                       fprintf(stderr, "vdr: invalid delimiter: %s\n", optarg);
+-                       return 2;
+-                       }
+-                    n = strtol(s, &s, 10);
++                    int n = strtol(s, &s, 10);
+                     if (n != 0 && n != 1) {
+                        fprintf(stderr, "vdr: invalid directory encoding: %s\n", optarg);
+                        return 2;
+@@ -480,10 +494,12 @@
+                "                           the maximum directory name length (default: %d);\n"
+                "                           the optional ENC can be 0 or 1, and controls whether\n"
+                "                           special characters in directory names are encoded as\n"
+-               "                           hex values (default: 0)\n"
++               "                           hex values (default: 0); if PATH or NAME are left\n"
++               "                           empty (as in \",,1\" to only set ENC), the defaults\n"
++               "                           apply\n"
+                "            --edit=REC     cut recording REC and exit\n"
+                "  -E FILE,  --epgfile=FILE write the EPG data into the given FILE (default is\n"
+-               "                           '%s' in the video directory)\n"
++               "                           '%s' in the cache directory)\n"
+                "                           '-E-' disables this\n"
+                "                           if FILE is a directory, the default EPG file will be\n"
+                "                           created in that directory\n"
+@@ -530,7 +546,7 @@
+                "\n",
+                DEFAULTCACHEDIR,
+                DEFAULTCONFDIR,
+-               PATH_MAX,
++               PATH_MAX - 1,
+                NAME_MAX,
+                DEFAULTEPGDATAFILENAME,
+                MAXVIDEOFILESIZEDEFAULT,

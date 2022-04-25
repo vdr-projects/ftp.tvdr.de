@@ -1,0 +1,2296 @@
+diff -ruN vdr-1.7.30/CONTRIBUTORS vdr-1.7.31/CONTRIBUTORS
+--- vdr-1.7.30/CONTRIBUTORS	2012-09-09 14:32:42.000000000 +0200
++++ vdr-1.7.31/CONTRIBUTORS	2012-09-29 12:05:49.000000000 +0200
+@@ -2312,6 +2312,8 @@
+ 
+ Alexander Wenzel <hondansx@gmx.de>
+  for fixing the shutdown timeout
++ for making the script given to VDR with the '-r' option be also called whenever a
++ recording is deleted
+ 
+ Jan Lenz <email@JanLenz.de>
+  for reporting a bug in deleting recordings that have been removed externally when
+@@ -2348,9 +2350,6 @@
+  for avoiding a gcc 4.6 compiler error in the skincurses plugin.
+  for suggesting to move setting LC_NUMERIC further up to make sure any floating point
+  numbers use a decimal point
+- for implementing cDevice::HasInternalCam(), which can be implemented by devices that
+- provide encrypted channels in an already decrypted form, without requiring explicit
+- handling of a CAM
+ 
+ Helge Lenz <h.lenz@gmx.de>
+  for reporting a bug in setting the 'Delta' parameter when calling the shutdown
+@@ -2409,6 +2408,9 @@
+  for adding support for automatically selecting subtitles when playing old PES
+  recordings made with the subtitles plugin
+  for pointing out -Werror=...
++ for implementing cDevice::HasInternalCam(), which can be implemented by devices that
++ provide encrypted channels in an already decrypted form, without requiring explicit
++ handling of a CAM
+ 
+ Antti Hartikainen <ami+vdr@ah.fi>
+  for updating 'S13E' in 'sources.conf'
+@@ -2739,6 +2741,7 @@
+ Matti Lehtim‰ki <matti.lehtimaki@gmail.com>
+  for implementing the setup option "Miscellaneous/Channels wrap"
+  for reporting a missing change from -O2 to -O3 in Make.config.template
++ for a patch that was used to implement instant recording of only the present event
+ 
+ Stephan Austerm¸hle <au@hcsd.de>
+  for suggesting to flush the file in cSafeFile::Close()
+@@ -2888,6 +2891,10 @@
+  if the editing point merges two seamlessly fitting parts of the same stream
+  for reporting a sluggish response when manipulating editing marks while a cutting
+  thread is running
++ for suggesting to allow I/O intense threads to temporarily suspend their activities
++ in case buffers run full
++ for suggesting to increase the size of the TS buffer to 5MB and that of the Recorder
++ buffer to 20MB to better handle HD recordings
+ 
+ Christian Ruppert <idl0r@gentoo.org>
+  for some improvements to the Makefiles
+@@ -2939,3 +2946,17 @@
+ 
+ Oliver Schinagl <oliver@schinagl.nl>
+  for a patch that was used to implement the setup options "OSD/Color key [0123]"
++
++Andrey Pridvorov <ua0lnj@bk.ru>
++ for reporting a problem with detecting frames in MPEG 4 video, and pointing towards
++ a better way of doing it
++
++Jens Vogel <jens.vogel@akjv.de>
++ for suggesting to make cPatPmtParser::ParsePmt() also recognize stream type 0x81
++ as "AC3", so that recordings that have been converted from the old PES format to
++ TS can be played
++
++Sˆren Moch <smoch@web.de>
++ for a patch that was used to move cleaning up the EPG data and writing the epg.data
++ file into a separate thread to avoid sluggish response to user input on slow systems
++ for fixing sorting folders before recordings in case of UTF-8
+diff -ruN vdr-1.7.30/HISTORY vdr-1.7.31/HISTORY
+--- vdr-1.7.30/HISTORY	2012-09-09 16:37:15.000000000 +0200
++++ vdr-1.7.31/HISTORY	2012-09-30 13:07:48.000000000 +0200
+@@ -6193,7 +6193,7 @@
+   (thanks to Andreas Schaefers).
+ - Fixed references to old *.vdr file names in MANUAL (reported by Arthur Konovalov).
+ - Reverted "Removed limitation to PAL resolution from SPU handling" because it
+-  cause nothing but trouble. Besides, the core VDR doesn't use this, anyway.
++  caused nothing but trouble. Besides, the core VDR doesn't use this, anyway.
+ - Fixed the default value for "Pause key handling" in the MANUAL (reported by
+   Diego Pierotto).
+ 
+@@ -6666,7 +6666,7 @@
+   Udo Richter for suggesting the fix).
+ - Added a mechanism to defer timer handling in case of problems (reported by
+   Frank Niederwipper).
+-- Fixed distortions that happened when splitting recording into several files
++- Fixed distortions that happened when splitting a recording into several files
+   (was a side effect of "Fixed detecting frames in case the Picture Start Code or
+   Access Unit Delimiter extends over TS packet boundaries" in version 1.7.19).
+   cRecorder::Action() now buffers TS packets in case the frame type is
+@@ -7213,7 +7213,7 @@
+   own way of retrieving section filter data (thanks to Deti Fliegl).
+ - The new function cDevice::HasInternalCam() can be implemented by devices that
+   provide encrypted channels in an already decrypted form, without requiring explicit
+-  handling of a CAM (thanks to Tobias Grimm).
++  handling of a CAM (thanks to Anssi Hannula).
+ - VDR can now be built according to the FHS ("File system Hierarchy Standard") by
+   activating the line
+   #USEFHS = 1
+@@ -7234,3 +7234,40 @@
+   Authors of plugins that implement skins may want to adapt their SetButtons()
+   function in order to make use of this new feature. See, for instance, the function
+   cSkinClassicDisplayMenu::SetButtons() in skinclassic.c for details.
++
++2012-09-30: Version 1.7.31
++
++- If regenerating an index file fails and no data is written to the file, VDR now
++  reports this error and removes the empty index file.
++- The setup parameter "Recording/Instant rec. time (min)" can now be set to '0',
++  which means to record only the currently running event (based on a patch from Matti
++  Lehtim‰ki).
++- Decreased the ring buffer put/get trigger sizes from 1/3 to 1/10.
++- The script given to VDR with the '-r' option is now also called whenever a
++  recording is deleted (thanks to Alexander Wenzel).
++- Improved detecting frames in MPEG 4 video (reported by Andrey Pridvorov).
++- cPatPmtParser::ParsePmt() now also recognizes stream type 0x81 as "AC3", so that
++  recordings that have been converted from the old PES format to TS can be played
++  (suggested by Jens Vogel).
++- Fixed a leftover frame counter in the LCARS skin's replay display after jumping to
++  an editing mark and resuming replay.
++- The new class cIoThrottle is used to allow I/O intense threads to temporarily
++  suspend their activities in case buffers run full (suggested by Torsten Lang).
++  Currently the cutter thread is suspended if the TS or Recorder buffer use more
++  than 50% of their capacity. Plugin authors may want to participate in this
++  mechanism if they use intense background I/O.
++- Increased the size of the TS buffer to 5MB and that of the Recorder buffer to
++  20MB to better handle HD recordings (suggested by Torsten Lang).
++- Moved cleaning up the EPG data and writing the epg.data file into a separate
++  thread to avoid sluggish response to user input on slow systems (based on a patch from
++  Sˆren Moch).
++- Fixed sorting folders before recordings in case of UTF-8 (thanks to Sˆren Moch).
++- Reactivated stripping control characters from EPG texts and adapted it to UTF-8.
++- Added missing decrementing of 'len' in libsi/si.c's String::decodeText() functions.
++- When checking whether a video directory is empty, file names that start with a
++  dot ('.') are no longer automatically ignored and implicitly removed if the directory
++  contains no other files. Instead, RemoveEmptyDirectories() now has an additional
++  parameter that can be given a list of files that shall be ignored when considering
++  whether a directory is empty. This allows users to continue to use files such as
++  ".keep" to prevent a directory from being deleted when it is empty. Currently the
++  only file name that is ignored is ".sort".
+diff -ruN vdr-1.7.30/INSTALL vdr-1.7.31/INSTALL
+--- vdr-1.7.30/INSTALL	2012-09-01 12:35:08.000000000 +0200
++++ vdr-1.7.31/INSTALL	2012-09-17 11:00:43.000000000 +0200
+@@ -242,7 +242,7 @@
+ 
+ You can use the '-r' option to define a program or script that gets called
+ before and after a recording is performed, and after an editing process
+-has finished.
++has finished or a recording has been deleted.
+ 
+ The program will be called with two or three (in case of "edited") string
+ parameters. The first parameter is one of
+@@ -250,11 +250,14 @@
+   before      if this is *before* a recording starts
+   after       if this is *after* a recording has finished
+   edited      if this is after a recording has been *edited*
++  deleted     if this is after a recording has been *deleted*
+ 
+ and the second parameter contains the full name of the recording's
+ directory (which may not yet exists at that moment in the "before" case).
+ In the "edited" case it will be the name of the edited version (second
+ parameter) and the name of the source version (third parameter).
++In the "deleted" case the extension of the directory name is ".del"
++instead of ".rec".
+ 
+ Within this program you can do anything you would like to do before and/or
+ after a recording or after an editing process. However, the program must return
+@@ -277,6 +280,9 @@
+             echo "Edited recording $2"
+             echo "Source recording $3"
+             ;;
++     deleted)
++            echo "Deleted recording $2"
++            ;;
+      *)
+             echo "ERROR: unknown state: $1"
+             ;;
+diff -ruN vdr-1.7.30/MANUAL vdr-1.7.31/MANUAL
+--- vdr-1.7.30/MANUAL	2012-09-09 14:28:27.000000000 +0200
++++ vdr-1.7.31/MANUAL	2012-09-15 15:50:06.000000000 +0200
+@@ -837,6 +837,11 @@
+                          Default is 180 minutes (3 hours). The stop time of an
+                          instant recording can be modified at any time by editing
+                          the respective timer in the "Timers" menu.
++                         If this parameter is set to 0 ("present event"), only the
++                         currently running event will be recorded, using the stop
++                         margin and VPS setting as configured.
++                         Note that this parameter is also used when pausing live
++                         video!
+ 
+   Max. video file size = 2000
+                          The maximum size of a single recorded video file in MB.
+diff -ruN vdr-1.7.30/config.c vdr-1.7.31/config.c
+--- vdr-1.7.30/config.c	2012-09-09 14:58:23.000000000 +0200
++++ vdr-1.7.31/config.c	2012-09-15 13:52:03.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 2.27 2012/09/09 12:58:23 kls Exp $
++ * $Id: config.c 2.28 2012/09/15 11:52:03 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -383,7 +383,7 @@
+   MenuKeyCloses = 0;
+   MarkInstantRecord = 1;
+   strcpy(NameInstantRecord, "TITLE EPISODE");
+-  InstantRecordTime = 180;
++  InstantRecordTime = DEFINSTRECTIME;
+   LnbSLOF    = 11700;
+   LnbFrequLo =  9750;
+   LnbFrequHi = 10600;
+diff -ruN vdr-1.7.30/config.h vdr-1.7.31/config.h
+--- vdr-1.7.30/config.h	2012-09-09 14:57:33.000000000 +0200
++++ vdr-1.7.31/config.h	2012-09-15 13:51:54.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.51 2012/09/09 12:57:33 kls Exp $
++ * $Id: config.h 2.53 2012/09/15 11:51:54 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.30"
+-#define VDRVERSNUM   10730  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.31"
++#define VDRVERSNUM   10731  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.30"
+-#define APIVERSNUM   10730  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.31"
++#define APIVERSNUM   10731  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+@@ -42,6 +42,7 @@
+ #define TRANSFERPRIORITY  (LIVEPRIORITY - 1) // priority used for actual local Transfer Mode
+ #define IDLEPRIORITY      (MINPRIORITY - 1)  // priority of an idle device
+ #define MAXLIFETIME       99
++#define DEFINSTRECTIME    180 // default instant recording time (minutes)
+ 
+ #define MINOSDWIDTH   480
+ #define MAXOSDWIDTH  1920
+diff -ruN vdr-1.7.30/cutter.c vdr-1.7.31/cutter.c
+--- vdr-1.7.30/cutter.c	2012-06-10 16:33:36.000000000 +0200
++++ vdr-1.7.31/cutter.c	2012-09-20 11:12:47.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: cutter.c 2.13 2012/06/10 14:33:36 kls Exp $
++ * $Id: cutter.c 2.14 2012/09/20 09:12:47 kls Exp $
+  */
+ 
+ #include "cutter.h"
+@@ -88,12 +88,28 @@
+      bool CheckForSeamlessStream = false;
+      bool LastMark = false;
+      bool cutIn = true;
++     bool suspensionLogged = false;
+      while (Running()) {
+            uint16_t FileNumber;
+            off_t FileOffset;
+            int Length;
+            bool Independent;
+ 
++           // Suspend cutting if we have severe throughput problems:
++
++           if (cIoThrottle::Engaged()) {
++              if (!suspensionLogged) {
++                 dsyslog("suspending cutter thread");
++                 suspensionLogged = true;
++                 }
++              cCondWait::SleepMs(100);
++              continue;
++              }
++           else if (suspensionLogged) {
++              dsyslog("resuming cutter thread");
++              suspensionLogged = false;
++              }
++
+            // Make sure there is enough disk space:
+ 
+            AssertFreeDiskSpace(-1);
+diff -ruN vdr-1.7.30/device.c vdr-1.7.31/device.c
+--- vdr-1.7.30/device.c	2012-09-02 11:26:36.000000000 +0200
++++ vdr-1.7.31/device.c	2012-09-20 11:32:26.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.67 2012/09/02 09:26:36 kls Exp $
++ * $Id: device.c 2.68 2012/09/20 09:32:26 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -1721,6 +1721,7 @@
+   delivered = false;
+   ringBuffer = new cRingBufferLinear(Size, TS_SIZE, true, "TS");
+   ringBuffer->SetTimeouts(100, 100);
++  ringBuffer->SetIoThrottle();
+   Start();
+ }
+ 
+diff -ruN vdr-1.7.30/dvbdevice.c vdr-1.7.31/dvbdevice.c
+--- vdr-1.7.30/dvbdevice.c	2012-05-09 10:33:59.000000000 +0200
++++ vdr-1.7.31/dvbdevice.c	2012-09-20 12:07:54.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.71 2012/05/09 08:33:59 kls Exp $
++ * $Id: dvbdevice.c 2.72 2012/09/20 10:07:54 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -1540,7 +1540,7 @@
+   CloseDvr();
+   fd_dvr = DvbOpen(DEV_DVB_DVR, adapter, frontend, O_RDONLY | O_NONBLOCK, true);
+   if (fd_dvr >= 0)
+-     tsBuffer = new cTSBuffer(fd_dvr, MEGABYTE(2), CardIndex() + 1);
++     tsBuffer = new cTSBuffer(fd_dvr, MEGABYTE(5), CardIndex() + 1);
+   return fd_dvr >= 0;
+ }
+ 
+diff -ruN vdr-1.7.30/epg.c vdr-1.7.31/epg.c
+--- vdr-1.7.30/epg.c	2012-08-25 13:10:29.000000000 +0200
++++ vdr-1.7.31/epg.c	2012-09-29 16:29:49.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 2.18 2012/08/25 11:10:29 kls Exp $
++ * $Id: epg.c 2.21 2012/09/29 14:29:49 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -18,6 +18,7 @@
+ #include "timers.h"
+ 
+ #define RUNNINGSTATUSTIMEOUT 30 // seconds before the running status is considered unknown
++#define EPGDATAWRITEDELTA   600 // seconds between writing the epg.data file
+ 
+ // --- tComponent ------------------------------------------------------------
+ 
+@@ -581,9 +582,20 @@
+      }
+ }
+ 
+-void ReportEpgBugFixStats(bool Reset)
++void ReportEpgBugFixStats(bool Force)
+ {
+   if (Setup.EPGBugfixLevel > 0) {
++     static time_t LastReport = 0;
++     time_t now = time(NULL);
++     if (now - LastReport > 3600 || Force) {
++        LastReport = now;
++        struct tm tm_r;
++        struct tm *ptm = localtime_r(&now, &tm_r);
++        if (ptm->tm_hour != 5)
++           return;
++        }
++     else
++        return;
+      bool GotHits = false;
+      char buffer[1024];
+      for (int i = 0; i < MAXEPGBUGFIXSTATS; i++) {
+@@ -622,14 +634,33 @@
+             if (*buffer)
+                dsyslog("%s", buffer);
+             }
+-         if (Reset)
+-            p->hits = p->n = 0;
++         p->hits = p->n = 0;
+          }
+      if (GotHits)
+         dsyslog("=====================");
+      }
+ }
+ 
++static void StripControlCharacters(char *s)
++{
++  if (s) {
++     int len = strlen(s);
++     while (len > 0) {
++           int l = Utf8CharLen(s);
++           uchar *p = (uchar *)s;
++           if (l == 2 && *p == 0xC2) // UTF-8 sequence
++              p++;
++           if (*p == 0x86 || *p == 0x87) {
++              memmove(s, p + 1, len - l + 1); // we also copy the terminating 0!
++              len -= l;
++              l = 0;
++              }
++           s += l;
++           len -= l;
++           }
++     }
++}
++
+ void cEvent::FixEpgBugs(void)
+ {
+   if (isempty(title)) {
+@@ -839,15 +870,10 @@
+             strreplace(p->description, '\n', ' ');
+          }
+      }
+-  /* TODO adapt to UTF-8
+   // Same for control characters:
+-  strreplace(title, '\x86', ' ');
+-  strreplace(title, '\x87', ' ');
+-  strreplace(shortText, '\x86', ' ');
+-  strreplace(shortText, '\x87', ' ');
+-  strreplace(description, '\x86', ' ');
+-  strreplace(description, '\x87', ' ');
+-  XXX*/
++  StripControlCharacters(title);
++  StripControlCharacters(shortText);
++  StripControlCharacters(description);
+ }
+ 
+ // --- cSchedule -------------------------------------------------------------
+@@ -1109,6 +1135,47 @@
+   return false;
+ }
+ 
++// --- cEpgDataWriter ---------------------------------------------------------
++
++class cEpgDataWriter : public cThread {
++private:
++  cMutex mutex;
++protected:
++  virtual void Action(void);
++public:
++  cEpgDataWriter(void);
++  void Perform(void);
++  };
++
++cEpgDataWriter::cEpgDataWriter(void)
++:cThread("epg data writer")
++{
++}
++
++void cEpgDataWriter::Action(void)
++{
++  SetPriority(19);
++  SetIOPriority(7);
++  Perform();
++}
++
++void cEpgDataWriter::Perform(void)
++{
++  cMutexLock MutexLock(&mutex); // to make sure fore- and background calls don't cause parellel dumps!
++  {
++    cSchedulesLock SchedulesLock(true, 1000);
++    cSchedules *s = (cSchedules *)cSchedules::Schedules(SchedulesLock);
++    if (s) {
++       time_t now = time(NULL);
++       for (cSchedule *p = s->First(); p; p = s->Next(p))
++           p->Cleanup(now);
++       }
++  }
++  cSchedules::Dump();
++}
++
++static cEpgDataWriter EpgDataWriter;
++
+ // --- cSchedulesLock --------------------------------------------------------
+ 
+ cSchedulesLock::cSchedulesLock(bool WriteLock, int TimeoutMs)
+@@ -1126,7 +1193,6 @@
+ 
+ cSchedules cSchedules::schedules;
+ char *cSchedules::epgDataFileName = NULL;
+-time_t cSchedules::lastCleanup = time(NULL);
+ time_t cSchedules::lastDump = time(NULL);
+ time_t cSchedules::modified = 0;
+ 
+@@ -1152,28 +1218,13 @@
+   if (Force)
+      lastDump = 0;
+   time_t now = time(NULL);
+-  struct tm tm_r;
+-  struct tm *ptm = localtime_r(&now, &tm_r);
+-  if (now - lastCleanup > 3600) {
+-     isyslog("cleaning up schedules data");
+-     cSchedulesLock SchedulesLock(true, 1000);
+-     cSchedules *s = (cSchedules *)Schedules(SchedulesLock);
+-     if (s) {
+-        for (cSchedule *p = s->First(); p; p = s->Next(p))
+-            p->Cleanup(now);
++  if (now - lastDump > EPGDATAWRITEDELTA) {
++     if (epgDataFileName) {
++        if (Force)
++           EpgDataWriter.Perform();
++        else if (!EpgDataWriter.Active())
++           EpgDataWriter.Start();
+         }
+-     lastCleanup = now;
+-     if (ptm->tm_hour == 5)
+-        ReportEpgBugFixStats(true);
+-     }
+-  if (epgDataFileName && now - lastDump > 600) {
+-     cSafeFile f(epgDataFileName);
+-     if (f.Open()) {
+-        Dump(f);
+-        f.Close();
+-        }
+-     else
+-        LOG_ERROR;
+      lastDump = now;
+      }
+ }
+@@ -1207,8 +1258,23 @@
+   cSchedulesLock SchedulesLock;
+   cSchedules *s = (cSchedules *)Schedules(SchedulesLock);
+   if (s) {
++     cSafeFile *sf = NULL;
++     if (!f) {
++        sf = new cSafeFile(epgDataFileName);
++        if (sf->Open())
++           f = *sf;
++        else {
++           LOG_ERROR;
++           delete sf;
++           return false;
++           }
++        }
+      for (cSchedule *p = s->First(); p; p = s->Next(p))
+          p->Dump(f, Prefix, DumpMode, AtTime);
++     if (sf) {
++        sf->Close();
++        delete sf;
++        }
+      return true;
+      }
+   return false;
+diff -ruN vdr-1.7.30/epg.h vdr-1.7.31/epg.h
+--- vdr-1.7.30/epg.h	2012-08-25 13:15:18.000000000 +0200
++++ vdr-1.7.31/epg.h	2012-09-24 14:53:53.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.h 2.14 2012/08/25 11:15:18 kls Exp $
++ * $Id: epg.h 2.15 2012/09/24 12:53:53 kls Exp $
+  */
+ 
+ #ifndef __EPG_H
+@@ -193,7 +193,6 @@
+   cRwLock rwlock;
+   static cSchedules schedules;
+   static char *epgDataFileName;
+-  static time_t lastCleanup;
+   static time_t lastDump;
+   static time_t modified;
+ public:
+@@ -207,7 +206,7 @@
+   static void Cleanup(bool Force = false);
+   static void ResetVersions(void);
+   static bool ClearAll(void);
+-  static bool Dump(FILE *f, const char *Prefix = "", eDumpMode DumpMode = dmAll, time_t AtTime = 0);
++  static bool Dump(FILE *f = NULL, const char *Prefix = "", eDumpMode DumpMode = dmAll, time_t AtTime = 0);
+   static bool Read(FILE *f = NULL);
+   cSchedule *AddSchedule(tChannelID ChannelID);
+   const cSchedule *GetSchedule(tChannelID ChannelID) const;
+@@ -220,7 +219,7 @@
+   virtual void Action(void);
+   };
+ 
+-void ReportEpgBugFixStats(bool Reset = false);
++void ReportEpgBugFixStats(bool Force = false);
+ 
+ class cEpgHandler : public cListObject {
+ public:
+diff -ruN vdr-1.7.30/libsi/si.c vdr-1.7.31/libsi/si.c
+--- vdr-1.7.30/libsi/si.c	2012-08-21 10:10:00.000000000 +0200
++++ vdr-1.7.31/libsi/si.c	2012-09-29 16:44:20.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.c 2.7 2012/08/21 08:10:00 kls Exp $
++ *   $Id: si.c 2.8 2012/09/29 14:44:20 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -454,6 +454,7 @@
+          }
+          if (l == 2 && Move) {
+             memmove(p, p + 1, len - 1); // we also copy the terminating 0!
++            len -= 1;
+             l = 1;
+          }
+       }
+@@ -480,6 +481,7 @@
+       if (*p == 0x86 || *p == 0x87) {
+          IsShortName += (*p == 0x86) ? 1 : -1;
+          memmove(to, to + l, len - l + 1); // we also copy the terminating 0!
++         len -= l;
+          l = 0;
+       }
+       if (l && IsShortName) {
+diff -ruN vdr-1.7.30/menu.c vdr-1.7.31/menu.c
+--- vdr-1.7.30/menu.c	2012-09-09 14:23:00.000000000 +0200
++++ vdr-1.7.31/menu.c	2012-09-15 13:45:28.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 2.60 2012/09/09 12:23:00 kls Exp $
++ * $Id: menu.c 2.61 2012/09/15 11:45:28 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -3118,7 +3118,7 @@
+   Add(new cMenuEditIntItem( tr("Setup.Recording$VPS margin (s)"),            &data.VpsMargin, 0));
+   Add(new cMenuEditBoolItem(tr("Setup.Recording$Mark instant recording"),    &data.MarkInstantRecord));
+   Add(new cMenuEditStrItem( tr("Setup.Recording$Name instant recording"),     data.NameInstantRecord, sizeof(data.NameInstantRecord)));
+-  Add(new cMenuEditIntItem( tr("Setup.Recording$Instant rec. time (min)"),   &data.InstantRecordTime, 1, MAXINSTANTRECTIME));
++  Add(new cMenuEditIntItem( tr("Setup.Recording$Instant rec. time (min)"),   &data.InstantRecordTime, 0, MAXINSTANTRECTIME, tr("Setup.Recording$present event")));
+   Add(new cMenuEditIntItem( tr("Setup.Recording$Max. video file size (MB)"), &data.MaxVideoFileSize, MINVIDEOFILESIZE, MAXVIDEOFILESIZETS));
+   Add(new cMenuEditBoolItem(tr("Setup.Recording$Split edited files"),        &data.SplitEditedFiles));
+   Add(new cMenuEditStraItem(tr("Setup.Recording$Delete timeshift recording"),&data.DelTimeshiftRec, 3, delTimeshiftRecTexts));
+diff -ruN vdr-1.7.30/po/ar.po vdr-1.7.31/po/ar.po
+--- vdr-1.7.30/po/ar.po	2012-09-09 15:20:14.000000000 +0200
++++ vdr-1.7.31/po/ar.po	2012-09-15 15:57:38.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2008-10-16 11:16-0400\n"
+ "Last-Translator: Osama Alrawab <alrawab@hotmail.com>\n"
+ "Language-Team: Arabic <ar@li.org>\n"
+@@ -1102,6 +1102,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "ŸÖÿØÿ© ÿßŸÑÿ™ÿ≥ÿ¨ŸäŸÑ ÿßŸÑŸÅŸàÿ±Ÿâ ÿ®ÿßŸÑÿØŸÇŸäŸÇÿ©"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "ÿßŸÇÿµŸâ ÿ≠ÿ¨ŸÖ ŸÑŸÖŸÑŸÅ ÿßŸÑŸÅŸäÿØŸäŸà ÿ® ŸÖ ÿ®"
+ 
+@@ -1280,6 +1283,9 @@
+ msgid "Index file regeneration complete"
+ msgstr ""
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "ŸÑÿß ŸäŸÖŸÉŸÜ ŸÇŸÅŸÑ ÿßŸÑÿ≠ÿßÿ≥Ÿàÿ® ÿßŸÑÿ±ŸÖÿ≤ s ŸÑŸÖ Ÿäÿ≠ÿØÿØ"
+ 
+diff -ruN vdr-1.7.30/po/ca_ES.po vdr-1.7.31/po/ca_ES.po
+--- vdr-1.7.30/po/ca_ES.po	2012-09-09 15:20:13.000000000 +0200
++++ vdr-1.7.31/po/ca_ES.po	2012-09-15 15:57:37.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Catalan <vdr@linuxtv.org>\n"
+@@ -1080,6 +1080,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Temps de gravaciÛ instant‡nia (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Mida m‡xima de l'arxiu (MB)"
+ 
+@@ -1255,6 +1258,9 @@
+ msgid "Index file regeneration complete"
+ msgstr ""
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "No puc apagar, falta la opciÛ -s !"
+ 
+diff -ruN vdr-1.7.30/po/cs_CZ.po vdr-1.7.31/po/cs_CZ.po
+--- vdr-1.7.30/po/cs_CZ.po	2012-09-09 15:20:13.000000000 +0200
++++ vdr-1.7.31/po/cs_CZ.po	2012-09-15 15:57:37.000000000 +0200
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.14\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2010-05-06 11:00+0200\n"
+ "Last-Translator: Radek ≈†≈•astn√Ω <dedkus@gmail.com>\n"
+ "Language-Team: Czech <vdr@linuxtv.org>\n"
+@@ -1079,6 +1079,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "D√©lka okam≈æit√©ho nahr√°v√°n√≠ (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Maxim√°ln√≠ velikost nahr√°vky (MB)"
+ 
+@@ -1254,6 +1257,9 @@
+ msgid "Index file regeneration complete"
+ msgstr "Generov√°n√≠ index souboru dokonƒçeno"
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Vypnut√≠ nen√≠ mo≈æn√© - chyb√≠ volba '-s'!"
+ 
+diff -ruN vdr-1.7.30/po/da_DK.po vdr-1.7.31/po/da_DK.po
+--- vdr-1.7.30/po/da_DK.po	2012-09-09 15:20:13.000000000 +0200
++++ vdr-1.7.31/po/da_DK.po	2012-09-15 15:57:38.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish <vdr@linuxtv.org>\n"
+@@ -1077,6 +1077,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "LÊngde af direkte optagelse (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Max. video filst¯rrelse (MB)"
+ 
+@@ -1252,6 +1255,9 @@
+ msgid "Index file regeneration complete"
+ msgstr ""
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Kan ikke slukke - parameter '-s' ikke angivet!"
+ 
+diff -ruN vdr-1.7.30/po/de_DE.po vdr-1.7.31/po/de_DE.po
+--- vdr-1.7.30/po/de_DE.po	2012-09-09 15:21:16.000000000 +0200
++++ vdr-1.7.31/po/de_DE.po	2012-09-15 15:57:39.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2010-01-16 16:46+0100\n"
+ "Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
+@@ -1077,6 +1077,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Dauer der Direktaufzeichnung (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr "laufende Sendung"
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Max. Videodateigrˆﬂe (MB)"
+ 
+@@ -1252,6 +1255,9 @@
+ msgid "Index file regeneration complete"
+ msgstr "Regenerierung der Index-Datei abgeschlossen"
+ 
++msgid "Index file regeneration failed!"
++msgstr "Regenerierung der Index-Datei fehlgeschlagen!"
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Ausschalten unmˆglich - Option '-s' fehlt!"
+ 
+diff -ruN vdr-1.7.30/po/el_GR.po vdr-1.7.31/po/el_GR.po
+--- vdr-1.7.30/po/el_GR.po	2012-09-09 15:20:14.000000000 +0200
++++ vdr-1.7.31/po/el_GR.po	2012-09-15 15:57:38.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek <vdr@linuxtv.org>\n"
+@@ -1077,6 +1077,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "ƒÈ‹ÒÍÂÈ· ÛÙ„ÏÈ·ﬂ·Ú Â„„Ò·ˆﬁÚ (ÎÂÙ‹)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Ã›„ÈÛÙÔ Ï›„ÂËÔÚ ·Ò˜ÂﬂÔı (MB)"
+ 
+@@ -1252,6 +1255,9 @@
+ msgid "Index file regeneration complete"
+ msgstr ""
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "¡‰˝Ì·ÙÔÌ Ì· „ﬂÌÂÈ ÙÂÒÏ·ÙÈÛÏ¸Ú. ¡Ì˝·ÒÍÙÁ Á ·Ò‹ÏÂÙÒÔÚ '-s'!"
+ 
+diff -ruN vdr-1.7.30/po/es_ES.po vdr-1.7.31/po/es_ES.po
+--- vdr-1.7.30/po/es_ES.po	2012-09-09 15:20:14.000000000 +0200
++++ vdr-1.7.31/po/es_ES.po	2012-09-15 15:57:38.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Spanish <vdr@linuxtv.org>\n"
+@@ -1078,6 +1078,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Tiempo de grabaciÛn inmediata (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "TamaÒo m·ximo de fichero (MB)"
+ 
+@@ -1253,6 +1256,9 @@
+ msgid "Index file regeneration complete"
+ msgstr ""
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "°No se puede apagar - falta el par·metro '-s'!"
+ 
+diff -ruN vdr-1.7.30/po/et_EE.po vdr-1.7.31/po/et_EE.po
+--- vdr-1.7.30/po/et_EE.po	2012-09-09 15:20:13.000000000 +0200
++++ vdr-1.7.31/po/et_EE.po	2012-09-15 15:57:37.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
+ "Language-Team: Estonian <vdr@linuxtv.org>\n"
+@@ -1077,6 +1077,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Kiirsalvestuse kestus (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Maks. failisuurus (MB)"
+ 
+@@ -1252,6 +1255,9 @@
+ msgid "Index file regeneration complete"
+ msgstr "Indeksfaili regenereerimine l√µpetatud"
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "V√§ljal√ºlitamine nurjus - '-s' parameeter puudub!"
+ 
+diff -ruN vdr-1.7.30/po/fi_FI.po vdr-1.7.31/po/fi_FI.po
+--- vdr-1.7.30/po/fi_FI.po	2012-09-09 15:20:13.000000000 +0200
++++ vdr-1.7.31/po/fi_FI.po	2012-09-15 15:57:38.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-13 13:15+0200\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
+@@ -1080,6 +1080,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Pikatallennuksen kesto (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr "nykyinen tapahtuma"
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Suurin tiedostokoko (Mt)"
+ 
+@@ -1255,6 +1258,9 @@
+ msgid "Index file regeneration complete"
+ msgstr "Indeksitiedosto valmistui"
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Sammutus ei onnistu - '-s' parametri puuttuu!"
+ 
+diff -ruN vdr-1.7.30/po/fr_FR.po vdr-1.7.31/po/fr_FR.po
+--- vdr-1.7.30/po/fr_FR.po	2012-09-09 15:20:14.000000000 +0200
++++ vdr-1.7.31/po/fr_FR.po	2012-09-15 15:57:38.000000000 +0200
+@@ -13,7 +13,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2008-02-27 18:14+0100\n"
+ "Last-Translator: Jean-Claude Repetto <jc@repetto.org>\n"
+ "Language-Team: French <vdr@linuxtv.org>\n"
+@@ -1083,6 +1083,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "DurÈe enregistr. immÈdiat (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Taille maxi des fichiers (Mo)"
+ 
+@@ -1258,6 +1261,9 @@
+ msgid "Index file regeneration complete"
+ msgstr ""
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "ArrÍt impossible - option '-s' absente !"
+ 
+diff -ruN vdr-1.7.30/po/hr_HR.po vdr-1.7.31/po/hr_HR.po
+--- vdr-1.7.30/po/hr_HR.po	2012-09-09 15:20:15.000000000 +0200
++++ vdr-1.7.31/po/hr_HR.po	2012-09-15 15:57:39.000000000 +0200
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian <vdr@linuxtv.org>\n"
+@@ -1079,6 +1079,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Trajanje direktnog snimanja (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Maksimalna veliËina datoteke (MB)"
+ 
+@@ -1254,6 +1257,9 @@
+ msgid "Index file regeneration complete"
+ msgstr ""
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Gaπenje nemoguÊe - nedostaje opcija '-s'!"
+ 
+diff -ruN vdr-1.7.30/po/hu_HU.po vdr-1.7.31/po/hu_HU.po
+--- vdr-1.7.30/po/hu_HU.po	2012-09-09 15:20:13.000000000 +0200
++++ vdr-1.7.31/po/hu_HU.po	2012-09-15 15:57:38.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2012-01-02 11:54+0200\n"
+ "Last-Translator: Istv·n F¸ley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian <vdr@linuxtv.org>\n"
+@@ -1081,6 +1081,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "DirektfelvÈtel idıtartama (perc)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Max. video file mÈret (MB)"
+ 
+@@ -1256,6 +1259,9 @@
+ msgid "Index file regeneration complete"
+ msgstr "Index file ˙jragener·l·sa kÈsz."
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "A le·llÌt·s nem lehetsÈges - OpciÛ '-s' hi·nyzik!"
+ 
+diff -ruN vdr-1.7.30/po/it_IT.po vdr-1.7.31/po/it_IT.po
+--- vdr-1.7.30/po/it_IT.po	2012-09-09 15:20:14.000000000 +0200
++++ vdr-1.7.31/po/it_IT.po	2012-09-15 15:57:38.000000000 +0200
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2012-06-06 22:50+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
+@@ -1084,6 +1084,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Durata reg. immediata (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Dim. massima file video (MB)"
+ 
+@@ -1259,6 +1262,9 @@
+ msgid "Index file regeneration complete"
+ msgstr "Rigenerazione file indice completata"
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Impossibile spegnere - parametro '-s' non assegnato!"
+ 
+diff -ruN vdr-1.7.30/po/lt_LT.po vdr-1.7.31/po/lt_LT.po
+--- vdr-1.7.30/po/lt_LT.po	2012-09-09 15:20:14.000000000 +0200
++++ vdr-1.7.31/po/lt_LT.po	2012-09-15 15:57:38.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.16\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2010-10-30 11:55+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian <vdr@linuxtv.org>\n"
+@@ -1077,6 +1077,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Rankiniu b≈´du vykdomo ƒØra≈°o laikas (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Maks. video failo dydis (MB)"
+ 
+@@ -1252,6 +1255,9 @@
+ msgid "Index file regeneration complete"
+ msgstr "Index failo pergeneravimas baigtas"
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Sistemos negalima i≈°jungti, nes starto metu nebuvo komandinƒój eilutƒój paduota savybƒó '-s'!"
+ 
+diff -ruN vdr-1.7.30/po/mk_MK.po vdr-1.7.31/po/mk_MK.po
+--- vdr-1.7.30/po/mk_MK.po	2012-09-09 15:20:14.000000000 +0200
++++ vdr-1.7.31/po/mk_MK.po	2012-09-15 15:57:38.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR-1.7.14\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2010-03-11 00:54+0100\n"
+ "Last-Translator: Dimitar Petrovski <dimeptr@gmail.com>\n"
+ "Language-Team: Macedonian <en@li.org>\n"
+@@ -1078,6 +1078,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "–¢—Ä–∞–µ—ö–µ –Ω–∞ –¥–∏—Ä–µ–∫—Ç–Ω–æ —Å–Ω–∏–º–∞—ö–µ (–º–∏–Ω)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "–ú–∞–∫—Å–∏–º–∞–ª–Ω–∞ –≥–æ–ª–µ–º–∏–Ω–∞ –Ω–∞ –¥–∞—Ç–æ—Ç–µ–∫–∞ (MB)"
+ 
+@@ -1253,6 +1256,9 @@
+ msgid "Index file regeneration complete"
+ msgstr "–†–µ–≥–µ–Ω–µ—Ä–∏—Ä–∞—ö–µ—Ç–æ –Ω–∞ –∏–Ω–¥–µ–∫—Å–æ—Ç –∑–∞–≤—Ä—à–∏"
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "–ù–µ–≤–æ–∑–º–æ–∂–Ω–æ –≥–∞—Å–Ω–µ—ö–µ - –Ω–µ–¥–æ—Å—Ç–∞—Å—É–≤–∞ –æ–ø—Ü–∏—ò–∞—Ç–∞ '-s'!"
+ 
+diff -ruN vdr-1.7.30/po/nl_NL.po vdr-1.7.31/po/nl_NL.po
+--- vdr-1.7.30/po/nl_NL.po	2012-09-09 15:20:14.000000000 +0200
++++ vdr-1.7.31/po/nl_NL.po	2012-09-15 15:57:38.000000000 +0200
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2008-02-26 17:20+0100\n"
+ "Last-Translator: Johan Schuring <johan.schuring@vetteblei.nl>\n"
+ "Language-Team: Dutch <vdr@linuxtv.org>\n"
+@@ -1081,6 +1081,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Duur van de directe opname (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Maximale omvang video file (MB)"
+ 
+@@ -1256,6 +1259,9 @@
+ msgid "Index file regeneration complete"
+ msgstr ""
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Shutdown onmogelijk - Optie '-s' ontbreekt!"
+ 
+diff -ruN vdr-1.7.30/po/nn_NO.po vdr-1.7.31/po/nn_NO.po
+--- vdr-1.7.30/po/nn_NO.po	2012-09-09 15:20:15.000000000 +0200
++++ vdr-1.7.31/po/nn_NO.po	2012-09-15 15:57:39.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian Nynorsk <vdr@linuxtv.org>\n"
+@@ -1078,6 +1078,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr ""
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Maksimal st¯rrelse pÂ videofiler (MB)"
+ 
+@@ -1253,6 +1256,9 @@
+ msgid "Index file regeneration complete"
+ msgstr ""
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Kan ikke slÂ av - startet uten parameteret '-s'!"
+ 
+diff -ruN vdr-1.7.30/po/pl_PL.po vdr-1.7.31/po/pl_PL.po
+--- vdr-1.7.30/po/pl_PL.po	2012-09-09 15:20:12.000000000 +0200
++++ vdr-1.7.31/po/pl_PL.po	2012-09-15 15:57:37.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2008-03-09 12:59+0100\n"
+ "Last-Translator: Michael Rakowski <mrak@gmx.de>\n"
+ "Language-Team: Polish <vdr@linuxtv.org>\n"
+@@ -1078,6 +1078,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Czas natychm. nagrywania (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Maksymalny rozmiar pliku (MB)"
+ 
+@@ -1253,6 +1256,9 @@
+ msgid "Index file regeneration complete"
+ msgstr ""
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Nie moøna wy≥±czyÊ - nie podano opcji '-s'!"
+ 
+diff -ruN vdr-1.7.30/po/pt_PT.po vdr-1.7.31/po/pt_PT.po
+--- vdr-1.7.30/po/pt_PT.po	2012-09-09 15:20:12.000000000 +0200
++++ vdr-1.7.31/po/pt_PT.po	2012-09-15 15:57:37.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.15\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2010-03-28 22:49+0100\n"
+ "Last-Translator: Cris Silva <hudokkow@gmail.com>\n"
+ "Language-Team: Portuguese <vdr@linuxtv.org>\n"
+@@ -1078,6 +1078,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Validade da gravaÁ„o instant‚nea (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Tamanho m·ximo do ficheiro de vÌdeo (MB)"
+ 
+@@ -1253,6 +1256,9 @@
+ msgid "Index file regeneration complete"
+ msgstr "RegeneraÁ„o do Ìndice do ficheiro completa"
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "ImpossÌvel desligar - falta o par‚metro '-s'!"
+ 
+diff -ruN vdr-1.7.30/po/ro_RO.po vdr-1.7.31/po/ro_RO.po
+--- vdr-1.7.30/po/ro_RO.po	2012-09-09 15:20:12.000000000 +0200
++++ vdr-1.7.31/po/ro_RO.po	2012-09-15 15:57:37.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.12\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2011-03-10 23:52+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+ "Language-Team: Romanian <vdr@linuxtv.org>\n"
+@@ -1080,6 +1080,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Timpul de Ónregistare imediat„ (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Dimensiune maxim„ a fi∫ierului video (MB)"
+ 
+@@ -1255,6 +1258,9 @@
+ msgid "Index file regeneration complete"
+ msgstr "Generarea indexului s-a incheiat"
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Nu pot Ónchide - vezi op˛iunea '-s'"
+ 
+diff -ruN vdr-1.7.30/po/ru_RU.po vdr-1.7.31/po/ru_RU.po
+--- vdr-1.7.30/po/ru_RU.po	2012-09-09 15:20:15.000000000 +0200
++++ vdr-1.7.31/po/ru_RU.po	2012-09-15 15:57:39.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2008-12-15 14:37+0100\n"
+ "Last-Translator: Oleg Roitburd <oleg@roitburd.de>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
+@@ -1078,6 +1078,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "¥€ÿ‚’€Ï›ﬁ·‚Ï ‡„Á›ﬁŸ ◊–ﬂÿ·ÿ (‹ÿ›)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "º–⁄·. ‡–◊‹’‡ “ÿ‘’ﬁ‰–Ÿ€– (º—)"
+ 
+@@ -1253,6 +1256,9 @@
+ msgid "Index file regeneration complete"
+ msgstr ""
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "≤Î⁄€ÓÁ’›ÿ’ ›’“ﬁ◊‹ﬁ÷›ﬁ - ›’ ◊–‘–› ﬂ–‡–‹’‚‡ '-s'!"
+ 
+diff -ruN vdr-1.7.30/po/sk_SK.po vdr-1.7.31/po/sk_SK.po
+--- vdr-1.7.30/po/sk_SK.po	2012-09-09 15:20:14.000000000 +0200
++++ vdr-1.7.31/po/sk_SK.po	2012-09-15 15:57:39.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.16\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2011-02-15 16:29+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak <vdr@linuxtv.org>\n"
+@@ -1077,6 +1077,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "DÂæka okamæitÈho nahr·vania (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Maxim·lna veµkosª nahr·vky (MB)"
+ 
+@@ -1252,6 +1255,9 @@
+ msgid "Index file regeneration complete"
+ msgstr "Regener·cia indexovÈho s˙boru hotov·"
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Vypnutie nie je moænÈ - ch˝ba voµba '-s'!"
+ 
+diff -ruN vdr-1.7.30/po/sl_SI.po vdr-1.7.31/po/sl_SI.po
+--- vdr-1.7.30/po/sl_SI.po	2012-09-09 15:20:15.000000000 +0200
++++ vdr-1.7.31/po/sl_SI.po	2012-09-15 15:57:39.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2008-02-28 19:44+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian <vdr@linuxtv.org>\n"
+@@ -1078,6 +1078,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "»as direktnega snemanja (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "NajveËja velikost datoteke (MB)"
+ 
+@@ -1253,6 +1256,9 @@
+ msgid "Index file regeneration complete"
+ msgstr ""
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Zaustavitev ni izvedljiva - opcija '-s' ni podana!"
+ 
+diff -ruN vdr-1.7.30/po/sr_SR.po vdr-1.7.31/po/sr_SR.po
+--- vdr-1.7.30/po/sr_SR.po	2012-09-09 15:20:14.000000000 +0200
++++ vdr-1.7.31/po/sr_SR.po	2012-09-15 15:57:38.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.1\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2011-01-09 15:57+0100\n"
+ "Last-Translator: Milan CvijanoviÊ <elcom_cvijo@hotmail.com>\n"
+ "Language-Team: Serbian <vdr@linuxtv.org>\n"
+@@ -1100,6 +1100,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Trajanje trenutnog snimanja (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Maks. veliËina datoteke (MB)"
+ 
+@@ -1278,6 +1281,9 @@
+ msgid "Index file regeneration complete"
+ msgstr "Obnavljanje index datoteke zavrπeno"
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Gaπenje nemoguÊe - nedostaje opcija '-s'!"
+ 
+diff -ruN vdr-1.7.30/po/sv_SE.po vdr-1.7.31/po/sv_SE.po
+--- vdr-1.7.30/po/sv_SE.po	2012-09-09 15:20:14.000000000 +0200
++++ vdr-1.7.31/po/sv_SE.po	2012-09-15 15:57:38.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2008-03-12 18:25+0100\n"
+ "Last-Translator: Magnus Andersson <svankan@bahnhof.se>\n"
+ "Language-Team: Swedish <vdr@linuxtv.org>\n"
+@@ -1080,6 +1080,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Direktinspelning l‰ngd (min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Maximal filstorlek fˆr inspelning (MB)"
+ 
+@@ -1255,6 +1258,9 @@
+ msgid "Index file regeneration complete"
+ msgstr ""
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Kan inte avsluta, mÂste anv‰nda parameter '-s'"
+ 
+diff -ruN vdr-1.7.30/po/tr_TR.po vdr-1.7.31/po/tr_TR.po
+--- vdr-1.7.30/po/tr_TR.po	2012-09-09 15:20:13.000000000 +0200
++++ vdr-1.7.31/po/tr_TR.po	2012-09-15 15:57:38.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay YolgeÁen <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish <vdr@linuxtv.org>\n"
+@@ -1077,6 +1077,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Derhal Áekim s¸resi (dak)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Maksimum Video k¸t¸k b¸y¸kl¸g¸ (MB)"
+ 
+@@ -1252,6 +1255,9 @@
+ msgid "Index file regeneration complete"
+ msgstr ""
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Kapat˝lam˝yor - '-s' seÁenei verilmemi˛!"
+ 
+diff -ruN vdr-1.7.30/po/uk_UA.po vdr-1.7.31/po/uk_UA.po
+--- vdr-1.7.30/po/uk_UA.po	2012-09-09 15:20:14.000000000 +0200
++++ vdr-1.7.31/po/uk_UA.po	2012-09-15 15:57:38.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2010-04-25 16:35+0200\n"
+ "Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian <vdr@linuxtv.org>\n"
+@@ -1077,6 +1077,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "–ü—Ä–æ—Ç—è–∂–Ω—ñ—Å—Ç—å —Ä—É—á–Ω–æ–≥–æ –∑–∞–ø–∏—Å—É (—Ö–≤)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "–ú–∞–∫—Å. —Ä–∞–∑–º—ñ—Ä –≤—ñ–¥–µ–æ—Ñ–∞–π–ª—É (–ú–±)"
+ 
+@@ -1252,6 +1255,9 @@
+ msgid "Index file regeneration complete"
+ msgstr "–†–µ–≥–µ–Ω–µ—Ä–∞—Ü—ñ—é —Ñ–∞–π–ª—É —ñ–Ω–¥–µ–∫—Å—É –∑–∞–≤–µ—Ä—à–µ–Ω–æ"
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "–í–∏–∫–ª—é—á–µ–Ω–Ω–Ω—è –Ω–µ–º–æ–∂–ª–∏–≤–µ - –Ω–µ –∑–∞–¥–∞–Ω–æ –ø–∞—Ä–∞–º–µ—Ç—Ä '-s'!"
+ 
+diff -ruN vdr-1.7.30/po/zh_CN.po vdr-1.7.31/po/zh_CN.po
+--- vdr-1.7.30/po/zh_CN.po	2012-09-09 15:20:13.000000000 +0200
++++ vdr-1.7.31/po/zh_CN.po	2012-09-15 15:57:38.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-09-09 15:20+0200\n"
++"POT-Creation-Date: 2012-09-15 14:04+0200\n"
+ "PO-Revision-Date: 2009-09-23 23:50+0800\n"
+ "Last-Translator: Nan Feng <nfgx@21cn.com>\n"
+ "Language-Team: Chinese (simplified) <vdr@linuxtv.org>\n"
+@@ -1080,6 +1080,9 @@
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Áõ¥Êé•ÂΩïÂÉèÊó∂Èó¥(min)"
+ 
++msgid "Setup.Recording$present event"
++msgstr ""
++
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "ÊúÄÂ§ßÁöÑËßÜÈ¢ëÊñá‰ª∂ÂÆπÈáè (MB)"
+ 
+@@ -1255,6 +1258,9 @@
+ msgid "Index file regeneration complete"
+ msgstr ""
+ 
++msgid "Index file regeneration failed!"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "‰∏çËÉΩÂÖ≥Êú∫ - Êìç‰Ωú '-s' ‰∏çÂÖÅËÆ∏!"
+ 
+diff -ruN vdr-1.7.30/recorder.c vdr-1.7.31/recorder.c
+--- vdr-1.7.30/recorder.c	2011-09-04 11:26:44.000000000 +0200
++++ vdr-1.7.31/recorder.c	2012-09-22 13:53:57.000000000 +0200
+@@ -4,13 +4,13 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.c 2.15 2011/09/04 09:26:44 kls Exp $
++ * $Id: recorder.c 2.17 2012/09/22 11:53:57 kls Exp $
+  */
+ 
+ #include "recorder.h"
+ #include "shutdown.h"
+ 
+-#define RECORDERBUFSIZE  (MEGABYTE(5) / TS_SIZE * TS_SIZE) // multiple of TS_SIZE
++#define RECORDERBUFSIZE  (MEGABYTE(20) / TS_SIZE * TS_SIZE) // multiple of TS_SIZE
+ 
+ // The maximum time we wait before assuming that a recorded video data stream
+ // is broken:
+@@ -33,6 +33,7 @@
+ 
+   ringBuffer = new cRingBufferLinear(RECORDERBUFSIZE, MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE, true, "Recorder");
+   ringBuffer->SetTimeouts(0, 100);
++  ringBuffer->SetIoThrottle();
+ 
+   int Pid = Channel->Vpid();
+   int Type = Channel->Vtype();
+diff -ruN vdr-1.7.30/recording.c vdr-1.7.31/recording.c
+--- vdr-1.7.30/recording.c	2012-09-06 11:57:31.000000000 +0200
++++ vdr-1.7.31/recording.c	2012-09-30 15:05:14.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.60 2012/09/06 09:57:31 kls Exp $
++ * $Id: recording.c 2.64 2012/09/30 13:05:14 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -107,8 +107,10 @@
+             }
+          r = DeletedRecordings.Next(r);
+          }
+-     if (deleted)
+-        RemoveEmptyVideoDirectories();
++     if (deleted) {
++        const char *IgnoreFiles[] = { SORTMODEFILE, NULL };
++        RemoveEmptyVideoDirectories(IgnoreFiles);
++        }
+      }
+ }
+ 
+@@ -820,9 +822,13 @@
+         t++;
+         }
+   if (s1 && s2) {
++     // To have folders sorted before plain recordings, the '/' s1 points to
++     // is replaced by the character 'b'. All other slashes will be replaced
++     // by 'a' in SortName() (see below), which will result in the desired
++     // sequence:
++     *s1 = 'b';
+      s1++;
+      memmove(s1, s2, t - s2 + 1);
+-     *s1 = 0xFF; // sorts folders before plain recordings
+      }
+   return s;
+ }
+@@ -1010,8 +1016,10 @@
+         RemoveVideoFile(NewName);
+         }
+      isyslog("deleting recording '%s'", FileName());
+-     if (access(FileName(), F_OK) == 0)
++     if (access(FileName(), F_OK) == 0) {
+         result = RenameVideoFile(FileName(), NewName);
++        cRecordingUserCommand::InvokeCommand(RUC_DELETERECORDING, NewName);
++        }
+      else {
+         isyslog("recording '%s' vanished", FileName());
+         result = true; // well, we were going to delete it, anyway
+@@ -1483,6 +1491,7 @@
+ void cIndexFileGenerator::Action(void)
+ {
+   bool IndexFileComplete = false;
++  bool IndexFileWritten = false;
+   bool Rewind = false;
+   cFileName FileName(recordingName, false);
+   cUnbufferedFile *ReplayFile = FileName.Open();
+@@ -1514,6 +1523,7 @@
+                  if (FrameDetector.NewFrame()) {
+                     IndexFile.Write(FrameDetector.IndependentFrame(), FileName.Number(), FrameOffset >= 0 ? FrameOffset : FileSize);
+                     FrameOffset = -1;
++                    IndexFileWritten = true;
+                     }
+                  FileSize += Processed;
+                  Buffer.Del(Processed);
+@@ -1568,11 +1578,16 @@
+            break;
+            }
+         }
++  if (IndexFileComplete) {
++     if (IndexFileWritten) {
++        Skins.QueueMessage(mtInfo, tr("Index file regeneration complete"));
++        return;
++        }
++     else
++        Skins.QueueMessage(mtError, tr("Index file regeneration failed!"));
++     }
+   // Delete the index file if the recording has not been processed entirely:
+-  if (IndexFileComplete)
+-     Skins.QueueMessage(mtInfo, tr("Index file regeneration complete"));
+-  else
+-     IndexFile.Delete();
++  IndexFile.Delete();
+ }
+ 
+ // --- cIndexFile ------------------------------------------------------------
+diff -ruN vdr-1.7.30/recording.h vdr-1.7.31/recording.h
+--- vdr-1.7.30/recording.h	2012-09-06 11:59:11.000000000 +0200
++++ vdr-1.7.31/recording.h	2012-09-17 10:53:23.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 2.36 2012/09/06 09:59:11 kls Exp $
++ * $Id: recording.h 2.37 2012/09/17 08:53:23 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -240,6 +240,7 @@
+ #define RUC_BEFORERECORDING "before"
+ #define RUC_AFTERRECORDING  "after"
+ #define RUC_EDITEDRECORDING "edited"
++#define RUC_DELETERECORDING "deleted"
+ 
+ class cRecordingUserCommand {
+ private:
+diff -ruN vdr-1.7.30/remux.c vdr-1.7.31/remux.c
+--- vdr-1.7.30/remux.c	2012-03-02 11:56:49.000000000 +0100
++++ vdr-1.7.31/remux.c	2012-09-19 12:28:42.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 2.64 2012/03/02 10:56:49 kls Exp $
++ * $Id: remux.c 2.67 2012/09/19 10:28:42 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -622,6 +622,34 @@
+                          }
+                       }
+                       break;
++           case 0x81: // STREAMTYPE_USER_PRIVATE
++                      {
++                      dbgpatpmt(" AC3");
++                      char lang[MAXLANGCODE1] = { 0 };
++                      SI::Descriptor *d;
++                      for (SI::Loop::Iterator it; (d = stream.streamDescriptors.getNext(it)); ) {
++                          switch (d->getDescriptorTag()) {
++                            case SI::ISO639LanguageDescriptorTag: {
++                                 SI::ISO639LanguageDescriptor *ld = (SI::ISO639LanguageDescriptor *)d;
++                                 dbgpatpmt(" '%s'", ld->languageCode);
++                                 strn0cpy(lang, I18nNormalizeLanguageCode(ld->languageCode), MAXLANGCODE1);
++                                 }
++                                 break;
++                            default: ;
++                            }
++                         delete d;
++                         }
++                      if (NumDpids < MAXDPIDS) {
++                         dpids[NumDpids] = stream.getPid();
++                         dtypes[NumDpids] = SI::AC3DescriptorTag;
++                         strn0cpy(dlangs[NumDpids], lang, sizeof(dlangs[NumDpids]));
++                         if (updatePrimaryDevice && Setup.UseDolbyDigital)
++                            cDevice::PrimaryDevice()->SetAvailableTrack(ttDolby, NumDpids, stream.getPid(), lang);
++                         NumDpids++;
++                         dpids[NumDpids]= 0;
++                         }
++                      }
++                      break;
+            default: ;
+            }
+          dbgpatpmt("\n");
+@@ -843,7 +871,8 @@
+ 
+ int cFrameDetector::Analyze(const uchar *Data, int Length)
+ {
+-  int SeenPayloadStart = false;
++  bool SeenPayloadStart = false;
++  bool SeenAccessUnitDelimiter = false;
+   int Processed = 0;
+   newFrame = independentFrame = false;
+   while (Length >= TS_SIZE) {
+@@ -970,12 +999,16 @@
+                                scanner = EMPTY_SCANNER;
+                                if (synced && !SeenPayloadStart && Processed)
+                                   return Processed; // flush everything before this new frame
++                               SeenAccessUnitDelimiter = true;
++                               }
++                            else if (SeenAccessUnitDelimiter && scanner == 0x00000001) { // NALU start
++                               SeenAccessUnitDelimiter = false;
+                                int FrameTypeOffset = i + 1;
+                                if (FrameTypeOffset >= TS_SIZE) // the byte to check is in the next TS packet
+                                   i = SkipPackets(Data, Length, Processed, FrameTypeOffset);
+                                newFrame = true;
+-                               uchar FrameType = Data[FrameTypeOffset];
+-                               independentFrame = FrameType == 0x10;
++                               uchar FrameType = Data[FrameTypeOffset] & 0x1F;
++                               independentFrame = FrameType == 0x07;
+                                if (synced) {
+                                   if (framesPerPayloadUnit < 0) {
+                                      payloadUnitOfFrame = (payloadUnitOfFrame + 1) % -framesPerPayloadUnit;
+diff -ruN vdr-1.7.30/ringbuffer.c vdr-1.7.31/ringbuffer.c
+--- vdr-1.7.30/ringbuffer.c	2009-11-22 12:14:36.000000000 +0100
++++ vdr-1.7.31/ringbuffer.c	2012-09-22 13:26:49.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Parts of this file were inspired by the 'ringbuffy.c' from the
+  * LinuxDVB driver (see linuxtv.org).
+  *
+- * $Id: ringbuffer.c 2.3 2009/11/22 11:14:36 kls Exp $
++ * $Id: ringbuffer.c 2.5 2012/09/22 11:26:49 kls Exp $
+  */
+ 
+ #include "ringbuffer.h"
+@@ -20,6 +20,8 @@
+ #define OVERFLOWREPORTDELTA 5 // seconds between reports
+ #define PERCENTAGEDELTA     10
+ #define PERCENTAGETHRESHOLD 70
++#define IOTHROTTLELOW       20
++#define IOTHROTTLEHIGH      50
+ 
+ cRingBuffer::cRingBuffer(int Size, bool Statistics)
+ {
+@@ -31,10 +33,12 @@
+   putTimeout = getTimeout = 0;
+   lastOverflowReport = 0;
+   overflowCount = overflowBytes = 0;
++  ioThrottle = NULL;
+ }
+ 
+ cRingBuffer::~cRingBuffer()
+ {
++  delete ioThrottle;
+   if (statistics)
+      dsyslog("buffer stats: %d (%d%%) used", maxFill, maxFill * 100 / (size - 1));
+ }
+@@ -50,6 +54,12 @@
+         lastPercent = percent;
+         }
+      }
++  if (ioThrottle) {
++     if (percent >= IOTHROTTLEHIGH)
++        ioThrottle->Activate();
++     else if (percent < IOTHROTTLELOW)
++        ioThrottle->Release();
++     }
+ }
+ 
+ void cRingBuffer::WaitForPut(void)
+@@ -66,13 +76,13 @@
+ 
+ void cRingBuffer::EnablePut(void)
+ {
+-  if (putTimeout && Free() > Size() / 3)
++  if (putTimeout && Free() > Size() / 10)
+      readyForPut.Signal();
+ }
+ 
+ void cRingBuffer::EnableGet(void)
+ {
+-  if (getTimeout && Available() > Size() / 3)
++  if (getTimeout && Available() > Size() / 10)
+      readyForGet.Signal();
+ }
+ 
+@@ -82,6 +92,12 @@
+   getTimeout = GetTimeout;
+ }
+ 
++void cRingBuffer::SetIoThrottle(void)
++{
++  if (!ioThrottle)
++     ioThrottle = new cIoThrottle;
++}
++
+ void cRingBuffer::ReportOverflow(int Bytes)
+ {
+   overflowCount++;
+diff -ruN vdr-1.7.30/ringbuffer.h vdr-1.7.31/ringbuffer.h
+--- vdr-1.7.30/ringbuffer.h	2011-12-04 14:38:17.000000000 +0100
++++ vdr-1.7.31/ringbuffer.h	2012-09-20 11:29:32.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ringbuffer.h 2.3 2011/12/04 13:38:17 kls Exp $
++ * $Id: ringbuffer.h 2.4 2012/09/20 09:29:32 kls Exp $
+  */
+ 
+ #ifndef __RINGBUFFER_H
+@@ -22,6 +22,7 @@
+   time_t lastOverflowReport;
+   int overflowCount;
+   int overflowBytes;
++  cIoThrottle *ioThrottle;
+ protected:
+   tThreadId getThreadTid;
+   int maxFill;//XXX
+@@ -40,6 +41,7 @@
+   cRingBuffer(int Size, bool Statistics = false);
+   virtual ~cRingBuffer();
+   void SetTimeouts(int PutTimeout, int GetTimeout);
++  void SetIoThrottle(void);
+   void ReportOverflow(int Bytes);
+   };
+ 
+diff -ruN vdr-1.7.30/skinlcars.c vdr-1.7.31/skinlcars.c
+--- vdr-1.7.30/skinlcars.c	2012-09-09 14:16:50.000000000 +0200
++++ vdr-1.7.31/skinlcars.c	2012-09-19 13:05:50.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinlcars.c 2.14 2012/09/09 12:16:50 kls Exp $
++ * $Id: skinlcars.c 2.15 2012/09/19 11:05:50 kls Exp $
+  */
+ 
+ // "Star Trek: The Next Generation"(R) is a registered trademark of Paramount Pictures,
+@@ -1661,6 +1661,7 @@
+   bool modeOnly;
+   int lineHeight;
+   tColor frameColor;
++  int lastCurrentWidth;
+   cString lastDate;
+   tTrackId lastTrackId;
+   void DrawDate(void);
+@@ -1685,6 +1686,7 @@
+   modeOnly = ModeOnly;
+   lineHeight = font->Height();
+   frameColor = Theme.Color(clrReplayFrameBg);
++  lastCurrentWidth = 0;
+   int d = 5 * lineHeight;
+   xp00 = 0;
+   xp01 = xp00 + d / 2;
+@@ -1801,8 +1803,9 @@
+ void cSkinLCARSDisplayReplay::SetCurrent(const char *Current)
+ {
+   const cFont *font = cFont::GetFont(fontOsd);
+-  int w = font->Width(Current) + 10;
+-  osd->DrawText(xp03, yp03 - lineHeight, Current, Theme.Color(clrReplayPosition), Theme.Color(clrBackground), font, w, 0, taLeft);
++  int w = font->Width(Current);
++  osd->DrawText(xp03, yp03 - lineHeight, Current, Theme.Color(clrReplayPosition), Theme.Color(clrBackground), font, lastCurrentWidth > w ? lastCurrentWidth : w, 0, taLeft);
++  lastCurrentWidth = w;
+ }
+ 
+ void cSkinLCARSDisplayReplay::SetTotal(const char *Total)
+diff -ruN vdr-1.7.30/thread.c vdr-1.7.31/thread.c
+--- vdr-1.7.30/thread.c	2012-05-08 13:15:57.000000000 +0200
++++ vdr-1.7.31/thread.c	2012-09-20 11:05:50.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.c 2.4 2012/05/08 11:15:57 kls Exp $
++ * $Id: thread.c 2.5 2012/09/20 09:05:50 kls Exp $
+  */
+ 
+ #include "thread.h"
+@@ -398,6 +398,48 @@
+   return false;
+ }
+ 
++// --- cIoThrottle -----------------------------------------------------------
++
++cMutex cIoThrottle::mutex;
++int cIoThrottle::count = 0;
++
++cIoThrottle::cIoThrottle(void)
++{
++  active = false;
++}
++
++cIoThrottle::~cIoThrottle()
++{
++  Release();
++}
++
++void cIoThrottle::Activate(void)
++{
++  if (!active) {
++     mutex.Lock();
++     count++;
++     active = true;
++     dsyslog("i/o throttle activated, count = %d (tid=%d)", count, cThread::ThreadId());
++     mutex.Unlock();
++     }
++}
++
++void cIoThrottle::Release(void)
++{
++  if (active) {
++     mutex.Lock();
++     count--;
++     active = false;
++     dsyslog("i/o throttle released, count = %d (tid=%d)", count, cThread::ThreadId());
++     mutex.Unlock();
++     }
++}
++
++bool cIoThrottle::Engaged(void)
++{
++  return count > 0;
++}
++
+ // --- cPipe -----------------------------------------------------------------
+ 
+ // cPipe::Open() and cPipe::Close() are based on code originally received from
+diff -ruN vdr-1.7.30/thread.h vdr-1.7.31/thread.h
+--- vdr-1.7.30/thread.h	2009-04-13 15:50:39.000000000 +0200
++++ vdr-1.7.31/thread.h	2012-09-20 10:46:27.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.h 2.1 2009/04/13 13:50:39 kls Exp $
++ * $Id: thread.h 2.2 2012/09/20 08:46:27 kls Exp $
+  */
+ 
+ #ifndef __THREAD_H
+@@ -157,6 +157,29 @@
+ 
+ #define LOCK_THREAD cThreadLock ThreadLock(this)
+ 
++class cIoThrottle {
++private:
++  static cMutex mutex;
++  static int count;
++  bool active;
++public:
++  cIoThrottle(void);
++  ~cIoThrottle();
++  void Activate(void);
++       ///< Activates the global I/O throttling mechanism.
++       ///< This function may be called any number of times, but only
++       ///< the first call after an inactive state will have an effect.
++  void Release(void);
++       ///< Releases the global I/O throttling mechanism.
++       ///< This function may be called any number of times, but only
++       ///< the first call after an active state will have an effect.
++  bool Active(void) { return active; }
++       ///< Returns true if this I/O throttling object is currently active.
++  static bool Engaged(void);
++       ///< Returns true if any I/O throttling object is currently active.
++  };
++
++
+ // cPipe implements a pipe that closes all unnecessary file descriptors in
+ // the child process.
+ 
+diff -ruN vdr-1.7.30/timers.c vdr-1.7.31/timers.c
+--- vdr-1.7.30/timers.c	2012-06-09 16:37:24.000000000 +0200
++++ vdr-1.7.31/timers.c	2012-09-15 15:34:03.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 2.11 2012/06/09 14:37:24 kls Exp $
++ * $Id: timers.c 2.12 2012/09/15 13:34:03 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -32,6 +32,9 @@
+   deferred = 0;
+   recording = pending = inVpsMargin = false;
+   flags = tfNone;
++  *file = 0;
++  aux = NULL;
++  event = NULL;
+   if (Instant)
+      SetFlags(tfActive | tfInstant);
+   channel = Channel ? Channel : Channels.GetByNumber(cDevice::CurrentChannel());
+@@ -41,15 +44,40 @@
+   day = SetTime(t, 0);
+   weekdays = 0;
+   start = now->tm_hour * 100 + now->tm_min;
+-  stop = now->tm_hour * 60 + now->tm_min + Setup.InstantRecordTime;
+-  stop = (stop / 60) * 100 + (stop % 60);
++  stop = 0;
++  if (!Setup.InstantRecordTime && channel) {
++     cSchedulesLock SchedulesLock;
++     if (const cSchedules *Schedules = cSchedules::Schedules(SchedulesLock)) {
++        if (const cSchedule *Schedule = Schedules->GetSchedule(channel)) {
++           if (const cEvent *Event = Schedule->GetPresentEvent()) {
++              time_t tstart = Event->StartTime();
++              time_t tstop = Event->EndTime();
++              if (Event->Vps() && Setup.UseVps) {
++                 SetFlags(tfVps);
++                 tstart = Event->Vps();
++                 }
++              else {
++                 tstop  += Setup.MarginStop * 60;
++                 tstart -= Setup.MarginStart * 60;
++                 }
++              day = SetTime(tstart, 0);
++              struct tm *time = localtime_r(&tstart, &tm_r);
++              start = time->tm_hour * 100 + time->tm_min;
++              time = localtime_r(&tstop, &tm_r);
++              stop = time->tm_hour * 100 + time->tm_min;
++              SetEvent(Event);
++              }
++           }
++        }
++     }
++  if (!stop) {
++     stop = now->tm_hour * 60 + now->tm_min + (Setup.InstantRecordTime ? Setup.InstantRecordTime : DEFINSTRECTIME);
++     stop = (stop / 60) * 100 + (stop % 60);
++     }
+   if (stop >= 2400)
+      stop -= 2400;
+   priority = Pause ? Setup.PausePriority : Setup.DefaultPriority;
+   lifetime = Pause ? Setup.PauseLifetime : Setup.DefaultLifetime;
+-  *file = 0;
+-  aux = NULL;
+-  event = NULL;
+   if (Instant && channel)
+      snprintf(file, sizeof(file), "%s%s", Setup.MarkInstantRecord ? "@" : "", *Setup.NameInstantRecord ? Setup.NameInstantRecord : channel->Name());
+   if (VfatFileSystem && (Utf8StrLen(file) > VFAT_MAX_FILENAME)) {
+@@ -66,6 +94,9 @@
+   deferred = 0;
+   recording = pending = inVpsMargin = false;
+   flags = tfActive;
++  *file = 0;
++  aux = NULL;
++  event = NULL;
+   if (Event->Vps() && Setup.UseVps)
+      SetFlags(tfVps);
+   channel = Channels.GetByChannelID(Event->ChannelID(), true);
+@@ -86,7 +117,6 @@
+      stop -= 2400;
+   priority = Setup.DefaultPriority;
+   lifetime = Setup.DefaultLifetime;
+-  *file = 0;
+   const char *Title = Event->Title();
+   if (!isempty(Title))
+      Utf8Strn0Cpy(file, Event->Title(), sizeof(file));
+@@ -95,8 +125,7 @@
+      file[Utf8SymChars(file, VFAT_MAX_FILENAME)] = 0;
+      dsyslog("timer file name truncated to '%s'", file);
+      }
+-  aux = NULL;
+-  event = NULL; // let SetEvent() be called to get a log message
++  SetEvent(Event);
+ }
+ 
+ cTimer::cTimer(const cTimer &Timer)
+diff -ruN vdr-1.7.30/tools.c vdr-1.7.31/tools.c
+--- vdr-1.7.30/tools.c	2012-08-21 12:34:37.000000000 +0200
++++ vdr-1.7.31/tools.c	2012-09-30 15:04:14.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 2.25 2012/08/21 10:34:37 kls Exp $
++ * $Id: tools.c 2.26 2012/09/30 13:04:14 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -285,6 +285,18 @@
+   return n;
+ }
+ 
++bool StrInArray(const char *a[], const char *s)
++{
++  if (a) {
++     while (*a) {
++           if (strcmp(*a, s) == 0)
++              return true;
++           a++;
++           }
++     }
++  return false;
++}
++
+ cString AddDirectory(const char *DirName, const char *FileName)
+ {
+   return cString::sprintf("%s/%s", DirName && *DirName ? DirName : ".", FileName);
+@@ -433,9 +445,9 @@
+   return true;
+ }
+ 
+-bool RemoveEmptyDirectories(const char *DirName, bool RemoveThis)
++bool RemoveEmptyDirectories(const char *DirName, bool RemoveThis, const char *IgnoreFiles[])
+ {
+-  bool HasDotFiles = false;
++  bool HasIgnoredFiles = false;
+   cReadDir d(DirName);
+   if (d.Ok()) {
+      bool empty = true;
+@@ -446,11 +458,11 @@
+               struct stat st;
+               if (stat(buffer, &st) == 0) {
+                  if (S_ISDIR(st.st_mode)) {
+-                    if (!RemoveEmptyDirectories(buffer, true))
++                    if (!RemoveEmptyDirectories(buffer, true, IgnoreFiles))
+                        empty = false;
+                     }
+-                 else if (*e->d_name == '.') // "dot files" don't count
+-                    HasDotFiles = true;
++                 else if (RemoveThis && IgnoreFiles && StrInArray(IgnoreFiles, e->d_name))
++                    HasIgnoredFiles = true;
+                  else
+                     empty = false;
+                  }
+@@ -461,21 +473,18 @@
+               }
+            }
+      if (RemoveThis && empty) {
+-        if (HasDotFiles) {
+-           cReadDir d(DirName);
+-           if (d.Ok()) {
+-              struct dirent *e;
+-              while ((e = d.Next()) != NULL) {
+-                    if (*e->d_name == '.') { // for safety - should always be true
+-                       cString buffer = AddDirectory(DirName, e->d_name);
+-                       dsyslog("removing %s", *buffer);
+-                       if (remove(buffer) < 0) {
+-                          LOG_ERROR_STR(*buffer);
+-                          return false;
+-                          }
++        if (HasIgnoredFiles) {
++           while (*IgnoreFiles) {
++                 cString buffer = AddDirectory(DirName, *IgnoreFiles);
++                 if (access(buffer, F_OK) == 0) {
++                    dsyslog("removing %s", *buffer);
++                    if (remove(buffer) < 0) {
++                       LOG_ERROR_STR(*buffer);
++                       return false;
+                        }
+                     }
+-              }
++                 IgnoreFiles++;
++                 }
+            }
+         dsyslog("removing %s", DirName);
+         if (remove(DirName) < 0) {
+diff -ruN vdr-1.7.30/tools.h vdr-1.7.31/tools.h
+--- vdr-1.7.30/tools.h	2012-05-20 15:58:06.000000000 +0200
++++ vdr-1.7.31/tools.h	2012-09-30 13:02:21.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 2.21 2012/05/20 13:58:06 kls Exp $
++ * $Id: tools.h 2.22 2012/09/30 11:02:21 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -213,6 +213,9 @@
+     ///< K, M, G or T to abbreviate Kilo-, Mega-, Giga- or Terabyte, respectively
+     ///< (based on 1024). Everything after the first non-numeric character is
+     ///< silently ignored, as are any characters other than the ones mentioned here.
++bool StrInArray(const char *a[], const char *s);
++    ///< Returns true if the string s is equal to one of the strings pointed
++    ///< to by the (NULL terminated) array a.
+ cString itoa(int n);
+ cString AddDirectory(const char *DirName, const char *FileName);
+ bool EntriesOnSameFileSystem(const char *File1, const char *File2);
+@@ -220,7 +223,12 @@
+ bool DirectoryOk(const char *DirName, bool LogErrors = false);
+ bool MakeDirs(const char *FileName, bool IsDirectory = false);
+ bool RemoveFileOrDir(const char *FileName, bool FollowSymlinks = false);
+-bool RemoveEmptyDirectories(const char *DirName, bool RemoveThis = false);
++bool RemoveEmptyDirectories(const char *DirName, bool RemoveThis = false, const char *IgnoreFiles[] = NULL);
++     ///< Removes all empty directories under the given directory DirName.
++     ///< If RemoveThis is true, DirName will also be removed if it is empty.
++     ///< IgnoreFiles can be set to an array of file names that will be ignored when
++     ///< considering whether a directory is empty. If IgnoreFiles is given, the array
++     ///< must end with a NULL pointer.
+ int DirSizeMB(const char *DirName); ///< returns the total size of the files in the given directory, or -1 in case of an error
+ char *ReadLink(const char *FileName); ///< returns a new string allocated on the heap, which the caller must delete (or NULL in case of an error)
+ bool SpinUpDisk(const char *FileName);
+diff -ruN vdr-1.7.30/vdr.c vdr-1.7.31/vdr.c
+--- vdr-1.7.30/vdr.c	2012-09-01 15:30:19.000000000 +0200
++++ vdr-1.7.31/vdr.c	2012-09-24 14:43:04.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 2.38 2012/09/01 13:30:19 kls Exp $
++ * $Id: vdr.c 2.40 2012/09/24 12:43:04 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -466,7 +466,8 @@
+                "  -p PORT,  --port=PORT    use PORT for SVDRP (default: %d)\n"
+                "                           0 turns off SVDRP\n"
+                "  -P OPT,   --plugin=OPT   load a plugin defined by the given options\n"
+-               "  -r CMD,   --record=CMD   call CMD before and after a recording\n"
++               "  -r CMD,   --record=CMD   call CMD before and after a recording, and after\n"
++               "                           a recording has been edited or deleted\n"
+                "            --resdir=DIR   read resource files from DIR (default: %s)\n"
+                "  -s CMD,   --shutdown=CMD call CMD to shutdown the computer\n"
+                "            --split        split edited files at the editing marks (only\n"
+@@ -1294,6 +1295,8 @@
+            PluginManager.Housekeeping();
+            }
+ 
++        ReportEpgBugFixStats();
++
+         // Main thread hooks of plugins:
+         PluginManager.MainThreadHook();
+         }
+@@ -1330,7 +1333,7 @@
+   EpgHandlers.Clear();
+   PluginManager.Shutdown(true);
+   cSchedules::Cleanup(true);
+-  ReportEpgBugFixStats();
++  ReportEpgBugFixStats(true);
+   if (WatchdogTimeout > 0)
+      dsyslog("max. latency time %d seconds", MaxLatencyTime);
+   if (LastSignal)
+diff -ruN vdr-1.7.30/videodir.c vdr-1.7.31/videodir.c
+--- vdr-1.7.30/videodir.c	2012-09-01 12:57:44.000000000 +0200
++++ vdr-1.7.31/videodir.c	2012-09-30 14:06:33.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: videodir.c 2.3 2012/09/01 10:57:44 kls Exp $
++ * $Id: videodir.c 2.4 2012/09/30 12:06:33 kls Exp $
+  */
+ 
+ #include "videodir.h"
+@@ -229,11 +229,11 @@
+   return NULL;
+ }
+ 
+-void RemoveEmptyVideoDirectories(void)
++void RemoveEmptyVideoDirectories(const char *IgnoreFiles[])
+ {
+   cVideoDirectory Dir;
+   do {
+-     RemoveEmptyDirectories(Dir.Name());
++     RemoveEmptyDirectories(Dir.Name(), false, IgnoreFiles);
+      } while (Dir.Next());
+ }
+ 
+diff -ruN vdr-1.7.30/videodir.h vdr-1.7.31/videodir.h
+--- vdr-1.7.30/videodir.h	2012-09-01 12:57:07.000000000 +0200
++++ vdr-1.7.31/videodir.h	2012-09-30 13:01:15.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: videodir.h 2.2 2012/09/01 10:57:07 kls Exp $
++ * $Id: videodir.h 2.3 2012/09/30 11:01:15 kls Exp $
+  */
+ 
+ #ifndef __VIDEODIR_H
+@@ -23,7 +23,7 @@
+ bool VideoFileSpaceAvailable(int SizeMB);
+ int VideoDiskSpace(int *FreeMB = NULL, int *UsedMB = NULL); // returns the used disk space in percent
+ cString PrefixVideoFileName(const char *FileName, char Prefix);
+-void RemoveEmptyVideoDirectories(void);
++void RemoveEmptyVideoDirectories(const char *IgnoreFiles[] = NULL);
+ bool IsOnVideoDirectoryFileSystem(const char *FileName);
+ 
+ class cVideoDiskUsage {

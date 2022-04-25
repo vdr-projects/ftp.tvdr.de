@@ -1,0 +1,595 @@
+diff -ruNbw vdr-1.2.1/CONTRIBUTORS vdr-1.2.2/CONTRIBUTORS
+--- vdr-1.2.1/CONTRIBUTORS	Sun Jun  8 11:25:07 2003
++++ vdr-1.2.2/CONTRIBUTORS	Sat Aug  2 16:32:53 2003
+@@ -518,6 +518,7 @@
+  for fixing resume file handling in case the resume.vdr file can't be written
+  for reporting a problem with newly created timers in case they are not confirmed
+  with "Ok"
++ for reporting an occasional "Broken pipe" error in SVDRP connections
+ 
+ Jaakko Hyvätti <jaakko@hyvatti.iki.fi>
+  for translating OSD texts to the Finnish language
+@@ -525,12 +526,16 @@
+  for fixing recording overlapping timers on the same channel in case
+  DO_REC_AND_PLAY_ON_PRIMARY_DEVICE and/or DO_MULTIPLE_RECORDINGS is not defined
+  for fixing the minimum lifespan of deleted recordings
++ for suggesting to improve channel switching in case of numerical input by switching
++ as soon as the channel is unique
+ 
+ Dennis Noordsij <dennis.noordsij@wiral.com>
+  for reporting a small glitch when switching channels
+ 
+ Steffen Barszus <st_barszus@gmx.de>
+  for reporting a bug in switching audio tracks in 'Transfer Mode' on the primary DVB device
++ for making the program use the values of VIDEODIR and PLUGINDIR defined in Makefile
++ or Makefile.config as defaults
+ 
+ Peter Seyringer <e9425234@student.tuwien.ac.at>
+  for reporting a bug in saving the polarization parameter of channels that have a
+@@ -550,6 +555,8 @@
+  for suggesting not to display channel group delimiters without text
+  for reporting a bug in handling channels in the "Channels" menu in case there are
+  ':@nnn' group separators without names
++ for suggesting to clear the channel info display when entering numeric keys to
++ switch channels
+ 
+ Georg Hitsch <georg@hitsch.at>
+  for his help in keeping 'channels.conf' up to date
+@@ -561,6 +568,8 @@
+ Emil Naepflein <Emil.Naepflein@philosys.de>
+  for suggesting to take an active SVDRP connection into account when doing shutdown or
+  housekeeping
++ for fixing selecting the device, because sometimes an FTA recording terminated a
++ CA recording
+ 
+ Gerald Berwolf <genka@genka.de>
+  for suggesting to deactivate some templates in tools.h in case some plugin needs to
+@@ -719,3 +728,19 @@
+ 
+ Thomas Schmidt <thomas.schmidt@in.stud.tu-ilmenau.de>
+  for reporting a crash when cancelling a newly created timer
++
++Michael Walle <michael.walle@web.de>
++ for reporting a bug in channel switching after Left/Right has been pressed
++
++Thomas Keil <tk@commedia-group.com>
++ for suggesting to change the behaviour of the '0' key in normal viewing mode so
++ that a channel only qualifies as "previous" if it has been selected for at least
++ 3 seconds
++ for reporting a bug in handling the color buttons in the "Edit channel" menu
++
++Kenneth Aafløy <ke-aa@frisurf.no>
++ for fixing checking CA capabilities with the dvb-kernel driver
++
++Ernst Fürst <ernstfuerst@swissonline.ch>
++ for reporting a crash in case a VFAT file system is used without compiling VDR
++ with VFAT=1
+diff -ruNbw vdr-1.2.1/HISTORY vdr-1.2.2/HISTORY
+--- vdr-1.2.1/HISTORY	Mon Jun  9 11:50:26 2003
++++ vdr-1.2.2/HISTORY	Sun Aug  3 11:54:18 2003
+@@ -2253,3 +2253,32 @@
+   channel (thanks to Malcolm Caldwell for reporting this one).
+ - Some corrections to the Finnish OSD texts (thanks to Niko Tarnanen and Rolf
+   Ahrenberg).
++
++2003-08-03: Version 1.2.2
++
++- Fixed a bug in channel switching after Left/Right has been pressed (thanks to
++  Michael Walle for reporting this one).
++- Improved channel switching in case of numerical input by switching as soon as
++  the channel is unique (suggested by Jaakko Hyvätti).
++- Fixed creating a new channel in the "Channels" menu in case the 'channels.conf'
++  contains ':@nnn' lines with no text (thanks to Guy Roussin for reporting this
++  one).
++- Changed the behaviour of the '0' key in normal viewing mode so that a channel
++  only qualifies as "previous" if it has been selected for at least 3 seconds
++  (suggested by Thomas Keil).
++- Now clearing the channel info display when entering numeric keys to switch
++  channels (suggested by Guy Roussin).
++- Added missing I18N entry for "Ppid" (thanks to Rolf Ahrenberg).
++- Fixed handling the color buttons in the "Edit channel" menu (thanks to Thomas
++  Keil for reporting this one).
++- Fixed an occasional "Broken pipe" error in SVDRP connections (thanks to Gerhard
++  Steiner for reporting this one).
++- Fixed checking CA capabilities with the dvb-kernel driver (thanks to Kenneth
++  Aafløy).
++- Fixed selecting the device, because sometimes an FTA recording terminated a
++  CA recording (thanks to Emil Naepflein).
++- Fixed a possible crash in case a VFAT file system is used without compiling VDR
++  with VFAT=1 (thanks to Ernst Fürst for reporting this one).
++- Now the program uses the values of VIDEODIR and PLUGINDIR defined in Makefile
++  or Makefile.config as defaults (thanks to Steffen Barszus).
++- Added the usual menu timeout to the CAM menus.
+diff -ruNbw vdr-1.2.1/MANUAL vdr-1.2.2/MANUAL
+--- vdr-1.2.1/MANUAL	Thu May 29 14:37:02 2003
++++ vdr-1.2.2/MANUAL	Sun Jun 15 16:35:38 2003
+@@ -154,7 +154,8 @@
+      menu) by pressing the "Blue" button.
+ 
+   Pressing the '0' key in normal viewing mode toggles between the current and
+-  the previous channel.
++  the previous channel. A channel is considered "previous" if it has been
++  selected for at least 3 seconds.
+ 
+   After switching to a different channel the channel number and name, as well
+   as the current time are displayed at the top of the screen. If available, the
+diff -ruNbw vdr-1.2.1/Make.config.template vdr-1.2.2/Make.config.template
+--- vdr-1.2.1/Make.config.template	Fri Nov  1 15:05:36 2002
++++ vdr-1.2.2/Make.config.template	Sat Aug  2 16:25:53 2003
+@@ -6,7 +6,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Make.config.template 1.1 2002/11/01 14:05:36 kls Exp $
++# $Id: Make.config.template 1.2 2003/08/02 14:25:53 kls Exp $
+ 
+ ### The C compiler and options:
+ 
+@@ -22,4 +22,5 @@
+ MANDIR   = /usr/local/man
+ BINDIR   = /usr/local/bin
+ 
++PLUGINDIR= ./PLUGINS
+ VIDEODIR = /video
+diff -ruNbw vdr-1.2.1/Makefile vdr-1.2.2/Makefile
+--- vdr-1.2.1/Makefile	Mon Jan  6 13:28:09 2003
++++ vdr-1.2.2/Makefile	Sat Aug  2 16:27:21 2003
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 1.56 2003/01/06 12:28:09 kls Exp $
++# $Id: Makefile 1.57 2003/08/02 14:27:21 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -48,6 +48,9 @@
+ DEFINES += -DREMOTE_$(REMOTE)
+ 
+ DEFINES += -D_GNU_SOURCE
++
++DEFINES += -DVIDEODIR=\"$(VIDEODIR)\"
++DEFINES += -DPLUGINDIR=\"$(PLUGINDIR)/lib\"
+ 
+ ifdef DEBUG_OSD
+ DEFINES += -DDEBUG_OSD
+diff -ruNbw vdr-1.2.1/channels.conf vdr-1.2.2/channels.conf
+--- vdr-1.2.1/channels.conf	Fri May 30 12:49:47 2003
++++ vdr-1.2.2/channels.conf	Sun Jun 22 15:41:17 2003
+@@ -85,9 +85,9 @@
+ :PW Erotic
+ Beate-Uhse.TV:12071:h:S19.2E:27500:1023:1024:0:101:21:0:0:0
+ Premiere Erotik 1:12031:h:S19.2E:27500:1279:1280:2:101:513:0:0:0
+-Premiere Erotik 2:12070:h:0:27500:1535:1536:0:101:778:0:0:0
+-Premiere Erotik 3:12070:h:0:27500:1791:1792:0:101:779:0:0:0
+-Premiere Erotik 4:12070:h:0:27500:3583:3584:0:101:780:0:0:0
++Premiere Erotik 2:12070:h:S19.2E:27500:1535:1536:0:101:778:0:0:0
++Premiere Erotik 3:12070:h:S19.2E:27500:1791:1792:0:101:779:0:0:0
++Premiere Erotik 4:12070:h:S19.2E:27500:3583:3584:0:101:780:0:0:0
+ :Sportsworld
+ Premiere Sport 1:11720:h:S19.2E:27500:255:256,257:0:101:17:0:0:0
+ Premiere Sport 2:12031:h:S19.2E:27500:3839:3840:0:101:27:0:0:0
+diff -ruNbw vdr-1.2.1/ci.c vdr-1.2.2/ci.c
+--- vdr-1.2.1/ci.c	Sun May 25 13:45:11 2003
++++ vdr-1.2.2/ci.c	Sat Aug  2 12:00:01 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 1.15 2003/05/25 11:45:11 kls Exp $
++ * $Id: ci.c 1.16 2003/08/02 10:00:01 kls Exp $
+  */
+ 
+ /* XXX TODO
+@@ -1314,7 +1314,7 @@
+         int NumSlots = Caps.slot_num;
+         if (NumSlots > 0) {
+            //XXX dsyslog("CAM: found %d CAM slots", NumSlots); // TODO let's do this only once we can be sure that there _really_ is a CAM adapter!
+-           if (Caps.slot_type == CA_CI_LINK)
++           if ((Caps.slot_type & CA_CI_LINK) != 0)
+               return new cCiHandler(fd_ca, NumSlots);
+            else
+               isyslog("CAM doesn't support link layer interface");
+diff -ruNbw vdr-1.2.1/config.h vdr-1.2.2/config.h
+--- vdr-1.2.1/config.h	Fri Jun  6 14:28:20 2003
++++ vdr-1.2.2/config.h	Thu Jun 12 22:37:14 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.164 2003/06/06 12:28:20 kls Exp $
++ * $Id: config.h 1.165 2003/06/12 20:37:14 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -19,8 +19,8 @@
+ #include "device.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.2.1"
+-#define VDRVERSNUM   10201  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.2.2"
++#define VDRVERSNUM   10202  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+diff -ruNbw vdr-1.2.1/device.c vdr-1.2.2/device.c
+--- vdr-1.2.1/device.c	Sun Jun  8 11:19:59 2003
++++ vdr-1.2.2/device.c	Sat Aug  2 13:44:28 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 1.45 2003/06/08 09:19:59 kls Exp $
++ * $Id: device.c 1.46 2003/08/02 11:44:28 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -142,23 +142,34 @@
+ cDevice *cDevice::GetDevice(const cChannel *Channel, int Priority, bool *NeedsDetachReceivers)
+ {
+   cDevice *d = NULL;
++  int select = 7, pri;
++
+   for (int i = 0; i < numDevices; i++) {
+       bool ndr;
+-      if (device[i]->ProvidesChannel(Channel, Priority, &ndr) // this device is basicly able to do the job
+-         && (!d // we don't have a device yet, or...
+-            || (device[i]->Receiving() && !ndr) // ...this one is already receiving and allows additional receivers, or...
+-            || !d->Receiving() // ...the one we have is not receiving...
+-               && (device[i]->Priority() < d->Priority() // ...this one has an even lower Priority, or...
+-                  || device[i]->Priority() == d->Priority() // ...same Priority...
+-                     && device[i]->ProvidesCa(Channel->Ca()) < d->ProvidesCa(Channel->Ca()) // ...but this one provides fewer Ca values
+-                  )
+-            )
+-         ) {
++      if (device[i]->ProvidesChannel(Channel, Priority, &ndr)) { // this device is basicly able to do the job
++         if (device[i]->Receiving() && !ndr)
++            pri = 0; // receiving and allows additional receivers
++         else if (d && !device[i]->Receiving() && device[i]->ProvidesCa(Channel->Ca()) < d->ProvidesCa(Channel->Ca()))
++            pri = 1; // free and fewer Ca's
++         else if (!device[i]->Receiving() && !device[i]->IsPrimaryDevice())
++            pri = 2; // free and not the primary device
++         else if (!device[i]->Receiving())
++            pri = 3; // free
++         else if (d && device[i]->Priority() < d->Priority())
++            pri = 4; // receiving but priority is lower
++         else if (d && device[i]->Priority() == d->Priority() && device[i]->ProvidesCa(Channel->Ca()) < d->ProvidesCa(Channel->Ca()))
++            pri = 5; // receiving with same priority but fewer Ca's
++         else
++            pri = 6; // all others
++         if (pri < select) {
++            select = pri;
+          d = device[i];
+          if (NeedsDetachReceivers)
+             *NeedsDetachReceivers = ndr;
+          }
+       }
++      }
++
+   /*XXX+ too complex with multiple recordings per device
+   if (!d && Ca > MAXDEVICES) {
+      // We didn't find one the easy way, so now we have to try harder:
+diff -ruNbw vdr-1.2.1/i18n.c vdr-1.2.2/i18n.c
+--- vdr-1.2.1/i18n.c	Mon Jun  9 11:49:29 2003
++++ vdr-1.2.2/i18n.c	Sun Jul 13 17:03:07 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.128 2003/06/09 09:49:29 kls Exp $
++ * $Id: i18n.c 1.129 2003/07/13 15:03:07 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -1043,6 +1043,23 @@
+     "PID Video",
+     "Vpid",
+     "PID Vídeo",
++  },
++  { "Ppid",
++    "Ppid",
++    "Ppid",
++    "Ppid",
++    "Ppid",
++    "Ppid",
++    "Ppid",
++    "Ppid",
++    "Aikatieto PID",
++    "Ppid",
++    "Ppid",
++    "Ppid",
++    "Ppid",
++    "Ppid",
++    "Ppid",
++    "Ppid",
+   },
+   { "Apid1",
+     "Apid1",
+diff -ruNbw vdr-1.2.1/menu.c vdr-1.2.2/menu.c
+--- vdr-1.2.1/menu.c	Sat Jun  7 14:31:57 2003
++++ vdr-1.2.2/menu.c	Sun Aug  3 11:38:37 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.256 2003/06/07 12:31:57 kls Exp $
++ * $Id: menu.c 1.264 2003/08/03 09:38:37 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -713,6 +713,8 @@
+ 
+ eOSState cMenuChannels::Switch(void)
+ {
++  if (HasSubMenu())
++     return osContinue;
+   cChannel *ch = GetChannel(Current());
+   if (ch)
+      cDevice::PrimaryDevice()->SwitchChannel(ch, true);
+@@ -733,12 +735,12 @@
+ {
+   if (HasSubMenu())
+      return osContinue;
+-  return AddSubMenu(new cMenuEditChannel(Channels.Get(Current()), true));
++  return AddSubMenu(new cMenuEditChannel(GetChannel(Current()), true));
+ }
+ 
+ eOSState cMenuChannels::Delete(void)
+ {
+-  if (Count() > 0) {
++  if (!HasSubMenu() && Count() > 0) {
+      int Index = Current();
+      cChannel *channel = GetChannel(Current());
+      int DeletedChannel = channel->Number();
+@@ -793,7 +795,9 @@
+               case kRed:    return Edit();
+               case kGreen:  return New();
+               case kYellow: return Delete();
+-              case kBlue:   Mark(); break;
++              case kBlue:   if (!HasSubMenu())
++                               Mark();
++                            break;
+               default: break;
+               }
+             }
+@@ -1558,6 +1562,7 @@
+   Add(new cOsdItem(ciMenu->BottomText()));
+   Display();
+   dsyslog("CAM: Menu - %s", ciMenu->TitleText());
++  lastActivity = time(NULL);
+ }
+ 
+ cMenuCam::~cMenuCam()
+@@ -1586,6 +1591,10 @@
+        default: break;
+        }
+      }
++  if (Key != kNone)
++     lastActivity = time(NULL);
++  else if (time(NULL) - lastActivity > MENUTIMEOUT)
++     state = osEnd;
+   return state;
+ }
+ 
+@@ -1603,6 +1612,7 @@
+   SetTitle(ciEnquiry->Text() ? ciEnquiry->Text() : "CAM");
+   Add(new cMenuEditNumItem("Input", input, Length, ciEnquiry->Blind()));
+   Display();
++  lastActivity = time(NULL);
+ }
+ 
+ cMenuCamEnquiry::~cMenuCamEnquiry()
+@@ -1631,6 +1641,10 @@
+        default: break;
+        }
+      }
++  if (Key != kNone)
++     lastActivity = time(NULL);
++  else if (time(NULL) - lastActivity > MENUTIMEOUT)
++     state = osEnd;
+   return state;
+ }
+ 
+@@ -2740,8 +2754,28 @@
+             number = number * 10 + Key - k0;
+             if (number > 0) {
+                cChannel *channel = Channels.GetByNumber(number);
++               Interface->Clear();
++               withInfo = false;
+                DisplayChannel(channel);
+                lastTime = time_ms();
++               // Lets see if there can be any useful further input:
++               int n = channel ? number * 10 : 0;
++               while (channel && (channel = Channels.Next(channel)) != NULL) {
++                     if (!channel->GroupSep()) {
++                        if (n <= channel->Number() && channel->Number() <= n + 9) {
++                           n = 0;
++                           break;
++                           }
++                        if (channel->Number() > n)
++                           n *= 10;
++                        }
++                     }
++               if (n > 0) {
++                  // This channel is the only one that fits the input, so let's take it right away:
++                  Interface->Flush(); // makes sure the user sees his last input
++                  Channels.SwitchTo(number);
++                  return osEnd;
++                  }
+                }
+             }
+          break;
+@@ -2783,6 +2817,7 @@
+     case kChanUp:
+     case kChanDn|k_Repeat:
+     case kChanDn:
++         group = -1;
+          Refresh();
+          break;
+     case kNone:
+@@ -2968,6 +3003,8 @@
+      }
+ 
+   cRecordingUserCommand::InvokeCommand(RUC_BEFORERECORDING, fileName);
++  isyslog("record %s", fileName);
++  if (MakeDirs(fileName, true)) {
+   const cChannel *ch = timer->Channel();
+   recorder = new cRecorder(fileName, ch->Ca(), timer->Priority(), ch->Vpid(), ch->Apid1(), ch->Apid2(), ch->Dpid1(), ch->Dpid2());
+   if (device->AttachReceiver(recorder)) {
+@@ -2978,6 +3015,7 @@
+      }
+   else
+      DELETENULL(recorder);
++     }
+ }
+ 
+ cRecordControl::~cRecordControl()
+diff -ruNbw vdr-1.2.1/menu.h vdr-1.2.2/menu.h
+--- vdr-1.2.1/menu.h	Sat May 24 18:35:52 2003
++++ vdr-1.2.2/menu.h	Sun Aug  3 11:37:18 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 1.56 2003/05/24 16:35:52 kls Exp $
++ * $Id: menu.h 1.57 2003/08/03 09:37:18 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -62,6 +62,7 @@
+ class cMenuCam : public cOsdMenu {
+ private:
+   cCiMenu *ciMenu;
++  time_t lastActivity;
+   bool selected;
+   eOSState Select(void);
+ public:
+@@ -73,6 +74,7 @@
+ class cMenuCamEnquiry : public cOsdMenu {
+ private:
+   cCiEnquiry *ciEnquiry;
++  time_t lastActivity;
+   char *input;
+   bool replied;
+   eOSState Reply(void);
+diff -ruNbw vdr-1.2.1/recorder.c vdr-1.2.2/recorder.c
+--- vdr-1.2.1/recorder.c	Fri May 16 15:33:04 2003
++++ vdr-1.2.2/recorder.c	Sat Aug  2 15:01:19 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.c 1.6 2003/05/16 13:33:04 kls Exp $
++ * $Id: recorder.c 1.7 2003/08/02 13:01:19 kls Exp $
+  */
+ 
+ #include <stdarg.h>
+@@ -34,12 +34,6 @@
+   fileSize = 0;
+   active = false;
+   lastDiskSpaceCheck = time(NULL);
+-  isyslog("record %s", FileName);
+-
+-  // Create directories if necessary:
+-
+-  if (!MakeDirs(FileName, true))
+-     return;
+ 
+   // Make sure the disk is up and running:
+ 
+diff -ruNbw vdr-1.2.1/svdrp.c vdr-1.2.2/svdrp.c
+--- vdr-1.2.1/svdrp.c	Fri Jun  6 15:30:52 2003
++++ vdr-1.2.2/svdrp.c	Sat Jul 26 12:57:33 2003
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 1.52 2003/06/06 13:30:52 kls Exp $
++ * $Id: svdrp.c 1.53 2003/07/26 10:57:33 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -1100,7 +1100,7 @@
+                  }
+               lastActivity = time(NULL);
+               }
+-           else if (r <= 0) {
++           else if (r < 0) {
+               isyslog("lost connection to SVDRP client");
+               Close();
+               }
+diff -ruNbw vdr-1.2.1/vdr.c vdr-1.2.2/vdr.c
+--- vdr-1.2.1/vdr.c	Thu May 29 14:27:26 2003
++++ vdr-1.2.2/vdr.c	Sat Aug  2 16:01:32 2003
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.160 2003/05/29 12:27:26 kls Exp $
++ * $Id: vdr.c 1.162 2003/08/02 14:01:32 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -57,6 +57,7 @@
+ #define ACTIVITYTIMEOUT 60 // seconds before starting housekeeping
+ #define SHUTDOWNWAIT   300 // seconds to wait in user prompt before automatic shutdown
+ #define MANUALSTART    600 // seconds the next timer must be in the future to assume manual start
++#define ZAPTIMEOUT       3 // seconds until a channel counts as "previous" for switching with '0'
+ 
+ static int Interrupted = 0;
+ 
+@@ -92,7 +93,7 @@
+ 
+ #define DEFAULTSVDRPPORT 2001
+ #define DEFAULTWATCHDOG     0 // seconds
+-#define DEFAULTPLUGINDIR "./PLUGINS/lib"
++#define DEFAULTPLUGINDIR PLUGINDIR
+ 
+   int SVDRPport = DEFAULTSVDRPPORT;
+   const char *AudioCommand = NULL;
+@@ -455,6 +456,8 @@
+   int LastChannel = -1;
+   int LastTimerChannel = -1;
+   int PreviousChannel = cDevice::CurrentChannel();
++  int LastLastChannel = PreviousChannel;
++  time_t LastChannelChanged = time(NULL);
+   time_t LastActivity = 0;
+   int MaxLatencyTime = 0;
+   bool ForceShutdown = false;
+@@ -492,9 +495,12 @@
+         if (!EITScanner.Active() && cDevice::CurrentChannel() != LastChannel) {
+            if (!Menu)
+               Menu = Temp = new cDisplayChannel(cDevice::CurrentChannel(), LastChannel > 0);
+-           if (LastChannel > 0)
+-              PreviousChannel = LastChannel;
+            LastChannel = cDevice::CurrentChannel();
++           LastChannelChanged = time(NULL);
++           }
++        if (LastLastChannel != LastChannel && time(NULL) - LastChannelChanged >= ZAPTIMEOUT) {
++           PreviousChannel = LastLastChannel;
++           LastLastChannel = LastChannel;
+            }
+         // Timers and Recordings:
+         if (!Timers.BeingEdited()) {
+diff -ruNbw vdr-1.2.1/videodir.c vdr-1.2.2/videodir.c
+--- vdr-1.2.1/videodir.c	Sun Aug 11 15:31:02 2002
++++ vdr-1.2.2/videodir.c	Sat Aug  2 15:43:28 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: videodir.c 1.9 2002/08/11 13:31:02 kls Exp $
++ * $Id: videodir.c 1.10 2003/08/02 13:43:28 kls Exp $
+  */
+ 
+ #include "videodir.h"
+@@ -18,7 +18,7 @@
+ #include <unistd.h>
+ #include "tools.h"
+ 
+-const char *VideoDirectory = "/video";
++const char *VideoDirectory = VIDEODIR;
+ 
+ class cVideoDirectory {
+ private:

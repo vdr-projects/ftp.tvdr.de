@@ -1,0 +1,99 @@
+--- ci.h	2003/04/18 12:41:48	1.5
++++ ci.h	2003/04/19 10:25:24	1.6
+@@ -80,7 +80,6 @@
+ private:
+   cMutex mutex;
+   int numSlots;
+-  bool enabled;
+   bool newCaSupport;
+   cCiSession *sessions[MAX_CI_SESSION];
+   cCiTransportLayer *tpl;
+@@ -98,7 +97,6 @@
+   ~cCiHandler();
+   static cCiHandler *CreateCiHandler(const char *FileName);
+   int NumSlots(void) { return numSlots; }
+-  void SetEnabled(bool Enabled) { enabled = Enabled; }
+   bool Process(void);
+   bool EnterMenu(int Slot);
+   cCiMenu *GetMenu(void);
+--- ci.c	2003/04/18 12:48:49	1.10
++++ ci.c	2003/04/19 10:59:53	1.13
+@@ -1286,7 +1286,6 @@
+ cCiHandler::cCiHandler(int Fd, int NumSlots)
+ {
+   numSlots = NumSlots;
+-  enabled = true;
+   newCaSupport = false;
+   for (int i = 0; i < MAX_CI_SESSION; i++)
+       sessions[i] = NULL;
+@@ -1313,12 +1312,14 @@
+            if (Caps.slot_type == CA_CI_LINK)
+               return new cCiHandler(fd_ca, NumSlots);
+            else
+-              esyslog("ERROR: CAM doesn't support link layer interface");
++              isyslog("CAM doesn't support link layer interface");
+            }
+-        esyslog("ERROR: no CAM slots found");
++        else
++           esyslog("ERROR: no CAM slots found");
+         }
+      else
+         LOG_ERROR_STR(FileName);
++     close(fd_ca);
+      }
+   return NULL;
+ }
+@@ -1441,8 +1442,6 @@
+ 
+ bool cCiHandler::Process(void)
+ {
+-  if (!enabled)
+-     return false;
+   bool result = true;
+   cMutexLock MutexLock(&mutex);
+   for (int Slot = 0; Slot < numSlots; Slot++) {
+--- dvbdevice.c	2003/04/18 11:35:08	1.52
++++ dvbdevice.c	2003/04/19 10:29:09	1.53
+@@ -264,7 +264,7 @@
+                  }
+               }
+            if (tunerStatus >= tsLocked) {
+-              if (ciHandler && channel.Ca() > CACONFBASE) {
++              if (ciHandler) {
+                  if (ciHandler->Process()) {
+                     if (tunerStatus != tsCam) {//XXX TODO update in case the CA descriptors have changed
+                        for (int Slot = 0; Slot < ciHandler->NumSlots(); Slot++) {
+@@ -777,15 +777,11 @@
+          CHECK(ioctl(fd_audio, AUDIO_SET_MUTE, false));
+          if (siProcessor)
+             siProcessor->SetStatus(true);
+-         if (ciHandler)
+-            ciHandler->SetEnabled(true);
+          break;
+     case pmAudioVideo:
+     case pmAudioOnlyBlack:
+          if (siProcessor)
+             siProcessor->SetStatus(false);
+-         if (ciHandler)
+-            ciHandler->SetEnabled(false);
+          CHECK(ioctl(fd_video, VIDEO_SET_BLANK, true));
+          CHECK(ioctl(fd_audio, AUDIO_SELECT_SOURCE, AUDIO_SOURCE_MEMORY));
+          CHECK(ioctl(fd_audio, AUDIO_SET_AV_SYNC, PlayMode == pmAudioVideo));
+@@ -796,8 +792,6 @@
+     case pmAudioOnly:
+          if (siProcessor)
+             siProcessor->SetStatus(false);
+-         if (ciHandler)
+-            ciHandler->SetEnabled(false);
+          CHECK(ioctl(fd_video, VIDEO_SET_BLANK, true));
+          CHECK(ioctl(fd_audio, AUDIO_STOP, true));
+          CHECK(ioctl(fd_audio, AUDIO_CLEAR_BUFFER));
+@@ -809,8 +803,6 @@
+     case pmExtern_THIS_SHOULD_BE_AVOIDED:
+          if (siProcessor)
+             siProcessor->SetStatus(false);
+-         if (ciHandler)
+-            ciHandler->SetEnabled(false);
+          close(fd_video);
+          close(fd_audio);
+          fd_video = fd_audio = -1;

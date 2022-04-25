@@ -1,0 +1,1420 @@
+diff -ruN vdr-1.7.3/CONTRIBUTORS vdr-1.7.4/CONTRIBUTORS
+--- vdr-1.7.3/CONTRIBUTORS	2009-01-06 15:47:53.000000000 +0100
++++ vdr-1.7.4/CONTRIBUTORS	2009-01-24 16:27:06.000000000 +0100
+@@ -660,6 +660,8 @@
+  the call to cStatus::MsgSetVolume()
+  for providing a driver patch that allows replaying TS->PES converted video in
+  Transfer Mode
++ for providing a driver patch that allows direct replaying of TS video on full-featured
++ DVB cards
+ 
+ Reinhard Walter Buchner <rw.buchner@freenet.de>
+  for adding some satellites to 'sources.conf'
+@@ -1189,6 +1191,12 @@
+  for reporting the missing description of the 'S' channel parameter in vdr.5
+  for fixing cPatPmtParser::ParsePmt() to reset vpid and vtype when switching from
+  a video to an audio channel
++ for fixing returning complete PES packets in cTsToPes::GetPes()
++ for reporting a possible problem with removing deleted recordings
++ for pointing out that a check of mutexCurrentAudioTrack needs to be done in
++ to cDevice::PlayTs()
++ for reporting that the PAT/PMT is processed too often, even if its version
++ hasn't changed
+ 
+ Richard Robson <richard_robson@beeb.net>
+  for reporting freezing replay if a timer starts while in Transfer Mode from the
+@@ -1313,6 +1321,7 @@
+  for implementing palette replace mode in the OSD bitmaps
+  for fixing handling numeric keys in the channel display after switching channel
+  groups
++ for adding some missing 'const' statements to cBitmap
+ 
+ Thomas Bergwinkl <Thomas.Bergwinkl@vr-web.de>
+  for fixing the validity check for channel IDs, because some providers use TIDs
+@@ -1483,6 +1492,8 @@
+  for fixing setting the date in the channel display of the classic and sttng skins,
+  to avoid unnecessary OSD access
+  for changing cDvbDevice::GrabImage() to use V4L2
++ for adding a missing Detach() in cTransfer::Activate()
++ for adding clearing the TS buffers in cDevice::Detach()
+ 
+ Jürgen Schmitz <j.schmitz@web.de>
+  for reporting a bug in displaying the current channel when switching via the SVDRP
+@@ -1594,6 +1605,7 @@
+  for fixing error handling in cCuttingThread::Action()
+  for suppressing the automatic shutdown if the remote control is currently disabled
+  for fixing a problem with calling isyslog() from within the SignalHandler()
++ for reporting a problem with handling the maximum video file size
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -2207,6 +2219,8 @@
+  allowed characters
+  for fixing handling address masks in SVDRP host settings
+  for fixing handling the 'pointer field' in generating and parsing PAT/PMT
++ for suggesting to use an "instance id" instead of the "resume id" to distinguish
++ recordings of the same broadcast made by different instances of VDR
+ 
+ Jörn Reder <joern@zyn.de>
+  for reporting that a recording may unnecessarily block a device with a CAM, while
+@@ -2331,6 +2345,7 @@
+ 
+ Winfried Koehler <w_koehl@gmx.de>
+  for fixing finding new transponders
++ for reporting a compiler warning in calculations involving FramesPerSecond()
+ 
+ Hans-Werner Hilse <hilse@web.de>
+  for adding the command line option --userdump to enable core dumps in case VDR
+@@ -2392,3 +2407,9 @@
+ 
+ Edgar Hucek <gimli@dark-green.com>
+  for a patch that was used to convert VDR to the S2API driver API
++
++Johann Friedrichs <johann.friedrichs@web.de>
++ for fixing incrementing the continuity counter in cPatPmtGenerator::GetPmt()
++ for pointing out that "DEFINES += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
++ -D_LARGEFILE64_SOURCE" should be added to Make.config.
++  to Make.config.template (thanks to Johann Friedrichs for pointing this out).
+diff -ruN vdr-1.7.3/HISTORY vdr-1.7.4/HISTORY
+--- vdr-1.7.3/HISTORY	2009-01-06 15:52:32.000000000 +0100
++++ vdr-1.7.4/HISTORY	2009-01-25 13:07:29.000000000 +0100
+@@ -5868,9 +5868,9 @@
+     255).
+   + The recording file names are now of the form 00001.ts (previously 001.vdr).
+   + The frame rate is now detected by looking at two subsequent PTS values.
+-    The "frame duration" (in multiples of 1/90000) is stored in the info.vdr
+-    file using the new tag F (thanks to Artur Skawina for helping to get the
+-    IndexToHMSF() calculation right).
++    The "frames per second" is stored in the "info" file using the new tag F
++    (thanks to Artur Skawina for helping to get the IndexToHMSF() calculation
++    right).
+   + Several functions now have an additional parameter FramesPerSecond.
+   + Several functions now have an additional parameter IsPesRecording.
+   + The functionality of cFileWriter was moved into cRecorder, and cRemux is
+@@ -5882,7 +5882,7 @@
+   + The directory name for a recording has been changed from
+     YYYY-MM-DD-hh[.:]mm.pr.lt.rec (pr=priority, lt=lifetime) to
+     YYYY-MM-DD-hh.mm.ch-ri.rec (ch=channel, ri=resumeId).
+-    Priority and Lifetime are now stored in the info.vdr file with the new
++    Priority and Lifetime are now stored in the "info" file with the new
+     tags P and L (if no such file exists, the maximum values are assumed by
+     default, which avoids inadvertently deleting a recording if disk space
+     is low). No longer storing Priority and Lifetime in the directory name
+@@ -5910,4 +5910,71 @@
+   a video to an audio channel (thanks to Reinhard Nissl).
+ - cDvbDevice now uses the FE_CAN_2G_MODULATION flag to determine whether a device
+   can handle DVB-S2. The #define is still there to allow people with older drivers
+-  who don't need DVB-S2 to use this version without pathcing.
++  who don't need DVB-S2 to use this version without patching.
++
++2009-01-25: Version 1.7.4
++
++- Removed the '#define FE_CAN_2ND_GEN_MODULATION', since it was wrong and the
++  flag is now in the driver, anyway.
++- The full-featured DVB cards are now given the TS data directly for replay
++  (thanks to Oliver Endriss for enhancing the av7110 driver to make it replay
++  TS data). The patch from ftp://ftp.cadsoft.de/vdr/Developer/av7110_ts_replay__1.diff
++  implements this change in the driver.
++  The patch av7110_v4ldvb_api5_audiobuf_test_1.diff mentioned in version 1.7.2
++  is still necessary to avoid audio and video glitches on some channels.
++- Added a typecast in cUnbufferedFile::Write() to avoid an error message when
++  compiling on 64 bit systems.
++- Added some missing 'const' statements to cBitmap (thanks to Andreas Regel).
++- Fixed returning complete PES packets in cTsToPes::GetPes() (thanks to Reinhard
++  Nissl).
++- Added a missing Detach() in cTransfer::Activate() (thanks to Marco Schlüßler).
++- Added clearing the TS buffers in cDevice::Detach() (thanks to Marco Schlüßler).
++- Fixed incrementing the continuity counter in cPatPmtGenerator::GetPmt() (thanks
++  to Johann Friedrichs).
++- Fixed removing deleted recordings in case there is a problem. Once a recording
++  caused a problem with removing, no others were removed any more and an ongoing
++  recording could fill up the disk and cause other recordings to be deleted
++  automatically (reported by Reinhard Nissl).
++- Added "DEFINES += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE"
++  to Make.config.template (thanks to Johann Friedrichs for pointing this out).
++  Plugin authors should add this line to their Makefile or Make.config if they use
++  file access functions that need special versions for 64 bit offsets.
++- The new command line option -i can be used to set an "instance id", which will
++  be used to distinguish recordings of the same broadcast made by different instances
++  of VDR (suggested by Frank Schmirler). This replaces the use of the "resume id"
++  that was introduced in version 1.7.3.
++- Added checking mutexCurrentAudioTrack to cDevice::PlayTs() (thanks to Reinhard
++  Nissl for pointing this out).
++- Fixed handling the pointer field in cPatPmtParser::ParsePmt() (thanks to Frank
++  Schmirler - sorry I swapped two lines when adopting the original patch).
++- Checking the remaining packet length after processing the pointer field in
++  cPatPmtParser::ParsePat() and cPatPmtParser::ParsePmt() (suggested by Frank
++  Schmirler).
++- Checking the pointer field in cPatPmtParser::ParsePmt() only in 'payload start'
++  packets (suggested by Frank Schmirler).
++- Changed cPatPmtGenerator to make sure the PMT pid doesn't collide with any of
++  the actual pids of the channel.
++- Fixed cDevice::PlayTsAudio() and made cDevice::PlayTsVideo() return 0 if
++  PlayVideo() didn't play anything.
++- Added an 'int' typecast to calculations involving FramesPerSecond() to avoid
++  compiler warnings (reported by Winfried Koehler).
++- Fixed detecting frames for pure audio recordings.
++- Fixed editing PES recordings. The frame type in the index.vdr file generated for
++  the edited PES recording is set to 1 for I-frames and 2 for all others (P- and
++  B-frames). The exact frame type doesn't matter for VDR, it only needs to know if
++  it's an I-frame or not.
++- The PAT/PMT is now only processed if its version changes (reported by Reinhard
++  Nissl).
++- Fixed handling the maximum video file size (reported by Udo Richter).
++- Improved fast-forward/-rewind for audio recordings. The actual data is now sent
++  to the output device, so that it can be replayed and thus cause the proper delay.
++  For pure audio recordings the audio is no longer muted in fast-forward/-rewind
++  mode, so that some orientation regarding the position within the recording is
++  possible. There may still be some offset in the replay position displayed by the
++  progress indicator when switching from fast-forward/-rewind to play mode, as well
++  as in the current position during normal play mode. This is due to the various
++  buffers between the player and the output device and will be addressed later.
++  Note the new function cDevice::IsPlayingVideo(), which is used to inform the
++  player whether there is video data in the currently replayed stream. If a derived
++  cDevice class reimplements PlayTs() or PlayPes(), it also needs to make sure this
++  new function works as expected.
+diff -ruN vdr-1.7.3/Make.config.template vdr-1.7.4/Make.config.template
+--- vdr-1.7.3/Make.config.template	2008-01-13 13:54:09.000000000 +0100
++++ vdr-1.7.4/Make.config.template	2009-01-18 11:46:13.000000000 +0100
+@@ -6,7 +6,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Make.config.template 2.0 2008/01/13 12:54:09 kls Exp $
++# $Id: Make.config.template 2.1 2009/01/18 10:46:13 kls Exp $
+ 
+ ### The C compiler and options:
+ 
+@@ -19,6 +19,7 @@
+ ifdef PLUGIN
+ CFLAGS   += -fPIC
+ CXXFLAGS += -fPIC
++DEFINES += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
+ endif
+ 
+ ### The directory environment:
+diff -ruN vdr-1.7.3/PLUGINS.html vdr-1.7.4/PLUGINS.html
+--- vdr-1.7.3/PLUGINS.html	2008-02-18 21:40:08.000000000 +0100
++++ vdr-1.7.4/PLUGINS.html	2009-01-25 12:27:49.000000000 +0100
+@@ -16,7 +16,10 @@
+     text-align: center;
+ }
+ .code {
+-    background-color: #f0f0f0;
++    background-color: #F0F0F0;
++}
++.modified {
++    background-color: #FFDDDD;
+ }
+ </style>
+ </head>
+@@ -25,12 +28,15 @@
+ <div class="center">
+ <h1>The VDR Plugin System</h1>
+ 
+-<b>Version 1.6</b>
++<b>Version 1.7</b>
+ <p>
+-Copyright &copy; 2008 Klaus Schmidinger<br>
++Copyright &copy; 2009 Klaus Schmidinger<br>
+ <a href="mailto:kls@cadsoft.de">kls@cadsoft.de</a><br>
+ <a href="http://www.cadsoft.de/vdr">www.cadsoft.de/vdr</a>
+ </div>
++<div class="modified">
++Important modifications introduced since version 1.6 are marked like this.
++</div modified>
+ <p>
+ VDR provides an easy to use plugin interface that allows additional functionality
+ to be added to the program by implementing a dynamically loadable library file.
+@@ -1844,6 +1850,9 @@
+ virtual bool CanReplay(void) const;
+ virtual bool SetPlayMode(ePlayMode PlayMode);
+ virtual int64_t GetSTC(void);
++<div class="modified">
++virtual bool IsPlayingVideo(void) const;
++</div modified>
+ virtual bool HasIBPTrickSpeed(void);
+ virtual void TrickSpeed(int Speed);
+ virtual void Clear(void);
+diff -ruN vdr-1.7.3/config.c vdr-1.7.4/config.c
+--- vdr-1.7.3/config.c	2008-02-17 14:39:00.000000000 +0100
++++ vdr-1.7.4/config.c	2009-01-24 16:05:32.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 2.0 2008/02/17 13:39:00 kls Exp $
++ * $Id: config.c 2.1 2009/01/24 15:05:32 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -275,7 +275,7 @@
+   FontOsdSize = 22;
+   FontSmlSize = 18;
+   FontFixSize = 20;
+-  MaxVideoFileSize = MAXVIDEOFILESIZE;
++  MaxVideoFileSize = MAXVIDEOFILESIZEDEFAULT;
+   SplitEditedFiles = 0;
+   MinEventTimeout = 30;
+   MinUserInactivity = 300;
+diff -ruN vdr-1.7.3/config.h vdr-1.7.4/config.h
+--- vdr-1.7.3/config.h	2008-12-24 15:29:56.000000000 +0100
++++ vdr-1.7.4/config.h	2009-01-06 17:56:27.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.5 2008/12/24 14:29:56 kls Exp $
++ * $Id: config.h 2.6 2009/01/06 16:56:27 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.3"
+-#define VDRVERSNUM   10703  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.4"
++#define VDRVERSNUM   10704  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.3"
+-#define APIVERSNUM   10703  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.4"
++#define APIVERSNUM   10704  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-1.7.3/cutter.c vdr-1.7.4/cutter.c
+--- vdr-1.7.3/cutter.c	2009-01-06 15:40:48.000000000 +0100
++++ vdr-1.7.4/cutter.c	2009-01-24 16:19:26.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: cutter.c 2.1 2009/01/06 14:40:48 kls Exp $
++ * $Id: cutter.c 2.2 2009/01/24 15:19:26 kls Exp $
+  */
+ 
+ #include "cutter.h"
+@@ -22,6 +22,7 @@
+   cFileName *fromFileName, *toFileName;
+   cIndexFile *fromIndex, *toIndex;
+   cMarks fromMarks, toMarks;
++  off_t maxVideoFileSize;
+ protected:
+   virtual void Action(void);
+ public:
+@@ -45,6 +46,9 @@
+      fromIndex = new cIndexFile(FromFileName, false, isPesRecording);
+      toIndex = new cIndexFile(ToFileName, true, isPesRecording);
+      toMarks.Load(ToFileName, Recording.FramesPerSecond(), isPesRecording); // doesn't actually load marks, just sets the file name
++     maxVideoFileSize = MEGABYTE(Setup.MaxVideoFileSize);
++     if (isPesRecording && maxVideoFileSize > MEGABYTE(MAXVIDEOFILESIZEPES))
++        maxVideoFileSize = MEGABYTE(MAXVIDEOFILESIZEPES);
+      Start();
+      }
+   else
+@@ -125,7 +129,7 @@
+            if (Independent) { // every file shall start with an independent frame
+               if (LastMark) // edited version shall end before next I-frame
+                  break;
+-              if (FileSize > MEGABYTE(Setup.MaxVideoFileSize)) {
++              if (FileSize > maxVideoFileSize) {
+                  toFile = toFileName->NextFile();
+                  if (!toFile) {
+                     error = "toFile 1";
+diff -ruN vdr-1.7.3/device.c vdr-1.7.4/device.c
+--- vdr-1.7.3/device.c	2009-01-06 10:55:13.000000000 +0100
++++ vdr-1.7.4/device.c	2009-01-25 12:10:56.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.5 2009/01/06 09:55:13 kls Exp $
++ * $Id: device.c 2.11 2009/01/25 11:10:56 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -81,6 +81,7 @@
+   startScrambleDetection = 0;
+ 
+   player = NULL;
++  isPlayingVideo = false;
+   ClrAvailableTracks();
+   currentAudioTrack = ttNone;
+   currentAudioTrackMissingCount = 0;
+@@ -1020,12 +1021,11 @@
+      uchar *buf = NULL;
+      int Size = 0;
+      while (Length >= TS_SIZE) {
+-           int PayloadOffset = TsPayloadOffset(Data);
+            int Pid = TsPid(Data);
+            if (Pid == 0)
+-              patPmtParser.ParsePat(Data + PayloadOffset, TS_SIZE - PayloadOffset);
++              patPmtParser.ParsePat(Data, TS_SIZE);
+            else if (Pid == patPmtParser.PmtPid())
+-              patPmtParser.ParsePmt(Data + PayloadOffset, TS_SIZE - PayloadOffset);
++              patPmtParser.ParsePmt(Data, TS_SIZE);
+            else if (Pid == patPmtParser.Vpid()) {
+               if (TsPayloadStart(Data)) {
+                  int l;
+@@ -1098,7 +1098,9 @@
+      dvbSubtitleConverter = NULL;
+      SetPlayMode(pmNone);
+      SetVideoDisplayFormat(eVideoDisplayFormat(Setup.VideoDisplayFormat));
++     PlayTs(NULL, 0);
+      Audios.ClearAudio();
++     isPlayingVideo = false;
+      }
+ }
+ 
+@@ -1151,6 +1153,7 @@
+         switch (c) {
+           case 0xBE:          // padding stream, needed for MPEG1
+           case 0xE0 ... 0xEF: // video
++               isPlayingVideo = true;
+                w = PlayVideo(Start, d);
+                break;
+           case 0xC0 ... 0xDF: // audio
+@@ -1273,7 +1276,7 @@
+      int l;
+      while (const uchar *p = tsToPesVideo.GetPes(l)) {
+            int w = PlayVideo(p, l);
+-           if (w < 0)
++           if (w <= 0)
+               return w;
+            }
+      tsToPesVideo.Reset();
+@@ -1284,20 +1287,15 @@
+ 
+ int cDevice::PlayTsAudio(const uchar *Data, int Length)
+ {
+-  bool PayloadStart = TsPayloadStart(Data);
+-  for (int Pass = 0; Pass < 2; Pass++) {
+-      if (Pass == 0 && !PayloadStart) // if no new payload is started, we can always put the packet into the converter
+-         tsToPesAudio.PutTs(Data, Length);
+-      if (const uchar *p = tsToPesAudio.GetPes(Length)) {
+-         int w = PlayAudio(p, Length, 0);
+-         if (w > 0)
+-            tsToPesAudio.Reset();
+-         else if (PayloadStart)
+-            return w; // must get out the old packet before starting a new one
+-         }
+-      if (Pass == 0 && PayloadStart)
+-         tsToPesAudio.PutTs(Data, Length);
+-      }
++  // Audio PES always has an explicit length and consists of single packets:
++  int l;
++  if (const uchar *p = tsToPesAudio.GetPes(l)) {
++     int w = PlayAudio(p, l, 0);
++     if (w <= 0)
++        return w;
++     tsToPesAudio.Reset();
++     }
++  tsToPesAudio.PutTs(Data, Length);
+   return Length;
+ }
+ 
+@@ -1321,13 +1319,16 @@
+         return Length; // silently ignore TS packets w/o payload
+      int PayloadOffset = TsPayloadOffset(Data);
+      if (PayloadOffset < Length) {
++        cMutexLock MutexLock(&mutexCurrentAudioTrack);
+         int Pid = TsPid(Data);
+         if (Pid == 0)
+-           patPmtParser.ParsePat(Data + PayloadOffset, Length - PayloadOffset);
++           patPmtParser.ParsePat(Data, Length);
+         else if (Pid == patPmtParser.PmtPid())
+-           patPmtParser.ParsePmt(Data + PayloadOffset, Length - PayloadOffset);
+-        else if (Pid == patPmtParser.Vpid())
++           patPmtParser.ParsePmt(Data, Length);
++        else if (Pid == patPmtParser.Vpid()) {
++           isPlayingVideo = true;
+            return PlayTsVideo(Data, Length);
++           }
+         else if (Pid == availableTracks[currentAudioTrack].id) {
+            if (!VideoOnly || HasIBPTrickSpeed()) {
+               int w = PlayTsAudio(Data, Length);
+@@ -1344,6 +1345,7 @@
+         }
+      }
+   else if (Data == NULL) {
++     patPmtParser.Reset();
+      tsToPesVideo.Reset();
+      tsToPesAudio.Reset();
+      tsToPesSubtitle.Reset();
+diff -ruN vdr-1.7.3/device.h vdr-1.7.4/device.h
+--- vdr-1.7.3/device.h	2009-01-05 17:28:06.000000000 +0100
++++ vdr-1.7.4/device.h	2009-01-25 12:04:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 2.4 2009/01/05 16:28:06 kls Exp $
++ * $Id: device.h 2.6 2009/01/25 11:04:39 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -477,6 +477,7 @@
+   cTsToPes tsToPesVideo;
+   cTsToPes tsToPesAudio;
+   cTsToPes tsToPesSubtitle;
++  bool isPlayingVideo;
+ protected:
+   virtual bool CanReplay(void) const;
+        ///< Returns true if this device can currently start a replay session.
+@@ -487,7 +488,7 @@
+        ///< Plays the given data block as video.
+        ///< Data points to exactly one complete PES packet of the given Length.
+        ///< PlayVideo() shall process the packet either as a whole (returning
+-       ///< Length) or not at all (returning 0 or -1 and setting 'errno' to EAGAIN).
++       ///< Length) or not at all (returning 0 or -1 and setting 'errno' accordingly).
+        ///< \return Returns the number of bytes actually taken from Data, or -1
+        ///< in case of an error.
+   virtual int PlayAudio(const uchar *Data, int Length, uchar Id);
+@@ -498,14 +499,14 @@
+        ///< TS replay). Plugins that need to know this Id shall read it from the
+        ///< actual PES data (it's the 4th byte).
+        ///< PlayAudio() shall process the packet either as a whole (returning
+-       ///< Length) or not at all (returning 0 or -1 and setting 'errno' to EAGAIN).
++       ///< Length) or not at all (returning 0 or -1 and setting 'errno' accordingly).
+        ///< \return Returns the number of bytes actually taken from Data, or -1
+        ///< in case of an error.
+   virtual int PlaySubtitle(const uchar *Data, int Length);
+        ///< Plays the given data block as a subtitle.
+        ///< Data points to exactly one complete PES packet of the given Length.
+        ///< PlaySubtitle() shall process the packet either as a whole (returning
+-       ///< Length) or not at all (returning 0 or -1 and setting 'errno' to EAGAIN).
++       ///< Length) or not at all (returning 0 or -1 and setting 'errno' accordingly).
+        ///< \return Returns the number of bytes actually taken from Data, or -1
+        ///< in case of an error.
+   virtual int PlayPesPacket(const uchar *Data, int Length, bool VideoOnly = false);
+@@ -542,6 +543,9 @@
+        ///< Gets the current System Time Counter, which can be used to
+        ///< synchronize audio and video. If this device is unable to
+        ///< provide the STC, -1 will be returned.
++  virtual bool IsPlayingVideo(void) const { return isPlayingVideo; }
++       ///< \return Returns true if the currently attached player has delivered
++       ///< any video packets.
+   virtual bool HasIBPTrickSpeed(void) { return false; }
+        ///< Returns true if this device can handle all frames in 'fast forward'
+        ///< trick speeds.
+@@ -610,8 +614,7 @@
+        ///< Returns -1 in case of error, otherwise the number of actually
+        ///< processed bytes is returned, which must be Length.
+        ///< PlayTs() shall process the packet either as a whole (returning
+-       ///< a positive number, which needs not necessarily be Length) or not at all
+-       ///< (returning 0 or -1 and setting 'errno' to EAGAIN).
++       ///< Length) or not at all returning 0 or -1 and setting 'errno' accordingly).
+   bool Replaying(void) const;
+        ///< Returns true if we are currently replaying.
+   bool Transferring(void) const;
+diff -ruN vdr-1.7.3/dvbdevice.c vdr-1.7.4/dvbdevice.c
+--- vdr-1.7.3/dvbdevice.c	2009-01-06 15:52:54.000000000 +0100
++++ vdr-1.7.4/dvbdevice.c	2009-01-10 11:07:33.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.10 2009/01/06 14:52:54 kls Exp $
++ * $Id: dvbdevice.c 2.12 2009/01/10 10:07:33 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -27,13 +27,6 @@
+ #include "status.h"
+ #include "transfer.h"
+ 
+-// FIXME: temporary workaround until the S2API driver supports detecting
+-// S2 capability in a clean way. This macro allows compiling VDR with an
+-// unpatched driver. However, with an unpatched driver it will not support
+-// DVB-S2 hardware. If you have DVB-S2 hardware you need to either patch
+-// the driver or modify the line that uses this macro in cDvbDevice::cDvbDevice().
+-#define FE_CAN_2ND_GEN_MODULATION 0x10000000
+-
+ #define DO_REC_AND_PLAY_ON_PRIMARY_DEVICE 1
+ #define DO_MULTIPLE_RECORDINGS 1
+ 
+@@ -1304,39 +1297,22 @@
+ 
+ int cDvbDevice::PlayVideo(const uchar *Data, int Length)
+ {
+-  int w;
+-  do {
+-     w = WriteAllOrNothing(fd_video, Data, Length, 1000, 10);
+-     if (w < 0 && errno == EAGAIN) {
+-        cPoller Poller(fd_video, true);
+-        Poller.Poll(200);
+-        }
+-     } while (w != Length);
+-  return w;
++  return WriteAllOrNothing(fd_video, Data, Length, 1000, 10);
+ }
+ 
+ int cDvbDevice::PlayAudio(const uchar *Data, int Length, uchar Id)
+ {
+-  int w;
+-  do {
+-     w = WriteAllOrNothing(fd_audio, Data, Length, 1000, 10);
+-     if (w < 0 && errno == EAGAIN) {
+-        cPoller Poller(fd_audio, true);
+-        Poller.Poll(200);
+-        }
+-     } while (w != Length);
+-  return w;
++  return WriteAllOrNothing(fd_audio, Data, Length, 1000, 10);
+ }
+ 
+ int cDvbDevice::PlayTsVideo(const uchar *Data, int Length)
+ {
+-  return cDevice::PlayTsVideo(Data, Length);
++  return WriteAllOrNothing(fd_video, Data, Length, 1000, 10);
+ }
+ 
+ int cDvbDevice::PlayTsAudio(const uchar *Data, int Length)
+ {
+-  int w = PlayAudio(Data, TsGetPayload(&Data), 0);
+-  return w >= 0 ? Length : w;
++  return WriteAllOrNothing(fd_audio, Data, Length, 1000, 10);
+ }
+ 
+ bool cDvbDevice::OpenDvr(void)
+diff -ruN vdr-1.7.3/dvbplayer.c vdr-1.7.4/dvbplayer.c
+--- vdr-1.7.3/dvbplayer.c	2009-01-05 17:52:40.000000000 +0100
++++ vdr-1.7.4/dvbplayer.c	2009-01-25 12:11:39.000000000 +0100
+@@ -4,10 +4,11 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.c 2.1 2009/01/05 16:52:40 kls Exp $
++ * $Id: dvbplayer.c 2.3 2009/01/25 11:11:39 kls Exp $
+  */
+ 
+ #include "dvbplayer.h"
++#include <math.h>
+ #include <stdlib.h>
+ #include "recording.h"
+ #include "remux.h"
+@@ -347,7 +348,7 @@
+   if (index) {
+      int Index = writeIndex;
+      if (Index >= 0) {
+-        Index -= RESUMEBACKUP * framesPerSecond;
++        Index -= int(round(RESUMEBACKUP * framesPerSecond));
+         if (Index > 0)
+            Index = index->GetNextIFrame(Index, false);
+         else
+@@ -411,8 +412,12 @@
+                           if (index->Get(readIndex + 1, &FileNumber, &FileOffset, NULL, &Length))
+                              Index = readIndex + 1;
+                           }
+-                       else
+-                          Index = index->GetNextIFrame(readIndex, playDir == pdForward, &FileNumber, &FileOffset, &Length, TimeShiftMode);
++                       else {
++                          int d = int(round(0.4 * framesPerSecond));
++                          if (playDir != pdForward)
++                             d = -d;
++                          Index = index->GetNextIFrame(readIndex + d, playDir == pdForward, &FileNumber, &FileOffset, &Length, TimeShiftMode);
++                          }
+                        if (Index >= 0) {
+                           if (!NextFile(FileNumber, FileOffset)) {
+                              readIndex = Index;
+@@ -515,9 +520,9 @@
+               if (p) {
+                  int w;
+                  if (isPesRecording)
+-                    w = PlayPes(p, pc, playMode != pmPlay);
++                    w = PlayPes(p, pc, playMode != pmPlay && DeviceIsPlayingVideo());
+                  else
+-                    w = PlayTs(p, TS_SIZE, playMode != pmPlay);
++                    w = PlayTs(p, TS_SIZE, playMode != pmPlay && DeviceIsPlayingVideo());
+                  if (w > 0) {
+                     p += w;
+                     pc -= w;
+@@ -592,7 +597,8 @@
+             LOCK_THREAD;
+             if (!(DeviceHasIBPTrickSpeed() && playDir == pdForward))
+                Empty();
+-            DeviceMute();
++            if (DeviceIsPlayingVideo())
++               DeviceMute();
+             playMode = pmFast;
+             playDir = pdForward;
+             trickSpeed = NORMAL_SPEED;
+@@ -638,7 +644,8 @@
+        case pmPlay: {
+             LOCK_THREAD;
+             Empty();
+-            DeviceMute();
++            if (DeviceIsPlayingVideo())
++               DeviceMute();
+             playMode = pmFast;
+             playDir = pdBackward;
+             trickSpeed = NORMAL_SPEED;
+diff -ruN vdr-1.7.3/menu.c vdr-1.7.4/menu.c
+--- vdr-1.7.3/menu.c	2009-01-06 15:34:17.000000000 +0100
++++ vdr-1.7.4/menu.c	2009-01-24 16:05:43.000000000 +0100
+@@ -4,12 +4,13 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 2.4 2009/01/06 14:34:17 kls Exp $
++ * $Id: menu.c 2.6 2009/01/24 15:05:43 kls Exp $
+  */
+ 
+ #include "menu.h"
+ #include <ctype.h>
+ #include <limits.h>
++#include <math.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -2697,7 +2698,7 @@
+   Add(new cMenuEditBoolItem(tr("Setup.Recording$Mark instant recording"),    &data.MarkInstantRecord));
+   Add(new cMenuEditStrItem( tr("Setup.Recording$Name instant recording"),     data.NameInstantRecord, sizeof(data.NameInstantRecord)));
+   Add(new cMenuEditIntItem( tr("Setup.Recording$Instant rec. time (min)"),   &data.InstantRecordTime, 1, MAXINSTANTRECTIME));
+-  Add(new cMenuEditIntItem( tr("Setup.Recording$Max. video file size (MB)"), &data.MaxVideoFileSize, MINVIDEOFILESIZE, MAXVIDEOFILESIZE));
++  Add(new cMenuEditIntItem( tr("Setup.Recording$Max. video file size (MB)"), &data.MaxVideoFileSize, MINVIDEOFILESIZE, MAXVIDEOFILESIZETS));
+   Add(new cMenuEditBoolItem(tr("Setup.Recording$Split edited files"),        &data.SplitEditedFiles));
+ }
+ 
+@@ -4170,8 +4171,8 @@
+ {
+ #define STAY_SECONDS_OFF_END 10
+   int Seconds = (timeSearchTime >> 24) * 36000 + ((timeSearchTime & 0x00FF0000) >> 16) * 3600 + ((timeSearchTime & 0x0000FF00) >> 8) * 600 + (timeSearchTime & 0x000000FF) * 60;
+-  int Current = (lastCurrent / FramesPerSecond());
+-  int Total = (lastTotal / FramesPerSecond());
++  int Current = int(round(lastCurrent / FramesPerSecond()));
++  int Total = int(round(lastTotal / FramesPerSecond()));
+   switch (Key) {
+     case k0 ... k9:
+          if (timeSearchPos < 4) {
+diff -ruN vdr-1.7.3/osd.c vdr-1.7.4/osd.c
+--- vdr-1.7.3/osd.c	2007-10-12 14:38:36.000000000 +0200
++++ vdr-1.7.4/osd.c	2009-01-16 15:34:32.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 2.0 2007/10/12 12:38:36 kls Exp $
++ * $Id: osd.c 2.1 2009/01/16 14:34:32 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -635,7 +635,7 @@
+      }
+ }
+ 
+-const tIndex *cBitmap::Data(int x, int y)
++const tIndex *cBitmap::Data(int x, int y) const
+ {
+   return &bitmap[y * width + x];
+ }
+diff -ruN vdr-1.7.3/osd.h vdr-1.7.4/osd.h
+--- vdr-1.7.3/osd.h	2007-10-12 16:28:44.000000000 +0200
++++ vdr-1.7.4/osd.h	2009-01-16 15:37:03.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.h 2.0 2007/10/12 14:28:44 kls Exp $
++ * $Id: osd.h 2.1 2009/01/16 14:37:03 kls Exp $
+  */
+ 
+ #ifndef __OSD_H
+@@ -231,9 +231,9 @@
+        ///< 5: vertical,   rising,  upper
+        ///< 6: vertical,   falling, lower
+        ///< 7: vertical,   falling, upper
+-  const tIndex *Data(int x, int y);
++  const tIndex *Data(int x, int y) const;
+        ///< Returns the address of the index byte at the given coordinates.
+-  tColor GetColor(int x, int y) { return Color(*Data(x, y)); }
++  tColor GetColor(int x, int y) const { return Color(*Data(x, y)); }
+        ///< Returns the color at the given coordinates.
+   void ReduceBpp(const cPalette &Palette);
+        ///< Reduces the color depth of the bitmap to that of the given Palette.
+diff -ruN vdr-1.7.3/player.h vdr-1.7.4/player.h
+--- vdr-1.7.3/player.h	2009-01-05 14:04:10.000000000 +0100
++++ vdr-1.7.4/player.h	2009-01-25 12:03:44.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: player.h 2.2 2009/01/05 13:04:10 kls Exp $
++ * $Id: player.h 2.3 2009/01/25 11:03:44 kls Exp $
+  */
+ 
+ #ifndef __PLAYER_H
+@@ -26,6 +26,7 @@
+   bool DevicePoll(cPoller &Poller, int TimeoutMs = 0) { return device ? device->Poll(Poller, TimeoutMs) : false; }
+   bool DeviceFlush(int TimeoutMs = 0) { return device ? device->Flush(TimeoutMs) : true; }
+   bool DeviceHasIBPTrickSpeed(void) { return device ? device->HasIBPTrickSpeed() : false; }
++  bool DeviceIsPlayingVideo(void) { return device ? device->IsPlayingVideo() : false; }
+   void DeviceTrickSpeed(int Speed) { if (device) device->TrickSpeed(Speed); }
+   void DeviceClear(void) { if (device) device->Clear(); }
+   void DevicePlay(void) { if (device) device->Play(); }
+diff -ruN vdr-1.7.3/recorder.c vdr-1.7.4/recorder.c
+--- vdr-1.7.3/recorder.c	2009-01-06 13:38:01.000000000 +0100
++++ vdr-1.7.4/recorder.c	2009-01-23 16:33:37.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.c 2.1 2009/01/06 12:38:01 kls Exp $
++ * $Id: recorder.c 2.2 2009/01/23 15:33:37 kls Exp $
+  */
+ 
+ #include "recorder.h"
+@@ -44,7 +44,7 @@
+      Type = 0x06;
+      }
+   frameDetector = new cFrameDetector(Pid, Type);
+-  patPmtGenerator.GeneratePmt(ChannelID);
++  patPmtGenerator.SetChannel(Channel);
+   fileName = NULL;
+   index = NULL;
+   fileSize = 0;
+diff -ruN vdr-1.7.3/recording.c vdr-1.7.4/recording.c
+--- vdr-1.7.3/recording.c	2009-01-06 15:41:11.000000000 +0100
++++ vdr-1.7.4/recording.c	2009-01-24 14:11:04.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.4 2009/01/06 14:41:11 kls Exp $
++ * $Id: recording.c 2.8 2009/01/24 13:11:04 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -64,6 +64,7 @@
+ #define MAX_LINK_LEVEL  6
+ 
+ bool VfatFileSystem = false;
++int InstanceId = 0;
+ 
+ cRecordings DeletedRecordings(true);
+ 
+@@ -154,9 +155,10 @@
+                     }
+                  r = DeletedRecordings.Next(r);
+                  }
+-           if (r0 && r0->Remove()) {
++           if (r0) {
++              if (r0->Remove())
++                 LastFreeDiskCheck += REMOVELATENCY / Factor;
+               DeletedRecordings.Del(r0);
+-              LastFreeDiskCheck += REMOVELATENCY / Factor;
+               return;
+               }
+            }
+@@ -601,7 +603,7 @@
+   name = NULL;
+   fileSizeMB = -1; // unknown
+   channel = Timer->Channel()->Number();
+-  resumeId = Setup.ResumeID;
++  instanceId = InstanceId;
+   isPesRecording = false;
+   framesPerSecond = DEFAULTFRAMESPERSECOND;
+   deleted = 0;
+@@ -658,7 +660,7 @@
+   resume = RESUME_NOT_INITIALIZED;
+   fileSizeMB = -1; // unknown
+   channel = -1;
+-  resumeId = -1;
++  instanceId = -1;
+   priority = MAXPRIORITY; // assume maximum in case there is no info file
+   lifetime = MAXLIFETIME;
+   isPesRecording = false;
+@@ -677,7 +679,7 @@
+      struct tm tm_r;
+      struct tm t = *localtime_r(&now, &tm_r); // this initializes the time zone in 't'
+      t.tm_isdst = -1; // makes sure mktime() will determine the correct DST setting
+-     if (7 == sscanf(p + 1, DATAFORMATTS, &t.tm_year, &t.tm_mon, &t.tm_mday, &t.tm_hour, &t.tm_min, &channel, &resumeId)
++     if (7 == sscanf(p + 1, DATAFORMATTS, &t.tm_year, &t.tm_mon, &t.tm_mday, &t.tm_hour, &t.tm_min, &channel, &instanceId)
+       || 7 == sscanf(p + 1, DATAFORMATPES, &t.tm_year, &t.tm_mon, &t.tm_mday, &t.tm_hour, &t.tm_min, &priority, &lifetime)) {
+         t.tm_year -= 1900;
+         t.tm_mon--;
+@@ -687,7 +689,7 @@
+         strncpy(name, FileName, p - FileName);
+         name[p - FileName] = 0;
+         name = ExchangeChars(name, false);
+-        isPesRecording = resumeId < 0;
++        isPesRecording = instanceId < 0;
+         }
+      else
+         return;
+@@ -826,7 +828,7 @@
+      struct tm *t = localtime_r(&start, &tm_r);
+      const char *fmt = isPesRecording ? NAMEFORMATPES : NAMEFORMATTS;
+      int ch = isPesRecording ? priority : channel;
+-     int ri = isPesRecording ? lifetime : resumeId;
++     int ri = isPesRecording ? lifetime : instanceId;
+      name = ExchangeChars(name, true);
+      fileName = strdup(cString::sprintf(fmt, VideoDirectory, name, t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, ch, ri));
+      name = ExchangeChars(name, false);
+@@ -1430,6 +1432,19 @@
+         }
+ }
+ 
++void cIndexFile::ConvertToPes(tIndexTs *IndexTs, int Count)
++{
++  tIndexPes IndexPes;
++  while (Count-- > 0) {
++        IndexPes.offset = uint32_t(IndexTs->offset);
++        IndexPes.type = IndexTs->independent ? 1 : 2; // I_FRAME : "not I_FRAME" (exact frame type doesn't matter)
++        IndexPes.number = IndexTs->number;
++        IndexPes.reserved = 0;
++        memcpy(IndexTs, &IndexPes, sizeof(*IndexTs));
++        IndexTs++;
++        }
++}
++
+ bool cIndexFile::CatchUp(int Index)
+ {
+   // returns true unless something really goes wrong, so that 'index' becomes NULL
+@@ -1489,6 +1504,8 @@
+ {
+   if (f >= 0) {
+      tIndexTs i(FileOffset, Independent, FileNumber);
++     if (isPesRecording)
++        ConvertToPes(&i, 1);
+      if (safe_write(f, &i, sizeof(i)) < 0) {
+         LOG_ERROR_STR(fileName);
+         close(f);
+@@ -1696,7 +1713,7 @@
+ {
+   char buffer[16];
+   double Seconds;
+-  int f = modf((Index + 0.5) / FramesPerSecond, &Seconds) * FramesPerSecond + 1;
++  int f = int(modf((Index + 0.5) / FramesPerSecond, &Seconds) * FramesPerSecond + 1);
+   int s = int(Seconds);
+   int m = s / 60 % 60;
+   int h = s / 3600;
+@@ -1718,7 +1735,7 @@
+ 
+ int SecondsToFrames(int Seconds, double FramesPerSecond)
+ {
+-  return round(Seconds * FramesPerSecond);
++  return int(round(Seconds * FramesPerSecond));
+ }
+ 
+ // --- ReadFrame -------------------------------------------------------------
+diff -ruN vdr-1.7.3/recording.h vdr-1.7.4/recording.h
+--- vdr-1.7.3/recording.h	2009-01-06 11:49:59.000000000 +0100
++++ vdr-1.7.4/recording.h	2009-01-24 16:24:19.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 2.1 2009/01/06 10:49:59 kls Exp $
++ * $Id: recording.h 2.4 2009/01/24 15:24:19 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -19,6 +19,7 @@
+ #include "tools.h"
+ 
+ extern bool VfatFileSystem;
++extern int InstanceId;
+ 
+ void RemoveDeletedRecordings(void);
+ void AssertFreeDiskSpace(int Priority = 0, bool Force = false);
+@@ -82,7 +83,7 @@
+   mutable char *name;
+   mutable int fileSizeMB;
+   int channel;
+-  int resumeId;
++  int instanceId;
+   bool isPesRecording;
+   double framesPerSecond;
+   cRecordingInfo *info;
+@@ -208,13 +209,14 @@
+ #define MAXFRAMESIZE  KILOBYTE(512)
+ 
+ // The maximum file size is limited by the range that can be covered
+-// with 'int'. 4GB might be possible (if the range is considered
+-// 'unsigned'), 2GB should be possible (even if the range is considered
+-// 'signed'), so let's use 2000MB for absolute safety (the actual file size
+-// may be slightly higher because we stop recording only before the next
+-// 'I' frame, to have a complete Group Of Pictures):
+-#define MAXVIDEOFILESIZE 2000 // MB
+-#define MINVIDEOFILESIZE  100 // MB
++// with a 40 bit 'unsigned int', which is 1TB. The actual maximum value
++// used is 6MB below the theoretical maximum, to have some safety (the
++// actual file size may be slightly higher because we stop recording only
++// before the next independent frame, to have a complete Group Of Pictures):
++#define MAXVIDEOFILESIZETS  1048570 // MB
++#define MAXVIDEOFILESIZEPES    2000 // MB
++#define MINVIDEOFILESIZE        100 // MB
++#define MAXVIDEOFILESIZEDEFAULT MAXVIDEOFILESIZEPES
+ 
+ struct tIndexTs;
+ 
+@@ -228,6 +230,7 @@
+   cResumeFile resumeFile;
+   cMutex mutex;
+   void ConvertFromPes(tIndexTs *IndexTs, int Count);
++  void ConvertToPes(tIndexTs *IndexTs, int Count);
+   bool CatchUp(int Index = -1);
+ public:
+   cIndexFile(const char *FileName, bool Record, bool IsPesRecording = false);
+diff -ruN vdr-1.7.3/remux.c vdr-1.7.4/remux.c
+--- vdr-1.7.3/remux.c	2009-01-06 15:46:21.000000000 +0100
++++ vdr-1.7.4/remux.c	2009-01-24 14:44:45.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 2.5 2009/01/06 14:46:21 kls Exp $
++ * $Id: remux.c 2.13 2009/01/24 13:44:45 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -111,13 +111,14 @@
+ 
+ // --- cPatPmtGenerator ------------------------------------------------------
+ 
+-cPatPmtGenerator::cPatPmtGenerator(void)
++cPatPmtGenerator::cPatPmtGenerator(cChannel *Channel)
+ {
+   numPmtPackets = 0;
+   patCounter = pmtCounter = 0;
+   patVersion = pmtVersion = 0;
++  pmtPid = 0;
+   esInfoLength = NULL;
+-  GeneratePat();
++  SetChannel(Channel);
+ }
+ 
+ void cPatPmtGenerator::IncCounter(int &Counter, uchar *TsPacket)
+@@ -206,16 +207,31 @@
+ }
+ 
+ #define P_TSID    0x8008 // pseudo TS ID
+-#define P_PNR     0x0084 // pseudo Program Number
+ #define P_PMT_PID 0x0084 // pseudo PMT pid
++#define MAXPID    0x2000 // the maximum possible number of pids
++
++void cPatPmtGenerator::GeneratePmtPid(cChannel *Channel)
++{
++  bool Used[MAXPID] = { false };
++#define SETPID(p) { if ((p) >= 0 && (p) < MAXPID) Used[p] = true; }
++#define SETPIDS(l) { const int *p = l; while (*p) { SETPID(*p); p++; } }
++  SETPID(Channel->Vpid());
++  SETPID(Channel->Ppid());
++  SETPID(Channel->Tpid());
++  SETPIDS(Channel->Apids());
++  SETPIDS(Channel->Dpids());
++  SETPIDS(Channel->Spids());
++  for (pmtPid = P_PMT_PID; Used[pmtPid]; pmtPid++)
++      ;
++}
+ 
+ void cPatPmtGenerator::GeneratePat(void)
+ {
+   memset(pat, 0xFF, sizeof(pat));
+   uchar *p = pat;
+   int i = 0;
+-  p[i++] = 0x47; // TS indicator
+-  p[i++] = 0x40; // flags (3), pid hi (5)
++  p[i++] = TS_SYNC_BYTE; // TS indicator
++  p[i++] = TS_PAYLOAD_START; // flags (3), pid hi (5)
+   p[i++] = 0x00; // pid lo
+   p[i++] = 0x10; // flags (4), continuity counter (4)
+   p[i++] = 0x00; // pointer field (payload unit start indicator is set)
+@@ -229,22 +245,21 @@
+   p[i++] = 0xC1 | (patVersion << 1); // dummy (2), version number (5), current/next indicator (1)
+   p[i++] = 0x00; // section number
+   p[i++] = 0x00; // last section number
+-  p[i++] = P_PNR >> 8;   // program number hi
+-  p[i++] = P_PNR & 0xFF; // program number lo
+-  p[i++] = 0xE0 | (P_PMT_PID >> 8); // dummy (3), PMT pid hi (5)
+-  p[i++] = P_PMT_PID & 0xFF; // PMT pid lo
++  p[i++] = pmtPid >> 8;   // program number hi
++  p[i++] = pmtPid & 0xFF; // program number lo
++  p[i++] = 0xE0 | (pmtPid >> 8); // dummy (3), PMT pid hi (5)
++  p[i++] = pmtPid & 0xFF; // PMT pid lo
+   pat[SectionLength] = i - SectionLength - 1 + 4; // -2 = SectionLength storage, +4 = length of CRC
+   MakeCRC(pat + i, pat + PayloadStart, i - PayloadStart);
+   IncVersion(patVersion);
+ }
+ 
+-void cPatPmtGenerator::GeneratePmt(tChannelID ChannelID)
++void cPatPmtGenerator::GeneratePmt(cChannel *Channel)
+ {
+   // generate the complete PMT section:
+   uchar buf[MAX_SECTION_SIZE];
+   memset(buf, 0xFF, sizeof(buf));
+   numPmtPackets = 0;
+-  cChannel *Channel = Channels.GetByChannelID(ChannelID);
+   if (Channel) {
+      int Vpid = Channel->Vpid();
+      uchar *p = buf;
+@@ -253,8 +268,8 @@
+      int SectionLength = i;
+      p[i++] = 0xB0; // section syntax indicator (1), dummy (3), section length hi (4)
+      p[i++] = 0x00; // section length lo (filled in later)
+-     p[i++] = P_PNR >> 8;   // program number hi
+-     p[i++] = P_PNR & 0xFF; // program number lo
++     p[i++] = pmtPid >> 8;   // program number hi
++     p[i++] = pmtPid & 0xFF; // program number lo
+      p[i++] = 0xC1 | (pmtVersion << 1); // dummy (2), version number (5), current/next indicator (1)
+      p[i++] = 0x00; // section number
+      p[i++] = 0x00; // last section number
+@@ -292,9 +307,9 @@
+      while (i > 0) {
+            uchar *p = pmt[numPmtPackets++];
+            int j = 0;
+-           p[j++] = 0x47; // TS indicator
+-           p[j++] = (pusi ? 0x40 : 0x00) | (P_PNR >> 8); // flags (3), pid hi (5)
+-           p[j++] = P_PNR & 0xFF; // pid lo
++           p[j++] = TS_SYNC_BYTE; // TS indicator
++           p[j++] = (pusi ? TS_PAYLOAD_START : 0x00) | (pmtPid >> 8); // flags (3), pid hi (5)
++           p[j++] = pmtPid & 0xFF; // pid lo
+            p[j++] = 0x10; // flags (4), continuity counter (4)
+            if (pusi) {
+               p[j++] = 0x00; // pointer field (payload unit start indicator is set)
+@@ -307,8 +322,15 @@
+            }
+      IncVersion(pmtVersion);
+      }
+-  else
+-     esyslog("ERROR: can't find channel %s", *ChannelID.ToString());
++}
++
++void cPatPmtGenerator::SetChannel(cChannel *Channel)
++{
++  if (Channel) {
++     GeneratePmtPid(Channel);
++     GeneratePat();
++     GeneratePmt(Channel);
++     }
+ }
+ 
+ uchar *cPatPmtGenerator::GetPat(void)
+@@ -320,7 +342,7 @@
+ uchar *cPatPmtGenerator::GetPmt(int &Index)
+ {
+   if (Index < numPmtPackets) {
+-     IncCounter(patCounter, pmt[Index]);
++     IncCounter(pmtCounter, pmt[Index]);
+      return pmt[Index++];
+      }
+   return NULL;
+@@ -330,18 +352,32 @@
+ 
+ cPatPmtParser::cPatPmtParser(void)
+ {
++  Reset();
++}
++
++void cPatPmtParser::Reset(void)
++{
+   pmtSize = 0;
++  patVersion = pmtVersion = -1;
+   pmtPid = -1;
+   vpid = vtype = 0;
+ }
+ 
+ void cPatPmtParser::ParsePat(const uchar *Data, int Length)
+ {
++  // Unpack the TS packet:
++  int PayloadOffset = TsPayloadOffset(Data);
++  Data += PayloadOffset;
++  Length -= PayloadOffset;
+   // The PAT is always assumed to fit into a single TS packet
++  if ((Length -= Data[0] + 1) <= 0)
++     return;
+   Data += Data[0] + 1; // process pointer_field
+   SI::PAT Pat(Data, false);
+   if (Pat.CheckCRCAndParse()) {
+      dbgpatpmt("PAT: TSid = %d, c/n = %d, v = %d, s = %d, ls = %d\n", Pat.getTransportStreamId(), Pat.getCurrentNextIndicator(), Pat.getVersionNumber(), Pat.getSectionNumber(), Pat.getLastSectionNumber());
++     if (patVersion == Pat.getVersionNumber())
++        return;
+      SI::PAT::Association assoc;
+      for (SI::Loop::Iterator it; Pat.associationLoop.getNext(assoc, it); ) {
+          dbgpatpmt("     isNITPid = %d\n", assoc.isNITPid());
+@@ -350,6 +386,7 @@
+             dbgpatpmt("     service id = %d, pid = %d\n", assoc.getServiceId(), assoc.getPid());
+             }
+          }
++     patVersion = Pat.getVersionNumber();
+      }
+   else
+      esyslog("ERROR: can't parse PAT");
+@@ -357,10 +394,17 @@
+ 
+ void cPatPmtParser::ParsePmt(const uchar *Data, int Length)
+ {
++  // Unpack the TS packet:
++  bool PayloadStart = TsPayloadStart(Data);
++  int PayloadOffset = TsPayloadOffset(Data);
++  Data += PayloadOffset;
++  Length -= PayloadOffset;
+   // The PMT may extend over several TS packets, so we need to assemble them
+-  if (pmtSize == 0) {
++  if (PayloadStart) {
++     pmtSize = 0;
++     if ((Length -= Data[0] + 1) <= 0)
++        return;
+      Data += Data[0] + 1; // this is the first packet
+-     Length -= Data[0] + 1;
+      if (SectionLength(Data, Length) > Length) {
+         if (Length <= int(sizeof(pmt))) {
+            memcpy(pmt, Data, Length);
+@@ -372,7 +416,7 @@
+         }
+      // the packet contains the entire PMT section, so we run into the actual parsing
+      }
+-  else {
++  else if (pmtSize > 0) {
+      // this is a following packet, so we add it to the pmt storage
+      if (Length <= int(sizeof(pmt)) - pmtSize) {
+         memcpy(pmt + pmtSize, Data, Length);
+@@ -387,10 +431,14 @@
+      // the PMT section is now complete, so we run into the actual parsing
+      Data = pmt;
+      }
++  else
++     return; // fragment of broken packet - ignore
+   SI::PMT Pmt(Data, false);
+   if (Pmt.CheckCRCAndParse()) {
+      dbgpatpmt("PMT: sid = %d, c/n = %d, v = %d, s = %d, ls = %d\n", Pmt.getServiceId(), Pmt.getCurrentNextIndicator(), Pmt.getVersionNumber(), Pmt.getSectionNumber(), Pmt.getLastSectionNumber());
+      dbgpatpmt("     pcr = %d\n", Pmt.getPCRPid());
++     if (pmtVersion == Pmt.getVersionNumber())
++        return;
+      cDevice::PrimaryDevice()->ClrAvailableTracks(false, true);
+      int NumApids = 0;
+      int NumDpids = 0;
+@@ -496,6 +544,7 @@
+          cDevice::PrimaryDevice()->EnsureAudioTrack(true);
+          cDevice::PrimaryDevice()->EnsureSubtitleTrack();
+          }
++     pmtVersion = Pmt.getVersionNumber();
+      }
+   else
+      esyslog("ERROR: can't parse PMT");
+@@ -559,8 +608,10 @@
+         }
+      else {
+         Length = PesLength(data);
+-        offset = Length; // to make sure we break out in case of garbage data
+-        return data;
++        if (Length <= length) {
++           offset = Length; // to make sure we break out in case of garbage data
++           return data;
++           }
+         }
+      }
+   return NULL;
+@@ -703,6 +754,7 @@
+                       if (frameDuration) {
+                          newFrame = true;
+                          independentFrame = true;
++                         scanning = false;
+                          }
+                       else
+                          framesPerPayloadUnit = 1;
+diff -ruN vdr-1.7.3/remux.h vdr-1.7.4/remux.h
+--- vdr-1.7.3/remux.h	2009-01-06 13:40:43.000000000 +0100
++++ vdr-1.7.4/remux.h	2009-01-24 14:38:10.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 2.4 2009/01/06 12:40:43 kls Exp $
++ * $Id: remux.h 2.7 2009/01/24 13:38:10 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+@@ -153,6 +153,7 @@
+   int pmtCounter;
+   int patVersion;
+   int pmtVersion;
++  int pmtPid;
+   uchar *esInfoLength;
+   void IncCounter(int &Counter, uchar *TsPacket);
+   void IncVersion(int &Version);
+@@ -163,16 +164,20 @@
+   int MakeSubtitlingDescriptor(uchar *Target, const char *Language);
+   int MakeLanguageDescriptor(uchar *Target, const char *Language);
+   int MakeCRC(uchar *Target, const uchar *Data, int Length);
+-public:
+-  cPatPmtGenerator(void);
++  void GeneratePmtPid(cChannel *Channel);
++       ///< Generates a PMT pid that doesn't collide with any of the actual
++       ///< pids of the Channel.
+   void GeneratePat(void);
+        ///< Generates a PAT section for later use with GetPat().
+-       ///< This function is called by default from the constructor.
+-  void GeneratePmt(tChannelID ChannelID);
+-       ///< Generates a PMT section for the given ChannelId, for later use
++  void GeneratePmt(cChannel *Channel);
++       ///< Generates a PMT section for the given Channel, for later use
+        ///< with GetPmt().
++public:
++  cPatPmtGenerator(cChannel *Channel = NULL);
++  void SetChannel(cChannel *Channel);
++       ///< Sets the Channel for which the PAT/PMT shall be generated.
+   uchar *GetPat(void);
+-       ///< Returns a pointer to the PAT section, which consist of exactly
++       ///< Returns a pointer to the PAT section, which consists of exactly
+        ///< one TS packet.
+   uchar *GetPmt(int &Index);
+        ///< Returns a pointer to the Index'th TS packet of the PMT section.
+@@ -187,6 +192,8 @@
+ private:
+   uchar pmt[MAX_SECTION_SIZE];
+   int pmtSize;
++  int patVersion;
++  int pmtVersion;
+   int pmtPid;
+   int vpid;
+   int vtype;
+@@ -194,12 +201,16 @@
+   int SectionLength(const uchar *Data, int Length) { return (Length >= 3) ? ((int(Data[1]) & 0x0F) << 8)| Data[2] : 0; }
+ public:
+   cPatPmtParser(void);
++  void Reset(void);
++       ///< Resets the parser. This function must be called whenever a new
++       ///< stream is parsed.
+   void ParsePat(const uchar *Data, int Length);
+-       ///< Parses the given PAT Data, which is the payload of a single TS packet
+-       ///< from the PAT stream. The PAT may consist only of a single TS packet.
++       ///< Parses the PAT data from the single TS packet in Data.
++       ///< Length is always TS_SIZE.
+   void ParsePmt(const uchar *Data, int Length);
+-       ///< Parses the given PMT Data, which is the payload of a single TS packet
+-       ///< from the PMT stream. The PMT may consist of several TS packets, which
++       ///< Parses the PMT data from the single TS packet in Data.
++       ///< Length is always TS_SIZE.
++       ///< The PMT may consist of several TS packets, which
+        ///< are delivered to the parser through several subsequent calls to
+        ///< ParsePmt(). The whole PMT data will be processed once the last packet
+        ///< has been received.
+diff -ruN vdr-1.7.3/tools.c vdr-1.7.4/tools.c
+--- vdr-1.7.3/tools.c	2008-12-24 16:25:15.000000000 +0100
++++ vdr-1.7.4/tools.c	2009-01-16 15:29:08.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 2.1 2008/12/24 15:25:15 kls Exp $
++ * $Id: tools.c 2.2 2009/01/16 14:29:08 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -1608,7 +1608,7 @@
+               // kind of write gathering enabled), but the syncs cause (io) load..
+               // Uncomment the next line if you think you need them.
+               //fdatasync(fd);
+-              off_t headdrop = min(curpos - totwritten, off_t(totwritten * 2));
++              off_t headdrop = min(off_t(curpos - totwritten), off_t(totwritten * 2));
+               posix_fadvise(fd, curpos - totwritten - headdrop, totwritten + headdrop, POSIX_FADV_DONTNEED);
+               totwritten = 0;
+               }
+diff -ruN vdr-1.7.3/transfer.c vdr-1.7.4/transfer.c
+--- vdr-1.7.3/transfer.c	2008-08-15 16:32:12.000000000 +0200
++++ vdr-1.7.4/transfer.c	2009-01-23 16:34:26.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: transfer.c 2.1 2008/08/15 14:32:12 kls Exp $
++ * $Id: transfer.c 2.3 2009/01/23 15:34:26 kls Exp $
+  */
+ 
+ #include "transfer.h"
+@@ -14,7 +14,7 @@
+ cTransfer::cTransfer(tChannelID ChannelID, int VPid, const int *APids, const int *DPids, const int *SPids)
+ :cReceiver(ChannelID, -1, VPid, APids, Setup.UseDolbyDigital ? DPids : NULL, SPids)
+ {
+-  patPmtGenerator.GeneratePmt(ChannelID);
++  patPmtGenerator.SetChannel(Channels.GetByChannelID(ChannelID));
+ }
+ 
+ cTransfer::~cTransfer()
+@@ -31,6 +31,8 @@
+      while (uchar *pmt = patPmtGenerator.GetPmt(Index))
+            PlayTs(pmt, TS_SIZE);
+      }
++  else
++     cPlayer::Detach();
+ }
+ 
+ void cTransfer::Receive(uchar *Data, int Length)
+diff -ruN vdr-1.7.3/vdr.1 vdr-1.7.4/vdr.1
+--- vdr-1.7.3/vdr.1	2008-03-09 17:07:06.000000000 +0100
++++ vdr-1.7.4/vdr.1	2009-01-18 12:05:56.000000000 +0100
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.1 2.0 2008/03/09 16:07:06 kls Exp $
++.\" $Id: vdr.1 2.1 2009/01/18 11:05:56 kls Exp $
+ .\"
+ .TH vdr 1 "10 Feb 2008" "1.6" "Video Disk Recorder"
+ .SH NAME
+@@ -71,6 +71,15 @@
+ .B \-h, \-\-help
+ Print a help message and exit.
+ .TP
++.BI \-i\  instance ,\ \-\-instance= instance
++Use \fIinstance\fR as the id of this VDR instance (default is 0).
++In an environment where several instances of VDR use the same video
++directory, this parameter can be set to a positive integer value
++that's unique for each instance, so that they won't interfere with
++each other in case they record exactly the same broadcast.
++The number given here will be part of the directory name in which
++the recordings will be stored.
++.TP
+ .BI \-l\  level ,\ \-\-log= level
+ Set logging to \fIlevel\fR.
+ \fB0\fR\ =\ no logging, \fB1\fR\ =\ errors only,
+diff -ruN vdr-1.7.3/vdr.c vdr-1.7.4/vdr.c
+--- vdr-1.7.3/vdr.c	2008-09-06 16:08:44.000000000 +0200
++++ vdr-1.7.4/vdr.c	2009-01-18 12:02:37.000000000 +0100
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 2.3 2008/09/06 14:08:44 kls Exp $
++ * $Id: vdr.c 2.4 2009/01/18 11:02:37 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -223,6 +223,7 @@
+       { "epgfile",  required_argument, NULL, 'E' },
+       { "grab",     required_argument, NULL, 'g' },
+       { "help",     no_argument,       NULL, 'h' },
++      { "instance", required_argument, NULL, 'i' },
+       { "lib",      required_argument, NULL, 'L' },
+       { "lirc",     optional_argument, NULL, 'l' | 0x100 },
+       { "localedir",required_argument, NULL, 'l' | 0x200 },
+@@ -245,7 +246,7 @@
+     };
+ 
+   int c;
+-  while ((c = getopt_long(argc, argv, "a:c:dD:E:g:hl:L:mp:P:r:s:t:u:v:Vw:", long_options, NULL)) != -1) {
++  while ((c = getopt_long(argc, argv, "a:c:dD:E:g:hi:l:L:mp:P:r:s:t:u:v:Vw:", long_options, NULL)) != -1) {
+         switch (c) {
+           case 'a': AudioCommand = optarg;
+                     break;
+@@ -268,6 +269,13 @@
+                     break;
+           case 'h': DisplayHelp = true;
+                     break;
++          case 'i': if (isnumber(optarg)) {
++                       InstanceId = atoi(optarg);
++                       if (InstanceId >= 0)
++                          break;
++                       }
++                    fprintf(stderr, "vdr: invalid instance id: %s\n", optarg);
++                    return 2;
+           case 'l': {
+                       char *p = strchr(optarg, '.');
+                       if (p)

@@ -1,0 +1,287 @@
+diff -ruNbw vdr-1.2.3/CONTRIBUTORS vdr-1.2.4/CONTRIBUTORS
+--- vdr-1.2.3/CONTRIBUTORS	Sun Aug 17 11:06:10 2003
++++ vdr-1.2.4/CONTRIBUTORS	Sun Aug 24 16:47:34 2003
+@@ -559,6 +559,7 @@
+ Andreas Kool <akool@akool.de>
+  for his help in keeping 'channels.conf.cable' up to date
+  for fixing the TS to PES repacker so that it works with MPEG1 streams
++ for reporting a problem with empty values in setup.conf
+ 
+ Guy Roussin <guy.roussin@teledetection.fr>
+  for suggesting not to display channel group delimiters without text
+@@ -621,6 +622,7 @@
+  for fixing a possible deadlock when using the "Blue" button in the "Schedules" menu
+  to switch to an other channel
+  for reporting a wrong EPG bugfix code number for the MAX_USEFUL_SUBTITLE_LENGTH fix
++ for fixing a bug in resetting OSD color palettes
+ 
+ Steffen Becker <stbecker@rbg.informatik.tu-darmstadt.de>
+  for reporting a problem with CPU load peaks (in the EPG scanner)
+@@ -748,6 +750,7 @@
+  that a channel only qualifies as "previous" if it has been selected for at least
+  3 seconds
+  for reporting a bug in handling the color buttons in the "Edit channel" menu
++ for adding a note about the config files of plugins to INSTALL
+ 
+ Kenneth Aafløy <ke-aa@frisurf.no>
+  for fixing checking CA capabilities with the dvb-kernel driver
+@@ -767,3 +770,7 @@
+ Manfred Schmidt-Voigt <manfred.schmidt-voigt@mannitec.de>
+  for reporting a problem with runnign out of disk space while cutting in case
+  there are still deleted recordings to remove
++
++Javier Marcet <lists@marcet.info>
++ for reporting a problem when starting a recording on the primary device if there
++ is a replay session active
+diff -ruNbw vdr-1.2.3/HISTORY vdr-1.2.4/HISTORY
+--- vdr-1.2.3/HISTORY	Sun Aug 17 11:18:40 2003
++++ vdr-1.2.4/HISTORY	Sun Aug 24 16:49:53 2003
+@@ -2283,7 +2283,7 @@
+   or Makefile.config as defaults (thanks to Steffen Barszus).
+ - Added the usual menu timeout to the CAM menus.
+ 
+-2003-08-17: Version 1.2.3
++2003-08-17: Version 1.2.3 (not officially released)
+ 
+ - Fixed the TS to PES repacker so that it works with MPEG1 streams (thanks to
+   Andreas Kool).
+@@ -2314,3 +2314,18 @@
+   (suggested by Helmut Auer).
+ - Removing deleted recordings faster than normal when cutting, to avoid running
+   out of disk space (thanks to Manfred Schmidt-Voigt for reporting this one).
++
++2003-08-24: Version 1.2.4
++
++- Fixed 'runvdr' to stay in the loop only if VDR returns an exit status of '1'.
++- Completed the Finnish OSD texts (thanks to Rolf Ahrenberg).
++- Empty values in setup.conf are no longer treated as an error (thanks to Andreas
++  Kool for reporting this one).
++- Added a note about the config files of plugins to INSTALL (thanks to Thomas
++  Keil).
++- VDR now continues to start up, even if there is an error in setup.conf.
++- Fixed a bug in resetting OSD color palettes (thanks to Torsten Herz).
++- Fixed starting a recording on the primary device if there is a replay session
++  active (thanks to Javier Marcet for reporting this one).
++- Avoiding an unnecessary stop of an ongoing Transfer Mode when starting a
++  recording on the primary device.
+diff -ruNbw vdr-1.2.3/INSTALL vdr-1.2.4/INSTALL
+--- vdr-1.2.3/INSTALL	Sat May 31 18:20:59 2003
++++ vdr-1.2.4/INSTALL	Sun Aug 24 13:08:27 2003
+@@ -302,8 +302,11 @@
+ There are several configuration files that hold information about
+ channels, remote control keys, timers etc. By default these files are
+ assumed to be located in the video directory, but a different directory
+-can be used with the '-c' option. For starters just copy all *.conf files from
+-the VDR directory into your video directory.
++can be used with the '-c' option. Plugins assume their configuration files
++in a subdirectory called "plugins" of this directory.
++
++For starters just copy all *.conf files from the VDR directory into your
++video directory.
+ 
+ The configuration files can be edited with any text editor, or will be written
+ by the 'vdr' program if any changes are made inside the on-screen menus.
+diff -ruNbw vdr-1.2.3/config.c vdr-1.2.4/config.c
+--- vdr-1.2.3/config.c	Sun Aug 17 10:47:41 2003
++++ vdr-1.2.4/config.c	Sun Aug 24 13:00:24 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 1.115 2003/08/17 08:47:41 kls Exp $
++ * $Id: config.c 1.116 2003/08/24 11:00:24 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -215,7 +215,7 @@
+      *p = 0;
+      char *Name  = compactspace(s);
+      char *Value = compactspace(p + 1);
+-     if (*Name && *Value) {
++     if (*Name) { // value may be an empty string
+         p = strchr(Name, '.');
+         if (p) {
+            *p = 0;
+diff -ruNbw vdr-1.2.3/config.h vdr-1.2.4/config.h
+--- vdr-1.2.3/config.h	Sun Aug 17 10:46:34 2003
++++ vdr-1.2.4/config.h	Sun Aug 24 12:52:20 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.168 2003/08/17 08:46:34 kls Exp $
++ * $Id: config.h 1.169 2003/08/24 10:52:20 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -19,8 +19,8 @@
+ #include "device.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.2.3"
+-#define VDRVERSNUM   10203  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.2.4"
++#define VDRVERSNUM   10204  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+diff -ruNbw vdr-1.2.3/dvbdevice.c vdr-1.2.4/dvbdevice.c
+--- vdr-1.2.3/dvbdevice.c	Fri Aug 15 15:03:41 2003
++++ vdr-1.2.4/dvbdevice.c	Sun Aug 24 16:23:12 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.61 2003/08/15 13:03:41 kls Exp $
++ * $Id: dvbdevice.c 1.62 2003/08/24 14:23:12 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -613,13 +613,12 @@
+ {
+   bool result = false;
+   bool hasPriority = Priority < 0 || Priority > this->Priority();
+-  bool needsDetachReceivers = true;
++  bool needsDetachReceivers = false;
+ 
+   if (ProvidesSource(Channel->Source()) && ProvidesCa(Channel->Ca())) {
+      result = hasPriority;
+      if (Receiving()) {
+         if (dvbTuner->IsTunedTo(Channel)) {
+-           needsDetachReceivers = false;
+            if (!HasPid(Channel->Vpid())) {
+ #ifdef DO_MULTIPLE_RECORDINGS
+               if (Channel->Ca() > CACONFBASE)
+@@ -636,6 +635,8 @@
+            else
+               result = !IsPrimaryDevice() || Priority >= Setup.PrimaryLimit;
+            }
++        else
++           needsDetachReceivers = true;
+         }
+      }
+   if (NeedsDetachReceivers)
+diff -ruNbw vdr-1.2.3/i18n.c vdr-1.2.4/i18n.c
+--- vdr-1.2.3/i18n.c	Sun Aug 17 10:53:24 2003
++++ vdr-1.2.4/i18n.c	Sun Aug 24 12:52:08 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.130 2003/08/17 08:53:24 kls Exp $
++ * $Id: i18n.c 1.131 2003/08/24 10:52:08 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -79,7 +79,7 @@
+     "Português",
+     "Français",
+     "Norsk",
+-    "suomi",
++    "Suomi",
+     "Polski",
+     "Español",
+     "Ellinika",
+@@ -2671,7 +2671,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Kanavavalinnan odotusaika (s)",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+diff -ruNbw vdr-1.2.3/menu.c vdr-1.2.4/menu.c
+--- vdr-1.2.3/menu.c	Sun Aug 17 10:52:07 2003
++++ vdr-1.2.4/menu.c	Sun Aug 24 16:28:44 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.268 2003/08/17 08:52:07 kls Exp $
++ * $Id: menu.c 1.269 2003/08/24 14:28:44 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -25,6 +25,7 @@
+ #include "sources.h"
+ #include "status.h"
+ #include "timers.h"
++#include "transfer.h"
+ #include "videodir.h"
+ 
+ #define MENUTIMEOUT     120 // seconds
+@@ -3102,7 +3103,7 @@
+      if (device) {
+         if (NeedsDetachReceivers) {
+            Stop(device);
+-           if (device == cDevice::ActualDevice())
++           if (device == cTransferControl::ReceiverDevice())
+               cControl::Shutdown(); // in case this device was used for Transfer Mode
+            }
+         if (!device->SwitchChannel(channel, false)) {
+diff -ruNbw vdr-1.2.3/osdbase.c vdr-1.2.4/osdbase.c
+--- vdr-1.2.3/osdbase.c	Fri Aug 15 15:47:51 2003
++++ vdr-1.2.4/osdbase.c	Sun Aug 24 13:38:27 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osdbase.c 1.9 2003/08/15 13:47:51 kls Exp $
++ * $Id: osdbase.c 1.10 2003/08/24 11:38:27 kls Exp $
+  */
+ 
+ #include "osdbase.h"
+@@ -70,7 +70,7 @@
+ void cPalette::Reset(void)
+ {
+   for (int i = 0; i < numColors; i++)
+-      used[i] = false;
++      used[i] = fetched[i] = false;
+   full = false;
+ }
+ 
+diff -ruNbw vdr-1.2.3/runvdr vdr-1.2.4/runvdr
+--- vdr-1.2.3/runvdr	Sat Mar 16 17:22:12 2002
++++ vdr-1.2.4/runvdr	Sun Aug 17 16:27:31 2003
+@@ -18,7 +18,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: runvdr 1.9 2002/03/16 16:22:12 kls Exp $
++# $Id: runvdr 1.10 2003/08/17 14:27:31 kls Exp $
+ 
+ DVBDIR="../DVB/driver"
+ VDRPRG="./vdr"
+@@ -34,7 +34,7 @@
+ 
+ while (true) do
+       su -c "$VDRCMD" $VDRUSR
+-      if test $? -eq 0; then exit; fi
++      if test $? -ne 1; then exit; fi
+       date
+       echo "restarting VDR"
+       $KILL $VDRPRG
+diff -ruNbw vdr-1.2.3/vdr.c vdr-1.2.4/vdr.c
+--- vdr-1.2.3/vdr.c	Sun Aug 17 10:50:25 2003
++++ vdr-1.2.4/vdr.c	Sun Aug 24 13:18:04 2003
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.165 2003/08/17 08:50:25 kls Exp $
++ * $Id: vdr.c 1.166 2003/08/24 11:18:04 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -340,8 +340,8 @@
+ 
+   cPlugin::SetConfigDirectory(ConfigDirectory);
+ 
+-  if (!(Setup.Load(AddDirectory(ConfigDirectory, "setup.conf")) &&
+-        Sources.Load(AddDirectory(ConfigDirectory, "sources.conf"), true, true) &&
++  Setup.Load(AddDirectory(ConfigDirectory, "setup.conf"));
++  if (!(Sources.Load(AddDirectory(ConfigDirectory, "sources.conf"), true, true) &&
+         Diseqcs.Load(AddDirectory(ConfigDirectory, "diseqc.conf"), true, true) &&
+         Channels.Load(AddDirectory(ConfigDirectory, "channels.conf"), false, true) &&
+         Timers.Load(AddDirectory(ConfigDirectory, "timers.conf")) &&

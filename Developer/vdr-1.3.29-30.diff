@@ -1,0 +1,1618 @@
+diff -ruN vdr-1.3.29/CONTRIBUTORS vdr-1.3.30/CONTRIBUTORS
+--- vdr-1.3.29/CONTRIBUTORS	2005-08-15 13:21:14.000000000 +0200
++++ vdr-1.3.30/CONTRIBUTORS	2005-08-21 16:10:12.000000000 +0200
+@@ -737,6 +737,7 @@
+  for adding play mode pmVideoOnly
+  for fixing a possible crash with inconsistent SI data
+  for pointing out a problem with the cChannel copy constructor
++ for fixing cDvbTuner to avoid lockups on NPTL systems
+ 
+ Torsten Herz <torsten.herz@web.de>
+  for fixing a possible deadlock when using the "Blue" button in the "Schedules" menu
+@@ -1261,6 +1262,7 @@
+  for fixing handling 'page down' after it was broken in version 1.3.26
+  for suggesting a fix for an out-of-bounds memory access with audio language ids
+  for reporting a problem with cRemux in a single thread
++ for adding 'Service' functions to the plugin interface
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -1428,9 +1430,13 @@
+  for reporting a problem in cEITScanner::Process() with forced EPG scans if EPG
+  scan timeout is set to 0
+ 
+-Klaus ??? <klaus@reel-multimedia.com>
++Klaus Heppenheimer <klaus@reel-multimedia.com>
+  for reporting a race condition in cTransfer.
+ 
+ Thomas Günther <tom1@toms-cafe.de>
+  for fixing handling the frame number display if '7' is pressed before the first
+  editing mark, or '9' after the last one
++
++David Woodhouse <dwmw2@infradead.org>
++ for his help in replacing the get/put_unaligned() macros from asm/unaligned.h with
++ own inline functions to avoid problems on platforms that don't provide these
+diff -ruN vdr-1.3.29/HISTORY vdr-1.3.30/HISTORY
+--- vdr-1.3.29/HISTORY	2005-08-15 16:06:44.000000000 +0200
++++ vdr-1.3.30/HISTORY	2005-08-21 16:15:00.000000000 +0200
+@@ -3674,7 +3674,7 @@
+ 
+ 2005-08-15: Version 1.3.29
+ 
+-- Fixed a race condition in cTransfer (thanks to Klaus ??? for reporting this one).
++- Fixed a race condition in cTransfer (thanks to Klaus Heppenheimer for reporting this one).
+   In doing so, the 'active' variables used by the actual derived cThread classes
+   have been replaced by the cThread::Running() function.
+   Plugin authors may want to check their derived cThread classes and replace any 'active'
+@@ -3699,3 +3699,20 @@
+   this).
+ - Removed the VIDEO_STILLPICTURE_WORKS_WITH_VDR_FRAMES stuff from
+   cDvbDevice::StillPicture(), since apparently the VIDEO_STILLPICTURE call works.
++
++2005-08-21: Version 1.3.30
++
++- Improved responsiveness inside CAM menus.
++- Added handling of the 'Close MMI' tag to avoid error log messages with CAMs
++  that actually use it.
++- Now waiting at startup until all DVB devices are ready. This includes having
++  all CAMs initialized and ready to decrypt, so that no more "channel not
++  available" happens if VDR is started with the current channel being an encrypted
++  one, or a timer on such a channel hits right after starting VDR.
++- Fixed cVideoRepacker to better handle errors in data (thanks to Reinhard Nissl).
++- Fixed cDvbTuner to avoid lockups on NPTL systems (thanks to Marcel Wiesweg).
++- Added 'Service' functions to the plugin interface (thanks to Udo Richter).
++  See PLUGINS.html, section "Custom services" for details.
++- Replaced the get/put_unaligned() macros from <asm/unaligned.h> with own inline
++  functions to avoid problems on platforms that don't provide these (thanks to
++  David Woodhouse for his help).
+diff -ruN vdr-1.3.29/PLUGINS/src/servicedemo/COPYING vdr-1.3.30/PLUGINS/src/servicedemo/COPYING
+--- vdr-1.3.29/PLUGINS/src/servicedemo/COPYING	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.3.30/PLUGINS/src/servicedemo/COPYING	2002-10-26 16:25:44.000000000 +0200
+@@ -0,0 +1,340 @@
++		    GNU GENERAL PUBLIC LICENSE
++		       Version 2, June 1991
++
++ Copyright (C) 1989, 1991 Free Software Foundation, Inc.
++                       59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ Everyone is permitted to copy and distribute verbatim copies
++ of this license document, but changing it is not allowed.
++
++			    Preamble
++
++  The licenses for most software are designed to take away your
++freedom to share and change it.  By contrast, the GNU General Public
++License is intended to guarantee your freedom to share and change free
++software--to make sure the software is free for all its users.  This
++General Public License applies to most of the Free Software
++Foundation's software and to any other program whose authors commit to
++using it.  (Some other Free Software Foundation software is covered by
++the GNU Library General Public License instead.)  You can apply it to
++your programs, too.
++
++  When we speak of free software, we are referring to freedom, not
++price.  Our General Public Licenses are designed to make sure that you
++have the freedom to distribute copies of free software (and charge for
++this service if you wish), that you receive source code or can get it
++if you want it, that you can change the software or use pieces of it
++in new free programs; and that you know you can do these things.
++
++  To protect your rights, we need to make restrictions that forbid
++anyone to deny you these rights or to ask you to surrender the rights.
++These restrictions translate to certain responsibilities for you if you
++distribute copies of the software, or if you modify it.
++
++  For example, if you distribute copies of such a program, whether
++gratis or for a fee, you must give the recipients all the rights that
++you have.  You must make sure that they, too, receive or can get the
++source code.  And you must show them these terms so they know their
++rights.
++
++  We protect your rights with two steps: (1) copyright the software, and
++(2) offer you this license which gives you legal permission to copy,
++distribute and/or modify the software.
++
++  Also, for each author's protection and ours, we want to make certain
++that everyone understands that there is no warranty for this free
++software.  If the software is modified by someone else and passed on, we
++want its recipients to know that what they have is not the original, so
++that any problems introduced by others will not reflect on the original
++authors' reputations.
++
++  Finally, any free program is threatened constantly by software
++patents.  We wish to avoid the danger that redistributors of a free
++program will individually obtain patent licenses, in effect making the
++program proprietary.  To prevent this, we have made it clear that any
++patent must be licensed for everyone's free use or not licensed at all.
++
++  The precise terms and conditions for copying, distribution and
++modification follow.
++
++		    GNU GENERAL PUBLIC LICENSE
++   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
++
++  0. This License applies to any program or other work which contains
++a notice placed by the copyright holder saying it may be distributed
++under the terms of this General Public License.  The "Program", below,
++refers to any such program or work, and a "work based on the Program"
++means either the Program or any derivative work under copyright law:
++that is to say, a work containing the Program or a portion of it,
++either verbatim or with modifications and/or translated into another
++language.  (Hereinafter, translation is included without limitation in
++the term "modification".)  Each licensee is addressed as "you".
++
++Activities other than copying, distribution and modification are not
++covered by this License; they are outside its scope.  The act of
++running the Program is not restricted, and the output from the Program
++is covered only if its contents constitute a work based on the
++Program (independent of having been made by running the Program).
++Whether that is true depends on what the Program does.
++
++  1. You may copy and distribute verbatim copies of the Program's
++source code as you receive it, in any medium, provided that you
++conspicuously and appropriately publish on each copy an appropriate
++copyright notice and disclaimer of warranty; keep intact all the
++notices that refer to this License and to the absence of any warranty;
++and give any other recipients of the Program a copy of this License
++along with the Program.
++
++You may charge a fee for the physical act of transferring a copy, and
++you may at your option offer warranty protection in exchange for a fee.
++
++  2. You may modify your copy or copies of the Program or any portion
++of it, thus forming a work based on the Program, and copy and
++distribute such modifications or work under the terms of Section 1
++above, provided that you also meet all of these conditions:
++
++    a) You must cause the modified files to carry prominent notices
++    stating that you changed the files and the date of any change.
++
++    b) You must cause any work that you distribute or publish, that in
++    whole or in part contains or is derived from the Program or any
++    part thereof, to be licensed as a whole at no charge to all third
++    parties under the terms of this License.
++
++    c) If the modified program normally reads commands interactively
++    when run, you must cause it, when started running for such
++    interactive use in the most ordinary way, to print or display an
++    announcement including an appropriate copyright notice and a
++    notice that there is no warranty (or else, saying that you provide
++    a warranty) and that users may redistribute the program under
++    these conditions, and telling the user how to view a copy of this
++    License.  (Exception: if the Program itself is interactive but
++    does not normally print such an announcement, your work based on
++    the Program is not required to print an announcement.)
++
++These requirements apply to the modified work as a whole.  If
++identifiable sections of that work are not derived from the Program,
++and can be reasonably considered independent and separate works in
++themselves, then this License, and its terms, do not apply to those
++sections when you distribute them as separate works.  But when you
++distribute the same sections as part of a whole which is a work based
++on the Program, the distribution of the whole must be on the terms of
++this License, whose permissions for other licensees extend to the
++entire whole, and thus to each and every part regardless of who wrote it.
++
++Thus, it is not the intent of this section to claim rights or contest
++your rights to work written entirely by you; rather, the intent is to
++exercise the right to control the distribution of derivative or
++collective works based on the Program.
++
++In addition, mere aggregation of another work not based on the Program
++with the Program (or with a work based on the Program) on a volume of
++a storage or distribution medium does not bring the other work under
++the scope of this License.
++
++  3. You may copy and distribute the Program (or a work based on it,
++under Section 2) in object code or executable form under the terms of
++Sections 1 and 2 above provided that you also do one of the following:
++
++    a) Accompany it with the complete corresponding machine-readable
++    source code, which must be distributed under the terms of Sections
++    1 and 2 above on a medium customarily used for software interchange; or,
++
++    b) Accompany it with a written offer, valid for at least three
++    years, to give any third party, for a charge no more than your
++    cost of physically performing source distribution, a complete
++    machine-readable copy of the corresponding source code, to be
++    distributed under the terms of Sections 1 and 2 above on a medium
++    customarily used for software interchange; or,
++
++    c) Accompany it with the information you received as to the offer
++    to distribute corresponding source code.  (This alternative is
++    allowed only for noncommercial distribution and only if you
++    received the program in object code or executable form with such
++    an offer, in accord with Subsection b above.)
++
++The source code for a work means the preferred form of the work for
++making modifications to it.  For an executable work, complete source
++code means all the source code for all modules it contains, plus any
++associated interface definition files, plus the scripts used to
++control compilation and installation of the executable.  However, as a
++special exception, the source code distributed need not include
++anything that is normally distributed (in either source or binary
++form) with the major components (compiler, kernel, and so on) of the
++operating system on which the executable runs, unless that component
++itself accompanies the executable.
++
++If distribution of executable or object code is made by offering
++access to copy from a designated place, then offering equivalent
++access to copy the source code from the same place counts as
++distribution of the source code, even though third parties are not
++compelled to copy the source along with the object code.
++
++  4. You may not copy, modify, sublicense, or distribute the Program
++except as expressly provided under this License.  Any attempt
++otherwise to copy, modify, sublicense or distribute the Program is
++void, and will automatically terminate your rights under this License.
++However, parties who have received copies, or rights, from you under
++this License will not have their licenses terminated so long as such
++parties remain in full compliance.
++
++  5. You are not required to accept this License, since you have not
++signed it.  However, nothing else grants you permission to modify or
++distribute the Program or its derivative works.  These actions are
++prohibited by law if you do not accept this License.  Therefore, by
++modifying or distributing the Program (or any work based on the
++Program), you indicate your acceptance of this License to do so, and
++all its terms and conditions for copying, distributing or modifying
++the Program or works based on it.
++
++  6. Each time you redistribute the Program (or any work based on the
++Program), the recipient automatically receives a license from the
++original licensor to copy, distribute or modify the Program subject to
++these terms and conditions.  You may not impose any further
++restrictions on the recipients' exercise of the rights granted herein.
++You are not responsible for enforcing compliance by third parties to
++this License.
++
++  7. If, as a consequence of a court judgment or allegation of patent
++infringement or for any other reason (not limited to patent issues),
++conditions are imposed on you (whether by court order, agreement or
++otherwise) that contradict the conditions of this License, they do not
++excuse you from the conditions of this License.  If you cannot
++distribute so as to satisfy simultaneously your obligations under this
++License and any other pertinent obligations, then as a consequence you
++may not distribute the Program at all.  For example, if a patent
++license would not permit royalty-free redistribution of the Program by
++all those who receive copies directly or indirectly through you, then
++the only way you could satisfy both it and this License would be to
++refrain entirely from distribution of the Program.
++
++If any portion of this section is held invalid or unenforceable under
++any particular circumstance, the balance of the section is intended to
++apply and the section as a whole is intended to apply in other
++circumstances.
++
++It is not the purpose of this section to induce you to infringe any
++patents or other property right claims or to contest validity of any
++such claims; this section has the sole purpose of protecting the
++integrity of the free software distribution system, which is
++implemented by public license practices.  Many people have made
++generous contributions to the wide range of software distributed
++through that system in reliance on consistent application of that
++system; it is up to the author/donor to decide if he or she is willing
++to distribute software through any other system and a licensee cannot
++impose that choice.
++
++This section is intended to make thoroughly clear what is believed to
++be a consequence of the rest of this License.
++
++  8. If the distribution and/or use of the Program is restricted in
++certain countries either by patents or by copyrighted interfaces, the
++original copyright holder who places the Program under this License
++may add an explicit geographical distribution limitation excluding
++those countries, so that distribution is permitted only in or among
++countries not thus excluded.  In such case, this License incorporates
++the limitation as if written in the body of this License.
++
++  9. The Free Software Foundation may publish revised and/or new versions
++of the General Public License from time to time.  Such new versions will
++be similar in spirit to the present version, but may differ in detail to
++address new problems or concerns.
++
++Each version is given a distinguishing version number.  If the Program
++specifies a version number of this License which applies to it and "any
++later version", you have the option of following the terms and conditions
++either of that version or of any later version published by the Free
++Software Foundation.  If the Program does not specify a version number of
++this License, you may choose any version ever published by the Free Software
++Foundation.
++
++  10. If you wish to incorporate parts of the Program into other free
++programs whose distribution conditions are different, write to the author
++to ask for permission.  For software which is copyrighted by the Free
++Software Foundation, write to the Free Software Foundation; we sometimes
++make exceptions for this.  Our decision will be guided by the two goals
++of preserving the free status of all derivatives of our free software and
++of promoting the sharing and reuse of software generally.
++
++			    NO WARRANTY
++
++  11. BECAUSE THE PROGRAM IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY
++FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW.  EXCEPT WHEN
++OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES
++PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED
++OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
++MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE ENTIRE RISK AS
++TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU.  SHOULD THE
++PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING,
++REPAIR OR CORRECTION.
++
++  12. IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING
++WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MAY MODIFY AND/OR
++REDISTRIBUTE THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES,
++INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING
++OUT OF THE USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED
++TO LOSS OF DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY
++YOU OR THIRD PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER
++PROGRAMS), EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE
++POSSIBILITY OF SUCH DAMAGES.
++
++		     END OF TERMS AND CONDITIONS
++
++	    How to Apply These Terms to Your New Programs
++
++  If you develop a new program, and you want it to be of the greatest
++possible use to the public, the best way to achieve this is to make it
++free software which everyone can redistribute and change under these terms.
++
++  To do so, attach the following notices to the program.  It is safest
++to attach them to the start of each source file to most effectively
++convey the exclusion of warranty; and each file should have at least
++the "copyright" line and a pointer to where the full notice is found.
++
++    <one line to give the program's name and a brief idea of what it does.>
++    Copyright (C) <year>  <name of author>
++
++    This program is free software; you can redistribute it and/or modify
++    it under the terms of the GNU General Public License as published by
++    the Free Software Foundation; either version 2 of the License, or
++    (at your option) any later version.
++
++    This program is distributed in the hope that it will be useful,
++    but WITHOUT ANY WARRANTY; without even the implied warranty of
++    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++    GNU General Public License for more details.
++
++    You should have received a copy of the GNU General Public License
++    along with this program; if not, write to the Free Software
++    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++
++
++Also add information on how to contact you by electronic and paper mail.
++
++If the program is interactive, make it output a short notice like this
++when it starts in an interactive mode:
++
++    Gnomovision version 69, Copyright (C) year name of author
++    Gnomovision comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
++    This is free software, and you are welcome to redistribute it
++    under certain conditions; type `show c' for details.
++
++The hypothetical commands `show w' and `show c' should show the appropriate
++parts of the General Public License.  Of course, the commands you use may
++be called something other than `show w' and `show c'; they could even be
++mouse-clicks or menu items--whatever suits your program.
++
++You should also get your employer (if you work as a programmer) or your
++school, if any, to sign a "copyright disclaimer" for the program, if
++necessary.  Here is a sample; alter the names:
++
++  Yoyodyne, Inc., hereby disclaims all copyright interest in the program
++  `Gnomovision' (which makes passes at compilers) written by James Hacker.
++
++  <signature of Ty Coon>, 1 April 1989
++  Ty Coon, President of Vice
++
++This General Public License does not permit incorporating your program into
++proprietary programs.  If your program is a subroutine library, you may
++consider it more useful to permit linking proprietary applications with the
++library.  If this is what you want to do, use the GNU Library General
++Public License instead of this License.
+diff -ruN vdr-1.3.29/PLUGINS/src/servicedemo/HISTORY vdr-1.3.30/PLUGINS/src/servicedemo/HISTORY
+--- vdr-1.3.29/PLUGINS/src/servicedemo/HISTORY	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.3.30/PLUGINS/src/servicedemo/HISTORY	2005-08-21 12:35:27.000000000 +0200
+@@ -0,0 +1,6 @@
++VDR Plugin 'servicedemo' Revision History
++-----------------------------------------
++
++2005-08-21: Version 0.1.1
++
++- Initial revision.
+diff -ruN vdr-1.3.29/PLUGINS/src/servicedemo/Makefile vdr-1.3.30/PLUGINS/src/servicedemo/Makefile
+--- vdr-1.3.29/PLUGINS/src/servicedemo/Makefile	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.3.30/PLUGINS/src/servicedemo/Makefile	2005-08-21 12:43:12.000000000 +0200
+@@ -0,0 +1,87 @@
++#
++# Makefile for a Video Disk Recorder plugin
++#
++# $Id: Makefile 1.1 2005/08/21 10:43:12 kls Exp $
++
++# The official name of this plugin.
++# This name will be used in the '-P...' option of VDR to load the plugin.
++# By default the main source file also carries this name.
++#
++PLUGIN1 = svccli
++PLUGIN2 = svcsvr
++
++### The version number of this plugin (taken from the main source file):
++
++VERSION = $(shell grep 'static const char \*VERSION *=' $(PLUGIN1).c | awk '{ print $$6 }' | sed -e 's/[";]//g')
++
++### The C++ compiler and options:
++
++CXX      ?= g++
++CXXFLAGS ?= -O2 -Wall -Woverloaded-virtual
++
++### The directory environment:
++
++DVBDIR = ../../../../DVB
++VDRDIR = ../../..
++LIBDIR = ../../lib
++TMPDIR = /tmp
++
++### Allow user defined options to overwrite defaults:
++
++-include $(VDRDIR)/Make.config
++
++### The version number of VDR (taken from VDR's "config.h"):
++
++VDRVERSION = $(shell grep 'define VDRVERSION ' $(VDRDIR)/config.h | awk '{ print $$3 }' | sed -e 's/"//g')
++
++### The name of the distribution archive:
++
++ARCHIVE = svcintf-$(VERSION)
++PACKAGE = vdr-$(ARCHIVE)
++
++### Includes and Defines (add further entries here):
++
++INCLUDES += -I$(VDRDIR)/include -I$(DVBDIR)/include
++
++DEFINES += -D_GNU_SOURCE -DPLUGIN_NAME_I18N='"$(PLUGIN)"'
++
++### The object files (add further files here):
++
++OBJS = $(PLUGIN1).o $(PLUGIN2).o
++
++### Implicit rules:
++
++%.o: %.c
++	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
++
++# Dependencies:
++
++MAKEDEP = g++ -MM -MG
++DEPFILE = .dependencies
++$(DEPFILE): Makefile
++	@$(MAKEDEP) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
++
++-include $(DEPFILE)
++
++### Targets:
++
++all: libvdr-$(PLUGIN1).so libvdr-$(PLUGIN2).so
++
++libvdr-$(PLUGIN1).so: $(PLUGIN1).o
++	$(CXX) $(CXXFLAGS) -shared $(PLUGIN1).o -o $@
++	@cp $@ $(LIBDIR)/$@.$(VDRVERSION)
++
++libvdr-$(PLUGIN2).so: $(PLUGIN2).o
++	$(CXX) $(CXXFLAGS) -shared $(PLUGIN2).o -o $@
++	@cp $@ $(LIBDIR)/$@.$(VDRVERSION)
++
++dist: clean
++	@-rm -rf $(TMPDIR)/$(ARCHIVE)
++	@mkdir $(TMPDIR)/$(ARCHIVE)
++	@cp -a * $(TMPDIR)/$(ARCHIVE)
++	@tar czf $(PACKAGE).tgz -C $(TMPDIR) $(ARCHIVE)
++	@-rm -rf $(TMPDIR)/$(ARCHIVE)
++	@echo Distribution package created as $(PACKAGE).tgz
++
++clean:
++	@-rm -f $(OBJS) $(DEPFILE) *.so *.tgz core* *~
+diff -ruN vdr-1.3.29/PLUGINS/src/servicedemo/README vdr-1.3.30/PLUGINS/src/servicedemo/README
+--- vdr-1.3.29/PLUGINS/src/servicedemo/README	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.3.30/PLUGINS/src/servicedemo/README	2005-08-21 12:43:50.000000000 +0200
+@@ -0,0 +1,16 @@
++This is a "plugin" for the Video Disk Recorder (VDR).
++
++Written by:                  Udo Richter <udo_richter@gmx.de>
++
++Project's homepage:          www.cadsoft.de/vdr
++
++Latest version available at: www.cadsoft.de/vdr
++
++See the file COPYING for license information.
++
++Description:
++
++Demonstration of how plugins can communicate with each other.
++
++Run VDR with '-Psvcsvr -Psvccli' and select the main menu
++option "Service demo" to run the demo.
+diff -ruN vdr-1.3.29/PLUGINS/src/servicedemo/svccli.c vdr-1.3.30/PLUGINS/src/servicedemo/svccli.c
+--- vdr-1.3.29/PLUGINS/src/servicedemo/svccli.c	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.3.30/PLUGINS/src/servicedemo/svccli.c	2005-08-21 12:44:29.000000000 +0200
+@@ -0,0 +1,90 @@
++/*
++ * svccli.c: Sample service client plugin
++ *
++ * See the README file for copyright information and how to reach the author.
++ *
++ * $Id: svccli.c 1.1 2005/08/21 10:44:29 kls Exp $
++ */
++
++#include <stdlib.h>
++#include <vdr/interface.h>
++#include <vdr/plugin.h>
++
++static const char *VERSION        = "0.1.1";
++static const char *DESCRIPTION    = "Service demo client";
++static const char *MAINMENUENTRY  = "Service demo";
++
++class cPluginSvcCli : public cPlugin {
++public:
++  virtual const char *Version(void) { return VERSION; }
++  virtual const char *Description(void) { return DESCRIPTION; }
++  virtual const char *MainMenuEntry(void) { return MAINMENUENTRY; }
++  virtual cOsdObject *MainMenuAction(void);
++  virtual bool Service(const char *Id, void *Data);
++  };
++
++struct ReportBoredPlugin_v1_0 {
++  cPlugin *BoredPlugin;
++  };
++
++struct AddService_v1_0 {
++  int a, b;
++  int sum;
++  };
++
++// --- cPluginSvcCli ----------------------------------------------------------
++
++cOsdObject *cPluginSvcCli::MainMenuAction(void)
++{
++  char s[128];
++  cPlugin *p;
++
++  // Inform server plugin that we are bored
++  // (directed communication)
++  ReportBoredPlugin_v1_0 rbp;
++  rbp.BoredPlugin = this;
++  p = cPluginManager::GetPlugin("svcsvr");
++  if (p)
++     p->Service("ReportBoredPlugin-v1.0", &rbp);
++
++  // See if any plugin can add
++  // (detect capability)
++  p = cPluginManager::CallFirstService("AddService-v1.0", NULL);
++  if (p) {
++     snprintf(s, sizeof(s), "Plugin %s can add", p->Name());
++     Interface->Confirm(s);
++     }
++
++  // Perform add
++  // (use general service)
++  AddService_v1_0 adds;
++  adds.a = 1;
++  adds.b = 1;
++  if (cPluginManager::CallFirstService("AddService-v1.0", &adds)) {
++     snprintf(s, sizeof(s), "Plugin thinks that 1+1=%i", adds.sum);
++     Interface->Confirm(s);
++     }
++
++  // Inform other plugins that we are bored
++  // (broadcast)
++  rbp.BoredPlugin = this;
++  cPluginManager::CallAllServices("ReportBoredPlugin-v1.0", &rbp);
++
++  return NULL;
++}
++
++bool cPluginSvcCli::Service(const char *Id, void *Data)
++{
++  if (strcmp(Id, "ReportBoredPlugin-v1.0") == 0) {
++     if (Data) {
++        ReportBoredPlugin_v1_0 *rbp = (ReportBoredPlugin_v1_0*)Data;
++        char s[128];
++        snprintf(s, sizeof(s), "Plugin %s informed client that it is bored.", rbp->BoredPlugin->Name());
++        Interface->Confirm(s);
++        }
++     return true;
++     }
++  return false;
++}
++
++VDRPLUGINCREATOR(cPluginSvcCli); // Don't touch this!
+diff -ruN vdr-1.3.29/PLUGINS/src/servicedemo/svcsvr.c vdr-1.3.30/PLUGINS/src/servicedemo/svcsvr.c
+--- vdr-1.3.29/PLUGINS/src/servicedemo/svcsvr.c	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.3.30/PLUGINS/src/servicedemo/svcsvr.c	2005-08-21 12:44:24.000000000 +0200
+@@ -0,0 +1,57 @@
++/*
++ * svcsvr.c: Sample service server plugin
++ *
++ * See the README file for copyright information and how to reach the author.
++ *
++ * $Id: svcsvr.c 1.1 2005/08/21 10:44:24 kls Exp $
++ */
++
++#include <stdlib.h>
++#include <vdr/interface.h>
++#include <vdr/plugin.h>
++
++static const char *VERSION        = "0.1.1";
++static const char *DESCRIPTION    = "Service demo server";
++
++class cPluginSvcSvr : public cPlugin {
++public:
++  virtual const char *Version(void) { return VERSION; }
++  virtual const char *Description(void) { return DESCRIPTION; }
++  virtual bool Service(const char *Id, void *Data);
++  };
++
++struct ReportBoredPlugin_v1_0 {
++  cPlugin *BoredPlugin;
++  };
++
++struct AddService_v1_0 {
++  int a, b;
++  int sum;
++  };
++
++// --- cPluginSvcSvr ----------------------------------------------------------
++
++bool cPluginSvcSvr::Service(const char *Id, void *Data)
++{
++  if (strcmp(Id,"ReportBoredPlugin-v1.0") == 0) {
++     if (Data) {
++        ReportBoredPlugin_v1_0 *rbp = (ReportBoredPlugin_v1_0*)Data;
++        char s[128];
++        snprintf(s, sizeof(s), "Plugin %s informed server that it is bored.", rbp->BoredPlugin->Name());
++        Interface->Confirm(s);
++        }
++     return true;
++     }
++
++  if (strcmp(Id,"AddService-v1.0") == 0) {
++     if (Data) {
++        AddService_v1_0 *data = (AddService_v1_0*)Data;
++        data->sum = data->a + data->b;
++        }
++     return true;
++     }
++
++  return false;
++}
++
++VDRPLUGINCREATOR(cPluginSvcSvr); // Don't touch this!
+diff -ruN vdr-1.3.29/PLUGINS.html vdr-1.3.30/PLUGINS.html
+--- vdr-1.3.29/PLUGINS.html	2005-02-12 18:08:27.000000000 +0100
++++ vdr-1.3.30/PLUGINS.html	2005-08-21 16:20:09.000000000 +0200
+@@ -9,23 +9,23 @@
+ <center><b>Version 1.3</b></center>
+ <p>
+ <center>
+-Copyright &copy; 2004 Klaus Schmidinger<br>
++Copyright &copy; 2005 Klaus Schmidinger<br>
+ <a href="mailto:kls@cadsoft.de">kls@cadsoft.de</a><br>
+ <a href="http://www.cadsoft.de/vdr">www.cadsoft.de/vdr</a>
+ </center>
+ <p>
+-<!--X1.3.18--><table width=100%><tr><td bgcolor=#0000AA>&nbsp;</td><td width=100%>
+-Important modifications introduced in version 1.3.18 are marked like this.
+-<!--X1.3.18--></td></tr></table>
+-<!--X1.3.19--><table width=100%><tr><td bgcolor=#00AA00>&nbsp;</td><td width=100%>
++<!--X1.3.19--><table width=100%><tr><td bgcolor=#0000AA>&nbsp;</td><td width=100%>
+ Important modifications introduced in version 1.3.19 are marked like this.
+ <!--X1.3.19--></td></tr></table>
+-<!--X1.3.20--><table width=100%><tr><td bgcolor=#AA0000>&nbsp;</td><td width=100%>
++<!--X1.3.20--><table width=100%><tr><td bgcolor=#00AA00>&nbsp;</td><td width=100%>
+ Important modifications introduced in version 1.3.20 are marked like this.
+ <!--X1.3.20--></td></tr></table>
+-<!--X1.3.21--><table width=100%><tr><td bgcolor=#FF0000>&nbsp;</td><td width=100%>
++<!--X1.3.21--><table width=100%><tr><td bgcolor=#AA0000>&nbsp;</td><td width=100%>
+ Important modifications introduced in version 1.3.21 are marked like this.
+ <!--X1.3.21--></td></tr></table>
++<!--X1.3.30--><table width=100%><tr><td bgcolor=#FF0000>&nbsp;</td><td width=100%>
++Important modifications introduced in version 1.3.30 are marked like this.
++<!--X1.3.30--></td></tr></table>
+ <p>
+ VDR provides an easy to use plugin interface that allows additional functionality
+ to be added to the program by implementing a dynamically loadable library file.
+@@ -58,7 +58,7 @@
+ <li><a href="#Command line arguments">Command line arguments</a>
+ <li><a href="#Command line help">Command line help</a>
+ <li><a href="#Getting started">Getting started</a>
+-<!--X1.3.20--><table width=100%><tr><td bgcolor=#AA0000>&nbsp;</td><td width=100%>
++<!--X1.3.20--><table width=100%><tr><td bgcolor=#00AA00>&nbsp;</td><td width=100%>
+ <li><a href="#Shutting down">Shutting down</a>
+ <!--X1.3.20--></td></tr></table>
+ <li><a href="#Main menu entry">Main menu entry</a>
+@@ -68,6 +68,9 @@
+ <li><a href="#The Setup menu">The Setup menu</a>
+ <li><a href="#Configuration files">Configuration files</a>
+ <li><a href="#Internationalization">Internationalization</a>
++<!--X1.3.30--><table width=100%><tr><td bgcolor=#FF0000>&nbsp;</td><td width=100%>
++<li><a href="#Custom services">Custom services</a>
++<!--X1.3.30--></td></tr></table>
+ <li><a href="#Loading plugins into VDR">Loading plugins into VDR</a>
+ <li><a href="#Building the distribution package">Building the distribution package</a>
+ </ul>
+@@ -81,7 +84,7 @@
+ <li><a href="#Skins">Skins</a>
+ <li><a href="#Themes">Themes</a>
+ <li><a href="#Devices">Devices</a>
+-<!--X1.3.21--><table width=100%><tr><td bgcolor=#FF0000>&nbsp;</td><td width=100%>
++<!--X1.3.21--><table width=100%><tr><td bgcolor=#AA0000>&nbsp;</td><td width=100%>
+ <li><a href="#Audio">Audio</a>
+ <!--X1.3.21--></td></tr></table>
+ <li><a href="#Remote Control">Remote Control</a>
+@@ -308,7 +311,7 @@
+ command line help - and after that immediately destroys them again.
+ <p>
+ The <b>destructor</b> has to clean up any data created by the plugin.
+-<!--X1.3.20--><table width=100%><tr><td bgcolor=#AA0000>&nbsp;</td><td width=100%>
++<!--X1.3.20--><table width=100%><tr><td bgcolor=#00AA00>&nbsp;</td><td width=100%>
+ Any threads the plugin may have created shall be stopped in the
+ <a href="#Shutting down"><tt>Stop()</tt></a> function.
+ <!--X1.3.20--></td></tr></table>
+@@ -506,7 +509,7 @@
+ If the plugin doesn't implement any background functionality or internationalized
+ texts, it doesn't need to implement either of these functions.
+ 
+-<!--X1.3.20--><table width=100%><tr><td bgcolor=#AA0000>&nbsp;</td><td width=100%>
++<!--X1.3.20--><table width=100%><tr><td bgcolor=#00AA00>&nbsp;</td><td width=100%>
+ <a name="Shutting down"><hr><h2>Shutting down</h2>
+ 
+ <center><i><b>Stop it, right there!</b></i></center><p>
+@@ -866,6 +869,77 @@
+ and then in the global VDR texts. So a plugin can make use of texts defined by the
+ core VDR code.
+ 
++<!--X1.3.30--><table width=100%><tr><td bgcolor=#FF0000>&nbsp;</td><td width=100%>
++<a name="Custom services"><hr><h2>Custom services</h2>
++
++<center><i><b>What can I do for you?</b></i></center><p>
++
++In some situations, two plugins may want to communicate directly, talking about things
++that VDR doesn't handle itself. For example, a plugin may want to use features
++that some other plugin offers, or it may want to inform other plugins about important
++things it does. To receive requests or messages, a plugin can implement the
++following function:
++
++<p><table><tr><td bgcolor=#F0F0F0><pre>
++virtual bool Service(const char *Id, void *Data = NULL);
++</pre></td></tr></table><p>
++
++<tt>Id</tt> is a unique identification string that identifies the service protocol.
++To avoid collisions, the string should contain a service name, the plugin name (unless
++the service is not related to a single plugin) and a protocol version number.
++<tt>Data</tt> points to a custom data structure. For each id string
++there should be a specification that describes the format of the data
++structure, and any change to the format should  be reflected by a change
++of the id string.
++<p>
++The function shall return <i>true</i> for any service id string it handles, and <i>false</i>
++otherwise. The plugins have to agreee in which situations the service
++may be called, for example whether the service may be called from every thread, or
++just from the main thread. A possible implementation could look like this:
++
++<p><table><tr><td bgcolor=#F0F0F0><pre>
++struct Hello_SetGreetingTime_v1_0 {
++  int NewGreetingTime;
++  };
++
++bool cPluginHello::Service(const char *Id, void *Data)
++{
++  if (strcmp(Id, "Hello-SetGreetingTime-v1.0") == 0) {
++     if (Data == NULL)
++        return true;
++     GreetingTime = ((Hello_SetGreetingTime_v1_0*)Data)-&gt;NewGreetingTime;
++     return true;
++     }
++  return false;
++}
++</pre></td></tr></table><p>
++
++Plugins should expect to be called with <tt>Data</tt> set to <tt>NULL</tt> and may use
++this as a 'service supported' check without performing any actions.
++<p>
++To send messages to, or request services from a specific plugin, one plugin can directly
++call another plugin's service function:
++
++<p><table><tr><td bgcolor=#F0F0F0><pre>
++Hello_SetGreetingTime_v1_0 hellodata;
++hellodata.NewGreetingTime = 3;
++cPlugin *Plugin = cPluginManager::GetPlugin("hello");
++if (Plugin)
++   Plugin-&gt;Service("Hello-SetGreetingTime-v1.0", &gt;hellodata);
++</pre></td></tr></table><p>
++
++To send messages to, or request services from some plugin that offers the protocol, a
++plugin can call the function <tt>cPluginManager::CallFirstService()</tt>. This function
++will send the request to all plugins until one plugin handles it.
++The function returns a pointer to the plugin that handled the request, or <tt>NULL</tt>
++if no plugin handled it.
++<p>
++To send a messages to all plugins, a plugin can call the function
++<tt>cPluginManager::CallAllServices()</tt>. This function returns <tt>true</tt> if
++any plugin handled the request, or <tt>false</tt> if no plugin handled the request.
++
++<!--X1.3.30--></td></tr></table>
++
+ <a name="Loading plugins into VDR"><hr><h2>Loading plugins into VDR</h2>
+ 
+ <center><i><b>Saddling up!</b></i></center><p>
+@@ -1046,7 +1120,6 @@
+ Take a look at the files <tt>player.h</tt> and <tt>dvbplayer.c</tt> to see how VDR implements
+ its own player for the VDR recordings.
+ <p>
+-<!--X1.3.18--><table width=100%><tr><td bgcolor=#0000AA>&nbsp;</td><td width=100%>
+ To play the actual data, the player needs to call its member function
+ 
+ <p><table><tr><td bgcolor=#F0F0F0><pre>
+@@ -1060,7 +1133,6 @@
+ individual block of data. The sum of all blocks must simply result in the
+ desired data stream, and it must be delivered fast enough so that the
+ DVB device doesn't run out of data.
+-<!--X1.3.18--></td></tr></table>
+ To avoid busy loops the player should call its member function
+ 
+ <p><table><tr><td bgcolor=#F0F0F0><pre>
+@@ -1069,7 +1141,6 @@
+ 
+ to determine whether the device is ready for further data.
+ <p>
+-<!--X1.3.18--><table width=100%><tr><td bgcolor=#0000AA>&nbsp;</td><td width=100%>
+ By default all audio track handling is done by the device a player is
+ attached to.
+ If the player can provide more than a single audio track, and has special
+@@ -1088,7 +1159,6 @@
+ </pre></td></tr></table><p>
+ 
+ See <tt>device.h</tt> for details about the parameters for track handling.
+-<!--X1.3.18--></td></tr></table>
+ <p>
+ The second part needed here is a control object that receives user input from the main
+ program loop and reacts on this by telling the player what to do:
+@@ -1206,7 +1276,7 @@
+   };
+ 
+ cMyReceiver::cMyReceiver(int Pid)
+-<!--X1.3.19--><table width=100%><tr><td bgcolor=#00AA00>&nbsp;</td><td width=100%>
++<!--X1.3.19--><table width=100%><tr><td bgcolor=#0000AA>&nbsp;</td><td width=100%>
+ :cReceiver(0, -1, Pid)
+ <!--X1.3.19--></td></tr></table>
+ {
+@@ -1384,9 +1454,7 @@
+   virtual cSkinDisplayMenu *DisplayMenu(void);
+   virtual cSkinDisplayReplay *DisplayReplay(bool ModeOnly);
+   virtual cSkinDisplayVolume *DisplayVolume(void);
+-<!--X1.3.18--><table width=100%><tr><td bgcolor=#0000AA>&nbsp;</td><td width=100%>
+   virtual cSkinDisplayMessage *DisplayTrack(int NumTracks, const char * const *Tracks);
+-<!--X1.3.18--></td></tr></table>
+   virtual cSkinDisplayMessage *DisplayMessage(void);
+   };
+ </pre></td></tr></table><p>
+@@ -1513,13 +1581,11 @@
+ If the device can provide more than a single audio track, it can implement the
+ following function to make them available:
+ 
+-<!--X1.3.18--><table width=100%><tr><td bgcolor=#0000AA>&nbsp;</td><td width=100%>
+ <p><table><tr><td bgcolor=#F0F0F0><pre>
+ virtual void SetAudioTrackDevice(eTrackType Type);
+ virtual int GetAudioChannelDevice(void);
+ virtual void SetAudioChannelDevice(int AudioChannel);
+ </pre></td></tr></table><p>
+-<!--X1.3.18--></td></tr></table>
+ 
+ <p>
+ <b>Recording</b>
+@@ -1539,15 +1605,6 @@
+ packets that are all 188 bytes in size. Each call to <tt>GetTSPacket()</tt>
+ must deliver exactly one such packet (if one is currently available).
+ <p>
+-If this device allows receiving several different data streams, it can
+-implement
+-
+-<p><table><tr><td bgcolor=#F0F0F0><pre>
+-virtual bool CanBeReUsed(int Frequency, int Vpid);
+-</pre></td></tr></table><p>
+-
+-to indicate this to VDR.
+-<p>
+ <b>Replaying</b>
+ <p>
+ The functions to implement replaying capabilites are
+@@ -1678,7 +1735,7 @@
+   virtual void Action(void);
+ public:
+   cMyAudio(void);
+-<!--X1.3.21--><table width=100%><tr><td bgcolor=#FF0000>&nbsp;</td><td width=100%>
++<!--X1.3.21--><table width=100%><tr><td bgcolor=#AA0000>&nbsp;</td><td width=100%>
+   virtual void Play(const uchar *Data, int Length, uchar Id);
+ <!--X1.3.21--></td></tr></table>
+   virtual void Mute(bool On);
+diff -ruN vdr-1.3.29/channels.conf vdr-1.3.30/channels.conf
+--- vdr-1.3.29/channels.conf	2005-08-15 16:19:02.000000000 +0200
++++ vdr-1.3.30/channels.conf	2005-08-21 16:21:34.000000000 +0200
+@@ -8,7 +8,7 @@
+ NDR FS MV;ARD:12109:hC34:S19.2E:27500:2401:2402=deu:2404:0:28224:1:1073:0
+ SR SÜDWEST Ferns.;ARD:11836:hC34:S19.2E:27500:501:502=deu:504:0:28110:1:1101:0
+ WDR Köln;ARD:11836:hC34:S19.2E:27500:601:602=deu:604:0:28111:1:1101:0
+-BR-alpha;ARD:11836:hC34:S19.2E:27500:701:702=deu:704:0:28112:1:1101:0
++BR-alpha;ARD:11836:hC34:S19.2E:27500:701:702=deu;703:704:0:28112:1:1101:0
+ SÜDWEST Ferns. BW;ARD:11836:hC34:S19.2E:27500:801:802=deu:804:0:28113:1:1101:0
+ Phoenix;ARD:11836:hC34:S19.2E:27500:901:902=deu:904:0:28114:1:1101:0
+ ZDF;ZDFvision:11953:hC34:S19.2E:27500:110:120=deu,121=2ch;125=dd:130:0:28006:1:1079:0
+@@ -43,9 +43,9 @@
+ MDR FERNSEHEN;ARD:12109:hC34:S19.2E:27500:401:402=deu:404:0:28204:1:1073:0
+ rbb Berlin;ARD:12109:hC34:S19.2E:27500:601:602=deu:604:0:28206:1:1073:0
+ :Premiere World
+-PREMIERE START,START;PREMIERE:11797:hC34:S19.2E:27500:255:256=deu:32:1702,1801,1722:8:133:2:0
+-PREMIERE 1,PREM 1;PREMIERE:11797:hC34:S19.2E:27500:511:512=deu;515=deu:32:1722,1702,1801:10:133:2:0
+-PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu;1795=deu:32:1801,1722,1702:11:133:2:0
++PREMIERE START,START;PREMIERE:11797:hC34:S19.2E:27500:255:256=deu:32:1:8:133:2:0
++PREMIERE 1,PREM 1;PREMIERE:11797:hC34:S19.2E:27500:511:512=deu,513=deu;515=deu:32:1722,1702,1801:10:133:2:0
++PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu,1793=deu;1795=deu:32:1801,1722,1702:11:133:2:0
+ PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu:32:1722,1801,1702:43:133:2:0
+ PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu:32:1801,1722,1702:9:133:2:0
+ PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu:32:1722,1801,1702:29:133:2:0
+@@ -64,7 +64,7 @@
+ N24;ProSiebenSat.1:12480:vC34:S19.2E:27500:2047:2048=deu:36:0:47:133:33:0
+ LibertyTV FR;LibertyTV.com:12610:vC56:S19.2E:22000:941:943=deu:0:0:12199:1:1112:0
+ :-
+-ProSieben Austria;ProSiebenSat.1:12051:vC34:S19.2E:27500:161:84=deu:36:0:20002:1:1082:0
++ProSieben Austria;ProSiebenSat.1:12051:vC34:S19.2E:27500:161:84=deu;85=deu:36:0:20002:1:1082:0
+ Kabel 1 Schweiz;ProSiebenSat.1:12051:vC34:S19.2E:27500:162:163=deu:165:0:20003:1:1082:0
+ Kabel 1 Austria;ProSiebenSat.1:12051:vC34:S19.2E:27500:166:167=deu:169:0:20004:1:1082:0
+ ProSieben Schweiz;ProSiebenSat.1:12051:vC34:S19.2E:27500:289:290=deu:33:0:20001:1:1082:0
+diff -ruN vdr-1.3.29/ci.c vdr-1.3.30/ci.c
+--- vdr-1.3.29/ci.c	2005-06-04 13:57:05.000000000 +0200
++++ vdr-1.3.30/ci.c	2005-08-21 16:10:27.000000000 +0200
+@@ -4,11 +4,10 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 1.24 2005/06/04 11:57:05 kls Exp $
++ * $Id: ci.c 1.27 2005/08/21 14:10:27 kls Exp $
+  */
+ 
+ #include "ci.h"
+-#include <asm/unaligned.h>
+ #include <ctype.h>
+ #include <linux/dvb/ca.h>
+ #include <malloc.h>
+@@ -1136,6 +1135,19 @@
+                }
+             }
+             break;
++       case AOT_CLOSE_MMI: {
++            int id = -1;
++            int delay = -1;
++            int l = 0;
++            const uint8_t *d = GetData(Data, l);
++            if (l > 0) {
++               id = *d++;
++               if (l > 1)
++                  delay = *d;
++               }
++            dbgprotocol("%d: <== Close MMI  id = %02X  delay = %d\n", SessionId(), id, delay);
++            }
++            break;
+        default: esyslog("ERROR: CI MMI: unknown tag %06X", Tag);
+                 return false;
+        }
+@@ -1341,6 +1353,8 @@
+   hasUserIO = false;
+   for (int i = 0; i < MAX_CI_SESSION; i++)
+       sessions[i] = NULL;
++  for (int i = 0; i < MAX_CI_SLOT; i++)
++      moduleReady[i] = false;
+   tpl = new cCiTransportLayer(Fd, numSlots);
+   tc = NULL;
+ }
+@@ -1493,6 +1507,19 @@
+   return result;
+ }
+ 
++bool cCiHandler::Ready(void)
++{
++  cMutexLock MutexLock(&mutex);
++  for (int Slot = 0; Slot < numSlots; Slot++) {
++      if (moduleReady[Slot]) {
++         cCiConditionalAccessSupport *cas = (cCiConditionalAccessSupport *)GetSessionByResourceId(RI_CONDITIONAL_ACCESS_SUPPORT, Slot);
++         if (!cas || !*cas->GetCaSystemIds())
++            return false;
++         }
++      }
++  return true;
++}
++
+ bool cCiHandler::Process(void)
+ {
+   bool result = true;
+@@ -1530,6 +1557,7 @@
+          }
+       else if (tpl->ModuleReady(Slot)) {
+          dbgprotocol("Module ready in slot %d\n", Slot);
++         moduleReady[Slot] = true;
+          tpl->NewConnection(Slot);
+          }
+       }
+diff -ruN vdr-1.3.29/ci.h vdr-1.3.30/ci.h
+--- vdr-1.3.29/ci.h	2004-02-08 15:36:23.000000000 +0100
++++ vdr-1.3.30/ci.h	2005-08-20 16:56:11.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.h 1.13 2004/02/08 14:36:23 kls Exp $
++ * $Id: ci.h 1.14 2005/08/20 14:56:11 kls Exp $
+  */
+ 
+ #ifndef __CI_H
+@@ -77,6 +77,7 @@
+   };
+ 
+ #define MAX_CI_SESSION  16 //XXX
++#define MAX_CI_SLOT     16
+ 
+ class cCiSession;
+ class cCiTransportLayer;
+@@ -89,6 +90,7 @@
+   int numSlots;
+   bool newCaSupport;
+   bool hasUserIO;
++  bool moduleReady[MAX_CI_SLOT];
+   cCiSession *sessions[MAX_CI_SESSION];
+   cCiTransportLayer *tpl;
+   cCiTransportConnection *tc;
+@@ -105,6 +107,7 @@
+   ~cCiHandler();
+   static cCiHandler *CreateCiHandler(const char *FileName);
+   int NumSlots(void) { return numSlots; }
++  bool Ready(void);
+   bool Process(void);
+   bool HasUserIO(void) { return hasUserIO; }
+   bool EnterMenu(int Slot);
+diff -ruN vdr-1.3.29/config.h vdr-1.3.30/config.h
+--- vdr-1.3.29/config.h	2005-08-13 11:43:27.000000000 +0200
++++ vdr-1.3.30/config.h	2005-08-20 12:29:35.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.223 2005/08/13 09:43:27 kls Exp $
++ * $Id: config.h 1.224 2005/08/20 10:29:35 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -20,8 +20,8 @@
+ #include "i18n.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.3.29"
+-#define VDRVERSNUM   10329  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.3.30"
++#define VDRVERSNUM   10330  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+diff -ruN vdr-1.3.29/device.c vdr-1.3.30/device.c
+--- vdr-1.3.29/device.c	2005-08-14 12:52:08.000000000 +0200
++++ vdr-1.3.30/device.c	2005-08-21 10:56:49.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 1.105 2005/08/14 10:52:08 kls Exp $
++ * $Id: device.c 1.106 2005/08/21 08:56:49 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -195,6 +195,20 @@
+   delete pesAssembler;
+ }
+ 
++bool cDevice::WaitForAllDevicesReady(int Timeout)
++{
++  for (time_t t0 = time(NULL); time(NULL) - t0 < Timeout; ) {
++      bool ready = true;
++      for (int i = 0; i < numDevices; i++) {
++          if (device[i] && !device[i]->Ready())
++             ready = false;
++          }
++      if (ready)
++         return true;
++      }
++  return false;
++}
++
+ void cDevice::SetUseDevice(int n)
+ {
+   if (n < MAXDEVICES)
+@@ -1103,6 +1117,11 @@
+   XXX*/
+ }
+ 
++bool cDevice::Ready(void)
++{
++  return true;
++}
++
+ int cDevice::ProvidesCa(const cChannel *Channel) const
+ {
+   int Ca = Channel->Ca();
+diff -ruN vdr-1.3.29/device.h vdr-1.3.30/device.h
+--- vdr-1.3.29/device.h	2005-08-13 13:44:13.000000000 +0200
++++ vdr-1.3.30/device.h	2005-08-21 10:52:20.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 1.61 2005/08/13 11:44:13 kls Exp $
++ * $Id: device.h 1.62 2005/08/21 08:52:20 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -102,6 +102,12 @@
+ public:
+   static int NumDevices(void) { return numDevices; }
+          ///< Returns the total number of devices.
++  static bool WaitForAllDevicesReady(int Timeout = 0);
++         ///< Waits until all devices have become ready, or the given Timeout
++         ///< (seconds) has expired. While waiting, the Ready() function of each
++         ///< device is called in turn, until they all return true.
++         ///< \return True if all devices have become ready within the given
++         ///< timeout.
+   static void SetUseDevice(int n);
+          ///< Sets the 'useDevice' flag of the given device.
+          ///< If this function is not called before initializing, all devices
+@@ -136,6 +142,11 @@
+ protected:
+   cDevice(void);
+   virtual ~cDevice();
++  virtual bool Ready(void);
++         ///< Returns true if this device is ready. Devices with conditional
++         ///< access hardware may need some time until they are up and running.
++         ///< This function is called in a loop at startup until all devices
++         ///< are ready (see WaitForAllDevicesReady()).
+   static int NextCardIndex(int n = 0);
+          ///< Calculates the next card index.
+          ///< Each device in a given machine must have a unique card index, which
+diff -ruN vdr-1.3.29/dvbdevice.c vdr-1.3.30/dvbdevice.c
+--- vdr-1.3.29/dvbdevice.c	2005-08-15 16:05:23.000000000 +0200
++++ vdr-1.3.30/dvbdevice.c	2005-08-21 11:17:20.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.134 2005/08/15 14:05:23 kls Exp $
++ * $Id: dvbdevice.c 1.136 2005/08/21 09:17:20 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -81,7 +81,7 @@
+   eTunerStatus tunerStatus;
+   cMutex mutex;
+   cCondVar locked;
+-  cCondWait newSet;
++  cCondVar newSet;
+   bool GetFrontendEvent(dvb_frontend_event &Event, int TimeoutMs = 0);
+   bool SetFrontend(void);
+   virtual void Action(void);
+@@ -112,7 +112,8 @@
+ cDvbTuner::~cDvbTuner()
+ {
+   tunerStatus = tsIdle;
+-  newSet.Signal();
++  newSet.Broadcast();
++  locked.Broadcast();
+   Cancel(3);
+ }
+ 
+@@ -123,7 +124,7 @@
+ 
+ void cDvbTuner::Set(const cChannel *Channel, bool Tune, bool UseCa)
+ {
+-  Lock();
++  cMutexLock MutexLock(&mutex);
+   if (Tune)
+      tunerStatus = tsSet;
+   else if (tunerStatus == tsCam)
+@@ -132,12 +133,15 @@
+   if (Channel->Ca() && tunerStatus != tsCam)
+      startTime = time(NULL);
+   channel = *Channel;
+-  Unlock();
+-  newSet.Signal();
++  newSet.Broadcast();
+ }
+ 
+ bool cDvbTuner::Locked(int TimeoutMs)
+ {
++  bool isLocked = (tunerStatus >= tsLocked);
++  if (isLocked || !TimeoutMs)
++     return isLocked;
++
+   cMutexLock MutexLock(&mutex);
+   if (TimeoutMs && tunerStatus < tsLocked)
+      locked.TimedWait(mutex, TimeoutMs);
+@@ -292,25 +296,33 @@
+ {
+   dvb_frontend_event event;
+   while (Running()) {
+-        Lock();
+-        if (tunerStatus == tsSet) {
+-           while (GetFrontendEvent(event))
+-                 ; // discard stale events
+-           tunerStatus = SetFrontend() ? tsTuned : tsIdle;
+-           }
+-        if (tunerStatus != tsIdle) {
+-           while (GetFrontendEvent(event, 10)) {
+-                 if (event.status & FE_REINIT) {
+-                    tunerStatus = tsSet;
+-                    esyslog("ERROR: frontend %d was reinitialized - re-tuning", cardIndex);
+-                    }
+-                 if (event.status & FE_HAS_LOCK) {
+-                    cMutexLock MutexLock(&mutex);
+-                    tunerStatus = tsLocked;
+-                    locked.Broadcast();
+-                    }
+-                 }
+-           }
++        bool hasEvent = GetFrontendEvent(event, 1);
++
++        cMutexLock MutexLock(&mutex);
++        switch (tunerStatus) {
++          case tsIdle:
++               break;
++          case tsSet:
++               if (hasEvent)
++                  continue;
++               tunerStatus = SetFrontend() ? tsTuned : tsIdle;
++               continue;
++          case tsTuned:
++          case tsLocked:
++          case tsCam:
++               if (hasEvent) {
++                  if (event.status & FE_REINIT) {
++                     tunerStatus = tsSet;
++                     esyslog("ERROR: frontend %d was reinitialized - re-tuning", cardIndex);
++                     }
++                  if (event.status & FE_HAS_LOCK) {
++                     tunerStatus = tsLocked;
++                     locked.Broadcast();
++                     }
++                  continue;
++                  }
++          }
++
+         if (ciHandler) {
+            if (ciHandler->Process() && useCa) {
+               if (tunerStatus == tsLocked) {
+@@ -332,10 +344,9 @@
+            else if (tunerStatus > tsLocked)
+               tunerStatus = tsLocked;
+            }
+-        Unlock();
+         // in the beginning we loop more often to let the CAM connection start up fast
+         if (tunerStatus != tsTuned)
+-           newSet.Wait((ciHandler && (time(NULL) - startTime < 20)) ? 100 : 1000);
++           newSet.TimedWait(mutex, (ciHandler && (time(NULL) - startTime < 20)) ? 100 : 1000);
+         }
+ }
+ 
+@@ -478,6 +489,15 @@
+   return fd_video >= 0 && fd_audio >= 0;
+ }
+ 
++bool cDvbDevice::Ready(void)
++{
++  if (ciHandler) {
++     ciHandler->Process();
++     return ciHandler->Ready();
++     }
++  return true;
++}
++
+ int cDvbDevice::ProvidesCa(const cChannel *Channel) const
+ {
+   if (Channel->Ca() >= 0x0100 && ciHandler) {
+diff -ruN vdr-1.3.29/dvbdevice.h vdr-1.3.30/dvbdevice.h
+--- vdr-1.3.29/dvbdevice.h	2005-02-20 12:17:07.000000000 +0100
++++ vdr-1.3.30/dvbdevice.h	2005-08-20 17:20:15.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 1.34 2005/02/20 11:17:07 kls Exp $
++ * $Id: dvbdevice.h 1.35 2005/08/20 15:20:15 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -42,6 +42,7 @@
+ public:
+   cDvbDevice(int n);
+   virtual ~cDvbDevice();
++  virtual bool Ready(void);
+   virtual int ProvidesCa(const cChannel *Channel) const;
+   virtual bool HasDecoder(void) const;
+ 
+diff -ruN vdr-1.3.29/newplugin vdr-1.3.30/newplugin
+--- vdr-1.3.29/newplugin	2005-01-30 14:50:05.000000000 +0100
++++ vdr-1.3.30/newplugin	2005-08-21 11:32:08.000000000 +0200
+@@ -12,7 +12,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: newplugin 1.18 2005/01/30 13:50:05 kls Exp $
++# $Id: newplugin 1.19 2005/08/21 09:32:08 kls Exp $
+ 
+ $PLUGIN_NAME = $ARGV[0] || die "Usage: newplugin <name>\n";
+ 
+@@ -170,6 +170,7 @@
+   virtual cOsdObject *MainMenuAction(void);
+   virtual cMenuSetupPage *SetupMenu(void);
+   virtual bool SetupParse(const char *Name, const char *Value);
++  virtual bool Service(const char *Id, void *Data = NULL);
+   };
+ 
+ cPlugin${PLUGIN_CLASS}::cPlugin$PLUGIN_CLASS(void)
+@@ -236,6 +237,12 @@
+   return false;
+ }
+ 
++bool cPlugin${PLUGIN_CLASS}::Service(const char *Id, void *Data)
++{
++  // Handle custom service requests from other plugins
++  return false;
++}
++
+ VDRPLUGINCREATOR(cPlugin$PLUGIN_CLASS); // Don't touch this!
+ };
+ 
+diff -ruN vdr-1.3.29/plugin.c vdr-1.3.30/plugin.c
+--- vdr-1.3.29/plugin.c	2005-01-30 15:05:20.000000000 +0100
++++ vdr-1.3.30/plugin.c	2005-08-21 11:35:28.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: plugin.c 1.13 2005/01/30 14:05:20 kls Exp $
++ * $Id: plugin.c 1.14 2005/08/21 09:35:28 kls Exp $
+  */
+ 
+ #include "plugin.h"
+@@ -99,6 +99,11 @@
+   Setup.Store(Name, Value, this->Name());
+ }
+ 
++bool cPlugin::Service(const char *Id, void *Data)
++{
++  return false;
++}
++
+ void cPlugin::RegisterI18n(const tI18nPhrase * const Phrases)
+ {
+   I18nRegister(Phrases, Name());
+@@ -372,6 +377,31 @@
+   return NULL;
+ }
+ 
++cPlugin *cPluginManager::CallFirstService(const char *Id, void *Data)
++{
++  if (pluginManager) {
++     for (cDll *dll = pluginManager->dlls.First(); dll; dll = pluginManager->dlls.Next(dll)) {
++         cPlugin *p = dll->Plugin();
++         if (p && p->Service(Id, Data))
++            return p;
++         }
++     }
++  return NULL;
++}
++
++bool cPluginManager::CallAllServices(const char *Id, void *Data)
++{
++  bool found=false;
++  if (pluginManager) {
++     for (cDll *dll = pluginManager->dlls.First(); dll; dll = pluginManager->dlls.Next(dll)) {
++         cPlugin *p = dll->Plugin();
++         if (p && p->Service(Id, Data))
++            found = true;
++         }
++     }
++  return found;
++}
++
+ void cPluginManager::StopPlugins(void)
+ {
+   for (cDll *dll = dlls.Last(); dll; dll = dlls.Prev(dll)) {
+diff -ruN vdr-1.3.29/plugin.h vdr-1.3.30/plugin.h
+--- vdr-1.3.29/plugin.h	2005-01-30 15:03:48.000000000 +0100
++++ vdr-1.3.30/plugin.h	2005-08-21 11:32:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: plugin.h 1.8 2005/01/30 14:03:48 kls Exp $
++ * $Id: plugin.h 1.9 2005/08/21 09:32:08 kls Exp $
+  */
+ 
+ #ifndef __PLUGIN_H
+@@ -50,6 +50,8 @@
+ 
+   void RegisterI18n(const tI18nPhrase * const Phrases);
+ 
++  virtual bool Service(const char *Id, void *Data = NULL);
++
+   static void SetConfigDirectory(const char *Dir);
+   static const char *ConfigDirectory(const char *PluginName = NULL);
+   };
+@@ -88,6 +90,8 @@
+   static bool HasPlugins(void);
+   static cPlugin *GetPlugin(int Index);
+   static cPlugin *GetPlugin(const char *Name);
++  static cPlugin *CallFirstService(const char *Id, void *Data = NULL);
++  static bool CallAllServices(const char *Id, void *Data = NULL);
+   void StopPlugins(void);
+   void Shutdown(void);
+   };
+diff -ruN vdr-1.3.29/remux.c vdr-1.3.30/remux.c
+--- vdr-1.3.29/remux.c	2005-07-30 12:23:00.000000000 +0200
++++ vdr-1.3.30/remux.c	2005-08-21 10:58:58.000000000 +0200
+@@ -11,7 +11,7 @@
+  * The cDolbyRepacker code was originally written by Reinhard Nissl <rnissl@gmx.de>,
+  * and adapted to the VDR coding style by Klaus.Schmidinger@cadsoft.de.
+  *
+- * $Id: remux.c 1.36 2005/07/30 10:23:00 kls Exp $
++ * $Id: remux.c 1.37 2005/08/21 08:58:58 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -171,11 +171,9 @@
+      int Bite = fragmentLen + (Count >= 0 ? 0 : Count);
+      // put data into result buffer
+      int n = Put(ResultBuffer, fragmentData, Bite);
+-     if (n != Bite) {
+-        Reset();
+-        return false;
+-        }
+      fragmentLen = 0;
++     if (n != Bite)
++        return false;
+      }
+   else if (pesHeaderLen > 0) { // ... which is contained in the PES header buffer
+      int PacketLen = pesHeaderLen + Count - 6;
+@@ -186,11 +184,9 @@
+      int Bite = pesHeaderLen + (Count >= 0 ? 0 : Count);
+      // put data into result buffer
+      int n = Put(ResultBuffer, pesHeader, Bite);
+-     if (n != Bite) {
+-        Reset();
+-        return false;
+-        }
+      pesHeaderLen = 0;
++     if (n != Bite)
++        return false;
+      }
+   // append further payload
+   if (Count > 0) {
+@@ -198,10 +194,8 @@
+      int Bite = Count;
+      // put data into result buffer
+      int n = Put(ResultBuffer, Data, Bite);
+-     if (n != Bite) {
+-        Reset();
++     if (n != Bite)
+         return false;
+-        }
+      }
+   // we did it ;-)
+   return true;
+@@ -250,12 +244,10 @@
+            switch (*data) {
+              case 0xB9 ... 0xFF: // system start codes
+                   esyslog("cVideoRepacker: found system start code: stream seems to be scrambled or not demultiplexed");
+-                  Reset();
+                   break;
+              case 0xB0 ... 0xB1: // reserved start codes
+              case 0xB6:
+                   esyslog("cVideoRepacker: found reserved start code: stream seems to be scrambled");
+-                  Reset();
+                   break;
+              case 0xB4: // sequence error code
+                   isyslog("cVideoRepacker: found sequence error code: stream seems to be damaged");
+diff -ruN vdr-1.3.29/tools.h vdr-1.3.30/tools.h
+--- vdr-1.3.29/tools.h	2005-08-06 11:53:21.000000000 +0200
++++ vdr-1.3.30/tools.h	2005-08-21 16:06:38.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 1.73 2005/08/06 09:53:21 kls Exp $
++ * $Id: tools.h 1.74 2005/08/21 14:06:38 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -57,6 +57,21 @@
+ #define BCDCHARTOINT(x) (10 * ((x & 0xF0) >> 4) + (x & 0xF))
+ int BCD2INT(int x);
+ 
++// Unfortunately there are no platform independent macros for unaligned
++// access. so we do it this way:
++
++template<class T> inline T get_unaligned(T *p)
++{
++  struct s { T v; } __attribute__((packed));
++  return ((s *)p)->v;
++}
++
++template<class T> inline void put_unaligned(unsigned int v, T* p)
++{
++  struct s { T v; } __attribute__((packed));
++  ((s *)p)->v = v;
++}
++
+ class cString {
+ private:
+   char *s;
+diff -ruN vdr-1.3.29/vdr.c vdr-1.3.30/vdr.c
+--- vdr-1.3.29/vdr.c	2005-07-31 13:25:16.000000000 +0200
++++ vdr-1.3.30/vdr.c	2005-08-21 10:47:06.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.209 2005/07/31 11:25:16 kls Exp $
++ * $Id: vdr.c 1.211 2005/08/21 08:47:06 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -63,6 +63,9 @@
+ #define SHUTDOWNWAIT      300 // seconds to wait in user prompt before automatic shutdown
+ #define MANUALSTART       600 // seconds the next timer must be in the future to assume manual start
+ #define CHANNELSAVEDELTA  600 // seconds before saving channels.conf after automatic modifications
++#define LASTCAMMENUTIMEOUT  3 // seconds to run the main loop 'fast' after a CAM menu has been closed
++                              // in order to react on a possible new CAM menu as soon as possible
++#define DEVICEREADYTIMEOUT 30 // seconds to wait until all devices are ready
+ 
+ #define EXIT(v) { ExitCode = (v); goto Exit; }
+ 
+@@ -389,6 +392,7 @@
+   int PreviousChannelIndex = 0;
+   time_t LastChannelChanged = time(NULL);
+   time_t LastActivity = 0;
++  time_t LastCamMenu = 0;
+   int MaxLatencyTime = 0;
+   bool ForceShutdown = false;
+   bool UserShutdown = false;
+@@ -517,6 +521,8 @@
+ 
+   // Channel:
+ 
++  if (!cDevice::WaitForAllDevicesReady(DEVICEREADYTIMEOUT))
++     dsyslog("not all devices ready after %d seconds", DEVICEREADYTIMEOUT);
+   Channels.SwitchTo(Setup.CurrentChannel);
+   if (MuteAudio)
+      cDevice::PrimaryDevice()->ToggleMute();
+@@ -660,11 +666,16 @@
+         if (!Menu && Recordings.NeedsUpdate())
+            Recordings.Load();
+         // CAM control:
+-        if (!Menu && !cOsd::IsOpen())
++        if (!Menu && !cOsd::IsOpen()) {
+            Menu = CamControl();
++           if (Menu)
++              LastCamMenu = 0;
++           else if (!LastCamMenu)
++              LastCamMenu = time(NULL);
++           }
+         // User Input:
+         cOsdObject *Interact = Menu ? Menu : cControl::Control();
+-        eKeys key = Interface->GetKey(!Interact || !Interact->NeedsFastResponse());
++        eKeys key = Interface->GetKey((!Interact || !Interact->NeedsFastResponse()) && time(NULL) - LastCamMenu > LASTCAMMENUTIMEOUT);
+         if (NORMALKEY(key) != kNone) {
+            EITScanner.Activity();
+            LastActivity = time(NULL);

@@ -1,0 +1,658 @@
+diff -ruNbw vdr-1.2.0/CONTRIBUTORS vdr-1.2.1/CONTRIBUTORS
+--- vdr-1.2.0/CONTRIBUTORS	Sat May 31 18:19:46 2003
++++ vdr-1.2.1/CONTRIBUTORS	Sun Jun  8 11:25:07 2003
+@@ -90,6 +90,7 @@
+ Axel Gruber <axel@agm.de>
+  for his support in keeping the Premiere World channels up to date in 'channels.conf'
+  for helping to debug support for Viaccess CAMs
++ for reporting a problem in case none of the devices provides an OSD
+ 
+ Arnold Niessen <niessen@iae.nl> <arnold.niessen@philips.com>
+  for translating OSD texts to the Dutch language
+@@ -370,6 +371,8 @@
+  for helping to fix the still picture workaround in case the progress display
+  is active
+  for his support in keeping the Premiere World channels up to date in 'channels.conf'
++ for reporting a problem in device handling in the CICAM menu in case a VDR
++ instance was started with a specific device using the -D option
+ 
+ Andreas Roedl <flood@flood-net.de>
+  for adding some DVB-T channels for Berlin (Germany) to channels.conf.terr
+@@ -617,6 +620,8 @@
+ 
+ Malcolm Caldwell <malcolm.caldwell@ntu.edu.au>
+  for modifying LOF handling to allow for C-band reception
++ for reporting a crash in creating a new timer in case there is no device in the
++ system that can actually receive any channel
+ 
+ Ludwig Nussel <ludwig.nussel@web.de>
+  for making the LIRC thread avoid high CPU load in case the connection to LIRC gets lost
+@@ -711,3 +716,6 @@
+ 
+ Jon Burgess <mplayer@jburgess.uklinux.net>
+  for pointing out a problem with NPTL ("Native Posix Thread Library")
++
++Thomas Schmidt <thomas.schmidt@in.stud.tu-ilmenau.de>
++ for reporting a crash when cancelling a newly created timer
+diff -ruNbw vdr-1.2.0/HISTORY vdr-1.2.1/HISTORY
+--- vdr-1.2.0/HISTORY	Sun Jun  1 10:58:38 2003
++++ vdr-1.2.1/HISTORY	Mon Jun  9 11:50:26 2003
+@@ -2234,3 +2234,22 @@
+   (thanks to Jon Burgess for pointing this out).
+ - Some corrections to the Finnish OSD texts (thanks to Jaakko Hyvätti).
+ - Officially released as version 1.2.0.
++
++2003-06-09: Version 1.2.1
++
++- Fixed OSD access in case none of the devices provides one (thanks to Axel
++  Gruber for reporting this one).
++- Fixed editing channels ('timers.conf' was not written after a channel has
++  been modified, which could result in errors upon the next start of VDR).
++- Fixed a crash when cancelling a newly created timer (thanks to Thomas Schmidt
++  for reporting this one).
++- Completed Hungarian language texts (thanks to Istvan Koenigsberger and Guido
++  Josten).
++- Fixed device handling in the CICAM menu in case a VDR instance was started
++  with a specific device using the -D option (thanks to Gerald Raaf for reporting
++  ths one).
++- Initializing the current channel to '1' to avoid a crash in creating a new
++  timer in case there is no device in the system that can actually receive any
++  channel (thanks to Malcolm Caldwell for reporting this one).
++- Some corrections to the Finnish OSD texts (thanks to Niko Tarnanen and Rolf
++  Ahrenberg).
+diff -ruNbw vdr-1.2.0/config.h vdr-1.2.1/config.h
+--- vdr-1.2.0/config.h	Sat May 31 11:10:58 2003
++++ vdr-1.2.1/config.h	Fri Jun  6 14:28:20 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.163 2003/05/31 09:10:58 kls Exp $
++ * $Id: config.h 1.164 2003/06/06 12:28:20 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -19,8 +19,8 @@
+ #include "device.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.2.0"
+-#define VDRVERSNUM   10200  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.2.1"
++#define VDRVERSNUM   10201  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+diff -ruNbw vdr-1.2.0/device.c vdr-1.2.1/device.c
+--- vdr-1.2.0/device.c	Sun May 25 12:57:59 2003
++++ vdr-1.2.1/device.c	Sun Jun  8 11:19:59 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 1.44 2003/05/25 10:57:59 kls Exp $
++ * $Id: device.c 1.45 2003/06/08 09:19:59 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -28,7 +28,7 @@
+ int cDevice::numDevices = 0;
+ int cDevice::useDevice = 0;
+ int cDevice::nextCardIndex = 0;
+-int cDevice::currentChannel = 0;
++int cDevice::currentChannel = 1;
+ cDevice *cDevice::device[MAXDEVICES] = { NULL };
+ cDevice *cDevice::primaryDevice = NULL;
+ 
+diff -ruNbw vdr-1.2.0/i18n.c vdr-1.2.1/i18n.c
+--- vdr-1.2.0/i18n.c	Sun Jun  1 10:49:47 2003
++++ vdr-1.2.1/i18n.c	Mon Jun  9 11:49:29 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.125 2003/06/01 08:49:47 kls Exp $
++ * $Id: i18n.c 1.128 2003/06/09 09:49:29 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -222,7 +222,7 @@
+     "Entoles gia egrafes",
+     "Inspelningskommandon",
+     "",// TODO
+-    "",// TODO
++    "Parancsok a felvett filmekhez",
+     "Ordres de gravació",
+   },
+   { "Edit channel",
+@@ -733,7 +733,7 @@
+     "Epanafora",
+     "Återställ",
+     "",//TODO
+-    "",//TODO
++    "Reset",
+     "Reiniciar",
+   },
+   // Confirmations:
+@@ -932,7 +932,7 @@
+     "Pressione qualquer tecla para cancelar",
+     "Appuyez sur une touche pour annuler l'arrêt",
+     "Trykk en tast for ikke å slå av",
+-    "Peru sammutus painamalla jotain näppäintä",
++    "Peru sammutus painamalla mitä tahansa näppäintä",
+     "Dowolny przycisk zatrzyma wylaczanie",
+     "Pulse una tecla para interrumpir apagar",
+     "Piese ena pliktro na akirothei o termatismos",
+@@ -1007,7 +1007,7 @@
+     "Pigi",
+     "Källa",
+     "",//TODO
+-    "",//TODO
++    "Forrás",
+     "Origen",
+   },
+   { "Srate",
+@@ -1587,7 +1587,7 @@
+     "To kanali den ine diathesimo",
+     "Kanalen ej tillgänglig!",
+     "",//TODO
+-    "",//TODO
++    "A csatorna nem elérhetö",
+     "Canal no disponible!",
+   },
+   { "Channel settings are not unique!",
+@@ -1604,7 +1604,7 @@
+     "Oi rithmiseis tou kanaliou simpiptoun me allo!",
+     "Kanalinställningarna är ej unika!",
+     "",//TODO
+-    "",//TODO
++    "A csatornabeállítások nem egyértelmüek",
+     "Propietats del canal duplicades!",
+   },
+   { "Channel locked (recording)!",
+@@ -1655,7 +1655,7 @@
+     "Den exoun oristei simeia gia epexsergasia",
+     "Det finns inga redigeringsmärken",//TODO
+     "",//TODO
+-    "",//TODO
++    "A vágópont nincs kijelölve",//TODO
+     "No hi ha marques d'edició definides",
+   },
+   { "Can't start editing process!",
+@@ -1740,7 +1740,7 @@
+     "Den mpori na aniksi to CAM menou!",
+     "Det går inte att öppna CAM menyn!",
+     "",//TODO
+-    "",//TODO
++    "A CAM-Menü nem nyitható",
+     "No puc obrir el menú de la CAM!",
+   },
+   { "Can't reset CAM!",
+@@ -1757,7 +1757,7 @@
+     "Adinato na gini epanafora sto CAM",
+     "Kan inte återställa CAM!",
+     "",//TODO
+-    "",//TODO
++    "A CAM-Reset nem sikerült",
+     "No puc reiniciar la CAM!",
+   },
+   { "CAM has been reset",
+@@ -1774,7 +1774,7 @@
+     "Sto CAM egine apanafora",
+     "CA modulen har återställts",
+     "",//TODO
+-    "",//TODO
++    "A CAM vissza lett állítva",
+     "CAM reiniciada",
+   },
+   // Setup pages:
+@@ -2405,7 +2405,7 @@
+     "",// TODO
+     "Prioritet för direktinspelning",
+     "",// TODO
+-    "",// TODO
++    "Szünet prioritás",
+     "Prioritat de la pausa",
+   },
+   { "Setup.Recording$Pause lifetime (d)",
+@@ -2422,7 +2422,7 @@
+     "",// TODO
+     "Livstid för direktinspelning (dagar)",
+     "",// TODO
+-    "",// TODO
++    "Szünet élettartama",
+     "Durada de la pausa (d)",
+   },
+   { "Setup.Recording$Use episode name",
+@@ -2592,7 +2592,7 @@
+     "Resume ID",// TODO
+     "Återuppta ID",
+     "Resume ID",// TODO
+-    "Resume ID",// TODO
++    "Lejátszás ID",
+     "ID de Continuar",
+   },
+   { "Setup.Miscellaneous$Min. event timeout (min)",
+@@ -2696,7 +2696,7 @@
+     "",// TODO
+     " abcdefghijklmnopqrstuvxyzåäö0123456789-.#~",
+     " abcdefghijklmnopqrstuvwxyz0123456789-.#~",
+-    " aábcdeéfghijklmnoóöpqrstuúüvwxyz0123456789-.,#~",
++    " aábcdeéfghiíjklmnoóöpqrstuúüvwxyz0123456789-.,#~",
+     " aàbcçdeéèfghiíjklmnoòpqrstuúvwxyz0123456789-.,#~_·",
+   },
+   // Learning keys:
+@@ -2742,7 +2742,7 @@
+     "Pressione qualquer tecla do telecomando",
+     "Appuyer sur une touche de la télécommande",
+     "Trykk en av tastene på fjernkontrollen",
+-    "Paina jotain kaukosäätimen näppäintä",
++    "Paina mitä tahansa kaukosäätimen näppäintä",
+     "Nacisnac klawisz pilota",
+     "Pulse una tecla en el telemando",
+     "Piese ena pliktro sto tilexiristirio",
+@@ -2901,7 +2901,7 @@
+     "Pata 'Menou' gia prosperasi aftou tou pliktrou",
+     "Tryck 'Meny' för att hoppa över denna knapp.",
+     "",// TODO
+-    "",// TODO
++    "A Menü gombot nyomni ennek a gombnak a kihagyásához",
+     "Premeu 'Menú' per obviar aquesta tecla",
+   },
+   { "Phase 3: Saving key codes",
+@@ -3140,7 +3140,7 @@
+     "Anametadosi",
+     "Spela upp",
+     "",// TODO
+-    "",// TODO
++    "Lejátszás",
+     "Reproduir",
+   },
+   { "Pause",
+@@ -3157,7 +3157,7 @@
+     "Dialima",
+     "Pausa",
+     "",// TODO
+-    "",// TODO
++    "Szünet",
+     "Pausa",
+   },
+   { "Stop",
+@@ -3174,7 +3174,7 @@
+     "Terma",
+     "Stoppa",
+     "",// TODO
+-    "",// TODO
++    "Stop",
+     "Aturar",
+   },
+   { "Record",
+@@ -3191,7 +3191,7 @@
+     "Egrafi",
+     "Spela in",
+     "",// TODO
+-    "",// TODO
++    "Felvenni",
+     "Gravar",
+   },
+   { "FastFwd",
+@@ -3208,7 +3208,7 @@
+     "Girisma mprosta",
+     "Snabbspolning framåt",
+     "",// TODO
+-    "",// TODO
++    "Elöre pörgetni",
+     "Endavant ràpidament",
+   },
+   { "FastRew",
+@@ -3225,7 +3225,7 @@
+     "Girisma piso",
+     "Snabbspolning bakåt",
+     "",// TODO
+-    "",// TODO
++    "Vissza pörgetni",
+     "Enrera ràpidament",
+   },
+   { "Power",
+@@ -3259,7 +3259,7 @@
+     "Kanali+",
+     "Kanal+",
+     "",// TODO
+-    "",// TODO
++    "Csatorna+",
+     "Canal +",
+   },
+   { "Channel-",
+@@ -3276,7 +3276,7 @@
+     "Kanali-",
+     "Kanal-",
+     "",// TODO
+-    "",// TODO
++    "Csatorna-",
+     "Canal -",
+   },
+   { "Volume+",
+@@ -3379,7 +3379,7 @@
+     "klisto",
+     "av",
+     "",// TODO
+-    "",// TODO
++    "ki",
+     "off",
+   },
+   { "none",
+@@ -3396,7 +3396,7 @@
+     "kanena",
+     "ingen",
+     "",// TODO
+-    "",// TODO
++    "semmi",
+     "cap",
+   },
+   { "auto",
+@@ -3413,7 +3413,7 @@
+     "aftomato",
+     "automatisk",
+     "",// TODO
+-    "",// TODO
++    "auto",
+     "auto",
+   },
+   { "top",
+@@ -3685,7 +3685,7 @@
+     "",// TODO
+     "Pausar direktinspelningen",
+     "",// TODO
+-    "",// TODO
++    "Az élö adás megállítva...",
+     "Pausa d'emissió en directe...",
+   },
+   { "This plugin has no setup parameters!",
+@@ -3702,7 +3702,7 @@
+     "Afto to plugin den exi parametrous",
+     "Den här modulen har inga parametrar",
+     "",// TODO
+-    "",// TODO
++    "Ennek a plugin-nak nincs setup-parametere!",
+     "Aquest plugin no admet configuració!",
+    },
+   { NULL }
+diff -ruNbw vdr-1.2.0/menu.c vdr-1.2.1/menu.c
+--- vdr-1.2.0/menu.c	Fri May 30 11:53:57 2003
++++ vdr-1.2.1/menu.c	Sat Jun  7 14:31:57 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.253 2003/05/30 09:53:57 kls Exp $
++ * $Id: menu.c 1.256 2003/06/07 12:31:57 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -615,6 +615,7 @@
+            if (channel) {
+               *channel = data;
+               isyslog("edited channel %d %s", channel->Number(), data.ToText());
++              Timers.Save();
+               state = osBack;
+               }
+            else {
+@@ -834,21 +835,21 @@
+   cTimer *timer;
+   cTimer data;
+   int channel;
+-  bool deleteIfCancelled;
++  bool addIfConfirmed;
+   cMenuEditDateItem *firstday;
+   void SetFirstDayItem(void);
+ public:
+-  cMenuEditTimer(int Index, bool New = false);
++  cMenuEditTimer(cTimer *Timer, bool New = false);
+   virtual ~cMenuEditTimer();
+   virtual eOSState ProcessKey(eKeys Key);
+   };
+ 
+-cMenuEditTimer::cMenuEditTimer(int Index, bool New)
++cMenuEditTimer::cMenuEditTimer(cTimer *Timer, bool New)
+ :cOsdMenu(tr("Edit timer"), 12)
+ {
+   firstday = NULL;
+-  timer = Timers.Get(Index);
+-  deleteIfCancelled = New;
++  timer = Timer;
++  addIfConfirmed = New;
+   if (timer) {
+      data = *timer;
+      if (New)
+@@ -869,12 +870,8 @@
+ 
+ cMenuEditTimer::~cMenuEditTimer()
+ {
+-  if (timer && deleteIfCancelled) {
+-     int Index = timer->Index();
+-     Timers.Del(timer);
+-     Timers.Save();
+-     isyslog("timer %d deleted", Index + 1);
+-     }
++  if (timer && addIfConfirmed)
++     delete timer; // apparently it wasn't confirmed
+   Timers.DecBeingEdited();
+ }
+ 
+@@ -908,14 +905,18 @@
+                           }
+                        if (!*data.file)
+                           strcpy(data.file, data.Channel()->Name());
+-                       if (timer && memcmp(timer, &data, sizeof(data)) != 0) {
++                       if (timer) {
++                          if (memcmp(timer, &data, sizeof(data)) != 0) {
+                           *timer = data;
+                           if (timer->active)
+                              timer->active = 1; // allows external programs to mark active timers with values > 1 and recognize if the user has modified them
++                             }
++                          if (addIfConfirmed)
++                             Timers.Add(timer);
+                           Timers.Save();
+-                          isyslog("timer %d modified (%s)", timer->Index() + 1, timer->active ? "active" : "inactive");
++                          isyslog("timer %d %s (%s)", timer->Index() + 1, addIfConfirmed ? "added" : "modified", timer->active ? "active" : "inactive");
++                          addIfConfirmed = false;
+                           }
+-                       deleteIfCancelled = false;
+                      }
+                      return osBack;
+        case kRed:
+@@ -1033,19 +1034,14 @@
+   if (HasSubMenu() || Count() == 0)
+      return osContinue;
+   isyslog("editing timer %d", CurrentTimer()->Index() + 1);
+-  return AddSubMenu(new cMenuEditTimer(CurrentTimer()->Index()));
++  return AddSubMenu(new cMenuEditTimer(CurrentTimer()));
+ }
+ 
+ eOSState cMenuTimers::New(void)
+ {
+   if (HasSubMenu())
+      return osContinue;
+-  cTimer *timer = new cTimer;
+-  Timers.Add(timer);
+-  Add(new cMenuTimerItem(timer), true);
+-  Timers.Save();
+-  isyslog("timer %d added", timer->Index() + 1);
+-  return AddSubMenu(new cMenuEditTimer(timer->Index(), true));
++  return AddSubMenu(new cMenuEditTimer(new cTimer, true));
+ }
+ 
+ eOSState cMenuTimers::Delete(void)
+@@ -1094,8 +1090,7 @@
+ 
+ eOSState cMenuTimers::ProcessKey(eKeys Key)
+ {
+-  cTimer *ti = HasSubMenu() ? CurrentTimer() : NULL;
+-  int TimerNumber = ti ? ti->Index() : -1;
++  int TimerNumber = HasSubMenu() ? Count() : -1;
+   eOSState state = cOsdMenu::ProcessKey(Key);
+ 
+   if (state == osUnknown) {
+@@ -1112,9 +1107,9 @@
+        default: break;
+        }
+      }
+-  if (TimerNumber >= 0 && !HasSubMenu() && !Timers.Get(TimerNumber)) {
+-     // a newly created timer wasn't confirmed with Ok
+-     cOsdMenu::Del(Current());
++  if (TimerNumber >= 0 && !HasSubMenu() && Timers.Get(TimerNumber)) {
++     // a newly created timer was confirmed with Ok
++     Add(new cMenuTimerItem(Timers.Get(TimerNumber)), true);
+      Display();
+      }
+   return state;
+@@ -1274,16 +1269,11 @@
+   if (item) {
+      cTimer *timer = new cTimer(item->eventInfo);
+      cTimer *t = Timers.GetTimer(timer);
+-     if (!t) {
+-        Timers.Add(timer);
+-        Timers.Save();
+-        isyslog("timer %d added", timer->Index() + 1);
+-        }
+-     else {
++     if (t) {
+         delete timer;
+         timer = t;
+         }
+-     return AddSubMenu(new cMenuEditTimer(timer->Index(), !t));
++     return AddSubMenu(new cMenuEditTimer(timer, !t));
+      }
+   return osContinue;
+ }
+@@ -1408,16 +1398,11 @@
+   if (item) {
+      cTimer *timer = new cTimer(item->eventInfo);
+      cTimer *t = Timers.GetTimer(timer);
+-     if (!t) {
+-        Timers.Add(timer);
+-        Timers.Save();
+-        isyslog("timer %d added", timer->Index() + 1);
+-        }
+-     else {
++     if (t) {
+         delete timer;
+         timer = t;
+         }
+-     return AddSubMenu(new cMenuEditTimer(timer->Index(), !t));
++     return AddSubMenu(new cMenuEditTimer(timer, !t));
+      }
+   return osContinue;
+ }
+@@ -2124,8 +2109,9 @@
+   for (int d = 0; d < cDevice::NumDevices(); d++) {
+       for (int i = 0; i < 2; i++) {
+           char buffer[32];
+-          snprintf(buffer, sizeof(buffer), "%s%d %d", tr("Setup.CICAM$CICAM DVB"), d + 1, i + 1);
+-          Add(new cMenuEditCaItem(buffer, &data.CaCaps[d][i]));
++          int CardIndex = cDevice::GetDevice(d)->CardIndex();
++          snprintf(buffer, sizeof(buffer), "%s%d %d", tr("Setup.CICAM$CICAM DVB"), CardIndex + 1, i + 1);
++          Add(new cMenuEditCaItem(buffer, &data.CaCaps[CardIndex][i]));
+           }
+       }
+   SetHelpKeys();
+diff -ruNbw vdr-1.2.0/osd.c vdr-1.2.1/osd.c
+--- vdr-1.2.0/osd.c	Sat May  3 16:46:38 2003
++++ vdr-1.2.1/osd.c	Wed Jun  4 18:13:00 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 1.42 2003/05/03 14:46:38 kls Exp $
++ * $Id: osd.c 1.43 2003/06/04 16:13:00 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -99,6 +99,8 @@
+   //XXX
+   osd = OpenRaw(x, y);
+   //XXX TODO this should be transferred to the places where the individual windows are requested (there's too much detailed knowledge here!)
++  if (!osd)
++     return;
+   if (h / lineHeight == 5) { //XXX channel display
+      osd->Create(0,              0, w, h, 4);
+      }
+@@ -145,6 +147,7 @@
+   Fill(0, 0, cols, rows, clrBackground);
+   refresh();
+ #else
++  if (osd)
+   osd->Clear();
+ #endif
+ }
+@@ -161,6 +164,7 @@
+       }
+   wsyncup(window); // shouldn't be necessary because of 'syncok()', but w/o it doesn't work
+ #else
++  if (osd)
+   osd->Fill(x * charWidth, y * lineHeight, (x + w) * charWidth - 1, (y + h) * lineHeight - 1, color);
+ #endif
+ }
+@@ -168,6 +172,7 @@
+ void cOsd::SetBitmap(int x, int y, const cBitmap &Bitmap)
+ {
+ #ifndef DEBUG_OSD
++  if (osd)
+   osd->SetBitmap(x, y, Bitmap);
+ #endif
+ }
+@@ -200,7 +205,7 @@
+ #ifdef DEBUG_OSD
+   return 1;
+ #else
+-  return osd->Width(c);
++  return osd ? osd->Width(c) : 1;
+ #endif
+ }
+ 
+@@ -209,7 +214,7 @@
+ #ifdef DEBUG_OSD
+   return strlen(s);
+ #else
+-  return (osd->Width(s) + charWidth - 1) / charWidth;
++  return osd ? (osd->Width(s) + charWidth - 1) / charWidth : strlen(s);
+ #endif
+ }
+ 
+@@ -218,7 +223,7 @@
+ #ifdef DEBUG_OSD
+   return Font;
+ #else
+-  return osd->SetFont(Font);
++  return osd ? osd->SetFont(Font) : Font;
+ #endif
+ }
+ 
+@@ -231,6 +236,7 @@
+   wmove(window, y, x); // ncurses wants 'y' before 'x'!
+   waddnstr(window, s, cols - x);
+ #else
++  if (osd)
+   osd->Text(x * charWidth, y * lineHeight, s, colorFg, colorBg);
+ #endif
+ }
+diff -ruNbw vdr-1.2.0/svdrp.c vdr-1.2.1/svdrp.c
+--- vdr-1.2.0/svdrp.c	Sun Apr 27 16:21:07 2003
++++ vdr-1.2.1/svdrp.c	Fri Jun  6 15:30:52 2003
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 1.51 2003/04/27 14:21:07 kls Exp $
++ * $Id: svdrp.c 1.52 2003/06/06 13:30:52 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -790,6 +790,7 @@
+                  Channels.ReNumber();
+                  Channels.Save();
+                  isyslog("modifed channel %d %s", channel->Number(), channel->ToText());
++                 Timers.Save();
+                  Reply(250, "%d %s", channel->Number(), channel->ToText());
+                  }
+               else

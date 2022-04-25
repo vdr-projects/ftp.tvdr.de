@@ -1,0 +1,70 @@
+--- ci.h	2003/04/19 10:25:24	1.6
++++ ci.h	2003/04/20 09:21:23	1.7
+@@ -81,6 +81,7 @@
+   cMutex mutex;
+   int numSlots;
+   bool newCaSupport;
++  bool hasUserIO;
+   cCiSession *sessions[MAX_CI_SESSION];
+   cCiTransportLayer *tpl;
+   cCiTransportConnection *tc;
+@@ -98,6 +99,7 @@
+   static cCiHandler *CreateCiHandler(const char *FileName);
+   int NumSlots(void) { return numSlots; }
+   bool Process(void);
++  bool HasUserIO(void) { return hasUserIO; }
+   bool EnterMenu(int Slot);
+   cCiMenu *GetMenu(void);
+   cCiEnquiry *GetEnquiry(void);
+--- ci.c	2003/04/19 10:59:53	1.13
++++ ci.c	2003/04/20 09:52:45	1.14
+@@ -625,6 +625,7 @@
+   const cCiTransportConnection *Tc(void) { return tc; }
+   int SessionId(void) { return sessionId; }
+   int ResourceId(void) { return resourceId; }
++  virtual bool HasUserIO(void) { return false; }
+   virtual bool Process(int Length = 0, const uint8_t *Data = NULL);
+   };
+ 
+@@ -1009,6 +1010,7 @@
+   cCiMMI(int SessionId, cCiTransportConnection *Tc);
+   virtual ~cCiMMI();
+   virtual bool Process(int Length = 0, const uint8_t *Data = NULL);
++  virtual bool HasUserIO(void) { return menu || enquiry; }
+   cCiMenu *Menu(void);
+   cCiEnquiry *Enquiry(void);
+   bool SendMenuAnswer(uint8_t Selection);
+@@ -1287,6 +1289,7 @@
+ {
+   numSlots = NumSlots;
+   newCaSupport = false;
++  hasUserIO = false;
+   for (int i = 0; i < MAX_CI_SESSION; i++)
+       sessions[i] = NULL;
+   tpl = new cCiTransportLayer(Fd, numSlots);
+@@ -1480,10 +1483,12 @@
+          tpl->NewConnection(Slot);
+          }
+       }
++  bool UserIO = false;
+   for (int i = 0; i < MAX_CI_SESSION; i++) {
+-      if (sessions[i])
+-         sessions[i]->Process();
++      if (sessions[i] && sessions[i]->Process())
++         UserIO |= sessions[i]->HasUserIO();
+       }
++  hasUserIO = UserIO;
+   if (newCaSupport)
+      newCaSupport = result = false; // triggers new SetCaPmt at caller!
+   return result;
+--- menu.c	2003/04/12 09:40:48	1.235
++++ menu.c	2003/04/20 09:21:36	1.236
+@@ -1636,7 +1636,7 @@
+       cDevice *Device = cDevice::GetDevice(d);
+       if (Device) {
+          cCiHandler *CiHandler = Device->CiHandler();
+-         if (CiHandler) {
++         if (CiHandler && CiHandler->HasUserIO()) {
+             cCiMenu *CiMenu = CiHandler->GetMenu();
+             if (CiMenu)
+                return new cMenuCam(CiMenu);

@@ -1,0 +1,200 @@
+Current status of CAM support in VDR
+====================================
+
+This file describes the steps you should perform if your CAM doesn't work with
+VDR right away.
+
+First you should enable debug output by doing the following:
+
+- Remove the comments in front of the line
+  //#define DEBUG_CA_DESCRIPTORS 1
+  in pat.c.
+- Set the variables DumpTPDUDataTransfer and DebugProtocol in ci.c to 'true'.
+- Compile and run VDR.
+- Observe the debug output on the console and in /var/log/messages (be sure you run
+  VDR with option '-l3', which is the maximum logging level; this is the default, so
+  if you haven't used any '-l' option ao far you should be fine).
+
+Now check the output at the console (where you started VDR) and in /var/log/messages
+and verify each of the following steps:
+
+1 Reset
+  -----
+
+  There is no apparent way of telling whether the ioctl(CA_RESET) has actually
+  had any effect. The only thing we can check is the return value of the ioctl().
+  If there is an error it will be reported in /var/log/messages as "vdr: ERROR: ...".
+  If all goes well you should see
+
+  Resetting slot 0...ok.
+  Resetting slot 1...ok!
+
+2 CA_CI_MODULE_PRESENT, CA_CI_MODULE_READY
+  ----------------------------------------
+
+  Tune to an encrypted channel.
+  After a few seconds you should see
+
+  Module ready in slot 0
+  Module ready in slot 1
+
+  (depending on which slots actually contain a CAM).
+
+3 Response to T_CREATE_TC
+  -----------------------
+
+  The initial connection should result in the following output at the console:
+
+  --> 00 01 82 01 01
+  <-- 00 01 83 01 01 80 02 01 00
+
+  (the last '00' may also be '80'). If the second line doesn't appear, the CAM is
+  not responding.
+
+4 Creating sessions
+  -----------------
+
+  There should be several sequences that create "sessions", like
+
+  OpenSession 00010041
+  New Resource Manager (session id 1)
+  ...
+  OpenSession 00020041
+  New Aplication Information (session id 2)
+  ...
+  OpenSession 00030041
+  New Conditional Access Support (session id 3)
+  ...
+
+5 Identifying the CAM
+  -------------------
+
+  You should see a line like this in /var/log/messages:
+
+  CAM: Irdeto, 01, 1702, 1702
+
+6 Menu
+  ----
+
+  Go into VDR's "Setup/CICAM" menu and press the red button on the entry for the
+  DVB card that contains the CAM. You should see the lines
+
+  2: ==> Enter Menu
+  --> 00 01 A0 09 01 90 02 00 02 9F 80 22 00
+  <-- 00 01 80 02 01 00
+
+  at the console, soon followed by
+
+  OpenSession 00400041
+  New MMI (session id 5)
+  ...
+  5: <== Display Control
+  5: ==> Display Reply
+  ...
+  <-- 00 01 A0 82 00 80 01 90 02 00 05 9F 88 09 77 05 9F 88 03 12...
+
+  The last line represents the actual menu contents. After this you should see
+  the CAM menu on the OSD.
+
+7 Gathering CA descriptors
+  ------------------------
+
+  When you switch to an encrypted channel, there should be lines like this in
+  the /var/log/messages file:
+
+  CAM: 88C0 11797    8 09 06 17 02 F0 0C 00 0C
+
+  If no such line is logged, extracting the CA descriptors from the data stream
+  doesn't work.
+
+8 Sending AOT_CA_PMT
+  ------------------
+
+  Every time you switch to an encrypted channel you should see a sequence like this
+  at the console:
+
+  --> 00 01 A0 3C 01 90 02 00 03 9F 80 32 33 03 00 0A 00 00 19 01 09 06 17 02 F0 0A
+  00 0A 09 06 17 22 F5 0A 00 0A 09 06 17 62 F8 0A 00 0A 00 01 FF 00 00 00 02 00
+  00 00 00 02 01 00 00 00 02 03 00 00
+  <-- 00 01 80 02 01 00
+
+9 Decrypting
+  ----------
+
+  Well, this one is easy: if you see a picture and hear the sound of an encrypted
+  channel, your CAM is actually decrypting :-)
+
+Following is a table, listing the currently known status of various CAMs.
+The numbers (1...9) correspond to the steps listed above. If you have a CAM that
+is not listed here, or find that the results listed here are wrong, please set up
+an entry like the ones below and send it to kls@cadsoft.de.
+
+The left column lists the type of CAM, and below it the revision of the CI adapter
+(that's the board that gets connected to the DVB card with a flat ribbon cable,
+and into which you plug the CAM). Here 'PCI' means that it's a card that is mounted
+like a normal PCI card would be, and '3.5"' means it goes into a 3.5" drive bay.
+
+The "Old" column tells whether this CAM worked with the old firmware.
+The "Mult" column tells whether everything works as expected with multiple CAMs
+(i.e. both slots holding a CAM module).
+
+
+                                 1      2      3      4      5      6      7      8      9       Old   Mult Notes
+
+*** Test results 1.1.25:
+
+Irdeto AllCAM 4.7                ok     0=ok   ok     ok     ok     ok     ok     ok     ok      ok    ok
+CI rev 1.4 (PCI)                        1=ok
+
+Magic Module (Pentacrypt 1.09)   ok     0=ok   ok     ok     ok     ok     ok     ok     ok      ok    ok
+CI rev 1.4 (PCI)                        1=ok
+
+Alphacrypt Firmrom 1.00          ok     0=ok   ok     ok     ok     ok     ok     ok     ok      ???   ok
+CI rev 1.4 (PCI)                        1=ok
+
+Alphacrypt Firmrom 1.10          ok     0=ok   ok     ok     ok     ok     ok     ok     ok      ???   ok
+CI rev 1.4 (PCI)                        1=ok
+
+*** Test results 1.1.23 (plus modified ci.c):
+
+Viaccess black (old)             ok     0=ok   ok     ok     ok     ok     ok     ok     fail
+CI rev ??? (???)                        1=fail
+
+Conax CICAM v3.03                ok     0=ok   ok     ok     ok     ok     ok     ok     ok      ???        Menu works only once
+CI rev ??? (PCI)                        1=???
+
+*** Old test results:
+
+Irdeto AllCAM 4.7                ok     0=ok   ok     ok     ok     ok     ok     ok     ok      ok
+CI rev 1.3 (3,5")                       1=fail
+
+Irdeto AllCAM 4.6 SE             ok     0=ok   ok     ???    fail   ???    ???    fail   fail    ???        Siemens DVB-C rev1.5
+CI rev ??? (???)                        1=???
+
+Magic Module (Pentacrypt 1.09)   ok     0=ok   ok     ok     ok     ok     fail   fail   fail    ???        Communication suddenly breaks
+CI rev 1.4 (???)                        1=???
+
+Conax CICAM v3.03                ok     0=ok   ok     ok     ok     ???    ???    fail   fail    ???
+CI rev 1.6 (3.5")                       1=???
+
+Viaccess 1.0 V481                ok     0=fail fail   fail   fail   fail   fail   fail   fail    ???        Application V1.05.001, P/N: 902532
+CI rev 1.6 (3.5")                       1=fail
+
+Aston 1.05                       ok     0=fail fail   fail   fail   fail   fail   fail   fail    ???
+CI rev 1.6 (3.5")                       1=fail
+
+Aston 1.03                       ok     0=ok   ok     ok     ok     ok     fail   fail   fail    ok
+CI rev 1.4 (PCI)
+
+Aston 1.05                       ok     0=ok   fail   fail   fail   fail   fail   fail   fail    ok(after trying a few times)
+CI rev 1.4 (PCI)                        1=fail
+
+Viaccess black (old)             ok    0=ok    ok     ok     ok     ok     ok     ???    ???     ???
+CI rev 1.4 (PCI)                       1=fail(no message for 2.)
+
+AlphaCrypt 1.0                   ok    0=ok    ok     ok     ok     ok     ok     fail   fail    fail
+CI rev 1.4 (PCI)                       1=fail
+
+AlphaCrypt 1.1                   ok    0=fail  ok     ok     ok     fail   ok     ok     fail    fail       CAM works only in slot 1
+CI rev ??? (3.5")                      1=ok
+

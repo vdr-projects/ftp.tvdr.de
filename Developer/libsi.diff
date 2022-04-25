@@ -1,0 +1,76 @@
+--- libsi/descriptor.h	2004/03/07 11:13:54	1.7
++++ libsi/descriptor.h	2004/03/20 10:52:22	1.8
+@@ -50,7 +50,7 @@
+ 
+ class ExtendedEventDescriptors : public DescriptorGroup {
+ public:
+-   int getMaximumTextLength();
++   int getMaximumTextLength(const char *separation1="\t", const char *separation2="\n");
+    //Returns a concatenated version of first the non-itemized and then the itemized text
+    //same semantics as with SI::String
+    char *getText(const char *separation1="\t", const char *separation2="\n");
+@@ -66,7 +66,7 @@
+    //Between the description and the text the separation1 character is used,
+    //separation2 used between two pairs. Example:
+    //Director\tSteven Spielberg\nActor\tMichael Mendl\n
+-   int getMaximumTextItemizedLength();
++   int getMaximumTextItemizedLength(const char *separation1="\t", const char *separation2="\n");
+    char *getTextItemized(const char *separation1="\t", const char *separation2="\n");
+    char *getTextItemized(char *buffer, const char *separation1="\t", const char *separation2="\n");
+    //returns the itemized text pair by pair. Maximum length for buffers is 256.
+--- libsi/descriptor.c	2004/03/13 15:08:12	1.10
++++ libsi/descriptor.c	2004/03/20 10:51:49	1.11
+@@ -78,12 +78,13 @@
+    return ret;
+ }*/
+ 
+-int ExtendedEventDescriptors::getMaximumTextLength() {
+-   return getMaximumTextPlainLength()+getMaximumTextItemizedLength();
++int ExtendedEventDescriptors::getMaximumTextLength(const char *separation1, const char *separation2) {
++   //add length of plain text, of itemized text with separators, and for one separator between the two fields.
++   return getMaximumTextPlainLength()+getMaximumTextItemizedLength(separation1, separation2)+strlen(separation2);
+ }
+ 
+ char *ExtendedEventDescriptors::getText(const char *separation1, const char *separation2) {
+-   char *text=new char[getMaximumTextLength()+strlen(separation1)+strlen(separation2)];
++   char *text=new char[getMaximumTextLength(separation1, separation2)];
+    return getText(text, separation1, separation2);
+ }
+ 
+@@ -171,20 +172,21 @@
+    return buffer;
+ }
+ 
+-int ExtendedEventDescriptors::getMaximumTextItemizedLength() {
++int ExtendedEventDescriptors::getMaximumTextItemizedLength(const char *separation1, const char *separation2) {
+    int ret=0;
++   int sepLength=strlen(separation1)+strlen(separation2)-2;
+    for (int i=0;i<length;i++) {
+       ExtendedEventDescriptor *d=(ExtendedEventDescriptor *)array[i];
+       if (!d)
+          continue;
+-      //the size for the two separating characters is included ;-)
+-      ret+=d->itemLoop.getLength();
++      //The length includes two 8-bit length fields which have already been subtracted from sepLength
++      ret+=d->itemLoop.getLength()+sepLength;
+    }
+    return ret;
+ }
+ 
+ char *ExtendedEventDescriptors::getTextItemized(const char *separation1, const char *separation2) {
+-   char *text=new char[getMaximumTextItemizedLength()+strlen(separation1)+strlen(separation2)];
++   char *text=new char[getMaximumTextItemizedLength(separation1, separation2)];
+    return getTextItemized(text, separation1, separation2);
+ }
+ 
+--- eit.c	2004/03/13 13:54:20	1.93
++++ eit.c	2004/03/20 10:53:23	1.94
+@@ -197,7 +197,7 @@
+             pEvent->SetShortText(ShortEventDescriptor->text.getText(buffer));
+             }
+          if (ExtendedEventDescriptors) {
+-            char buffer[ExtendedEventDescriptors->getMaximumTextLength()];
++            char buffer[ExtendedEventDescriptors->getMaximumTextLength(": ")];
+             pEvent->SetDescription(ExtendedEventDescriptors->getText(buffer, ": "));
+             }
+          }

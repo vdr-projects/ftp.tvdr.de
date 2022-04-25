@@ -1,0 +1,314 @@
+--- device.c	2004/06/19 08:51:05	1.56
++++ device.c	2004/09/19 15:56:37
+@@ -818,6 +818,8 @@
+ int cTSBuffer::Read(void)
+ {
+   if (buf) {
++     if (size - Used() < 10000)//XXX
++        return 0;//XXX avoid too many small reads
+      cPoller Poller(f, false);
+      bool repeat;
+      int total = 0;
+@@ -840,6 +842,8 @@
+                     repeat = true; // read again after a boundary roll-over
+                     }
+                  }
++              else if (r < 0)
++                 return r;
+               }
+            }
+         } while (repeat);
+--- dvbdevice.c	2004/06/19 09:33:42	1.93
++++ dvbdevice.c	2004/09/19 15:54:55
+@@ -1112,11 +1112,7 @@
+ {
+   if (tsBuffer) {
+      int r = tsBuffer->Read();
+-     if (r >= 0) {
+-        Data = tsBuffer->Get();
+-        return true;
+-        }
+-     else if (FATALERRNO) {
++     if (r < 0 && FATALERRNO) {
+         if (errno == EOVERFLOW)
+            esyslog("ERROR: DVB driver buffer overflow on device %d", CardIndex() + 1);
+         else {
+@@ -1124,6 +1120,7 @@
+            return false;
+            }
+         }
++     Data = tsBuffer->Get();
+      return true;
+      }
+   return false;
+--- remux.c	2004/02/14 10:40:37	1.18
++++ remux.c	2004/09/19 15:51:50
+@@ -133,8 +133,7 @@
+   uint8_t check;
+   int which;
+   bool done;
+-  uint8_t *resultBuffer;
+-  int *resultCount;
++  cRingBufferLinear *resultBuffer;
+   int tsErrors;
+   int ccErrors;
+   int ccCounter;
+@@ -145,7 +144,7 @@
+   void write_ipack(const uint8_t *Data, int Count);
+   void instant_repack(const uint8_t *Buf, int Count);
+ public:
+-  cTS2PES(uint8_t *ResultBuffer, int *ResultCount, int Size, uint8_t AudioCid = 0x00);
++  cTS2PES(cRingBufferLinear *ResultBuffer, int Size, uint8_t AudioCid = 0x00);
+   ~cTS2PES();
+   void ts_to_pes(const uint8_t *Buf); // don't need count (=188)
+   void Clear(void);
+@@ -153,10 +152,9 @@
+ 
+ uint8_t cTS2PES::headr[] = { 0x00, 0x00, 0x01 };
+ 
+-cTS2PES::cTS2PES(uint8_t *ResultBuffer, int *ResultCount, int Size, uint8_t AudioCid)
++cTS2PES::cTS2PES(cRingBufferLinear *ResultBuffer, int Size, uint8_t AudioCid)
+ {
+   resultBuffer = ResultBuffer;
+-  resultCount = ResultCount;
+   size = Size;
+   audioCid = AudioCid;
+ 
+@@ -184,12 +182,9 @@
+ 
+ void cTS2PES::store(uint8_t *Data, int Count)
+ {
+-  if (*resultCount + Count > RESULTBUFFERSIZE) {
+-     esyslog("ERROR: result buffer overflow (%d + %d > %d)", *resultCount, Count, RESULTBUFFERSIZE);
+-     Count = RESULTBUFFERSIZE - *resultCount;
+-     }
+-  memcpy(resultBuffer + *resultCount, Data, Count);
+-  *resultCount += Count;
++  int n = resultBuffer->Put(Data, Count);
++  if (n != Count)
++     esyslog("ERROR: result buffer overflow, dropped %d out of %d byte", Count - n, Count);
+ }
+ 
+ void cTS2PES::reset_ipack(void)
+@@ -452,6 +447,11 @@
+ 
+ // --- cRemux ----------------------------------------------------------------
+ 
++// The minimum amount of video data necessary to identify frames:
++#define MINVIDEODATA (16*1024) // just a safe guess (max. size of any frame block, plus some safety)
++
++#define RESULTBUFFERSIZE (MINVIDEODATA * 4)
++
+ cRemux::cRemux(int VPid, int APid1, int APid2, int DPid1, int DPid2, bool ExitOnFailure)
+ {
+   vPid = VPid;
+@@ -463,13 +463,14 @@
+   numUPTerrors = 0;
+   synced = false;
+   skipped = 0;
+-  resultCount = resultDelivered = 0;
+-  vTS2PES  =         new cTS2PES(resultBuffer, &resultCount, IPACKS);
+-  aTS2PES1 =         new cTS2PES(resultBuffer, &resultCount, IPACKS, 0xC0);
+-  aTS2PES2 = aPid2 ? new cTS2PES(resultBuffer, &resultCount, IPACKS, 0xC1) : NULL;
+-  dTS2PES1 = dPid1 ? new cTS2PES(resultBuffer, &resultCount, IPACKS)       : NULL;
++  resultDelivered = 0;
++  resultBuffer = new cRingBufferLinear(RESULTBUFFERSIZE, 2 * IPACKS);
++  vTS2PES  =         new cTS2PES(resultBuffer, IPACKS);
++  aTS2PES1 =         new cTS2PES(resultBuffer, IPACKS, 0xC0);
++  aTS2PES2 = aPid2 ? new cTS2PES(resultBuffer, IPACKS, 0xC1) : NULL;
++  dTS2PES1 = dPid1 ? new cTS2PES(resultBuffer, IPACKS)       : NULL;
+   //XXX don't yet know how to tell apart primary and secondary DD data...
+-  dTS2PES2 = /*XXX dPid2 ? new cTS2PES(resultBuffer, &resultCount, IPACKS) : XXX*/ NULL;
++  dTS2PES2 = /*XXX dPid2 ? new cTS2PES(resultBuffer, IPACKS) : XXX*/ NULL;
+ }
+ 
+ cRemux::~cRemux()
+@@ -479,6 +480,7 @@
+   delete aTS2PES2;
+   delete dTS2PES1;
+   delete dTS2PES2;
++  delete resultBuffer;
+ }
+ 
+ int cRemux::GetPid(const uchar *Data)
+@@ -527,15 +529,13 @@
+   // test recording the raw TS:
+   Result = Count;
+   *PictureType = I_FRAME;
+-  return Data;
++  return (uchar *)Data;
+ XXX*/
+ 
+   // Remove any previously delivered data from the result buffer:
+ 
+   if (resultDelivered) {
+-     if (resultDelivered < resultCount)
+-        memmove(resultBuffer, resultBuffer + resultDelivered, resultCount - resultDelivered);
+-     resultCount -= resultDelivered;
++     resultBuffer->Del(resultDelivered);
+      resultDelivered = 0;
+      }
+ 
+@@ -560,6 +560,8 @@
+          break;
+       if (Data[i] != TS_SYNC_BYTE)
+          break;
++      if (resultBuffer->Free() < IPACKS)
++         break;
+       int pid = GetPid(Data + i + 1);
+       if (Data[i + 3] & 0x10) { // got payload
+          if      (pid == vPid)              vTS2PES->ts_to_pes(Data + i);
+@@ -569,14 +571,14 @@
+          else if (pid == dPid2 && dTS2PES2) dTS2PES2->ts_to_pes(Data + i);
+          }
+       used += TS_SIZE;
+-      if (resultCount > (int)sizeof(resultBuffer) / 2)
+-         break;
+       }
+   Count = used;
+ 
+ /*XXX
+   // test recording without determining the real frame borders:
+   *PictureType = I_FRAME;
++  int resultCount = 0;
++  uchar *data = resultBuffer->Get(resultCount);
+   Result = resultDelivered = resultCount;
+   return Result ? resultBuffer : NULL;
+ XXX*/
+@@ -588,8 +590,10 @@
+      // XXX also allowing 0x1FFF to not break Michael Paar's original patch,
+      // XXX but it would probably be best to only use '0'
+      *PictureType = I_FRAME;
++     int resultCount = 0;
++     uchar *data = resultBuffer->Get(resultCount);
+      Result = resultDelivered = resultCount;
+-     return Result ? resultBuffer : NULL;
++     return Result ? data : NULL;
+      }
+ 
+   // Check if we're getting anywhere here:
+@@ -609,14 +613,16 @@
+ 
+   *PictureType = NO_PICTURE;
+ 
+-  if (resultCount >= MINVIDEODATA) {
+-     for (int i = 0; i < resultCount; i++) {
+-         if (resultBuffer[i] == 0 && resultBuffer[i + 1] == 0 && resultBuffer[i + 2] == 1) {
+-            switch (resultBuffer[i + 3]) {
++  int resultCount = 0;
++  uchar *data = resultBuffer->Get(resultCount);
++  if (data && resultCount >= 2 * IPACKS) {
++     for (int i = 0; i < resultCount - 2; i++) {
++         if (data[i] == 0 && data[i + 1] == 0 && data[i + 2] == 1) {
++            switch (data[i + 3]) {
+               case VIDEO_STREAM_S ... VIDEO_STREAM_E:
+                    {
+                      uchar pt = NO_PICTURE;
+-                     int l = ScanVideoPacket(resultBuffer, resultCount, i, pt);
++                     int l = ScanVideoPacket(data, resultCount, i, pt);
+                      if (l < 0)
+                         return NULL; // no useful data found, wait for more
+                      if (pt != NO_PICTURE) {
+@@ -628,7 +634,7 @@
+                         else if (!synced) {
+                            if (pt == I_FRAME) {
+                               resultDelivered = i; // will drop everything before this position
+-                              SetBrokenLink(resultBuffer + i, l);
++                              SetBrokenLink(data + i, l);
+                               synced = true;
+                               }
+                            else {
+@@ -640,7 +646,7 @@
+                      if (synced) {
+                         *PictureType = pt;
+                         Result = l;
+-                        uchar *p = resultBuffer + resultDelivered;
++                        uchar *p = data + resultDelivered;
+                         resultDelivered += l;
+                         return p;
+                         }
+@@ -653,12 +659,12 @@
+               case PRIVATE_STREAM1:
+               case AUDIO_STREAM_S ... AUDIO_STREAM_E:
+                    {
+-                     int l = GetPacketLength(resultBuffer, resultCount, i);
++                     int l = GetPacketLength(data, resultCount, i);
+                      if (l < 0)
+                         return NULL; // no useful data found, wait for more
+                      if (synced) {
+                         Result = l;
+-                        uchar *p = resultBuffer + resultDelivered;
++                        uchar *p = data + resultDelivered;
+                         resultDelivered += l;
+                         return p;
+                         }
+--- remux.h	2004/02/14 10:40:41	1.11
++++ remux.h	2004/09/19 15:40:23
+@@ -12,6 +12,7 @@
+ 
+ #include <time.h> //XXX FIXME: DVB/linux/dvb/dmx.h should include <time.h> itself!!!
+ #include <linux/dvb/dmx.h>
++#include "ringbuffer.h"
+ #include "tools.h"
+ 
+ // Picture types:
+@@ -20,11 +21,6 @@
+ #define P_FRAME    2
+ #define B_FRAME    3
+ 
+-// The minimum amount of video data necessary to identify frames:
+-#define MINVIDEODATA (16*1024) // just a safe guess (max. size of any frame block, plus some safety)
+-
+-#define RESULTBUFFERSIZE (MINVIDEODATA * 4)
+-
+ class cTS2PES;
+ 
+ class cRemux {
+@@ -35,8 +31,7 @@
+   int skipped;
+   int vPid, aPid1, aPid2, dPid1, dPid2;
+   cTS2PES *vTS2PES, *aTS2PES1, *aTS2PES2, *dTS2PES1, *dTS2PES2;
+-  uchar resultBuffer[RESULTBUFFERSIZE];
+-  int resultCount;
++  cRingBufferLinear *resultBuffer;
+   int resultDelivered;
+   int GetPid(const uchar *Data);
+   int GetPacketLength(const uchar *Data, int Count, int Offset);
+--- ringbuffer.c	2004/06/19 12:27:56	1.20
++++ ringbuffer.c	2004/09/19 15:48:14
+@@ -91,6 +91,7 @@
+   margin = Margin;
+   buffer = NULL;
+   getThreadTid = 0;
++  //XXX check: margin < size!!!
+   if (Size > 1) { // 'Size - 1' must not be 0!
+      buffer = MALLOC(uchar, Size);
+      if (!buffer)
+@@ -208,7 +209,7 @@
+      Unlock();
+      EnablePut();
+      }
+-  else
++  else if (Count != 0)
+      esyslog("ERROR: invalid Count in cRingBufferLinear::Del: %d", Count);
+ }
+ 
+--- ringbuffer.h	2004/06/19 10:32:15	1.15
++++ ringbuffer.h	2004/09/19 15:53:20
+@@ -34,7 +34,7 @@
+   void EnableGet(void);
+   virtual void Clear(void) = 0;
+   virtual int Available(void) = 0;
+-  int Free(void) { return size - Available() - 1; }
++  virtual int Free(void) { return Size() - Available() - 1; }
+   void Lock(void) { mutex.Lock(); }
+   void Unlock(void) { mutex.Unlock(); }
+   int Size(void) { return size; }
+@@ -59,6 +59,7 @@
+   virtual ~cRingBufferLinear();
+   virtual int Available(void);
++  virtual int Free(void) { return Size() - Available() - 1 - margin; }
+   virtual void Clear(void);
+     ///< Immediately clears the ring buffer.
+   int Put(const uchar *Data, int Count);
+     ///< Puts at most Count bytes of Data into the ring buffer.

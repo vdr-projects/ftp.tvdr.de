@@ -1,0 +1,3080 @@
+diff -ruN vdr-1.7.36/CONTRIBUTORS vdr-1.7.37/CONTRIBUTORS
+--- vdr-1.7.36/CONTRIBUTORS	2013-01-20 13:19:42.000000000 +0100
++++ vdr-1.7.37/CONTRIBUTORS	2013-01-29 12:32:44.000000000 +0100
+@@ -280,6 +280,7 @@
+  for reporting a problem with frozen live view in conjunction with device bonding
+  for reporting a problem in handling the PrimaryLimit when requesting a device for
+  live viewing
++ for reporting a black screen while a "Recording started" message is displayed
+ 
+ Matjaz Thaler <matjaz.thaler@guest.arnes.si>
+  for improving AC3 decoding when replaying DVDs
+@@ -2384,6 +2385,7 @@
+  for avoiding a gcc 4.6 compiler error in the skincurses plugin.
+  for suggesting to move setting LC_NUMERIC further up to make sure any floating point
+  numbers use a decimal point
++ for adding dependency on 'i18n' to 'install-i18n' in the VDR Makefile
+ 
+ Helge Lenz <h.lenz@gmx.de>
+  for reporting a bug in setting the 'Delta' parameter when calling the shutdown
+@@ -2735,6 +2737,7 @@
+  for reporting a problem with getting the maximum short channel name length in case there
+  are no short names at all
+  for reporting an incompatible change from DTV_DVBT2_PLP_ID to DTV_STREAM_ID in DVB API 5.8
++ for reporting a missing template for DVBDIR in Make.config.template
+ 
+ Marcel Unbehaun <frostworks@gmx.de>
+  for adding cRecordingInfo::GetEvent()
+@@ -3025,6 +3028,7 @@
+  for simplifying calculating the PTS offset in cPtsFixer::Fix() and fixing the overflow
+  handling of PCR values
+  for improving cutting MPEG-2 video
++ for pointing out that FindHeader() can also be used in cMpeg2Fixer::AdjTref()
+ 
+ Peter M¸nster <pmlists@free.fr>
+  for fixing 'make install' to not overwrite existing configuration files
+diff -ruN vdr-1.7.36/HISTORY vdr-1.7.37/HISTORY
+--- vdr-1.7.36/HISTORY	2013-01-20 14:25:06.000000000 +0100
++++ vdr-1.7.37/HISTORY	2013-02-08 11:48:43.000000000 +0100
+@@ -7533,3 +7533,54 @@
+ - Improved cutting MPEG-2 video (thanks to Sˆren Moch).
+ - Reduced the number of retries in cTransfer::Receive() to avoid blocking recordings
+   in case the primary device can't handle the current live signal.
++
++2013-02-08: Version 1.7.37
++
++- Now also using FindHeader() in cMpeg2Fixer::AdjTref() (pointed out by Sˆren Moch).
++- Added missing template for DVBDIR to Make.config.template (reported by Derek Kelly).
++- The LCARS menu now also works if the OSD has only 1bpp (two colors).
++- Fixed possible garbage in the remaining time of the LCARS replay display in case the
++  hours change from two to one digit.
++- Fixed upscaling bitmaps. The last row and column of the scaled bitmap was not filled,
++  which resulted in empty lines between scaled subtitles.
++- Fixed a leftover line in case a two line subtitle was followed by a one line
++  subtitle on the dvbhddevice in "high level" OSD mode.
++- Returning 0 from cDvbSdFfDevice::NumProvidedSystems() if option --outputonly is given.
++- The index file is now closed after initially reading it if it is older than 3600 seconds.
++- Improved responsiveness during replay when close to the recording's end.
++- Fixed a leftover progress display in the LCARS main menu when replay of a recording
++  ends while the menu is open, and the live channel has no EPG information.
++- Fixed possible audio chatter when a recording is replayed to its very end.
++- Added dependency on 'i18n' to 'install-i18n' in the VDR Makefile (thanks to Tobias
++  Grimm).
++- Changed several calls to Skins.Message() in vdr.c to Skins.QueueMessage() in order to
++  avoid a black screen while such a message is displayed in case the channel will be
++  switched (reported by Uwe Scheffler).
++- Updated the Slovakian language texts (thanks to Milan Hrala).
++- Improved LIRC timing for repeat function.
++- When pausing live video, the current audio and subtitle tracks are now retained.
++- Added some notes about plugin Makefiles to PLUGINS.html.
++- Avoiding an extra key press event if the repeat function kicks in when controlling
++  VDR via the PC keyboard.
++- The new options "Setup/Miscellaneous/Remote control repeat delay" and
++  "Setup/Miscellaneous/Remote control repeat delta" can be used to adjust the
++  behavior of the remote control in case a key is held pressed down for a while, so
++  that the repeat function kicks in (see MANUAL).
++  The builtin LIRC and KBD remote controls already use these parameters. It is
++  recommended that plugins that implement an interface to any kind of remote controls 
++  also use the parameters Setup.RcRepeatDelay and Setup.RcRepeatDelta for the desired
++  purpose, and remove any setup options they might have that serve the same purpose.
++- cTimer no longer does any special "VFAT" handling to shorten directory names to 40
++  characters. When a string is used as a directory name for a recording, the maximum
++  length of the directory path, as well as the individual directory names, is now
++  limited to the values specified by the new command line option --dirnames (see
++  man vdr(1) for details). For backwards compatibility the option --vfat is still
++  available and has the same effect as --dirnames=250,40,1.
++- The macro MaxFileName is now obsolete and may be removed in future versions. Use
++  NAME_MAX directly instead.
++- There is no more fixed limit to the maximum number of cPixmap objects an OSD can
++  create. However, a particular device may still be unable to create an arbitrary
++  number of pixmaps, due to limited resources. So it's always a good idea to use
++  as few pixmaps as possible.
++- Fixed formatting and removed some superfluous break statements in vdr.c's command
++  line option switch.
+diff -ruN vdr-1.7.36/INSTALL vdr-1.7.37/INSTALL
+--- vdr-1.7.36/INSTALL	2013-01-06 15:42:28.000000000 +0100
++++ vdr-1.7.37/INSTALL	2013-02-08 09:48:49.000000000 +0100
+@@ -58,8 +58,10 @@
+ This option accepts an optional path to the remote control device,
+ the default of which can be set via the LIRC_DEVICE macro.
+ 
+-If your video directory will be on a VFAT partition, you can call VDR with
+-the command line option '--vfat'.
++If you want to make your video directory available to other machines that
++have limitations on directory name lengths and/or allowed characters in
++directory names, you can call VDR with the command line option '--dirnames'
++(see man vdr(1) for details).
+ 
+ When running, the 'vdr' program writes status information into the
+ system log file, which is usually /var/log/messages (or /var/log/user.log,
+diff -ruN vdr-1.7.36/MANUAL vdr-1.7.37/MANUAL
+--- vdr-1.7.36/MANUAL	2012-12-05 12:39:42.000000000 +0100
++++ vdr-1.7.37/MANUAL	2013-02-02 15:07:56.000000000 +0100
+@@ -926,6 +926,18 @@
+                          key. Note that the total maximum is also limited by
+                          the "OSD/Channel info time" parameter.
+ 
++  Remote control repeat delay = 300
++                         The earliest time (in milliseconds) after which the repeat
++                         function of the remote control kicks in if a key is held
++                         pressed down for a while. If the remote control in use
++                         has a repeat delay that is longer than that given in this
++                         parameter, that longer delay will prevail.
++  Remote control repeat delta = 100
++                         The time (in milliseconds) between two subsequent key
++                         presses generated by the remote control's repeat function.
++                         If the remote control in use has a repeat delta that is
++                         longer than that given in this parameter, that longer delay
++                         will prevail.
+   Initial channel =      The channel ID of the channel that shall be tuned to when
+                          VDR starts. Default is empty, which means that it will
+                          tune to the channel that was on before VDR was stopped.
+diff -ruN vdr-1.7.36/Make.config.template vdr-1.7.37/Make.config.template
+--- vdr-1.7.36/Make.config.template	2013-01-12 14:50:17.000000000 +0100
++++ vdr-1.7.37/Make.config.template	2013-02-08 11:31:38.000000000 +0100
+@@ -6,7 +6,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Make.config.template 2.16 2013/01/12 13:50:17 kls Exp $
++# $Id: Make.config.template 2.18 2013/02/08 10:31:38 kls Exp $
+ 
+ ### The C compiler and options:
+ 
+@@ -34,6 +34,7 @@
+ #MANDIR    = $(PREFIX)/share/man
+ #PCDIR     = $(PREFIX)/lib/pkgconfig
+ #RESDIR    = $(PREFIX)/share/vdr
++#DVBDIR    = /usr/src/v4l-dvb/linux/include/uapi
+ 
+ #VIDEODIR  = /srv/vdr/video
+ #CONFDIR   = /var/lib/vdr
+diff -ruN vdr-1.7.36/Makefile vdr-1.7.37/Makefile
+--- vdr-1.7.36/Makefile	2013-01-12 14:45:01.000000000 +0100
++++ vdr-1.7.37/Makefile	2013-01-27 15:19:49.000000000 +0100
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 2.49 2013/01/12 13:45:01 kls Exp $
++# $Id: Makefile 2.50 2013/01/27 14:19:49 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -183,7 +183,7 @@
+ .PHONY: i18n
+ i18n: $(I18Nmsgs)
+ 
+-install-i18n:
++install-i18n: i18n
+ 	@mkdir -p $(DESTDIR)$(LOCDIR)
+ 	cp -r $(LOCALEDIR)/* $(DESTDIR)$(LOCDIR)
+ 
+diff -ruN vdr-1.7.36/PLUGINS/src/dvbhddevice/HISTORY vdr-1.7.37/PLUGINS/src/dvbhddevice/HISTORY
+--- vdr-1.7.36/PLUGINS/src/dvbhddevice/HISTORY	2013-01-12 15:07:42.000000000 +0100
++++ vdr-1.7.37/PLUGINS/src/dvbhddevice/HISTORY	2013-01-24 13:58:04.000000000 +0100
+@@ -51,3 +51,7 @@
+ 2013-01-12: Version 0.0.6
+ 
+ - Adapted Makefile to changes introduced in recent VDR versions.
++
++2013-01-24: Version 0.0.7
++
++- Fixed cHdffOsd::SetAreas() (didn't clear the OSD).
+diff -ruN vdr-1.7.36/PLUGINS/src/dvbhddevice/dvbhddevice.c vdr-1.7.37/PLUGINS/src/dvbhddevice/dvbhddevice.c
+--- vdr-1.7.36/PLUGINS/src/dvbhddevice/dvbhddevice.c	2013-01-12 15:11:35.000000000 +0100
++++ vdr-1.7.37/PLUGINS/src/dvbhddevice/dvbhddevice.c	2013-01-29 09:59:36.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbhddevice.c 1.19 2013/01/12 14:11:35 kls Exp $
++ * $Id: dvbhddevice.c 1.21 2013/01/29 08:59:36 kls Exp $
+  */
+ 
+ #include <vdr/plugin.h>
+@@ -12,7 +12,7 @@
+ #include "menu.h"
+ #include "setup.h"
+ 
+-static const char *VERSION        = "0.0.6";
++static const char *VERSION        = "0.0.7";
+ static const char *DESCRIPTION    = trNOOP("HD Full Featured DVB device");
+ static const char *MAINMENUENTRY  = "dvbhddevice";
+ 
+@@ -26,6 +26,7 @@
+   virtual const char *Version(void) { return VERSION; }
+   virtual const char *Description(void) { return tr(DESCRIPTION); }
+   virtual void MainThreadHook(void);
++  virtual void Stop(void);
+   virtual const char *MainMenuEntry(void);
+   virtual cOsdObject *MainMenuAction(void);
+   virtual cMenuSetupPage *SetupMenu(void);
+@@ -59,6 +60,19 @@
+         }
+     }
+ }
++
++void cPluginDvbhddevice::Stop(void)
++{
++    if (gHdffSetup.CecEnabled && gHdffSetup.CecTvOff)
++    {
++        HDFF::cHdffCmdIf * hdffCmdIf = cDvbHdFfDevice::GetHdffCmdHandler();
++        if (hdffCmdIf)
++        {
++            hdffCmdIf->CmdHdmiSendCecCommand(HDFF_CEC_COMMAND_TV_OFF);
++            isyslog("HDFF_CEC_COMMAND_TV_OFF");
++        }
++    }
++}
+ 
+ const char *cPluginDvbhddevice::MainMenuEntry(void)
+ {
+diff -ruN vdr-1.7.36/PLUGINS/src/dvbhddevice/dvbhdffdevice.c vdr-1.7.37/PLUGINS/src/dvbhddevice/dvbhdffdevice.c
+--- vdr-1.7.36/PLUGINS/src/dvbhddevice/dvbhdffdevice.c	2012-12-29 14:23:22.000000000 +0100
++++ vdr-1.7.37/PLUGINS/src/dvbhddevice/dvbhdffdevice.c	2013-01-29 09:59:36.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbhdffdevice.c 1.47 2012/12/29 13:23:22 kls Exp $
++ * $Id: dvbhdffdevice.c 1.48 2013/01/29 08:59:36 kls Exp $
+  */
+ 
+ #include <stdint.h>
+@@ -96,10 +96,6 @@
+     delete spuDecoder;
+     if (isHdffPrimary)
+     {
+-        if (gHdffSetup.CecEnabled && gHdffSetup.CecTvOff)
+-        {
+-            mHdffCmdIf->CmdHdmiSendCecCommand(HDFF_CEC_COMMAND_TV_OFF);
+-        }
+         delete mHdffCmdIf;
+     }
+     // We're not explicitly closing any device files here, since this sometimes
+diff -ruN vdr-1.7.36/PLUGINS/src/dvbhddevice/hdffosd.c vdr-1.7.37/PLUGINS/src/dvbhddevice/hdffosd.c
+--- vdr-1.7.36/PLUGINS/src/dvbhddevice/hdffosd.c	2012-11-15 10:20:24.000000000 +0100
++++ vdr-1.7.37/PLUGINS/src/dvbhddevice/hdffosd.c	2013-01-29 09:59:36.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: hdffosd.c 1.18 2012/11/15 09:20:24 kls Exp $
++ * $Id: hdffosd.c 1.20 2013/01/29 08:59:36 kls Exp $
+  */
+ 
+ #include "hdffosd.h"
+@@ -38,7 +38,6 @@
+     int mTop;
+     int mDispWidth;
+     int mDispHeight;
+-    bool shown;
+     bool mChanged;
+     uint32_t mDisplay;
+     tFontFace mFontFaces[MAX_NUM_FONTFACES];
+@@ -77,7 +76,6 @@
+     mHdffCmdIf = pHdffCmdIf;
+     mLeft = Left;
+     mTop = Top;
+-    shown = false;
+     mChanged = false;
+     mBitmapPalette = HDFF_INVALID_HANDLE;
+ 
+@@ -154,11 +152,10 @@
+     {
+         //printf("SetAreas %d: %d %d %d %d %d\n", i, Areas[i].x1, Areas[i].y1, Areas[i].x2, Areas[i].y2, Areas[i].bpp);
+     }
+-    if (shown)
++    if (mDisplay != HDFF_INVALID_HANDLE)
+     {
+         mHdffCmdIf->CmdOsdDrawRectangle(mDisplay, 0, 0, mDispWidth, mDispHeight, 0);
+         mHdffCmdIf->CmdOsdRenderDisplay(mDisplay);
+-        shown = false;
+     }
+     error = cOsd::SetAreas(Areas, NumAreas);
+ 
+@@ -180,11 +177,10 @@
+             if (GetBitmap(0)) // only flush here if there are already bitmaps
+                 Flush();
+         }
+-        else if (shown)
++        else if (mDisplay != HDFF_INVALID_HANDLE)
+         {
+             mHdffCmdIf->CmdOsdDrawRectangle(mDisplay, 0, 0, mDispWidth, mDispHeight, 0);
+             mHdffCmdIf->CmdOsdRenderDisplay(mDisplay);
+-            shown = false;
+         }
+     }
+ }
+diff -ruN vdr-1.7.36/PLUGINS/src/dvbsddevice/HISTORY vdr-1.7.37/PLUGINS/src/dvbsddevice/HISTORY
+--- vdr-1.7.36/PLUGINS/src/dvbsddevice/HISTORY	2013-01-12 15:08:02.000000000 +0100
++++ vdr-1.7.37/PLUGINS/src/dvbsddevice/HISTORY	2013-01-25 11:52:43.000000000 +0100
+@@ -37,3 +37,7 @@
+ 2013-01-12: Version 0.0.8
+ 
+ - Adapted Makefile to changes introduced in recent VDR versions.
++
++2013-01-25: Version 0.0.9
++
++- Returning 0 from cDvbSdFfDevice::NumProvidedSystems() if option --outputonly is given.
+diff -ruN vdr-1.7.36/PLUGINS/src/dvbsddevice/dvbsddevice.c vdr-1.7.37/PLUGINS/src/dvbsddevice/dvbsddevice.c
+--- vdr-1.7.36/PLUGINS/src/dvbsddevice/dvbsddevice.c	2013-01-12 15:12:07.000000000 +0100
++++ vdr-1.7.37/PLUGINS/src/dvbsddevice/dvbsddevice.c	2013-01-25 11:48:50.000000000 +0100
+@@ -3,14 +3,14 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsddevice.c 1.8 2013/01/12 14:12:07 kls Exp $
++ * $Id: dvbsddevice.c 1.9 2013/01/25 10:48:50 kls Exp $
+  */
+ 
+ #include <getopt.h>
+ #include <vdr/plugin.h>
+ #include "dvbsdffdevice.h"
+ 
+-static const char *VERSION        = "0.0.8";
++static const char *VERSION        = "0.0.9";
+ static const char *DESCRIPTION    = "SD Full Featured DVB device";
+ 
+ class cPluginDvbsddevice : public cPlugin {
+diff -ruN vdr-1.7.36/PLUGINS/src/dvbsddevice/dvbsdffdevice.c vdr-1.7.37/PLUGINS/src/dvbsddevice/dvbsdffdevice.c
+--- vdr-1.7.36/PLUGINS/src/dvbsddevice/dvbsdffdevice.c	2012-03-11 14:32:42.000000000 +0100
++++ vdr-1.7.37/PLUGINS/src/dvbsddevice/dvbsdffdevice.c	2013-01-25 11:48:29.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsdffdevice.c 2.33 2012/03/11 13:32:42 kls Exp $
++ * $Id: dvbsdffdevice.c 2.34 2013/01/25 10:48:29 kls Exp $
+  */
+ 
+ #include "dvbsdffdevice.h"
+@@ -362,6 +362,13 @@
+      return cDvbDevice::ProvidesSource(Source);
+ }
+ 
++int cDvbSdFfDevice::NumProvidedSystems(void) const
++{
++  if (outputOnly)
++     return 0;
++  return cDvbDevice::NumProvidedSystems();
++}
++
+ void cDvbSdFfDevice::TurnOffLiveMode(bool LiveView)
+ {
+   if (LiveView) {
+diff -ruN vdr-1.7.36/PLUGINS/src/dvbsddevice/dvbsdffdevice.h vdr-1.7.37/PLUGINS/src/dvbsddevice/dvbsdffdevice.h
+--- vdr-1.7.36/PLUGINS/src/dvbsddevice/dvbsdffdevice.h	2012-12-03 14:43:55.000000000 +0100
++++ vdr-1.7.37/PLUGINS/src/dvbsddevice/dvbsdffdevice.h	2013-01-25 11:43:14.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsdffdevice.h 2.14 2012/12/03 13:43:55 kls Exp $
++ * $Id: dvbsdffdevice.h 2.15 2013/01/25 10:43:14 kls Exp $
+  */
+ 
+ #ifndef __DVBSDFFDEVICE_H
+@@ -37,6 +37,7 @@
+ 
+ public:
+   virtual bool ProvidesSource(int Source) const;
++  virtual int NumProvidedSystems(void) const;
+ private:
+   void TurnOffLiveMode(bool LiveView);
+ protected:
+diff -ruN vdr-1.7.36/PLUGINS.html vdr-1.7.37/PLUGINS.html
+--- vdr-1.7.36/PLUGINS.html	2013-01-12 15:22:03.000000000 +0100
++++ vdr-1.7.37/PLUGINS.html	2013-02-03 16:57:12.000000000 +0100
+@@ -173,9 +173,15 @@
+ the name of that plugin (in the above example that would be <tt>hello</tt>).
+ What's inside the individual source directory of a
+ plugin is entirely up to the author of that plugin. The only prerequisites are
+-that there is a <tt>Makefile</tt> that provides the targets <tt>all</tt> and
++that there is a <tt>Makefile</tt> that provides the targets <tt>all</tt><modified>, <tt>install</tt></modified> and
+ <tt>clean</tt>, and that a call to <tt>make all</tt> actually produces a dynamically
+ loadable library file for that plugin (we'll get to the details later).
++<modified>
++The dynamically loadable library file for the plugin shall be located directly under
++the plugin's source directory.
++See the section <a href="#Initializing a new plugin directory">Initializing a new plugin directory</a>
++for how to generate an example Makefile.
++</modified>
+ <p>
+ The <tt>lib</tt> directory contains the dynamically loadable libraries of all
+ available plugins. Note that the names of these files are created by concatenating
+@@ -2215,6 +2221,13 @@
+ </pre></td></tr></table><p>
+ 
+ The other parameters have the same meaning as in the first version of this function.
++<p>
++<modified>
++If your remote control has a repeat function that automatically repeats key events
++if a key is held pressed down for a while, your derived class should use the global
++parameters <tt>Setup.RcRepeatDelay</tt> and <tt>Setup.RcRepeatDelta</tt> to allow
++users to configure the behavior of this function.
++</modified>
+ 
+ <hr><h2><a name="Conditional Access">Conditional Access</a></h2>
+ 
+diff -ruN vdr-1.7.36/config.c vdr-1.7.37/config.c
+--- vdr-1.7.36/config.c	2013-01-17 15:50:51.000000000 +0100
++++ vdr-1.7.37/config.c	2013-02-05 12:16:08.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 2.32 2013/01/17 14:50:51 kls Exp $
++ * $Id: config.c 2.34 2013/02/05 11:16:08 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -408,6 +408,8 @@
+   SVDRPTimeout = 300;
+   ZapTimeout = 3;
+   ChannelEntryTimeout = 1000;
++  RcRepeatDelay = 300;
++  RcRepeatDelta = 100;
+   DefaultPriority = 50;
+   DefaultLifetime = MAXLIFETIME;
+   PauseKeyHandling = 2;
+@@ -585,7 +587,7 @@
+   else if (!strcasecmp(Name, "MenuScrollWrap"))      MenuScrollWrap     = atoi(Value);
+   else if (!strcasecmp(Name, "MenuKeyCloses"))       MenuKeyCloses      = atoi(Value);
+   else if (!strcasecmp(Name, "MarkInstantRecord"))   MarkInstantRecord  = atoi(Value);
+-  else if (!strcasecmp(Name, "NameInstantRecord"))   Utf8Strn0Cpy(NameInstantRecord, Value, MaxFileName);
++  else if (!strcasecmp(Name, "NameInstantRecord"))   Utf8Strn0Cpy(NameInstantRecord, Value, sizeof(NameInstantRecord));
+   else if (!strcasecmp(Name, "InstantRecordTime"))   InstantRecordTime  = atoi(Value);
+   else if (!strcasecmp(Name, "LnbSLOF"))             LnbSLOF            = atoi(Value);
+   else if (!strcasecmp(Name, "LnbFrequLo"))          LnbFrequLo         = atoi(Value);
+@@ -610,6 +612,8 @@
+   else if (!strcasecmp(Name, "SVDRPTimeout"))        SVDRPTimeout       = atoi(Value);
+   else if (!strcasecmp(Name, "ZapTimeout"))          ZapTimeout         = atoi(Value);
+   else if (!strcasecmp(Name, "ChannelEntryTimeout")) ChannelEntryTimeout= atoi(Value);
++  else if (!strcasecmp(Name, "RcRepeatDelay"))       RcRepeatDelay      = atoi(Value);
++  else if (!strcasecmp(Name, "RcRepeatDelta"))       RcRepeatDelta      = atoi(Value);
+   else if (!strcasecmp(Name, "DefaultPriority"))     DefaultPriority    = atoi(Value);
+   else if (!strcasecmp(Name, "DefaultLifetime"))     DefaultLifetime    = atoi(Value);
+   else if (!strcasecmp(Name, "PauseKeyHandling"))    PauseKeyHandling   = atoi(Value);
+@@ -716,6 +720,8 @@
+   Store("SVDRPTimeout",       SVDRPTimeout);
+   Store("ZapTimeout",         ZapTimeout);
+   Store("ChannelEntryTimeout",ChannelEntryTimeout);
++  Store("RcRepeatDelay",      RcRepeatDelay);
++  Store("RcRepeatDelta",      RcRepeatDelta);
+   Store("DefaultPriority",    DefaultPriority);
+   Store("DefaultLifetime",    DefaultLifetime);
+   Store("PauseKeyHandling",   PauseKeyHandling);
+diff -ruN vdr-1.7.36/config.h vdr-1.7.37/config.h
+--- vdr-1.7.36/config.h	2012-12-30 14:08:41.000000000 +0100
++++ vdr-1.7.37/config.h	2013-02-05 12:19:20.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.60 2012/12/30 13:08:41 kls Exp $
++ * $Id: config.h 2.64 2013/02/05 11:19:20 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.36"
+-#define VDRVERSNUM   10736  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.37"
++#define VDRVERSNUM   10737  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.36"
+-#define APIVERSNUM   10736  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.37"
++#define APIVERSNUM   10737  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+@@ -49,7 +49,7 @@
+ #define MINOSDHEIGHT  324
+ #define MAXOSDHEIGHT 1200
+ 
+-#define MaxFileName 256
++#define MaxFileName NAME_MAX // obsolete - use NAME_MAX directly instead!
+ #define MaxSkinName 16
+ #define MaxThemeName 16
+ 
+@@ -257,7 +257,7 @@
+   int MenuScrollWrap;
+   int MenuKeyCloses;
+   int MarkInstantRecord;
+-  char NameInstantRecord[MaxFileName];
++  char NameInstantRecord[NAME_MAX];
+   int InstantRecordTime;
+   int LnbSLOF;
+   int LnbFrequLo;
+@@ -280,6 +280,8 @@
+   int SVDRPTimeout;
+   int ZapTimeout;
+   int ChannelEntryTimeout;
++  int RcRepeatDelay;
++  int RcRepeatDelta;
+   int DefaultPriority, DefaultLifetime;
+   int PausePriority, PauseLifetime;
+   int PauseKeyHandling;
+diff -ruN vdr-1.7.36/cutter.c vdr-1.7.37/cutter.c
+--- vdr-1.7.36/cutter.c	2013-01-20 13:04:07.000000000 +0100
++++ vdr-1.7.37/cutter.c	2013-01-23 11:39:27.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: cutter.c 2.22 2013/01/20 12:04:07 kls Exp $
++ * $Id: cutter.c 2.23 2013/01/23 10:39:27 kls Exp $
+  */
+ 
+ #include "cutter.h"
+@@ -206,11 +206,8 @@
+ 
+ void cMpeg2Fixer::AdjTref(int TrefOffset)
+ {
+-  Reset();
+-  if (!Find(0x00000100)) {
+-     esyslog("ERROR: Picture header not found!");
++  if (!FindHeader(0x00000100, "picture"))
+      return;
+-     }
+   int Tref = GetByte() << 2;
+   int Index1 = GetLastIndex();
+   uchar Byte2 = GetByte();
+diff -ruN vdr-1.7.36/device.c vdr-1.7.37/device.c
+--- vdr-1.7.36/device.c	2012-11-19 10:59:09.000000000 +0100
++++ vdr-1.7.37/device.c	2013-02-01 13:00:09.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.70 2012/11/19 09:59:09 kls Exp $
++ * $Id: device.c 2.71 2013/02/01 12:00:09 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -98,6 +98,7 @@
+   currentAudioTrack = ttNone;
+   currentAudioTrackMissingCount = 0;
+   currentSubtitleTrack = ttNone;
++  keepTracks = false;
+   liveSubtitle = NULL;
+   dvbSubtitleConverter = NULL;
+   autoSelectPreferredSubtitleLanguage = true;
+@@ -923,6 +924,8 @@
+ 
+ void cDevice::ClrAvailableTracks(bool DescriptionsOnly, bool IdsOnly)
+ {
++  if (keepTracks)
++     return;
+   if (DescriptionsOnly) {
+      for (int i = ttNone; i < ttMaxTrackTypes; i++)
+          *availableTracks[i].description = 0;
+@@ -1044,6 +1047,8 @@
+ 
+ void cDevice::EnsureAudioTrack(bool Force)
+ {
++  if (keepTracks)
++     return;
+   if (Force || !availableTracks[currentAudioTrack].id) {
+      eTrackType PreferredTrack = ttAudioFirst;
+      int PreferredAudioChannel = 0;
+@@ -1075,6 +1080,8 @@
+ 
+ void cDevice::EnsureSubtitleTrack(void)
+ {
++  if (keepTracks)
++     return;
+   if (Setup.DisplaySubtitles) {
+      eTrackType PreferredTrack = ttNone;
+      int LanguagePreference = INT_MAX; // higher than the maximum possible value
+diff -ruN vdr-1.7.36/device.h vdr-1.7.37/device.h
+--- vdr-1.7.36/device.h	2013-01-03 09:53:06.000000000 +0100
++++ vdr-1.7.37/device.h	2013-02-01 12:54:08.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 2.43 2013/01/03 08:53:06 kls Exp $
++ * $Id: device.h 2.45 2013/02/01 11:54:08 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -490,6 +490,7 @@
+   cMutex mutexCurrentSubtitleTrack;
+   int currentAudioTrackMissingCount;
+   bool autoSelectPreferredSubtitleLanguage;
++  bool keepTracks;
+   int pre_1_3_19_PrivateStream;
+ protected:
+   virtual void SetAudioTrackDevice(eTrackType Type);
+@@ -539,6 +540,10 @@
+   void EnsureSubtitleTrack(void);
+        ///< Makes sure one of the preferred language subtitle tracks is selected.
+        ///< Only has an effect if Setup.DisplaySubtitles is on.
++  void SetKeepTracks(bool KeepTracks) { keepTracks = KeepTracks; }
++       ///< Controls whether the current audio and subtitle track settings shall
++       ///< be kept as they currently are, or if they shall be automatically
++       ///< adjusted. This is used when pausing live video.
+ 
+ // Audio facilities
+ 
+@@ -752,7 +757,7 @@
+        ///< Returns -1 in case of error, otherwise the number of actually
+        ///< processed bytes is returned.
+        ///< PlayTs() shall process the TS packets either as a whole (returning
+-       ///< n*TS_SIZE) or not at all, returning 0 or -1 and setting 'errno' accordingly).
++       ///< TS_SIZE) or not at all, returning 0 or -1 and setting 'errno' accordingly).
+   bool Replaying(void) const;
+        ///< Returns true if we are currently replaying.
+   bool Transferring(void) const;
+diff -ruN vdr-1.7.36/dvbplayer.c vdr-1.7.37/dvbplayer.c
+--- vdr-1.7.36/dvbplayer.c	2012-06-09 16:37:24.000000000 +0200
++++ vdr-1.7.37/dvbplayer.c	2013-01-27 15:03:16.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.c 2.28 2012/06/09 14:37:24 kls Exp $
++ * $Id: dvbplayer.c 2.29 2013/01/27 14:03:16 kls Exp $
+  */
+ 
+ #include "dvbplayer.h"
+@@ -548,10 +548,11 @@
+                 }
+              if (p) {
+                 int w;
++                bool VideoOnly = (dropFrame || playMode != pmPlay && !(playMode == pmSlow && playDir == pdForward)) && DeviceIsPlayingVideo();
+                 if (isPesRecording)
+-                   w = PlayPes(p, pc, playMode != pmPlay && !(playMode == pmSlow && playDir == pdForward) && DeviceIsPlayingVideo());
++                   w = PlayPes(p, pc, VideoOnly);
+                 else
+-                   w = PlayTs(p, pc, playMode != pmPlay && !(playMode == pmSlow && playDir == pdForward) && DeviceIsPlayingVideo());
++                   w = PlayTs(p, pc, VideoOnly);
+                 if (w > 0) {
+                    p += w;
+                    pc -= w;
+diff -ruN vdr-1.7.36/lirc.c vdr-1.7.37/lirc.c
+--- vdr-1.7.36/lirc.c	2011-03-08 16:35:13.000000000 +0100
++++ vdr-1.7.37/lirc.c	2013-02-03 12:23:18.000000000 +0100
+@@ -6,16 +6,13 @@
+  *
+  * LIRC support added by Carsten Koch <Carsten.Koch@icem.de>  2000-06-16.
+  *
+- * $Id: lirc.c 2.1 2011/03/08 15:35:13 kls Exp $
++ * $Id: lirc.c 2.4 2013/02/03 11:23:18 kls Exp $
+  */
+ 
+ #include "lirc.h"
+ #include <netinet/in.h>
+ #include <sys/socket.h>
+ 
+-#define REPEATDELAY 350 // ms
+-#define REPEATFREQ 100 // ms
+-#define REPEATTIMEOUT 500 // ms
+ #define RECONNECTDELAY 3000 // ms
+ 
+ cLircRemote::cLircRemote(const char *DeviceName)
+@@ -63,8 +60,10 @@
+ {
+   cTimeMs FirstTime;
+   cTimeMs LastTime;
++  cTimeMs ThisTime;
+   char buf[LIRC_BUFFER_SIZE];
+   char LastKeyName[LIRC_KEY_BUF] = "";
++  bool pressed = false;
+   bool repeat = false;
+   int timeout = -1;
+ 
+@@ -94,34 +93,43 @@
+               esyslog("ERROR: unparseable lirc command: %s", buf);
+               continue;
+               }
++           int Delta = ThisTime.Elapsed(); // the time between two subsequent LIRC events
++           ThisTime.Set();
+            if (count == 0) {
+-              if (strcmp(KeyName, LastKeyName) == 0 && FirstTime.Elapsed() < REPEATDELAY)
++              if (strcmp(KeyName, LastKeyName) == 0 && FirstTime.Elapsed() < (uint)Setup.RcRepeatDelay)
+                  continue; // skip keys coming in too fast
+               if (repeat)
+                  Put(LastKeyName, false, true);
+               strcpy(LastKeyName, KeyName);
++              pressed = true;
+               repeat = false;
+               FirstTime.Set();
+               timeout = -1;
+               }
++           else if (FirstTime.Elapsed() < (uint)Setup.RcRepeatDelay)
++              continue; // repeat function kicks in after a short delay
++           else if (LastTime.Elapsed() < (uint)Setup.RcRepeatDelta)
++              continue; // skip same keys coming in too fast
+            else {
+-              if (LastTime.Elapsed() < REPEATFREQ)
+-                 continue; // repeat function kicks in after a short delay (after last key instead of first key)
+-              if (FirstTime.Elapsed() < REPEATDELAY)
+-                 continue; // skip keys coming in too fast (for count != 0 as well)
+               repeat = true;
+-              timeout = REPEATDELAY;
++              timeout = Delta * 10 / 9;
+               }
+-           LastTime.Set();
+-           Put(KeyName, repeat);
++           if (pressed)
++              LastTime.Set();
++              Put(KeyName, repeat);
+            }
+-        else if (repeat) { // the last one was a repeat, so let's generate a release
+-           if (LastTime.Elapsed() >= REPEATTIMEOUT) {
+-              Put(LastKeyName, false, true);
+-              repeat = false;
+-              *LastKeyName = 0;
+-              timeout = -1;
+-              }
++        else if (pressed && repeat) { // the last one was a repeat, so let's generate a release
++           Put(LastKeyName, false, true);
++           pressed = false;
++           repeat = false;
++           *LastKeyName = 0;
++           timeout = -1;
++           }
++        else {
++           pressed = false;
++           repeat = false;
++           *LastKeyName = 0;
++           timeout = -1;
+            }
+         }
+ }
+diff -ruN vdr-1.7.36/menu.c vdr-1.7.37/menu.c
+--- vdr-1.7.36/menu.c	2013-01-17 15:20:08.000000000 +0100
++++ vdr-1.7.37/menu.c	2013-02-02 15:00:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 2.74 2013/01/17 14:20:08 kls Exp $
++ * $Id: menu.c 2.76 2013/02/02 14:00:39 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -3186,6 +3186,8 @@
+   Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$SVDRP timeout (s)"),          &data.SVDRPTimeout));
+   Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Zap timeout (s)"),            &data.ZapTimeout));
+   Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Channel entry timeout (ms)"), &data.ChannelEntryTimeout, 0));
++  Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Remote control repeat delay (ms)"), &data.RcRepeatDelay, 0));
++  Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Remote control repeat delta (ms)"), &data.RcRepeatDelta, 0));
+   Add(new cMenuEditChanItem(tr("Setup.Miscellaneous$Initial channel"),            &data.InitialChannel, tr("Setup.Miscellaneous$as before")));
+   Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Initial volume"),             &data.InitialVolume, -1, 255, tr("Setup.Miscellaneous$as before")));
+   Add(new cMenuEditBoolItem(tr("Setup.Miscellaneous$Channels wrap"),              &data.ChannelsWrap));
+@@ -4485,6 +4487,7 @@
+ cReplayControl::cReplayControl(bool PauseLive)
+ :cDvbPlayerControl(fileName, PauseLive)
+ {
++  cDevice::PrimaryDevice()->SetKeepTracks(PauseLive);
+   currentReplayControl = this;
+   displayReplay = NULL;
+   marksModified = false;
+@@ -4504,6 +4507,7 @@
+ 
+ cReplayControl::~cReplayControl()
+ {
++  cDevice::PrimaryDevice()->SetKeepTracks(false);
+   Hide();
+   cStatus::MsgReplaying(this, NULL, fileName, false);
+   Stop();
+diff -ruN vdr-1.7.36/osd.c vdr-1.7.37/osd.c
+--- vdr-1.7.36/osd.c	2012-12-15 12:16:41.000000000 +0100
++++ vdr-1.7.37/osd.c	2013-02-08 11:16:47.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 2.33 2012/12/15 11:16:41 kls Exp $
++ * $Id: osd.c 2.35 2013/02/08 10:16:47 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -853,12 +853,12 @@
+      b->SetBpp(8);
+      b->Replace(*this); // copy palette (must be done *after* SetBpp()!)
+      int SourceY = 0;
+-     for (int y = 0; y < b->Height() - 1; y++) {
++     for (int y = 0; y < b->Height(); y++) {
+          int SourceX = 0;
+-         int sy = SourceY >> 16;
++         int sy = min(SourceY >> 16, Height() - 2);
+          uint8_t BlendY = 0xFF - ((SourceY >> 8) & 0xFF);
+-         for (int x = 0; x < b->Width() - 1; x++) {
+-             int sx = SourceX >> 16;
++         for (int x = 0; x < b->Width(); x++) {
++             int sx = min(SourceX >> 16, Width() - 2);
+              uint8_t BlendX = 0xFF - ((SourceX >> 8) & 0xFF);
+              tColor c1 = b->Blend(GetColor(sx, sy),     GetColor(sx + 1, sy),     BlendX);
+              tColor c2 = b->Blend(GetColor(sx, sy + 1), GetColor(sx + 1, sy + 1), BlendX);
+@@ -1631,7 +1631,6 @@
+   savedBitmap = NULL;
+   numBitmaps = 0;
+   savedPixmap = NULL;
+-  numPixmaps = 0;
+   left = Left;
+   top = Top;
+   width = height = 0;
+@@ -1653,7 +1652,7 @@
+       delete bitmaps[i];
+   delete savedBitmap;
+   delete savedPixmap;
+-  for (int i = 0; i < numPixmaps; i++)
++  for (int i = 0; i < pixmaps.Size(); i++)
+       delete pixmaps[i];
+   for (int i = 0; i < Osds.Size(); i++) {
+       if (Osds[i] == this) {
+@@ -1702,15 +1701,11 @@
+ {
+   if (isTrueColor) {
+      LOCK_PIXMAPS;
+-     for (int i = 1; i < numPixmaps; i++) { // begin at 1 - don't let the background pixmap be destroyed!
++     for (int i = 1; i < pixmaps.Size(); i++) { // begin at 1 - don't let the background pixmap be destroyed!
+          if (pixmaps[i] == Pixmap) {
+             pixmaps[0]->MarkViewPortDirty(Pixmap->ViewPort());
+             delete Pixmap;
+-            while (i < numPixmaps - 1) {
+-                  pixmaps[i] = pixmaps[i + 1];
+-                  i++;
+-                  }
+-            numPixmaps--;
++            pixmaps[i] = NULL;
+             return;
+             }
+          }
+@@ -1722,12 +1717,13 @@
+ {
+   if (Pixmap) {
+      LOCK_PIXMAPS;
+-     if (numPixmaps < MAXOSDPIXMAPS)
+-        return pixmaps[numPixmaps++] = Pixmap;
+-     else
+-        esyslog("ERROR: too many OSD pixmaps requested (maximum is %d)", MAXOSDPIXMAPS);
++     for (int i = 0; i < pixmaps.Size(); i++) {
++         if (!pixmaps[i])
++            return pixmaps[i] = Pixmap;
++         }
++     pixmaps.Append(Pixmap);
+      }
+-  return NULL;
++  return Pixmap;
+ }
+ 
+ cPixmapMemory *cOsd::RenderPixmaps(void)
+@@ -1737,12 +1733,13 @@
+      LOCK_PIXMAPS;
+      // Collect overlapping dirty rectangles:
+      cRect d;
+-     for (int i = 0; i < numPixmaps; i++) {
+-         cPixmap *pm = pixmaps[i];
+-         if (!pm->DirtyViewPort().IsEmpty()) {
+-            if (d.IsEmpty() || d.Intersects(pm->DirtyViewPort())) {
+-               d.Combine(pm->DirtyViewPort());
+-               pm->SetClean();
++     for (int i = 0; i < pixmaps.Size(); i++) {
++         if (cPixmap *pm = pixmaps[i]) {
++            if (!pm->DirtyViewPort().IsEmpty()) {
++               if (d.IsEmpty() || d.Intersects(pm->DirtyViewPort())) {
++                  d.Combine(pm->DirtyViewPort());
++                  pm->SetClean();
++                  }
+                }
+             }
+          }
+@@ -1758,10 +1755,11 @@
+         Pixmap->Clear();
+         // Render the individual pixmaps into the resulting pixmap:
+         for (int Layer = 0; Layer < MAXPIXMAPLAYERS; Layer++) {
+-            for (int i = 0; i < numPixmaps; i++) {
+-                cPixmap *pm = pixmaps[i];
+-                if (pm->Layer() == Layer)
++            for (int i = 0; i < pixmaps.Size(); i++) {
++                if (cPixmap *pm = pixmaps[i]) {
++                   if (pm->Layer() == Layer)
+                    Pixmap->DrawPixmap(pm, d);
++                   }
+                 }
+             }
+ #ifdef DebugDirty
+diff -ruN vdr-1.7.36/osd.h vdr-1.7.37/osd.h
+--- vdr-1.7.36/osd.h	2012-12-03 14:49:02.000000000 +0100
++++ vdr-1.7.37/osd.h	2013-02-08 10:47:56.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.h 2.18 2012/12/03 13:49:02 kls Exp $
++ * $Id: osd.h 2.19 2013/02/08 09:47:56 kls Exp $
+  */
+ 
+ #ifndef __OSD_H
+@@ -701,7 +701,6 @@
+   };
+ 
+ #define MAXOSDAREAS 16
+-#define MAXOSDPIXMAPS 64
+ 
+ /// The cOsd class is the interface to the "On Screen Display".
+ /// An actual output device needs to derive from this class and implement
+@@ -725,8 +724,7 @@
+   cBitmap *bitmaps[MAXOSDAREAS];
+   int numBitmaps;
+   cPixmapMemory *savedPixmap;
+-  cPixmap *pixmaps[MAXOSDPIXMAPS];
+-  int numPixmaps;
++  cVector<cPixmap *> pixmaps;
+   int left, top, width, height;
+   uint level;
+   bool active;
+@@ -755,14 +753,10 @@
+   virtual void SetActive(bool On) { active = On; }
+        ///< Sets this OSD to be the active one.
+        ///< A derived class must call cOsd::SetActive(On).
+-  const cPixmap * const *Pixmaps(void) { return pixmaps; }
+-       ///< Returns the list of currently active pixmaps in this OSD.
+-  int NumPixmaps(void) { return numPixmaps; }
+-       ///< Returns the number of currently active pixmaps in this OSD.
+   cPixmap *AddPixmap(cPixmap *Pixmap);
+        ///< Adds the given Pixmap to the list of currently active pixmaps in this OSD.
+-       ///< Returns Pixmap if the operation was successful, or NULL if the maximum
+-       ///< number of pixmaps has been exceeded.
++       ///< Returns Pixmap if the operation was successful, or NULL if for some reason
++       ///< the pixmap could not be added to the list.
+        ///< A derived class that implements its own cPixmap class must call AddPixmap()
+        ///< in order to add a newly created pixmap to the OSD's list of pixmaps.
+   cPixmapMemory *RenderPixmaps(void);
+@@ -824,7 +818,8 @@
+        ///< The caller must not delete the returned object, it will be deleted when
+        ///< the OSD is deleted. DestroyPixmap() can be called if a pixmap shall be
+        ///< destroyed before the OSD is deleted.
+-       ///< If this is not a true color OSD, this function returns NULL.
++       ///< If this is not a true color OSD, or if the pixmap could not be created
++       ///< due to limited resources, this function returns NULL.
+   virtual void DestroyPixmap(cPixmap *Pixmap);
+        ///< Destroys the given Pixmap, which has previously been created by a call to
+        ///< CreatePixmap(). When the OSD is deleted, all pixmaps are destroyed
+diff -ruN vdr-1.7.36/po/ar.po vdr-1.7.37/po/ar.po
+--- vdr-1.7.36/po/ar.po	2012-12-23 10:51:23.000000000 +0100
++++ vdr-1.7.37/po/ar.po	2013-02-09 14:57:00.327871264 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2008-10-16 11:16-0400\n"
+ "Last-Translator: Osama Alrawab <alrawab@hotmail.com>\n"
+ "Language-Team: Arabic <ar@li.org>\n"
+@@ -1154,6 +1154,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "ŸÖÿØÿ© ÿßŸÜÿ™Ÿáÿßÿ° ŸÖÿØÿÆŸÑÿßÿ™ ÿßŸÑŸÇŸÜÿßÿ© ÿ®ÿßŸÑÿØŸÇŸäŸÇÿ©"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "ÿßŸÑŸÇŸÜÿßÿ© ÿßŸÑÿßÿ≥ÿßÿ≥Ÿäÿ©"
+ 
+diff -ruN vdr-1.7.36/po/ca_ES.po vdr-1.7.37/po/ca_ES.po
+--- vdr-1.7.36/po/ca_ES.po	2012-12-23 10:51:37.000000000 +0100
++++ vdr-1.7.37/po/ca_ES.po	2013-02-09 14:56:59.762769835 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Catalan <vdr@linuxtv.org>\n"
+@@ -1131,6 +1131,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Temps d'introducciÛ canal (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Canal inicial"
+ 
+diff -ruN vdr-1.7.36/po/cs_CZ.po vdr-1.7.37/po/cs_CZ.po
+--- vdr-1.7.36/po/cs_CZ.po	2012-12-23 10:52:01.000000000 +0100
++++ vdr-1.7.37/po/cs_CZ.po	2013-02-09 14:56:59.794775581 +0100
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.14\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2010-05-06 11:00+0200\n"
+ "Last-Translator: Radek ≈†≈•astn√Ω <dedkus@gmail.com>\n"
+ "Language-Team: Czech <vdr@linuxtv.org>\n"
+@@ -1130,6 +1130,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Prodleva p≈ôi volbƒõ kan√°lu (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Kan√°l po spu≈°tƒõn√≠"
+ 
+diff -ruN vdr-1.7.36/po/da_DK.po vdr-1.7.37/po/da_DK.po
+--- vdr-1.7.36/po/da_DK.po	2012-12-23 10:52:02.000000000 +0100
++++ vdr-1.7.37/po/da_DK.po	2013-02-09 14:56:59.911796584 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish <vdr@linuxtv.org>\n"
+@@ -1128,6 +1128,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Kanal adgang timeout (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Kanal ved opstart"
+ 
+diff -ruN vdr-1.7.36/po/de_DE.po vdr-1.7.37/po/de_DE.po
+--- vdr-1.7.36/po/de_DE.po	2012-12-23 10:52:02.000000000 +0100
++++ vdr-1.7.37/po/de_DE.po	2013-02-09 14:57:00.535908603 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2010-01-16 16:46+0100\n"
+ "Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
+@@ -1128,6 +1128,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Zeitlimit f¸r Kanaleingabe (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr "Fernbedienung Wiederholverzˆgerung (ms)"
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr "Fernbedienung Wiederholintervall (ms)"
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Kanal beim Einschalten"
+ 
+diff -ruN vdr-1.7.36/po/el_GR.po vdr-1.7.37/po/el_GR.po
+--- vdr-1.7.36/po/el_GR.po	2012-12-23 10:52:05.000000000 +0100
++++ vdr-1.7.37/po/el_GR.po	2013-02-09 14:57:00.137837154 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek <vdr@linuxtv.org>\n"
+@@ -1128,6 +1128,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr ""
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr ""
+ 
+diff -ruN vdr-1.7.36/po/es_ES.po vdr-1.7.37/po/es_ES.po
+--- vdr-1.7.36/po/es_ES.po	2012-12-23 10:52:05.000000000 +0100
++++ vdr-1.7.37/po/es_ES.po	2013-02-09 14:56:59.984809688 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Spanish <vdr@linuxtv.org>\n"
+@@ -1129,6 +1129,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Tiempo introducciÛn canal (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Canal inicial"
+ 
+diff -ruN vdr-1.7.36/po/et_EE.po vdr-1.7.37/po/et_EE.po
+--- vdr-1.7.36/po/et_EE.po	2012-12-23 10:52:07.000000000 +0100
++++ vdr-1.7.37/po/et_EE.po	2013-02-09 14:56:59.726763373 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
+ "Language-Team: Estonian <vdr@linuxtv.org>\n"
+@@ -1128,6 +1128,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Kanali sisestamise ajalimiit (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Kanal k√§ivitamisel"
+ 
+diff -ruN vdr-1.7.36/po/fi_FI.po vdr-1.7.37/po/fi_FI.po
+--- vdr-1.7.36/po/fi_FI.po	2012-12-23 10:52:07.000000000 +0100
++++ vdr-1.7.37/po/fi_FI.po	2013-02-09 14:56:59.950803586 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
+@@ -1131,6 +1131,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Kanavasy√∂tteen odotusaika (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Kanava k√§ynnistett√§ess√§"
+ 
+diff -ruN vdr-1.7.36/po/fr_FR.po vdr-1.7.37/po/fr_FR.po
+--- vdr-1.7.36/po/fr_FR.po	2012-12-23 10:52:08.000000000 +0100
++++ vdr-1.7.37/po/fr_FR.po	2013-02-09 14:57:00.234854568 +0100
+@@ -13,7 +13,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2008-02-27 18:14+0100\n"
+ "Last-Translator: Jean-Claude Repetto <jc@repetto.org>\n"
+ "Language-Team: French <vdr@linuxtv.org>\n"
+@@ -1134,6 +1134,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "EntrÈe chaÓne timeout (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "ChaÓne initiale"
+ 
+diff -ruN vdr-1.7.36/po/hr_HR.po vdr-1.7.37/po/hr_HR.po
+--- vdr-1.7.36/po/hr_HR.po	2012-12-23 10:52:08.000000000 +0100
++++ vdr-1.7.37/po/hr_HR.po	2013-02-09 14:57:00.435890652 +0100
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian <vdr@linuxtv.org>\n"
+@@ -1130,6 +1130,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Upis kanala istjeËe (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "PoËetni kanal"
+ 
+diff -ruN vdr-1.7.36/po/hu_HU.po vdr-1.7.37/po/hu_HU.po
+--- vdr-1.7.36/po/hu_HU.po	2012-12-23 10:52:09.000000000 +0100
++++ vdr-1.7.37/po/hu_HU.po	2013-02-09 14:56:59.882791378 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2012-01-02 11:54+0200\n"
+ "Last-Translator: Istv·n F¸ley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian <vdr@linuxtv.org>\n"
+@@ -1132,6 +1132,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Csatornav·lt·s timeout (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Csatorna indul·skor"
+ 
+diff -ruN vdr-1.7.36/po/it_IT.po vdr-1.7.37/po/it_IT.po
+--- vdr-1.7.36/po/it_IT.po	2012-12-23 10:52:09.000000000 +0100
++++ vdr-1.7.37/po/it_IT.po	2013-02-09 14:57:00.058822973 +0100
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2012-12-22 19:00+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
+@@ -1135,6 +1135,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Scadenza voce canale (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Canale iniziale"
+ 
+diff -ruN vdr-1.7.36/po/lt_LT.po vdr-1.7.37/po/lt_LT.po
+--- vdr-1.7.36/po/lt_LT.po	2012-12-23 10:52:10.000000000 +0100
++++ vdr-1.7.37/po/lt_LT.po	2013-02-09 14:57:00.165842181 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.16\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2010-10-30 11:55+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian <vdr@linuxtv.org>\n"
+@@ -1128,6 +1128,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "U≈ælaikymas (ms) kanalo ƒØvedimui"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Kanalas ƒØjungimo metu"
+ 
+diff -ruN vdr-1.7.36/po/mk_MK.po vdr-1.7.37/po/mk_MK.po
+--- vdr-1.7.36/po/mk_MK.po	2012-12-23 10:52:10.000000000 +0100
++++ vdr-1.7.37/po/mk_MK.po	2013-02-09 14:57:00.297865877 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR-1.7.14\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2012-11-19 15:18+0100\n"
+ "Last-Translator: Dimitar Petrovski <dimeptr@gmail.com>\n"
+ "Language-Team: Macedonian <en@li.org>\n"
+@@ -1129,6 +1129,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "–¢–∞—ò–º–∞—É—Ç –∑–∞ –≤–Ω–µ—Å –Ω–∞ –∫–∞–Ω–∞–ª (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "–ü–æ—á–µ—Ç–µ–Ω –∫–∞–Ω–∞–ª"
+ 
+diff -ruN vdr-1.7.36/po/nl_NL.po vdr-1.7.37/po/nl_NL.po
+--- vdr-1.7.36/po/nl_NL.po	2012-12-23 10:52:10.000000000 +0100
++++ vdr-1.7.37/po/nl_NL.po	2013-02-09 14:57:00.095829615 +0100
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2008-02-26 17:20+0100\n"
+ "Last-Translator: Johan Schuring <johan.schuring@vetteblei.nl>\n"
+ "Language-Team: Dutch <vdr@linuxtv.org>\n"
+@@ -1132,6 +1132,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Tijdsduur kanaalinvoer (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Opstartkanaal"
+ 
+diff -ruN vdr-1.7.36/po/nn_NO.po vdr-1.7.37/po/nn_NO.po
+--- vdr-1.7.36/po/nn_NO.po	2012-12-23 10:52:10.000000000 +0100
++++ vdr-1.7.37/po/nn_NO.po	2013-02-09 14:57:00.401884548 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian Nynorsk <vdr@linuxtv.org>\n"
+@@ -1129,6 +1129,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr ""
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr ""
+ 
+diff -ruN vdr-1.7.36/po/pl_PL.po vdr-1.7.37/po/pl_PL.po
+--- vdr-1.7.36/po/pl_PL.po	2012-12-23 10:52:11.000000000 +0100
++++ vdr-1.7.37/po/pl_PL.po	2013-02-09 14:56:59.655750628 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2008-03-09 12:59+0100\n"
+ "Last-Translator: Michael Rakowski <mrak@gmx.de>\n"
+ "Language-Team: Polish <vdr@linuxtv.org>\n"
+@@ -1129,6 +1129,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Min±≥ czas wej∂cia do kana≥u"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Pocz±tkowy kana≥"
+ 
+diff -ruN vdr-1.7.36/po/pt_PT.po vdr-1.7.37/po/pt_PT.po
+--- vdr-1.7.36/po/pt_PT.po	2012-12-23 10:52:11.000000000 +0100
++++ vdr-1.7.37/po/pt_PT.po	2013-02-09 14:56:59.554732496 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.15\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2010-03-28 22:49+0100\n"
+ "Last-Translator: Cris Silva <hudokkow@gmail.com>\n"
+ "Language-Team: Portuguese <vdr@linuxtv.org>\n"
+@@ -1129,6 +1129,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Tempo de espera ao mudar de canal (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Canal inicial"
+ 
+diff -ruN vdr-1.7.36/po/ro_RO.po vdr-1.7.37/po/ro_RO.po
+--- vdr-1.7.36/po/ro_RO.po	2012-12-23 10:52:11.000000000 +0100
++++ vdr-1.7.37/po/ro_RO.po	2013-02-09 14:56:59.692757271 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.12\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2012-11-05 01:28+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+ "Language-Team: Romanian <vdr@linuxtv.org>\n"
+@@ -1131,6 +1131,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Timeout la introducerea canalului (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Canalul de pornire"
+ 
+diff -ruN vdr-1.7.36/po/ru_RU.po vdr-1.7.37/po/ru_RU.po
+--- vdr-1.7.36/po/ru_RU.po	2012-12-23 10:52:11.000000000 +0100
++++ vdr-1.7.37/po/ru_RU.po	2013-02-09 14:57:00.474897653 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2008-12-15 14:37+0100\n"
+ "Last-Translator: Oleg Roitburd <oleg@roitburd.de>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
+@@ -1129,6 +1129,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "ø‡’‘’€ “‡’‹’›ÿ ‘€Ô ““ﬁ‘– ⁄–›–€– (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "∫–›–€ ﬂ‡ÿ “⁄€ÓÁ’›ÿÿ"
+ 
+diff -ruN vdr-1.7.36/po/sk_SK.po vdr-1.7.37/po/sk_SK.po
+--- vdr-1.7.36/po/sk_SK.po	2012-12-23 10:52:12.000000000 +0100
++++ vdr-1.7.37/po/sk_SK.po	2013-02-09 14:57:00.357876649 +0100
+@@ -1,14 +1,14 @@
+ # VDR language source file.
+ # Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Milan Hrala <hrala.milan@gmail.com>, 2011
++# Milan Hrala <hrala.milan@gmail.com>, 2011, 2013
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.16\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
+-"PO-Revision-Date: 2011-02-15 16:29+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
++"PO-Revision-Date: 2013-01-29 22:39+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak <vdr@linuxtv.org>\n"
+ "Language: sk\n"
+@@ -74,7 +74,7 @@
+ msgstr "Rolloff"
+ 
+ msgid "PlpId"
+-msgstr ""
++msgstr "PlpId"
+ 
+ msgid "Starting EPG scan"
+ msgstr "ZaËÌna prehµad·vaª EPG"
+@@ -329,50 +329,50 @@
+ 
+ #. TRANSLATORS: The 3-letter code of the language
+ msgid "LanguageCode$eng"
+-msgstr "slv"
++msgstr "slk"
+ 
+ msgid "Phase 1: Detecting RC code type"
+-msgstr "F·za 1: Detekcia typu kÛdu"
++msgstr "F·za 1: Detekcia typu diaµkovÈho ovl·dania"
+ 
+ msgid "Press any key on the RC unit"
+-msgstr "StlaËte µubovoln˙ kl·vesu ovl·dania"
++msgstr "StlaËte µubovolnÈ tlaËidlo ovl·dania"
+ 
+ msgid "RC code detected!"
+-msgstr "KÛd bol zisten˝!"
++msgstr "Bol zosnÌman˝ kÛd diaµkovÈho ovl·dania!"
+ 
+ msgid "Do not press any key..."
+ msgstr "Nestl·Ëajte æiadne kl·vesy..."
+ 
+ msgid "Phase 2: Learning specific key codes"
+-msgstr "F·za 2: UrËenie konkrÈtneho kÛdu kl·ves"
++msgstr "F·za 2: UrËenie funkcie tlaËidiel"
+ 
+ #, c-format
+ msgid "Press key for '%s'"
+-msgstr "StlaËte kl·vesu pre '%s'"
++msgstr "StlaËte tlaËidlo pre funkciu  '%s'"
+ 
+ msgid "Press 'Up' to confirm"
+-msgstr "Pre potvrdenie stlaËte kl·vesu 'Hore'"
++msgstr "Pre potvrdenie stlaËte tlaËidlo 'Hore'"
+ 
+ msgid "Press 'Down' to continue"
+-msgstr "PokraËujete stlaËenÌm kl·vesy 'Dole' "
++msgstr "PokraËujete stlaËenÌm tlaËidla 'Dole' "
+ 
+ msgid "(press 'Up' to go back)"
+-msgstr "(Vr·tite sa stlaËenÌm kl·vesy 'hore')"
++msgstr "(Vr·tite sa stlaËenÌm tlaËidla 'hore')"
+ 
+ msgid "(press 'Down' to end key definition)"
+-msgstr "(Definovanie tlaËÌtok ukonËÌte stlaËenÌm kl·vesy 'dole')"
++msgstr "(Definovanie tlaËidiel ukonËÌte stlaËenÌm tlaËidla 'dole')"
+ 
+ msgid "(press 'Menu' to skip this key)"
+-msgstr "(stlaËenÌm 'Menu' preskoËÌte definÌciu kl·vesy)"
++msgstr "(stlaËenÌm 'Menu' preskoËÌte definÌciu tlaËidla)"
+ 
+ msgid "Learning Remote Control Keys"
+-msgstr "UrËenie kÛdu diaµkovÈho ovl·dania"
++msgstr "Programovanie diaµkovÈho ovl·dania"
+ 
+ msgid "Phase 3: Saving key codes"
+-msgstr "F·za 3: Uloæenie kÛdu"
++msgstr "F·za 3: Uloæenie kÛdu tlaËidiel"
+ 
+ msgid "Press 'Up' to save, 'Down' to cancel"
+-msgstr "StlaËenÌm 'hore' uloæÌte, 'Dole' zruπÌte"
++msgstr "Nastavenie stlaËenÌm tlaËidla 'hore' uloæÌte, 'Dole' zruπÌte"
+ 
+ msgid "Key$Up"
+ msgstr "Hore"
+@@ -411,13 +411,13 @@
+ msgstr "Info"
+ 
+ msgid "Key$Play/Pause"
+-msgstr ""
++msgstr "Prehraª/Pozastaviª"
+ 
+ msgid "Key$Play"
+ msgstr "Prehraª"
+ 
+ msgid "Key$Pause"
+-msgstr "Preruπiª"
++msgstr "Pozastaviª"
+ 
+ msgid "Key$Stop"
+ msgstr "Zastaviª"
+@@ -432,10 +432,10 @@
+ msgstr "PretoËiª sp‰ª"
+ 
+ msgid "Key$Next"
+-msgstr "œalej"
++msgstr "Nasleduj˙ci"
+ 
+ msgid "Key$Prev"
+-msgstr "Sp‰ª"
++msgstr "Predch·dzaj˙ci"
+ 
+ msgid "Key$Power"
+ msgstr "VypÌnaË"
+@@ -465,7 +465,7 @@
+ msgstr "Titulky"
+ 
+ msgid "Key$Schedule"
+-msgstr "Program (EPG)"
++msgstr "TelevÌzny program"
+ 
+ msgid "Key$Channels"
+ msgstr "Kan·ly"
+@@ -519,7 +519,7 @@
+ msgstr "kÛdovan˝"
+ 
+ msgid "Edit channel"
+-msgstr "⁄pravy kan·lu"
++msgstr "PrispÙsobiª kan·l"
+ 
+ msgid "Name"
+ msgstr "N·zov"
+@@ -564,13 +564,13 @@
+ msgstr "Sid"
+ 
+ msgid "Channel settings are not unique!"
+-msgstr "Nastavenia kan·lu nie s˙ obyËajnÈ!"
++msgstr "Nastavenia kan·lu nie s˙ v˝nimoËnÈ!"
+ 
+ msgid "Channels"
+ msgstr "Kan·ly"
+ 
+ msgid "Button$Edit"
+-msgstr "⁄pravy"
++msgstr "Upraviª"
+ 
+ msgid "Button$New"
+ msgstr "Nov˝"
+@@ -616,7 +616,7 @@
+ msgstr "⁄prava pl·nu nahr·vania"
+ 
+ msgid "Active"
+-msgstr "V Ëinnosti"
++msgstr "AktÌvny"
+ 
+ msgid "Channel"
+ msgstr "Kan·l"
+@@ -625,10 +625,10 @@
+ msgstr "DeÚ"
+ 
+ msgid "Start"
+-msgstr "ZaËiatok"
++msgstr "ZaËÌna"
+ 
+ msgid "Stop"
+-msgstr "Koniec"
++msgstr "KonËÌ"
+ 
+ msgid "VPS"
+ msgstr "VPS"
+@@ -646,13 +646,13 @@
+ msgstr "Zloæka"
+ 
+ msgid "Button$Single"
+-msgstr ""
++msgstr "bez opakovania"
+ 
+ msgid "Button$Repeating"
+-msgstr ""
++msgstr "s opakovanÌm"
+ 
+ msgid "First day"
+-msgstr "Prv˝ deÚ"
++msgstr "Odo dÚa"
+ 
+ msgid "Select folder"
+ msgstr "Vybraª zloæku"
+@@ -685,13 +685,13 @@
+ msgstr "Prepn˙ª"
+ 
+ msgid "What's on now?"
+-msgstr "»o ide?"
++msgstr "»o ide aktu·lne?"
+ 
+ msgid "What's on next?"
+ msgstr "»o nasleduje?"
+ 
+ msgid "Button$Next"
+-msgstr "œalej"
++msgstr "Nasleduje"
+ 
+ msgid "Button$Now"
+ msgstr "Teraz"
+@@ -730,7 +730,7 @@
+ msgstr "Prehraª"
+ 
+ msgid "Button$Rewind"
+-msgstr "Na zaËiatok"
++msgstr "Od zaËiatku"
+ 
+ msgid "Recordings"
+ msgstr "Nahr·vky"
+@@ -745,7 +745,7 @@
+ msgstr "Zmazaª nahr·vku?"
+ 
+ msgid "Recording is being edited - really delete?"
+-msgstr ""
++msgstr "Nahr·vka sa upravuje - Naozaj zmazaª?"
+ 
+ msgid "Error while deleting recording!"
+ msgstr "Pri vymaz·vanÌ nahr·vky priπlo k chybe!"
+@@ -835,7 +835,7 @@
+ msgstr "Rolovaª strany"
+ 
+ msgid "Setup.OSD$Scroll wraps"
+-msgstr "Z konca na zaËiatok"
++msgstr "Rolovaª cyklicky"
+ 
+ msgid "Setup.OSD$Menu key closes"
+ msgstr "Kl·vesa Menu zaviera"
+@@ -847,25 +847,25 @@
+ msgstr "Zloæky v menu pl·novaËa"
+ 
+ msgid "Setup.OSD$Number keys for characters"
+-msgstr "»ÌselnÈ tlaËidl· pre znaky"
++msgstr "PÌsaª znaky ËÌseln˝mi tlaËidlami"
+ 
+ msgid "Setup.OSD$Color key 0"
+-msgstr ""
++msgstr "Farba kl·vesy 0"
+ 
+ msgid "Setup.OSD$Color key 1"
+-msgstr ""
++msgstr "Farba kl·vesy 1"
+ 
+ msgid "Setup.OSD$Color key 2"
+-msgstr ""
++msgstr "Farba kl·vesy 2"
+ 
+ msgid "Setup.OSD$Color key 3"
+-msgstr ""
++msgstr "Farba kl·vesy 3"
+ 
+ msgid "EPG"
+ msgstr "EPG"
+ 
+ msgid "Button$Scan"
+-msgstr "SnÌmaª"
++msgstr "Skenovaª"
+ 
+ msgid "Setup.EPG$EPG scan timeout (h)"
+ msgstr "»asov˝ limit pre snÌmanie EPG (h)"
+@@ -880,7 +880,7 @@
+ msgstr "Nastaviª systÈmov˝ Ëas"
+ 
+ msgid "Setup.EPG$Use time from transponder"
+-msgstr "Pouæiª Ëas z kan·lu"
++msgstr "Pouæiª Ëas z transpondÈru"
+ 
+ #. TRANSLATORS: note the plural!
+ msgid "Setup.EPG$Preferred languages"
+@@ -930,7 +930,7 @@
+ msgstr "HlavnÈ DVB rozhranie"
+ 
+ msgid "Setup.DVB$Standard compliance"
+-msgstr ""
++msgstr "Kompatibiln· norma"
+ 
+ msgid "Setup.DVB$Video format"
+ msgstr "Form·t videa"
+@@ -985,10 +985,10 @@
+ 
+ #, c-format
+ msgid "Setup.LNB$Device %d connected to sat cable"
+-msgstr ""
++msgstr "Zariadenie %d je pripojenÈ na sat. k·bel"
+ 
+ msgid "Setup.LNB$own"
+-msgstr ""
++msgstr "vlastn˝"
+ 
+ msgid "CAM reset"
+ msgstr "Resetnutie CAMu"
+@@ -1021,13 +1021,13 @@
+ msgstr "CAM modul nejde reπtartovaª!"
+ 
+ msgid "do not pause live video"
+-msgstr "nepreruπovaª æivÈ vysielanie"
++msgstr "nepozastavovaª æivÈ vysielanie"
+ 
+ msgid "confirm pause live video"
+-msgstr "potvrdiª preruπenie æivÈho vysielania"
++msgstr "potvrdiª pozastavenie æivÈho vysielania"
+ 
+ msgid "pause live video"
+-msgstr "preruπiª æivÈ vysielanie"
++msgstr "pozastaviª æivÈ vysielanie"
+ 
+ msgid "confirm"
+ msgstr "overiª"
+@@ -1078,7 +1078,7 @@
+ msgstr "DÂæka okamæitÈho nahr·vania (min)"
+ 
+ msgid "Setup.Recording$present event"
+-msgstr ""
++msgstr "s˙Ëasn· udalosª"
+ 
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Maxim·lna veµkosª nahr·vky (MB)"
+@@ -1099,34 +1099,40 @@
+ msgstr "Zobraziª spÙsob prehr·vania"
+ 
+ msgid "Setup.Replay$Show remaining time"
+-msgstr ""
++msgstr "Zobraziª zost·vaj˙ci Ëas"
+ 
+ msgid "Setup.Replay$Progress display time (s)"
+-msgstr ""
++msgstr "»as zobrazenia ukazovateµa priebehu (s)"
+ 
+ msgid "Setup.Replay$Pause replay when setting mark"
+-msgstr ""
++msgstr "Pozastaviª prehr·vanie pri stanovenÌ znaËky"
+ 
+ msgid "Setup.Replay$Resume ID"
+-msgstr "ID obnovenie"
++msgstr "ident. ËÌslo obnovenia prehr·vania"
+ 
+ msgid "Miscellaneous"
+ msgstr "RÙzne"
+ 
+ msgid "Setup.Miscellaneous$Min. event timeout (min)"
+-msgstr "Min. pauza medzi udalosªami (min)"
++msgstr "limit pred nahr·vanÌm (min)"
+ 
+ msgid "Setup.Miscellaneous$Min. user inactivity (min)"
+-msgstr "»asov˝ limit neËinnosti (min)"
++msgstr "vymedziª uæÌvateµsk˙ neËinnosª (min)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP timeout (s)"
+ msgstr "»asov˝ limit SVDRP (s)"
+ 
+ msgid "Setup.Miscellaneous$Zap timeout (s)"
+-msgstr "»asov˝ limit Zap (s)"
++msgstr "pam‰taª predoπl˝ kan·l po ... (s)"
+ 
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+-msgstr "»as pri voµbe kan·la (ms)"
++msgstr "limit pri voµbe kan·la (ms)"
++
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
+ 
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Kan·l po spustenÌ"
+@@ -1138,10 +1144,10 @@
+ msgstr "Hlasitosª po spustenÌ"
+ 
+ msgid "Setup.Miscellaneous$Channels wrap"
+-msgstr "PrepÌnaª z prvÈho na posledn˝ a opaËne"
++msgstr "Kan·ly cyklovaª pri prepnutÌ"
+ 
+ msgid "Setup.Miscellaneous$Show channel names with source"
+-msgstr ""
++msgstr "Zobraziª kan·ly so zdrojom"
+ 
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "N˙dzovÈ ukonËenie"
+@@ -1192,22 +1198,22 @@
+ msgstr "Zruπiª ˙pravy?"
+ 
+ msgid "No audio available!"
+-msgstr "Zvuk nie je dostupn˝!"
++msgstr "ZvukovÈ stopy nie s˙ dostupnÈ!"
+ 
+ msgid "No subtitles"
+ msgstr "Bez titulkov"
+ 
+ msgid "No subtitles available!"
+-msgstr "æiadne dostupnÈ titulky!"
++msgstr "Æiadne titulky nie s˙ dostupnÈ!"
+ 
+ msgid "Not enough disk space to start recording!"
+ msgstr "M·lo volnÈho miesta na nahr·vanie!"
+ 
+ msgid "No free DVB device to record!"
+-msgstr "Æiadna DVB karta nie je voln· pre nahr·vanie"
++msgstr "Pre nahr·vanie nie je volnÈ æiadne DVB zariadenie!"
+ 
+ msgid "Pausing live video..."
+-msgstr "Preruπuje sa beæiaci program ..."
++msgstr "Pozastavuje sa æivÈ vysielanie ..."
+ 
+ msgid "Delete timeshift recording?"
+ msgstr "Vymazaª timeshift z·znamy?"
+@@ -1217,19 +1223,19 @@
+ msgstr "Skok: "
+ 
+ msgid "No editing marks defined!"
+-msgstr "Nie s˙ urËenÈ znaËky ˙prav!"
++msgstr "Neboli vyznaËenÈ znaËky pre zostrihanie!"
+ 
+ msgid "No editing sequences defined!"
+-msgstr ""
++msgstr "Neboli urËenÈ sekvencie ˙prav!"
+ 
+ msgid "Can't start editing process!"
+-msgstr "NemÙæe zaËaª spracovanie ˙prav!"
++msgstr "NemÙæe zaËaª zostrihanie!"
+ 
+ msgid "Editing process started"
+-msgstr "Spracovanie ˙prav zaËalo"
++msgstr "Proces strihania sa spustil"
+ 
+ msgid "Editing process already active!"
+-msgstr "Spracovanie ˙prav je v Ëinnosti!"
++msgstr "Proces zostrihania je aktÌvny!"
+ 
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " a·‰bcËdÔeÈfghiÌjklÂµmnÚoÛÙpqr‡sπtªu˙vwxy˝zæ0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+@@ -1256,22 +1262,22 @@
+ msgstr "Kan·l je zamknut˝ (nahr·va sa)!"
+ 
+ msgid "Low disk space!"
+-msgstr "Za chvÌµku bude pln˝ disk!"
++msgstr "Nedostatok miesta na disku!"
+ 
+ msgid "Regenerating index file"
+-msgstr "RegeneraËn˝ indexov˝ s˙bor"
++msgstr "Obnova indexovÈho s˙boru"
+ 
+ msgid "Index file regeneration complete"
+-msgstr "Regener·cia indexovÈho s˙boru hotov·"
++msgstr "Obnova indexovÈho s˙boru hotov·"
+ 
+ msgid "Index file regeneration failed!"
+-msgstr ""
++msgstr "Obnova indexovÈho s˙boru zlyhala!"
+ 
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Vypnutie nie je moænÈ - ch˝ba voµba '-s'!"
+ 
+ msgid "Editing - shut down anyway?"
+-msgstr "Upravujem - aj tak vypn˙ª?"
++msgstr "Zostrih·va sa - aj tak vypn˙ª?"
+ 
+ msgid "Recording - shut down anyway?"
+ msgstr "Nahr·va - aj tak vypn˙ª?"
+@@ -1281,11 +1287,11 @@
+ msgstr "Nahr·vanie zaËne za %ld min˙t - aj tak vypn˙ª?"
+ 
+ msgid "shut down anyway?"
+-msgstr "Aj tak vypn˙ª?"
++msgstr "UrËite vypn˙ª?"
+ 
+ #, c-format
+ msgid "Plugin %s wakes up in %ld min, continue?"
+-msgstr "Modul %s πtartuje za %ld min., pokraËovaª?"
++msgstr "Modul %s sa prebudÌ za %ld min., pokraËovaª?"
+ 
+ msgid "Editing - restart anyway?"
+ msgstr "Upravuje sa - aj tak reπtartovaª?"
+@@ -1294,7 +1300,7 @@
+ msgstr "Nahr·va - aj tak reπtartovaª?"
+ 
+ msgid "restart anyway?"
+-msgstr "Aj tak reπtartovaª?"
++msgstr "UrËite reπtartovaª?"
+ 
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Volume "
+@@ -1304,22 +1310,22 @@
+ msgstr "KlasickÈ VDR"
+ 
+ msgid "DISK"
+-msgstr ""
++msgstr "DISK"
+ 
+ msgid "LOAD"
+-msgstr ""
++msgstr "ZA´AÆENIE"
+ 
+ msgid "TIMERS"
+-msgstr ""
++msgstr "PL¡NY"
+ 
+ msgid "DEVICES"
+-msgstr ""
++msgstr "ZARIADENIA"
+ 
+ msgid "LIVE"
+-msgstr ""
++msgstr "NAÆIVO"
+ 
+ msgid "PLAY"
+-msgstr ""
++msgstr "PREHR¡VA SA"
+ 
+ msgid "ST:TNG Panels"
+ msgstr "ST:TNG panely"
+@@ -1363,7 +1369,7 @@
+ msgstr "ZaËalo nahr·vanie"
+ 
+ msgid "VDR will shut down later - press Power to force"
+-msgstr "Vypnutie VDR bude odloæenÈ - platnosª potvrdte kl·vesou Power"
++msgstr "VDR sa vypne neskorπie. - Vyn˙tenie potvrdte kl·vesou Power"
+ 
+ msgid "Press any key to cancel shutdown"
+ msgstr "Ktor·koµvek kl·vesa zruπÌ vypnutie"
+@@ -1372,10 +1378,10 @@
+ msgstr "PrepÌna hlavn˝ DVB..."
+ 
+ msgid "Editing process failed!"
+-msgstr "Spracovanie ˙prav zlyhalo!"
++msgstr "Zostrih·vanie zlyhalo!"
+ 
+ msgid "Editing process finished"
+-msgstr "Spracovanie ˙prav skonËilo"
++msgstr "Proces zostrih·vania dokonËen˝"
+ 
+ msgid "Press any key to cancel restart"
+ msgstr "ktor·koµvek  kl·vesa zruπÌ reπtart"
+@@ -1388,4 +1394,4 @@
+ msgstr "Disk"
+ 
+ msgid "free"
+-msgstr "volne"
++msgstr "voµnÈ"
+diff -ruN vdr-1.7.36/po/sl_SI.po vdr-1.7.37/po/sl_SI.po
+--- vdr-1.7.36/po/sl_SI.po	2012-12-23 10:52:12.000000000 +0100
++++ vdr-1.7.37/po/sl_SI.po	2013-02-09 14:57:00.504903039 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2008-02-28 19:44+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian <vdr@linuxtv.org>\n"
+@@ -1129,6 +1129,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Timeout za vnos kanala (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Privzeti kanal"
+ 
+diff -ruN vdr-1.7.36/po/sr_SR.po vdr-1.7.37/po/sr_SR.po
+--- vdr-1.7.36/po/sr_SR.po	2012-12-23 10:52:12.000000000 +0100
++++ vdr-1.7.37/po/sr_SR.po	2013-02-09 14:57:00.266860314 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.1\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2011-01-09 15:57+0100\n"
+ "Last-Translator: Milan CvijanoviÊ <elcom_cvijo@hotmail.com>\n"
+ "Language-Team: Serbian <vdr@linuxtv.org>\n"
+@@ -1151,6 +1151,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Upis kanala istiËe (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "PoËetni kanal"
+ 
+diff -ruN vdr-1.7.36/po/sv_SE.po vdr-1.7.37/po/sv_SE.po
+--- vdr-1.7.36/po/sv_SE.po	2012-12-23 10:52:12.000000000 +0100
++++ vdr-1.7.37/po/sv_SE.po	2013-02-09 14:57:00.198848105 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2008-03-12 18:25+0100\n"
+ "Last-Translator: Magnus Andersson <svankan@bahnhof.se>\n"
+ "Language-Team: Swedish <vdr@linuxtv.org>\n"
+@@ -1131,6 +1131,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Timeout kanal (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Kanal vid uppstart"
+ 
+diff -ruN vdr-1.7.36/po/tr_TR.po vdr-1.7.37/po/tr_TR.po
+--- vdr-1.7.36/po/tr_TR.po	2012-12-23 10:52:13.000000000 +0100
++++ vdr-1.7.37/po/tr_TR.po	2013-02-09 14:56:59.854786352 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay YolgeÁen <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish <vdr@linuxtv.org>\n"
+@@ -1128,6 +1128,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "Kanal giri˛ zaman a˛˝m˝ (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "AÁ˝l˝˛daki kanal"
+ 
+diff -ruN vdr-1.7.36/po/uk_UA.po vdr-1.7.37/po/uk_UA.po
+--- vdr-1.7.36/po/uk_UA.po	2012-12-23 10:52:13.000000000 +0100
++++ vdr-1.7.37/po/uk_UA.po	2013-02-09 14:57:00.023816690 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2010-04-25 16:35+0200\n"
+ "Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian <vdr@linuxtv.org>\n"
+@@ -1128,6 +1128,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "–ó–∞—Ç—Ä–∏–º–∫–∞ —á–∞—Å—É –¥–ª—è –≤–ø—Ä–æ–≤–∞–¥–∂–µ–Ω–Ω—è –∫–∞–Ω–∞–ª—É (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "–ö–∞–Ω–∞–ª –ø—Ä–∏ –≤–∫–ª—é—á–µ–Ω–Ω—ñ"
+ 
+diff -ruN vdr-1.7.36/po/zh_CN.po vdr-1.7.37/po/zh_CN.po
+--- vdr-1.7.36/po/zh_CN.po	2012-12-23 10:52:18.000000000 +0100
++++ vdr-1.7.37/po/zh_CN.po	2013-02-09 14:56:59.822780608 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-12-07 14:59+0100\n"
++"POT-Creation-Date: 2013-02-03 16:46+0100\n"
+ "PO-Revision-Date: 2009-09-23 23:50+0800\n"
+ "Last-Translator: Nan Feng <nfgx@21cn.com>\n"
+ "Language-Team: Chinese (simplified) <vdr@linuxtv.org>\n"
+@@ -1131,6 +1131,12 @@
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+ msgstr "È¢ëÈÅìËøõÂÖ•Ë∂ÖÊó∂ (ms)"
+ 
++msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Remote control repeat delta (ms)"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "ÂàùÂßãÈ¢ëÈÅì"
+ 
+diff -ruN vdr-1.7.36/recording.c vdr-1.7.37/recording.c
+--- vdr-1.7.36/recording.c	2013-01-16 15:17:44.000000000 +0100
++++ vdr-1.7.37/recording.c	2013-02-08 10:02:07.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.83 2013/01/16 14:17:44 kls Exp $
++ * $Id: recording.c 2.86 2013/02/08 09:02:07 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -64,11 +64,11 @@
+ #define MARKSUPDATEDELTA   10 // seconds between checks for updating editing marks
+ #define MININDEXAGE      3600 // seconds before an index file is considered no longer to be written
+ 
+-#define MAX_SUBTITLE_LENGTH  40
+-
+ #define MAX_LINK_LEVEL  6
+ 
+-bool VfatFileSystem = false;
++int DirectoryPathMax = PATH_MAX;
++int DirectoryNameMax = NAME_MAX;
++bool DirectoryEncoding = false;
+ int InstanceId = 0;
+ 
+ cRecordings DeletedRecordings(true);
+@@ -540,22 +540,30 @@
+   { 0, 0 }
+   };
+ 
++const char *InvalidChars = "\"\\/:*?|<>#";
++
++bool NeedsConversion(const char *p)
++{
++  return DirectoryEncoding &&
++         (strchr(InvalidChars, *p) // characters that can't be part of a Windows file/directory name
++          || *p == '.' && (!*(p + 1) || *(p + 1) == FOLDERDELIMCHAR)); // Windows can't handle '.' at the end of file/directory names
++}
++
+ char *ExchangeChars(char *s, bool ToFileSystem)
+ {
+   char *p = s;
+   while (*p) {
+-        if (VfatFileSystem) {
+-           // The VFAT file system can't handle all characters, so we
++        if (DirectoryEncoding) {
++           // Some file systems can't handle all characters, so we
+            // have to take extra efforts to encode/decode them:
+            if (ToFileSystem) {
+-              const char *InvalidChars = "\"\\/:*?|<>#";
+               switch (*p) {
+                      // characters that can be mapped to other characters:
+                      case ' ': *p = '_'; break;
+                      case FOLDERDELIMCHAR: *p = '/'; break;
+                      // characters that have to be encoded:
+                      default:
+-                       if (strchr(InvalidChars, *p) || *p == '.' && (!*(p + 1) || *(p + 1) == FOLDERDELIMCHAR)) { // Windows can't handle '.' at the end of file/directory names
++                       if (NeedsConversion(p)) {
+                           int l = p - s;
+                           if (char *NewBuffer = (char *)realloc(s, strlen(s) + 10)) {
+                              s = NewBuffer;
+@@ -610,6 +618,107 @@
+   return s;
+ }
+ 
++char *LimitNameLengths(char *s, int PathMax, int NameMax)
++{
++  // Limits the total length of the directory path in 's' to PathMax, and each
++  // individual directory name to NameMax. The lengths of characters that need
++  // conversion when using 's' as a file name are taken into account accordingly.
++  // If a directory name exceeds NameMax, it will be truncated. If the whole
++  // directory path exceeds PathMax, individual directory names will be shortened
++  // (from right to left) until the limit is met, or until the currently handled
++  // directory name consists of only a single character. All operations are performed
++  // directly on the given 's', which may become shorter (but never longer) than
++  // the original value.
++  // Returns a pointer to 's'.
++  int Length = strlen(s);
++  int PathLength = 0;
++  // Collect the resulting lengths of each character:
++  bool NameTooLong = false;
++  int8_t a[Length];
++  int n = 0;
++  int NameLength = 0;
++  for (char *p = s; *p; p++) {
++      if (*p == FOLDERDELIMCHAR) {
++         a[n] = -1; // FOLDERDELIMCHAR is a single character, neg. sign marks it
++         NameTooLong |= NameLength > NameMax;
++         NameLength = 0;
++         PathLength += 1;
++         }
++      else if (NeedsConversion(p)) {
++         a[n] = 3; // "#xx"
++         NameLength += 3;
++         PathLength += 3;
++         }
++      else {
++         int8_t l = Utf8CharLen(p);
++         a[n] = l;
++         NameLength += l;
++         PathLength += l;
++         while (l-- > 1) {
++               a[++n] = 0;
++               p++;
++               }
++         }
++      n++;
++      }
++  NameTooLong |= NameLength > NameMax;
++  // Limit names to NameMax:
++  if (NameTooLong) {
++     while (n > 0) {
++           // Calculate the length of the current name:
++           int NameLength = 0;
++           int i = n;
++           int b = i;
++           while (i-- > 0 && a[i] >= 0) {
++                 NameLength += a[i];
++                 b = i;
++                 }
++           // Shorten the name if necessary:
++           if (NameLength > NameMax) {
++              int l = 0;
++              i = n;
++              while (i-- > 0 && a[i] >= 0) {
++                    l += a[i];
++                    if (NameLength - l <= NameMax) {
++                       memmove(s + i, s + n, Length - n + 1);
++                       memmove(a + i, a + n, Length - n + 1);
++                       Length -= n - i;
++                       PathLength -= l;
++                       break;
++                       }
++                    }
++              }
++           // Switch to the next name:
++           n = b - 1;
++           }
++     }
++  // Limit path to PathMax:
++  n = Length;
++  while (PathLength > PathMax && n > 0) {
++        // Calculate how much to cut off the current name:
++        int i = n;
++        int b = i;
++        int l = 0;
++        while (--i > 0 && a[i - 1] >= 0) {
++              if (a[i] > 0) {
++                 l += a[i];
++                 b = i;
++                 if (PathLength - l <= PathMax)
++                    break;
++                 }
++              }
++        // Shorten the name if necessary:
++        if (l > 0) {
++           memmove(s + b, s + n, Length - n + 1);
++           Length -= n - b;
++           PathLength -= l;
++           }
++        // Switch to the next name:
++        n = i - 1;
++        }
++  return s;
++}
++
+ cRecording::cRecording(cTimer *Timer, const cEvent *Event)
+ {
+   resume = RESUME_NOT_INITIALIZED;
+@@ -628,16 +737,10 @@
+   // set up the actual name:
+   const char *Title = Event ? Event->Title() : NULL;
+   const char *Subtitle = Event ? Event->ShortText() : NULL;
+-  char SubtitleBuffer[MAX_SUBTITLE_LENGTH];
+   if (isempty(Title))
+      Title = Timer->Channel()->Name();
+   if (isempty(Subtitle))
+      Subtitle = " ";
+-  else if (strlen(Subtitle) > MAX_SUBTITLE_LENGTH) {
+-     // let's make sure the Subtitle doesn't produce too long a file name:
+-     Utf8Strn0Cpy(SubtitleBuffer, Subtitle, MAX_SUBTITLE_LENGTH);
+-     Subtitle = SubtitleBuffer;
+-     }
+   const char *macroTITLE   = strstr(Timer->File(), TIMERMACRO_TITLE);
+   const char *macroEPISODE = strstr(Timer->File(), TIMERMACRO_EPISODE);
+   if (macroTITLE || macroEPISODE) {
+@@ -872,9 +975,12 @@
+      const char *fmt = isPesRecording ? NAMEFORMATPES : NAMEFORMATTS;
+      int ch = isPesRecording ? priority : channel;
+      int ri = isPesRecording ? lifetime : instanceId;
+-     name = ExchangeChars(name, true);
+-     fileName = strdup(cString::sprintf(fmt, VideoDirectory, name, t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, ch, ri));
+-     name = ExchangeChars(name, false);
++     char *Name = LimitNameLengths(strdup(name), DirectoryPathMax - strlen(VideoDirectory) - 1 - 42, DirectoryNameMax); // 42 = length of an actual recording directory name (generated with DATAFORMATTS) plus some reserve
++     if (strcmp(Name, name) != 0)
++        dsyslog("recording file name '%s' truncated to '%s'", name, Name);
++     Name = ExchangeChars(Name, true);
++     fileName = strdup(cString::sprintf(fmt, VideoDirectory, Name, t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, ch, ri));
++     free(Name);
+      }
+   return fileName;
+ }
+@@ -1743,12 +1849,14 @@
+                        esyslog("ERROR: can't read from file '%s'", *fileName);
+                        free(index);
+                        index = NULL;
+-                       close(f);
+-                       f = -1;
+                        }
+-                    // we don't close f here, see CatchUp()!
+                     else if (isPesRecording)
+                        ConvertFromPes(index, size);
++                    if (!index || time(NULL) - buf.st_mtime >= MININDEXAGE) {
++                       close(f);
++                       f = -1;
++                       }
++                    // otherwise we don't close f here, see CatchUp()!
+                     }
+                  else
+                     LOG_ERROR_STR(*fileName);
+@@ -1863,7 +1971,8 @@
+             LOG_ERROR_STR(*fileName);
+          if (Index < last)
+             break;
+-         cCondWait::SleepMs(INDEXCATCHUPWAIT);
++         cCondVar CondVar;
++         CondVar.TimedWait(mutex, INDEXCATCHUPWAIT);
+          }
+      }
+   return index != NULL;
+diff -ruN vdr-1.7.36/recording.h vdr-1.7.37/recording.h
+--- vdr-1.7.36/recording.h	2012-12-23 16:11:53.000000000 +0100
++++ vdr-1.7.37/recording.h	2013-02-07 14:42:17.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 2.41 2012/12/23 15:11:53 kls Exp $
++ * $Id: recording.h 2.42 2013/02/07 13:42:17 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -22,7 +22,9 @@
+ #define TIMERMACRO_TITLE    "TITLE"
+ #define TIMERMACRO_EPISODE  "EPISODE"
+ 
+-extern bool VfatFileSystem;
++extern int DirectoryPathMax;
++extern int DirectoryNameMax;
++extern bool DirectoryEncoding;
+ extern int InstanceId;
+ 
+ void RemoveDeletedRecordings(void);
+diff -ruN vdr-1.7.36/remote.c vdr-1.7.37/remote.c
+--- vdr-1.7.36/remote.c	2013-01-13 13:01:52.000000000 +0100
++++ vdr-1.7.37/remote.c	2013-02-03 16:44:55.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.c 2.6 2013/01/13 12:01:52 kls Exp $
++ * $Id: remote.c 2.8 2013/02/03 15:44:55 kls Exp $
+  */
+ 
+ #include "remote.h"
+@@ -295,6 +295,14 @@
+   return kfNone;
+ }
+ 
++void cKbdRemote::PutKey(uint64_t Code, bool Repeat, bool Release)
++{
++  if (rawMode || !Put(Code, Repeat, Release)) {
++     if (int func = MapCodeToFunc(Code))
++        Put(KBDKEY(func), Repeat, Release);
++     }
++}
++
+ int cKbdRemote::ReadKey(void)
+ {
+   cPoller Poller(STDIN_FILENO);
+@@ -356,24 +364,55 @@
+ 
+ void cKbdRemote::Action(void)
+ {
++  cTimeMs FirstTime;
++  cTimeMs LastTime;
++  uint64_t FirstCommand = 0;
+   uint64_t LastCommand = 0;
++  bool Delayed = false;
+   bool Repeat = false;
+ 
+   while (Running()) {
+         uint64_t Command = ReadKeySequence();
+-        if (LastCommand && Command != LastCommand && Repeat) {
+-           if (!rawMode)
+-              Put(LastCommand, false, true);
+-           Repeat = false;
+-           }
+         if (Command) {
+-           if (Command == LastCommand)
++           if (Command == LastCommand) {
++              // If two keyboard events with the same command come in without an intermediate
++              // timeout, this is a long key press that caused the repeat function to kick in:
++              Delayed = false;
++              FirstCommand = 0;
++              if (FirstTime.Elapsed() < (uint)Setup.RcRepeatDelay)
++                 continue; // repeat function kicks in after a short delay
++              if (LastTime.Elapsed() < (uint)Setup.RcRepeatDelta)
++                 continue; // skip same keys coming in too fast
++              PutKey(Command, true);
+               Repeat = true;
+-           if (rawMode || !Put(Command, Repeat)) {
+-              int func = MapCodeToFunc(Command);
+-              if (func)
+-                 Put(KBDKEY(func));
++              LastTime.Set();
+               }
++           else if (Command == FirstCommand) {
++              // If the same command comes in twice with an intermediate timeout, we
++              // need to delay the second command to see whether it is going to be
++              // a repeat function or a separate key press:
++              Delayed = true;
++              }
++           else {
++              // This is a totally new key press, so we accept it immediately:
++              PutKey(Command);
++              Delayed = false;
++              FirstCommand = Command;
++              FirstTime.Set();
++              }
++           }
++        else if (Repeat) {
++           // Timeout after a repeat function, so we generate a 'release':
++           PutKey(LastCommand, false, true);
++           Repeat = false;
++           }
++        else if (Delayed && FirstCommand) {
++           // Timeout after two normal key presses of the same key, so accept the
++           // delayed key:
++           PutKey(FirstCommand);
++           Delayed = false;
++           FirstCommand = 0;
++           FirstTime.Set();
+            }
+         LastCommand = Command;
+         }
+diff -ruN vdr-1.7.36/remote.h vdr-1.7.37/remote.h
+--- vdr-1.7.36/remote.h	2008-02-23 15:38:47.000000000 +0100
++++ vdr-1.7.37/remote.h	2013-02-03 15:34:56.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.h 2.0 2008/02/23 14:38:47 kls Exp $
++ * $Id: remote.h 2.1 2013/02/03 14:34:56 kls Exp $
+  */
+ 
+ #ifndef __REMOTE_H
+@@ -111,6 +111,7 @@
+   int ReadKey(void);
+   uint64_t ReadKeySequence(void);
+   int MapCodeToFunc(uint64_t Code);
++  void PutKey(uint64_t Code, bool Repeat = false, bool Release = false);
+ public:
+   cKbdRemote(void);
+   virtual ~cKbdRemote();
+diff -ruN vdr-1.7.36/skinlcars.c vdr-1.7.37/skinlcars.c
+--- vdr-1.7.36/skinlcars.c	2012-09-19 13:05:50.000000000 +0200
++++ vdr-1.7.37/skinlcars.c	2013-01-25 15:54:11.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinlcars.c 2.15 2012/09/19 11:05:50 kls Exp $
++ * $Id: skinlcars.c 2.18 2013/01/25 14:54:11 kls Exp $
+  */
+ 
+ // "Star Trek: The Next Generation"(R) is a registered trademark of Paramount Pictures,
+@@ -199,6 +199,8 @@
+ 
+ // --- Helper functions ------------------------------------------------------
+ 
++static bool TwoColors = false;
++
+ static cOsd *CreateOsd(int Left, int Top, int x0, int y0, int x1, int y1)
+ {
+   cOsd *Osd = cOsdProvider::NewOsd(Left, Top);
+@@ -208,6 +210,7 @@
+       Area.bpp = Bpp[i];
+       if (Osd->CanHandleAreas(&Area, 1) == oeOk) {
+          Osd->SetAreas(&Area, 1);
++         TwoColors = Area.bpp == 1;
+          break;
+          }
+       }
+@@ -272,16 +275,25 @@
+   int y01 = y00 + h;
+   int y03 = y1 - d;
+   int y02 = y03 - h;
++  tColor ColorSignalValue, ColorSignalRest;
++  if (TwoColors) {
++     ColorSignalValue = Theme.Color(clrBackground);
++     ColorSignalRest = Theme.Color(clrMenuFrameBg);
++     }
++  else {
++     ColorSignalValue = Theme.Color(clrSignalValue);
++     ColorSignalRest = Theme.Color(clrSignalRest);
++     }
+   if (SignalStrength >= 0 && (Initial || SignalStrength != LastSignalStrength)) {
+      int s = SignalStrength * w / 100;
+-     Osd->DrawRectangle(x00, y00, x00 + s - 1, y01 - 1, Theme.Color(clrSignalValue));
+-     Osd->DrawRectangle(x00 + s, y00, x01 - 1, y01 - 1, Theme.Color(clrSignalRest));
++     Osd->DrawRectangle(x00, y00, x00 + s - 1, y01 - 1, ColorSignalValue);
++     Osd->DrawRectangle(x00 + s, y00, x01 - 1, y01 - 1, ColorSignalRest);
+      LastSignalStrength = SignalStrength;
+      }
+   if (SignalQuality >= 0 && (Initial || SignalQuality != LastSignalQuality)) {
+      int q = SignalQuality * w / 100;
+-     Osd->DrawRectangle(x00, y02, x00 + q - 1, y03 - 1, Theme.Color(clrSignalValue));
+-     Osd->DrawRectangle(x00 + q, y02, x01 - 1, y03 - 1, Theme.Color(clrSignalRest));
++     Osd->DrawRectangle(x00, y02, x00 + q - 1, y03 - 1, ColorSignalValue);
++     Osd->DrawRectangle(x00 + q, y02, x01 - 1, y03 - 1, ColorSignalRest);
+      LastSignalQuality = SignalQuality;
+      }
+ }
+@@ -445,7 +457,7 @@
+ 
+ void cSkinLCARSDisplayChannel::DrawSeen(int Current, int Total)
+ {
+-  int Seen = min(xc07 - xc06, int((xc07 - xc06) * double(Current) / Total));
++  int Seen = (Total > 0) ? min(xc07 - xc06, int((xc07 - xc06) * double(Current) / Total)) : 0;
+   if (initial || Seen != lastSeen) {
+      int y0 = yc11 - ShowSeenExtent;
+      int y1 = yc11 + lineHeight / 2 - Gap / 2;
+@@ -1331,6 +1343,7 @@
+      osd->DrawText(xa00, yt00, itoa(Channel->Number()), Theme.Color(clrChannelFrameFg), Theme.Color(clrChannelFrameBg), tallFont, xa02 - xa00, yt02 - yt00, taTop | taRight | taBorder);
+      osd->DrawText(xa03, yt00, Channel->Name(), Theme.Color(clrChannelName), Theme.Color(clrBackground), tallFont, xd00 - xa03, yd01 - yd00, taTop | taLeft);
+      lastChannel = Channel;
++     DrawSeen(0, 0);
+      }
+   // The current programme:
+   cSchedulesLock SchedulesLock;
+@@ -1411,7 +1424,7 @@
+ 
+ void cSkinLCARSDisplayMenu::DrawSeen(int Current, int Total)
+ {
+-  int Seen = min(xm08 - xm02, int((xm08 - xm02) * double(Current) / Total));
++  int Seen = (Total > 0) ? min(xm08 - xm02, int((xm08 - xm02) * double(Current) / Total)) : 0;
+   if (initial || Seen != lastSeen) {
+      int y0 = yc04 - ShowSeenExtent;
+      int y1 = yc04 + lineHeight / 2 - Gap / 2;
+@@ -1493,8 +1506,14 @@
+   int y = yi00 + Index * lineHeight;
+   tColor ColorFg, ColorBg;
+   if (Current) {
+-     ColorFg = Theme.Color(clrMenuItemCurrentFg);
+-     ColorBg = Theme.Color(clrMenuItemCurrentBg);
++     if (TwoColors) {
++        ColorFg = Theme.Color(clrBackground);
++        ColorBg = Theme.Color(clrMenuFrameBg);
++        }
++     else {
++        ColorFg = Theme.Color(clrMenuItemCurrentFg);
++        ColorBg = Theme.Color(clrMenuItemCurrentBg);
++        }
+      osd->DrawRectangle(xi00, y, xi01 - 1, y + lineHeight - 1, ColorBg);
+      osd->DrawRectangle(xi02, y, xi02 + lineHeight / 2 - 1, y + lineHeight - 1, ColorBg);
+      osd->DrawEllipse  (xi02 + lineHeight / 2, y, xi03 - 1, y + lineHeight - 1, ColorBg, 5);
+@@ -1662,6 +1681,7 @@
+   int lineHeight;
+   tColor frameColor;
+   int lastCurrentWidth;
++  int lastTotalWidth;
+   cString lastDate;
+   tTrackId lastTrackId;
+   void DrawDate(void);
+@@ -1687,6 +1707,7 @@
+   lineHeight = font->Height();
+   frameColor = Theme.Color(clrReplayFrameBg);
+   lastCurrentWidth = 0;
++  lastTotalWidth = 0;
+   int d = 5 * lineHeight;
+   xp00 = 0;
+   xp01 = xp00 + d / 2;
+@@ -1804,15 +1825,16 @@
+ {
+   const cFont *font = cFont::GetFont(fontOsd);
+   int w = font->Width(Current);
+-  osd->DrawText(xp03, yp03 - lineHeight, Current, Theme.Color(clrReplayPosition), Theme.Color(clrBackground), font, lastCurrentWidth > w ? lastCurrentWidth : w, 0, taLeft);
++  osd->DrawText(xp03, yp03 - lineHeight, Current, Theme.Color(clrReplayPosition), Theme.Color(clrBackground), font, max(lastCurrentWidth, w), 0, taLeft);
+   lastCurrentWidth = w;
+ }
+ 
+ void cSkinLCARSDisplayReplay::SetTotal(const char *Total)
+ {
+   const cFont *font = cFont::GetFont(fontOsd);
+-  int w = font->Width(Total) + 10;
+-  osd->DrawText(xp13 - w, yp03 - lineHeight, Total, Theme.Color(clrReplayPosition), Theme.Color(clrBackground), font, w, 0, taRight);
++  int w = font->Width(Total);
++  osd->DrawText(xp13 - w, yp03 - lineHeight, Total, Theme.Color(clrReplayPosition), Theme.Color(clrBackground), font, max(lastTotalWidth, w), 0, taRight);
++  lastTotalWidth = w;
+ }
+ 
+ void cSkinLCARSDisplayReplay::SetJump(const char *Jump)
+diff -ruN vdr-1.7.36/timers.c vdr-1.7.37/timers.c
+--- vdr-1.7.36/timers.c	2012-12-07 14:14:00.000000000 +0100
++++ vdr-1.7.37/timers.c	2013-02-05 12:13:20.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 2.15 2012/12/07 13:14:00 kls Exp $
++ * $Id: timers.c 2.16 2013/02/05 11:13:20 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -17,8 +17,6 @@
+ #include "remote.h"
+ #include "status.h"
+ 
+-#define VFAT_MAX_FILENAME 40 // same as MAX_SUBTITLE_LENGTH in recording.c
+-
+ // IMPORTANT NOTE: in the 'sscanf()' calls there is a blank after the '%d'
+ // format characters in order to allow any number of blanks after a numeric
+ // value!
+@@ -80,11 +78,6 @@
+   lifetime = Pause ? Setup.PauseLifetime : Setup.DefaultLifetime;
+   if (Instant && channel)
+      snprintf(file, sizeof(file), "%s%s", Setup.MarkInstantRecord ? "@" : "", *Setup.NameInstantRecord ? Setup.NameInstantRecord : channel->Name());
+-  if (VfatFileSystem && (Utf8StrLen(file) > VFAT_MAX_FILENAME)) {
+-     dsyslog("timer file name too long for VFAT file system: '%s'", file);
+-     file[Utf8SymChars(file, VFAT_MAX_FILENAME)] = 0;
+-     dsyslog("timer file name truncated to '%s'", file);
+-     }
+ }
+ 
+ cTimer::cTimer(const cEvent *Event)
+@@ -120,11 +113,6 @@
+   const char *Title = Event->Title();
+   if (!isempty(Title))
+      Utf8Strn0Cpy(file, Event->Title(), sizeof(file));
+-  if (VfatFileSystem && (Utf8StrLen(file) > VFAT_MAX_FILENAME)) {
+-     dsyslog("timer file name too long for VFAT file system: '%s'", file);
+-     file[Utf8SymChars(file, VFAT_MAX_FILENAME)] = 0;
+-     dsyslog("timer file name truncated to '%s'", file);
+-     }
+   SetEvent(Event);
+ }
+ 
+@@ -332,18 +320,6 @@
+         }
+      //TODO add more plausibility checks
+      result = ParseDay(daybuffer, day, weekdays);
+-     if (VfatFileSystem) {
+-        char *p = strrchr(filebuffer, FOLDERDELIMCHAR);
+-        if (p)
+-           p++;
+-        else
+-           p = filebuffer;
+-        if (Utf8StrLen(p) > VFAT_MAX_FILENAME) {
+-           dsyslog("timer file name too long for VFAT file system: '%s'", p);
+-           p[Utf8SymChars(p, VFAT_MAX_FILENAME)] = 0;
+-           dsyslog("timer file name truncated to '%s'", p);
+-           }
+-        }
+      Utf8Strn0Cpy(file, filebuffer, sizeof(file));
+      strreplace(file, '|', ':');
+      if (isnumber(channelbuffer))
+diff -ruN vdr-1.7.36/timers.h vdr-1.7.37/timers.h
+--- vdr-1.7.36/timers.h	2012-12-07 14:13:40.000000000 +0100
++++ vdr-1.7.37/timers.h	2013-02-05 12:23:24.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.h 2.5 2012/12/07 13:13:40 kls Exp $
++ * $Id: timers.h 2.6 2013/02/05 11:23:24 kls Exp $
+  */
+ 
+ #ifndef __TIMERS_H
+@@ -39,7 +39,7 @@
+   int stop;
+   int priority;
+   int lifetime;
+-  mutable char file[MaxFileName];
++  mutable char file[NAME_MAX * 2]; // *2 to be able to hold 'title' and 'episode', which can each be up to 255 characters long
+   char *aux;
+   const cEvent *event;
+ public:
+diff -ruN vdr-1.7.36/vdr.1 vdr-1.7.37/vdr.1
+--- vdr-1.7.36/vdr.1	2012-09-01 15:40:49.000000000 +0200
++++ vdr-1.7.37/vdr.1	2013-02-08 11:50:30.000000000 +0100
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.1 2.9 2012/09/01 13:40:49 kls Exp $
++.\" $Id: vdr.1 2.11 2013/02/08 10:50:30 kls Exp $
+ .\"
+ .TH vdr 1 "10 Feb 2008" "1.6" "Video Disk Recorder"
+ .SH NAME
+@@ -43,7 +43,7 @@
+ Send Dolby Digital audio to stdin of command \fIcmd\fR.
+ .TP
+ .BI \-\-cachedir= dir
+-save cache files in \fIdir\fR
++Save cache files in \fIdir\fR
+ (default is to save them in the video directory).
+ .TP
+ .BI \-c\  dir ,\ \-\-config= dir
+@@ -57,6 +57,15 @@
+ Use only the given DVB device (\fInum\fR = 0, 1, 2...).
+ There may be several \fB\-D\fR options (by default all DVB devices will be used).
+ .TP
++.BI \-\-dirnames= path[,name[,enc]]
++Set the maximum directory path length to \fIpath\fR (default is the maximum value
++allowed on the system). If \fIname\fR is also given, it defines the maximum directory
++name length (default is the maximum value allowed on the system).  The optional
++\fIenc\fR can be 0 or 1, and controls whether special characters in directory names
++are encoded as hex values (default: 0).
++The length of the video directory name and that of the actual recording directory is
++subtracted from \fIpath\fR, to make sure the directory path will never become too long.
++.TP
+ .BI \-\-edit= rec
+ Edit the given recording.
+ \fIrec\fR must be the full path name of an existing recording.
+@@ -162,7 +171,7 @@
+ more information.
+ .TP
+ .BI \-\-resdir= dir
+-read resource files from \fIdir\fR
++Read resource files from \fIdir\fR
+ (default is to read them from the config directory).
+ .TP
+ .BI \-s\  cmd ,\ \-\-shutdown= cmd
+@@ -185,11 +194,10 @@
+ operation.
+ .TP
+ .BI \-\-userdump
+-allow coredumps if -u is given (only for debugging).
++Allow coredumps if -u is given (only for debugging).
+ .TP
+ .BI \-\-vfat
+-Encode special characters in recording names to avoid problems
+-with VFAT file systems.
++For backwards compatibility (same as \-\-dirnames= 250,40,1.
+ .TP
+ .BI \-v\  dir ,\ \-\-video= dir
+ Use \fIdir\fR as video directory.
+diff -ruN vdr-1.7.36/vdr.c vdr-1.7.37/vdr.c
+--- vdr-1.7.36/vdr.c	2012-12-06 11:29:23.000000000 +0100
++++ vdr-1.7.37/vdr.c	2013-02-08 11:47:02.000000000 +0100
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 2.45 2012/12/06 10:29:23 kls Exp $
++ * $Id: vdr.c 2.48 2013/02/08 10:47:02 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -227,6 +227,7 @@
+       { "config",   required_argument, NULL, 'c' },
+       { "daemon",   no_argument,       NULL, 'd' },
+       { "device",   required_argument, NULL, 'D' },
++      { "dirnames", required_argument, NULL, 'd' | 0x100 },
+       { "edit",     required_argument, NULL, 'e' | 0x100 },
+       { "epgfile",  required_argument, NULL, 'E' },
+       { "filesize", required_argument, NULL, 'f' | 0x100 },
+@@ -266,7 +267,8 @@
+                     break;
+           case 'c': ConfigDirectory = optarg;
+                     break;
+-          case 'd': DaemonMode = true; break;
++          case 'd': DaemonMode = true;
++                    break;
+           case 'D': if (isnumber(optarg)) {
+                        int n = atoi(optarg);
+                        if (0 <= n && n < MAXDEVICES) {
+@@ -276,6 +278,43 @@
+                        }
+                     fprintf(stderr, "vdr: invalid DVB device number: %s\n", optarg);
+                     return 2;
++          case 'd' | 0x100: {
++                    char *s = optarg;
++                    int n = strtol(s, &s, 10);
++                    if (n <= 0 || n >= PATH_MAX) {
++                       fprintf(stderr, "vdr: invalid directory path length: %s\n", optarg);
++                       return 2;
++                       }
++                    DirectoryPathMax = n;
++                    if (!*s)
++                       break;
++                    if (*s++ != ',') {
++                       fprintf(stderr, "vdr: invalid delimiter: %s\n", optarg);
++                       return 2;
++                       }
++                    n = strtol(s, &s, 10);
++                    if (n <= 0 || n >= NAME_MAX) {
++                       fprintf(stderr, "vdr: invalid directory name length: %s\n", optarg);
++                       return 2;
++                       }
++                    DirectoryNameMax = n;
++                    if (!*s)
++                       break;
++                    if (*s++ != ',') {
++                       fprintf(stderr, "vdr: invalid delimiter: %s\n", optarg);
++                       return 2;
++                       }
++                    n = strtol(s, &s, 10);
++                    if (n != 0 && n != 1) {
++                       fprintf(stderr, "vdr: invalid directory encoding: %s\n", optarg);
++                       return 2;
++                       }
++                    DirectoryEncoding = n;
++                    if (*s) {
++                       fprintf(stderr, "vdr: unexpected data: %s\n", optarg);
++                       return 2;
++                       }
++                    }
+                     break;
+           case 'e' | 0x100:
+                     return CutRecording(optarg) ? 0 : 2;
+@@ -302,31 +341,30 @@
+                     fprintf(stderr, "vdr: invalid instance id: %s\n", optarg);
+                     return 2;
+           case 'l': {
+-                      char *p = strchr(optarg, '.');
+-                      if (p)
+-                         *p = 0;
+-                      if (isnumber(optarg)) {
+-                         int l = atoi(optarg);
+-                         if (0 <= l && l <= 3) {
+-                            SysLogLevel = l;
+-                            if (!p)
+-                               break;
+-                            if (isnumber(p + 1)) {
+-                               int l = atoi(p + 1);
+-                               if (0 <= l && l <= 7) {
+-                                  int targets[] = { LOG_LOCAL0, LOG_LOCAL1, LOG_LOCAL2, LOG_LOCAL3, LOG_LOCAL4, LOG_LOCAL5, LOG_LOCAL6, LOG_LOCAL7 };
+-                                  SysLogTarget = targets[l];
+-                                  break;
+-                                  }
+-                               }
+-                            }
+-                         }
++                    char *p = strchr(optarg, '.');
++                    if (p)
++                       *p = 0;
++                    if (isnumber(optarg)) {
++                       int l = atoi(optarg);
++                       if (0 <= l && l <= 3) {
++                          SysLogLevel = l;
++                          if (!p)
++                             break;
++                          if (isnumber(p + 1)) {
++                             int l = atoi(p + 1);
++                             if (0 <= l && l <= 7) {
++                                int targets[] = { LOG_LOCAL0, LOG_LOCAL1, LOG_LOCAL2, LOG_LOCAL3, LOG_LOCAL4, LOG_LOCAL5, LOG_LOCAL6, LOG_LOCAL7 };
++                                SysLogTarget = targets[l];
++                                break;
++                                }
++                             }
++                          }
++                       }
+                     if (p)
+                        *p = '.';
+                     fprintf(stderr, "vdr: invalid log level: %s\n", optarg);
+                     return 2;
+                     }
+-                    break;
+           case 'L': if (access(optarg, R_OK | X_OK) == 0)
+                        PluginManager.SetDirectory(optarg);
+                     else {
+@@ -384,7 +422,9 @@
+           case 'V': DisplayVersion = true;
+                     break;
+           case 'v' | 0x100:
+-                    VfatFileSystem = true;
++                    DirectoryPathMax = 250;
++                    DirectoryNameMax = 40;
++                    DirectoryEncoding = true;
+                     break;
+           case 'v': VideoDirectory = optarg;
+                     while (optarg && *optarg && optarg[strlen(optarg) - 1] == '/')
+@@ -399,7 +439,6 @@
+                        }
+                     fprintf(stderr, "vdr: invalid watchdog timeout: %s\n", optarg);
+                     return 2;
+-                    break;
+           default:  return 2;
+           }
+         }
+@@ -435,6 +474,13 @@
+                "  -D NUM,   --device=NUM   use only the given DVB device (NUM = 0, 1, 2...)\n"
+                "                           there may be several -D options (default: all DVB\n"
+                "                           devices will be used)\n"
++               "            --dirnames=PATH[,NAME[,ENC]]\n"
++               "                           set the maximum directory path length to PATH\n"
++               "                           (default: %d); if NAME is also given, it defines\n"
++               "                           the maximum directory name length (default: %d);\n"
++               "                           the optional ENC can be 0 or 1, and controls whether\n"
++               "                           special characters in directory names are encoded as\n"
++               "                           hex values (default: 0)\n"
+                "            --edit=REC     cut recording REC and exit\n"
+                "  -E FILE,  --epgfile=FILE write the EPG data into the given FILE (default is\n"
+                "                           '%s' in the video directory)\n"
+@@ -477,13 +523,15 @@
+                "            --userdump     allow coredumps if -u is given (debugging)\n"
+                "  -v DIR,   --video=DIR    use DIR as video directory (default: %s)\n"
+                "  -V,       --version      print version information and exit\n"
+-               "            --vfat         encode special characters in recording names to\n"
+-               "                           avoid problems with VFAT file systems\n"
++               "            --vfat         for backwards compatibility (same as\n"
++               "                           --dirnames=250,40,1\n"
+                "  -w SEC,   --watchdog=SEC activate the watchdog timer with a timeout of SEC\n"
+                "                           seconds (default: %d); '0' disables the watchdog\n"
+                "\n",
+                DEFAULTCACHEDIR,
+                DEFAULTCONFDIR,
++               PATH_MAX,
++               NAME_MAX,
+                DEFAULTEPGDATAFILENAME,
+                MAXVIDEOFILESIZEDEFAULT,
+                DEFAULTPLUGINDIR,
+@@ -924,7 +972,7 @@
+                               Device->SetOccupied(TIMERDEVICETIMEOUT);
+                            }
+                         if (cDevice::PrimaryDevice()->HasDecoder() && HadProgramme && !cDevice::PrimaryDevice()->HasProgramme())
+-                           Skins.Message(mtInfo, tr("Upcoming recording!")); // the previous SwitchChannel() has switched away the current live channel
++                           Skins.QueueMessage(mtInfo, tr("Upcoming recording!")); // the previous SwitchChannel() has switched away the current live channel
+                         }
+                      }
+                   }
+@@ -1095,7 +1143,7 @@
+                   if (Setup.PauseKeyHandling) {
+                      if (Setup.PauseKeyHandling > 1 || Interface->Confirm(tr("Pause live video?"))) {
+                         if (!cRecordControls::PauseLiveVideo())
+-                           Skins.Message(mtError, tr("No free DVB device to record!"));
++                           Skins.QueueMessage(mtError, tr("No free DVB device to record!"));
+                         }
+                      }
+                   key = kNone; // nobody else needs to see this key
+@@ -1105,7 +1153,7 @@
+           case kRecord:
+                if (!cControl::Control()) {
+                   if (cRecordControls::Start())
+-                     Skins.Message(mtInfo, tr("Recording started"));
++                     Skins.QueueMessage(mtInfo, tr("Recording started"));
+                   key = kNone; // nobody else needs to see this key
+                   }
+                break;
+@@ -1157,11 +1205,11 @@
+            switch (state) {
+              case osPause:  DELETE_MENU;
+                             if (!cRecordControls::PauseLiveVideo())
+-                               Skins.Message(mtError, tr("No free DVB device to record!"));
++                               Skins.QueueMessage(mtError, tr("No free DVB device to record!"));
+                             break;
+              case osRecord: DELETE_MENU;
+                             if (cRecordControls::Start())
+-                               Skins.Message(mtInfo, tr("Recording started"));
++                               Skins.QueueMessage(mtInfo, tr("Recording started"));
+                             break;
+              case osRecordings:
+                             DELETE_MENU;
+@@ -1179,7 +1227,7 @@
+              case osSwitchDvb:
+                             DELETE_MENU;
+                             cControl::Shutdown();
+-                            Skins.Message(mtInfo, tr("Switching primary DVB..."));
++                            Skins.QueueMessage(mtInfo, tr("Switching primary DVB..."));
+                             cDevice::SetPrimaryDevice(Setup.PrimaryDVB);
+                             break;
+              case osPlugin: DELETE_MENU;
+@@ -1249,9 +1297,9 @@
+               EITScanner.Process();
+            if (!cCutter::Active() && cCutter::Ended()) {
+               if (cCutter::Error())
+-                 Skins.Message(mtError, tr("Editing process failed!"));
++                 Skins.QueueMessage(mtError, tr("Editing process failed!"));
+               else
+-                 Skins.Message(mtInfo, tr("Editing process finished"));
++                 Skins.QueueMessage(mtInfo, tr("Editing process finished"));
+               }
+            }
+ 

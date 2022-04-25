@@ -1,0 +1,1522 @@
+diff -ruN vdr-2.3.5/CONTRIBUTORS vdr-2.3.6/CONTRIBUTORS
+--- vdr-2.3.5/CONTRIBUTORS	2017-05-22 22:21:30.000000000 +0200
++++ vdr-2.3.6/CONTRIBUTORS	2017-06-02 11:45:45.000000000 +0200
+@@ -2858,6 +2858,8 @@
+  for suggesting to change the naming of "binary skip mode" to "adaptive skip mode"
+  for suggesting to make the -u option also accept a numerical user id
+  for reporting a problem with abs() in gcc6+ when called with an unsigned variable
++ for reporting a deadlock after the fix for a race between SVDRP CHAN and
++ cDevice::HasProgramme()
+ 
+ Marcel Unbehaun <frostworks@gmx.de>
+  for adding cRecordingInfo::GetEvent()
+@@ -3424,6 +3426,11 @@
+  debugging MTD support
+  for fixing selecting delivery system names in case of undefined indexes
+  for fixing detecting the inclusion of STL header files in tools.h
++ for help and suggestions when implementing debug output for checking the correct
++ sequence of locking global lists
++ for suggesting to use $(Q) to control Makefile verbosity
++ for adding handling DEBUG to the Make.config.template file, in order to control
++ code optimization
+ 
+ Martin Schirrmacher <schirrmie@gmail.com>
+  for suggesting to provide a way for skin plugins to get informed about the currently
+diff -ruN vdr-2.3.5/HISTORY vdr-2.3.6/HISTORY
+--- vdr-2.3.5/HISTORY	2017-05-25 11:08:46.000000000 +0200
++++ vdr-2.3.6/HISTORY	2017-06-04 11:35:18.000000000 +0200
+@@ -9055,3 +9055,50 @@
+   The newplugin script has also been modified accordingly.
+ - Fixed detecting the inclusion of STL header files in tools.h (thanks to Jasmin
+   Jessich).
++
++2017-06-04: Version 2.3.6
++
++- Added backtrace functions for debugging (see cBackTrace in thread.h).
++- Added checking the correct sequence of locking global lists (with help and
++  suggestions from Jasmin Jessich). At the first occurrence of an invalid locking
++  sequence, the 20 most recent locks will be written to the log file, followed by a
++  backtrace that led to the call in question. This code can be activated by defining
++  the macro DEBUG_LOCKSEQ in thread.c (which is on by default).
++  When debugging an actual invalid locking sequence, you can additionally define
++  the macro DEBUG_LOCKCALL in thread.c, which will add information about the caller
++  of each lock. Note that this may cause some stress on the CPU, therefore it is off
++  by default.
++- The file Make.config.template now reacts on DEBUG=1 in the 'make' command line,
++  and disables code optimizations by setting -O0 (thanks to Jasmin Jessich).
++  This can be helpful when backtracing highly optimized code. You may want to
++  'make distclean' before running 'make' with a modified setting of DEBUG, to make
++  sure all object files are newly compiled.
++- Fixed the locking sequence when dumping EPG data.
++- Fixed the locking sequence when starting a recording.
++- The Makefiles now use the macro $(Q) instead of a plain '@' in front of their
++  commands, so that verbosity can be controlled by the user (suggested by Jasmin
++  Jessich). Add VERBOSE=1 to the 'make' call in the VDR source directory to see the
++  actual commands that are executed.
++  Plugin authors should modify their makefiles accordingly, by simply preceeding
++  the respective commands with '$(Q)' and inserting '@echo XX $@' (where XX is one
++  of the character combinations listed in the release note for version 2.3.5) before
++  the command.
++  The newplugin script has also been modified accordingly.
++  Note that if you build a plugin directly in the plugin's own source directory,
++  the $(Q) macro won't be defined and commands will be displayed. You can add
++  Q=@ to the make call to have it less verbose (provided the plugin's Makefile
++  was modified as described above).
++- Added clearing CiResourceHandlers before shutting down the plugin manager.
++- Fixed a double channel switch when pressing the Channel+/- keys while no menu
++  or channel display is open.
++- Fixed generating k_Release key events for LIRC remote controls (due to the short
++  timeout another normal key was sometimes put into the queue after the generated
++  release). Also removed some code redundancy and added some buffer checks.
++- Now using a separate mutex to fix the race between SVDRP CHAN and
++  cDevice::HasProgramme(), because the previous fix caused a deadlock (reported by
++  Derek Kelly).
++- Fixed a possible crash in case the SVDRP connection to a peer VDR is terminated
++  while getting remote timers.
++- Fixed the locking sequence when creating a new timer from the Schedules menu.
++- Fixed the locking sequence when switching between 'Now', 'Next' and 'Schedule'
++  in the Schedules menu.
+diff -ruN vdr-2.3.5/Make.config.template vdr-2.3.6/Make.config.template
+--- vdr-2.3.5/Make.config.template	2015-02-09 10:58:45.000000000 +0100
++++ vdr-2.3.6/Make.config.template	2017-06-02 11:29:54.000000000 +0200
+@@ -6,7 +6,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Make.config.template 4.0 2015/02/09 09:58:45 kls Exp $
++# $Id: Make.config.template 4.1 2017/06/02 09:29:54 kls Exp $
+ 
+ ### The C compiler and options:
+ 
+@@ -16,6 +16,12 @@
+ CXX      = g++
+ CXXFLAGS = -g -O3 -Wall -Werror=overloaded-virtual -Wno-parentheses
+ 
++# Use 'make DEBUG=1 ...' to build a debug version of VDR and plugins:
++ifdef DEBUG
++CFLAGS   += -O0
++CXXFLAGS += -O0
++endif
++
+ # Use 'make M32=1 ...' to build a 32-bit version of VDR on a 64-bit machine:
+ ifdef M32
+ CFLAGS   += -m32
+diff -ruN vdr-2.3.5/Makefile vdr-2.3.6/Makefile
+--- vdr-2.3.5/Makefile	2017-05-22 17:33:30.000000000 +0200
++++ vdr-2.3.6/Makefile	2017-05-29 10:48:42.000000000 +0200
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 4.4 2017/05/22 15:33:30 kls Exp $
++# $Id: Makefile 4.5 2017/05/29 08:48:42 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -52,6 +52,15 @@
+ 
+ -include Make.config
+ 
++# Output control
++
++ifdef VERBOSE
++Q =
++else
++Q = @
++endif
++export Q
++
+ # Mandatory compiler flags:
+ 
+ CFLAGS   += -fPIC
+@@ -122,7 +131,7 @@
+ 
+ %.o: %.c
+ 	@echo CC $@
+-	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	$(Q)$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ # Dependencies:
+ 
+@@ -137,7 +146,7 @@
+ 
+ vdr: $(OBJS) $(SILIB)
+ 	@echo LD $@
+-	@$(CXX) $(CXXFLAGS) -rdynamic $(LDFLAGS) $(OBJS) $(LIBS) $(SILIB) -o vdr
++	$(Q)$(CXX) $(CXXFLAGS) -rdynamic $(LDFLAGS) $(OBJS) $(LIBS) $(SILIB) -o vdr
+ 
+ # The libsi library:
+ 
+@@ -180,20 +189,20 @@
+ 
+ %.mo: %.po
+ 	@echo MO $@
+-	@msgfmt -c -o $@ $<
++	$(Q)msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+ 	@echo GT $@
+-	@xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ `ls $^`
++	$(Q)xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ `ls $^`
+ 
+ %.po: $(I18Npot)
+ 	@echo PO $@
+-	@msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
++	$(Q)msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
+ 	@touch $@
+ 
+ $(I18Nmsgs): $(LOCALEDIR)/%/LC_MESSAGES/vdr.mo: $(PODIR)/%.mo
+ 	@echo IN $@
+-	@install -D -m644 $< $@
++	$(Q)install -D -m644 $< $@
+ 
+ .PHONY: i18n
+ i18n: $(I18Nmsgs)
+diff -ruN vdr-2.3.5/PLUGINS/src/epgtableid0/Makefile vdr-2.3.6/PLUGINS/src/epgtableid0/Makefile
+--- vdr-2.3.5/PLUGINS/src/epgtableid0/Makefile	2017-05-22 17:30:42.000000000 +0200
++++ vdr-2.3.6/PLUGINS/src/epgtableid0/Makefile	2017-05-29 10:30:00.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.1 2017/05/22 15:30:42 kls Exp $
++# $Id: Makefile 4.2 2017/05/29 08:30:00 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -62,7 +62,7 @@
+ 
+ %.o: %.c
+ 	@echo CC $@
+-	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	$(Q)$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -77,7 +77,7 @@
+ 
+ $(SOFILE): $(OBJS)
+ 	@echo LD $@
+-	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
++	$(Q)$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+diff -ruN vdr-2.3.5/PLUGINS/src/hello/Makefile vdr-2.3.6/PLUGINS/src/hello/Makefile
+--- vdr-2.3.5/PLUGINS/src/hello/Makefile	2017-05-22 17:32:10.000000000 +0200
++++ vdr-2.3.6/PLUGINS/src/hello/Makefile	2017-05-29 10:26:45.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.1 2017/05/22 15:32:10 kls Exp $
++# $Id: Makefile 4.2 2017/05/29 08:26:45 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -63,7 +63,7 @@
+ 
+ %.o: %.c
+ 	@echo CC $@
+-	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	$(Q)$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -84,15 +84,15 @@
+ 
+ %.mo: %.po
+ 	@echo MO $@
+-	@msgfmt -c -o $@ $<
++	$(Q)msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+ 	@echo GT $@
+-	@xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-$(PLUGIN) --package-version=$(VERSION) --msgid-bugs-address='<see README>' -o $@ `ls $^`
++	$(Q)xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-$(PLUGIN) --package-version=$(VERSION) --msgid-bugs-address='<see README>' -o $@ `ls $^`
+ 
+ %.po: $(I18Npot)
+ 	@echo PO $@
+-	@msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
++	$(Q)msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
+ 	@touch $@
+ 
+ $(I18Nmsgs): $(DESTDIR)$(LOCDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
+@@ -107,7 +107,7 @@
+ 
+ $(SOFILE): $(OBJS)
+ 	@echo LD $@
+-	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
++	$(Q)$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+diff -ruN vdr-2.3.5/PLUGINS/src/osddemo/Makefile vdr-2.3.6/PLUGINS/src/osddemo/Makefile
+--- vdr-2.3.5/PLUGINS/src/osddemo/Makefile	2017-05-22 17:30:47.000000000 +0200
++++ vdr-2.3.6/PLUGINS/src/osddemo/Makefile	2017-05-29 10:30:08.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.1 2017/05/22 15:30:47 kls Exp $
++# $Id: Makefile 4.2 2017/05/29 08:30:08 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -62,7 +62,7 @@
+ 
+ %.o: %.c
+ 	@echo CC $@
+-	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	$(Q)$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -77,7 +77,7 @@
+ 
+ $(SOFILE): $(OBJS)
+ 	@echo LD $@
+-	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
++	$(Q)$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+diff -ruN vdr-2.3.5/PLUGINS/src/pictures/Makefile vdr-2.3.6/PLUGINS/src/pictures/Makefile
+--- vdr-2.3.5/PLUGINS/src/pictures/Makefile	2017-05-22 17:31:28.000000000 +0200
++++ vdr-2.3.6/PLUGINS/src/pictures/Makefile	2017-05-29 10:30:55.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.1 2017/05/22 15:31:28 kls Exp $
++# $Id: Makefile 4.2 2017/05/29 08:30:55 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -63,7 +63,7 @@
+ 
+ %.o: %.c
+ 	@echo CC $@
+-	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	$(Q)$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -84,15 +84,15 @@
+ 
+ %.mo: %.po
+ 	@echo MO $@
+-	@msgfmt -c -o $@ $<
++	$(Q)msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+ 	@echo GT $@
+-	@xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-$(PLUGIN) --package-version=$(VERSION) --msgid-bugs-address='<see README>' -o $@ `ls $^`
++	$(Q)xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-$(PLUGIN) --package-version=$(VERSION) --msgid-bugs-address='<see README>' -o $@ `ls $^`
+ 
+ %.po: $(I18Npot)
+ 	@echo PO $@
+-	@msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
++	$(Q)msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
+ 	@touch $@
+ 
+ $(I18Nmsgs): $(DESTDIR)$(LOCDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
+@@ -107,7 +107,7 @@
+ 
+ $(SOFILE): $(OBJS)
+ 	@echo LD $@
+-	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
++	$(Q)$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+diff -ruN vdr-2.3.5/PLUGINS/src/servicedemo/Makefile vdr-2.3.6/PLUGINS/src/servicedemo/Makefile
+--- vdr-2.3.5/PLUGINS/src/servicedemo/Makefile	2017-05-22 17:31:59.000000000 +0200
++++ vdr-2.3.6/PLUGINS/src/servicedemo/Makefile	2017-05-29 10:31:07.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.1 2017/05/22 15:31:59 kls Exp $
++# $Id: Makefile 4.2 2017/05/29 08:31:07 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -59,7 +59,7 @@
+ 
+ %.o: %.c
+ 	@echo CC $@
+-	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	$(Q)$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -74,11 +74,11 @@
+ 
+ libvdr-$(PLUGIN1).so: $(PLUGIN1).o
+ 	@echo LD $@
+-	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(PLUGIN1).o -o $@
++	$(Q)$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(PLUGIN1).o -o $@
+ 
+ libvdr-$(PLUGIN2).so: $(PLUGIN2).o
+ 	@echo LD $@
+-	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(PLUGIN2).o -o $@
++	$(Q)$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(PLUGIN2).o -o $@
+ 
+ install-lib: libvdr-$(PLUGIN1).so libvdr-$(PLUGIN2).so
+ 	install -D libvdr-$(PLUGIN1).so $(DESTDIR)$(LIBDIR)/libvdr-$(PLUGIN1).so.$(APIVERSION)
+diff -ruN vdr-2.3.5/PLUGINS/src/skincurses/Makefile vdr-2.3.6/PLUGINS/src/skincurses/Makefile
+--- vdr-2.3.5/PLUGINS/src/skincurses/Makefile	2017-05-22 17:31:47.000000000 +0200
++++ vdr-2.3.6/PLUGINS/src/skincurses/Makefile	2017-05-29 10:31:02.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.1 2017/05/22 15:31:47 kls Exp $
++# $Id: Makefile 4.2 2017/05/29 08:31:02 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -63,7 +63,7 @@
+ 
+ %.o: %.c
+ 	@echo CC $@
+-	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	$(Q)$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -84,15 +84,15 @@
+ 
+ %.mo: %.po
+ 	@echo MO $@
+-	@msgfmt -c -o $@ $<
++	$(Q)msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+ 	@echo GT $@
+-	@xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-$(PLUGIN) --package-version=$(VERSION) --msgid-bugs-address='<see README>' -o $@ `ls $^`
++	$(Q)xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-$(PLUGIN) --package-version=$(VERSION) --msgid-bugs-address='<see README>' -o $@ `ls $^`
+ 
+ %.po: $(I18Npot)
+ 	@echo PO $@
+-	@msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
++	$(Q)msgmerge -U --no-wrap --no-location --backup=none -q -N $@ $<
+ 	@touch $@
+ 
+ $(I18Nmsgs): $(DESTDIR)$(LOCDIR)/%/LC_MESSAGES/vdr-$(PLUGIN).mo: $(PODIR)/%.mo
+@@ -107,7 +107,7 @@
+ 
+ $(SOFILE): $(OBJS)
+ 	@echo LD $@
+-	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -lncursesw -o $@
++	$(Q)$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -lncursesw -o $@
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+diff -ruN vdr-2.3.5/PLUGINS/src/status/Makefile vdr-2.3.6/PLUGINS/src/status/Makefile
+--- vdr-2.3.5/PLUGINS/src/status/Makefile	2017-05-22 17:30:58.000000000 +0200
++++ vdr-2.3.6/PLUGINS/src/status/Makefile	2017-05-29 10:30:32.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.1 2017/05/22 15:30:58 kls Exp $
++# $Id: Makefile 4.2 2017/05/29 08:30:32 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -62,7 +62,7 @@
+ 
+ %.o: %.c
+ 	@echo CC $@
+-	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	$(Q)$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -77,7 +77,7 @@
+ 
+ $(SOFILE): $(OBJS)
+ 	@echo LD $@
+-	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
++	$(Q)$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+diff -ruN vdr-2.3.5/PLUGINS/src/svdrpdemo/Makefile vdr-2.3.6/PLUGINS/src/svdrpdemo/Makefile
+--- vdr-2.3.5/PLUGINS/src/svdrpdemo/Makefile	2017-05-22 17:31:19.000000000 +0200
++++ vdr-2.3.6/PLUGINS/src/svdrpdemo/Makefile	2017-05-29 10:30:42.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.1 2017/05/22 15:31:19 kls Exp $
++# $Id: Makefile 4.2 2017/05/29 08:30:42 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -62,7 +62,7 @@
+ 
+ %.o: %.c
+ 	@echo CC $@
+-	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
++	$(Q)$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+@@ -77,7 +77,7 @@
+ 
+ $(SOFILE): $(OBJS)
+ 	@echo LD $@
+-	@$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
++	$(Q)$(CXX) $(CXXFLAGS) $(LDFLAGS) -shared $(OBJS) -o $@
+ 
+ install-lib: $(SOFILE)
+ 	install -D $^ $(DESTDIR)$(LIBDIR)/$^.$(APIVERSION)
+diff -ruN vdr-2.3.5/channels.c vdr-2.3.6/channels.c
+--- vdr-2.3.5/channels.c	2015-09-09 12:21:22.000000000 +0200
++++ vdr-2.3.6/channels.c	2017-05-26 17:43:54.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 4.3 2015/09/09 10:21:22 kls Exp $
++ * $Id: channels.c 4.4 2017/05/26 15:43:54 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -833,7 +833,7 @@
+ int cChannels::maxShortChannelNameLength = 0;
+ 
+ cChannels::cChannels(void)
+-:cConfig<cChannel>("Channels")
++:cConfig<cChannel>("2 Channels")
+ {
+   modifiedByUser = 0;
+ }
+diff -ruN vdr-2.3.5/config.h vdr-2.3.6/config.h
+--- vdr-2.3.5/config.h	2017-04-29 15:33:13.000000000 +0200
++++ vdr-2.3.6/config.h	2017-05-28 14:42:49.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 4.9 2017/04/29 13:33:13 kls Exp $
++ * $Id: config.h 4.10 2017/05/28 12:42:49 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.3.5"
+-#define VDRVERSNUM   20305  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.3.6"
++#define VDRVERSNUM   20306  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "2.3.5"
+-#define APIVERSNUM   20305  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "2.3.6"
++#define APIVERSNUM   20306  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-2.3.5/device.c vdr-2.3.6/device.c
+--- vdr-2.3.5/device.c	2017-05-18 11:27:55.000000000 +0200
++++ vdr-2.3.6/device.c	2017-05-30 13:06:11.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 4.22 2017/05/18 09:27:55 kls Exp $
++ * $Id: device.c 4.23 2017/05/30 11:06:11 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -834,7 +834,7 @@
+ 
+ eSetChannelResult cDevice::SetChannel(const cChannel *Channel, bool LiveView)
+ {
+-  cMutexLock MutexLock(&mutexReceiver); // to avoid a race between SVDRP CHAN and HasProgramme()
++  cMutexLock MutexLock(&mutexChannel); // to avoid a race between SVDRP CHAN and HasProgramme()
+   cStatus::MsgChannelSwitch(this, 0, LiveView);
+ 
+   if (LiveView) {
+@@ -947,7 +947,7 @@
+ 
+ bool cDevice::HasProgramme(void) const
+ {
+-  cMutexLock MutexLock(&mutexReceiver); // to avoid a race between SVDRP CHAN and HasProgramme()
++  cMutexLock MutexLock(&mutexChannel); // to avoid a race between SVDRP CHAN and HasProgramme()
+   return Replaying() || pidHandles[ptAudio].pid || pidHandles[ptVideo].pid;
+ }
+ 
+diff -ruN vdr-2.3.5/device.h vdr-2.3.6/device.h
+--- vdr-2.3.5/device.h	2017-05-09 13:24:47.000000000 +0200
++++ vdr-2.3.6/device.h	2017-05-30 13:06:11.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 4.9 2017/05/09 11:24:47 kls Exp $
++ * $Id: device.h 4.10 2017/05/30 11:06:11 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -257,6 +257,7 @@
+ // Channel facilities
+ 
+ private:
++  mutable cMutex mutexChannel;
+   time_t occupiedTimeout;
+ protected:
+   static int currentChannel;
+diff -ruN vdr-2.3.5/epg.c vdr-2.3.6/epg.c
+--- vdr-2.3.5/epg.c	2017-05-09 14:16:36.000000000 +0200
++++ vdr-2.3.6/epg.c	2017-05-28 15:08:09.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 4.6 2017/05/09 12:16:36 kls Exp $
++ * $Id: epg.c 4.8 2017/05/28 13:08:09 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -1104,9 +1104,8 @@
+         }
+ }
+ 
+-void cSchedule::Dump(FILE *f, const char *Prefix, eDumpMode DumpMode, time_t AtTime) const
++void cSchedule::Dump(const cChannels *Channels, FILE *f, const char *Prefix, eDumpMode DumpMode, time_t AtTime) const
+ {
+-  LOCK_CHANNELS_READ;
+   if (const cChannel *Channel = Channels->GetByChannelID(channelID, true)) {
+      fprintf(f, "%sC %s %s\n", Prefix, *Channel->GetChannelID().ToString(), Channel->Name());
+      const cEvent *p;
+@@ -1225,7 +1224,7 @@
+ time_t cSchedules::lastDump = time(NULL);
+ 
+ cSchedules::cSchedules(void)
+-:cList<cSchedule>("Schedules")
++:cList<cSchedule>("5 Schedules")
+ {
+ }
+ 
+@@ -1280,9 +1279,10 @@
+         return false;
+         }
+      }
++  LOCK_CHANNELS_READ;
+   LOCK_SCHEDULES_READ;
+   for (const cSchedule *p = Schedules->First(); p; p = Schedules->Next(p))
+-      p->Dump(f, Prefix, DumpMode, AtTime);
++      p->Dump(Channels, f, Prefix, DumpMode, AtTime);
+   if (sf) {
+      sf->Close();
+      delete sf;
+diff -ruN vdr-2.3.5/epg.h vdr-2.3.6/epg.h
+--- vdr-2.3.5/epg.h	2017-05-09 14:15:14.000000000 +0200
++++ vdr-2.3.6/epg.h	2017-05-28 14:59:20.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.h 4.6 2017/05/09 12:15:14 kls Exp $
++ * $Id: epg.h 4.7 2017/05/28 12:59:20 kls Exp $
+  */
+ 
+ #ifndef __EPG_H
+@@ -185,7 +185,7 @@
+   const cEvent *GetFollowingEvent(void) const;
+   const cEvent *GetEvent(tEventID EventID, time_t StartTime = 0) const;
+   const cEvent *GetEventAround(time_t Time) const;
+-  void Dump(FILE *f, const char *Prefix = "", eDumpMode DumpMode = dmAll, time_t AtTime = 0) const;
++  void Dump(const cChannels *Channels, FILE *f, const char *Prefix = "", eDumpMode DumpMode = dmAll, time_t AtTime = 0) const;
+   static bool Read(FILE *f, cSchedules *Schedules);
+   };
+ 
+diff -ruN vdr-2.3.5/libsi/Makefile vdr-2.3.6/libsi/Makefile
+--- vdr-2.3.5/libsi/Makefile	2017-05-22 17:33:20.000000000 +0200
++++ vdr-2.3.6/libsi/Makefile	2017-05-29 10:33:15.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a libsi
+ #
+-# $Id: Makefile 4.1 2017/05/22 15:33:20 kls Exp $
++# $Id: Makefile 4.2 2017/05/29 08:33:15 kls Exp $
+ 
+ ### The archiver options:
+ 
+@@ -37,7 +37,7 @@
+ 
+ libsi.a : $(OBJS)
+ 	@echo AR libsi/$@
+-	@$(AR) $(ARFLAGS) $@ $(OBJS)
++	$(Q)$(AR) $(ARFLAGS) $@ $(OBJS)
+ 
+ clean:
+ 	@-rm -f $(OBJS) $(DEPFILE) *.a *.so *.tgz core* *~
+diff -ruN vdr-2.3.5/lirc.c vdr-2.3.6/lirc.c
+--- vdr-2.3.5/lirc.c	2013-10-29 13:32:12.000000000 +0100
++++ vdr-2.3.6/lirc.c	2017-05-30 13:02:17.000000000 +0200
+@@ -6,7 +6,7 @@
+  *
+  * LIRC support added by Carsten Koch <Carsten.Koch@icem.de>  2000-06-16.
+  *
+- * $Id: lirc.c 4.0 2013/10/29 12:32:12 kls Exp $
++ * $Id: lirc.c 4.1 2017/05/30 11:02:17 kls Exp $
+  */
+ 
+ #include "lirc.h"
+@@ -20,7 +20,7 @@
+ ,cThread("LIRC remote control")
+ {
+   addr.sun_family = AF_UNIX;
+-  strcpy(addr.sun_path, DeviceName);
++  strn0cpy(addr.sun_path, DeviceName, sizeof(addr.sun_path));
+   if (!Connect())
+      f = -1;
+   Start();
+@@ -94,12 +94,12 @@
+               }
+            int Delta = ThisTime.Elapsed(); // the time between two subsequent LIRC events
+            ThisTime.Set();
+-           if (count == 0) {
++           if (count == 0) { // new key pressed
+               if (strcmp(KeyName, LastKeyName) == 0 && FirstTime.Elapsed() < (uint)Setup.RcRepeatDelay)
+                  continue; // skip keys coming in too fast
+               if (repeat)
+-                 Put(LastKeyName, false, true);
+-              strcpy(LastKeyName, KeyName);
++                 Put(LastKeyName, false, true); // generated release for previous repeated key
++              strn0cpy(LastKeyName, KeyName, sizeof(LastKeyName));
+               pressed = true;
+               repeat = false;
+               FirstTime.Set();
+@@ -112,21 +112,16 @@
+            else {
+               pressed = true;
+               repeat = true;
+-              timeout = Delta * 10 / 9;
++              timeout = Delta * 3 / 2;
+               }
+            if (pressed) {
+               LastTime.Set();
+               Put(KeyName, repeat);
+               }
+            }
+-        else if (pressed && repeat) { // the last one was a repeat, so let's generate a release
+-           Put(LastKeyName, false, true);
+-           pressed = false;
+-           repeat = false;
+-           *LastKeyName = 0;
+-           timeout = -1;
+-           }
+         else {
++           if (pressed && repeat) // the last one was a repeat, so let's generate a release
++              Put(LastKeyName, false, true);
+            pressed = false;
+            repeat = false;
+            *LastKeyName = 0;
+diff -ruN vdr-2.3.5/menu.c vdr-2.3.6/menu.c
+--- vdr-2.3.5/menu.c	2017-05-21 15:18:26.000000000 +0200
++++ vdr-2.3.6/menu.c	2017-06-04 11:30:56.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 4.29 2017/05/21 13:18:26 kls Exp $
++ * $Id: menu.c 4.32 2017/06/04 09:30:56 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -1550,7 +1550,7 @@
+   static int currentChannel;
+   static const cEvent *scheduleEvent;
+   bool Update(void);
+-  void SetHelpKeys(void);
++  void SetHelpKeys(const cChannels *Channels);
+ public:
+   cMenuWhatsOn(const cTimers *Timers, const cChannels *Channels, const cSchedules *Schedules, bool Now, int CurrentChannelNr);
+   static int CurrentChannel(void) { return currentChannel; }
+@@ -1579,7 +1579,7 @@
+       }
+   currentChannel = CurrentChannelNr;
+   Display();
+-  SetHelpKeys();
++  SetHelpKeys(Channels);
+ }
+ 
+ bool cMenuWhatsOn::Update(void)
+@@ -1595,7 +1595,7 @@
+   return result;
+ }
+ 
+-void cMenuWhatsOn::SetHelpKeys(void)
++void cMenuWhatsOn::SetHelpKeys(const cChannels *Channels)
+ {
+   cMenuScheduleItem *item = (cMenuScheduleItem *)Get(Current());
+   canSwitch = false;
+@@ -1609,7 +1609,6 @@
+         NewHelpKeys |= 0x04; // "Next"
+      else
+         NewHelpKeys |= 0x08; // "Now"
+-     LOCK_CHANNELS_READ;
+      if (const cChannel *Channel = Channels->GetByChannelID(item->event->ChannelID(), true)) {
+         if (Channel->Number() != cDevice::CurrentChannel()) {
+            NewHelpKeys |= 0x10; // "Switch"
+@@ -1651,8 +1650,8 @@
+ eOSState cMenuWhatsOn::Record(void)
+ {
+   if (cMenuScheduleItem *item = (cMenuScheduleItem *)Get(Current())) {
+-     {
+        LOCK_TIMERS_WRITE;
++       LOCK_CHANNELS_READ;
+        LOCK_SCHEDULES_READ;
+        Timers->SetExplicitModify();
+        if (item->timerMatch == tmFull) {
+@@ -1675,12 +1674,11 @@
+           // must add the timer before HandleRemoteModifications to get proper log messages with timer ids
+           Timers->Del(Timer);
+           }
+-     }
+      if (HasSubMenu())
+         CloseSubMenu();
+      if (Update())
+         Display();
+-     SetHelpKeys();
++     SetHelpKeys(Channels);
+      }
+   return osContinue;
+ }
+@@ -1715,7 +1713,8 @@
+                             if (((cMenuScheduleItem *)item)->channel->Number() == cDevice::CurrentChannel()) {
+                                SetCurrent(item);
+                                Display();
+-                               SetHelpKeys();
++                               LOCK_CHANNELS_READ;
++                               SetHelpKeys(Channels);
+                                break;
+                                }
+                             }
+@@ -1734,8 +1733,10 @@
+   else if (!HasSubMenu()) {
+      if (HadSubMenu && Update())
+         Display();
+-     if (Key != kNone)
+-        SetHelpKeys();
++     if (Key != kNone) {
++        LOCK_CHANNELS_READ;
++        SetHelpKeys(Channels);
++        }
+      }
+   return state;
+ }
+@@ -1750,7 +1751,7 @@
+   bool now, next;
+   bool canSwitch;
+   int helpKeys;
+-  void Set(const cChannel *Channel = NULL, bool Force = false);
++  void Set(const cTimers *Timers, const cChannels *Channels, const cChannel *Channel = NULL, bool Force = false);
+   eOSState Number(void);
+   eOSState Record(void);
+   eOSState Switch(void);
+@@ -1776,7 +1777,9 @@
+   helpKeys = 0;
+   cMenuScheduleItem::SetSortMode(cMenuScheduleItem::ssmAllThis);
+   cMenuWhatsOn::SetCurrentChannel(cDevice::CurrentChannel());
+-  Set(NULL, true);
++  LOCK_TIMERS_READ;
++  LOCK_CHANNELS_READ;
++  Set(Timers, Channels, NULL, true);
+ }
+ 
+ cMenuSchedule::~cMenuSchedule()
+@@ -1784,14 +1787,12 @@
+   cMenuWhatsOn::ScheduleEvent(); // makes sure any posted data is cleared
+ }
+ 
+-void cMenuSchedule::Set(const cChannel *Channel, bool Force)
++void cMenuSchedule::Set(const cTimers *Timers, const cChannels *Channels, const cChannel *Channel, bool Force)
+ {
+   if (Force) {
+      schedulesStateKey.Reset();
+      scheduleState = -1;
+      }
+-  LOCK_TIMERS_READ;
+-  LOCK_CHANNELS_READ;
+   if (const cSchedules *Schedules = cSchedules::GetSchedulesRead(schedulesStateKey)) {
+      cMenuScheduleItem *CurrentItem = (cMenuScheduleItem *)Get(Current());
+      const cEvent *Event = NULL;
+@@ -1941,7 +1942,9 @@
+ eOSState cMenuSchedule::Number(void)
+ {
+   cMenuScheduleItem::IncSortMode();
+-  Set(NULL, true);
++  LOCK_TIMERS_READ;
++  LOCK_CHANNELS_READ;
++  Set(Timers, Channels, NULL, true);
+   return osContinue;
+ }
+ 
+@@ -1950,6 +1953,7 @@
+   if (cMenuScheduleItem *item = (cMenuScheduleItem *)Get(Current())) {
+      {
+        LOCK_TIMERS_WRITE;
++       LOCK_CHANNELS_READ;
+        LOCK_SCHEDULES_READ;
+        Timers->SetExplicitModify();
+        if (item->timerMatch == tmFull) {
+@@ -2001,8 +2005,11 @@
+ 
+ eOSState cMenuSchedule::ProcessKey(eKeys Key)
+ {
+-  if (!HasSubMenu())
+-     Set(); // react on any changes to the schedules list
++  if (!HasSubMenu()) {
++     LOCK_TIMERS_READ;
++     LOCK_CHANNELS_READ;
++     Set(Timers, Channels); // react on any changes to the schedules list
++     }
+   bool HadSubMenu = HasSubMenu();
+   eOSState state = cOsdMenu::ProcessKey(Key);
+ 
+@@ -2041,9 +2048,10 @@
+        case kChanUp:
+        case kChanDn|k_Repeat:
+        case kChanDn: if (!HasSubMenu()) {
++                        LOCK_TIMERS_READ;
+                         LOCK_CHANNELS_READ;
+                         if (const cChannel *Channel = Channels->GetByNumber(cDevice::CurrentChannel()))
+-                           Set(Channel, true);
++                           Set(Timers, Channels, Channel, true);
+                         }
+                      break;
+        case kInfo:
+@@ -2060,10 +2068,11 @@
+   else if (!HasSubMenu()) {
+      now = next = false;
+      if (const cEvent *ei = cMenuWhatsOn::ScheduleEvent()) {
++        LOCK_TIMERS_READ;
+         LOCK_CHANNELS_READ;
+         if (const cChannel *Channel = Channels->GetByChannelID(ei->ChannelID(), true)) {
+            cMenuScheduleItem::SetSortMode(cMenuScheduleItem::ssmAllThis);
+-           Set(Channel, true);
++           Set(Timers, Channels, Channel, true);
+            }
+         }
+      else if (HadSubMenu && Update())
+@@ -5056,7 +5065,8 @@
+   Timers->SetModified();
+   // We're going to work with an event here, so we need to prevent
+   // others from modifying any EPG data:
+-  LOCK_SCHEDULES_READ;
++  cStateKey SchedulesStateKey;
++  cSchedules::GetSchedulesRead(SchedulesStateKey);
+ 
+   event = NULL;
+   fileName = NULL;
+@@ -5092,6 +5102,7 @@
+            cReplayControl::SetRecording(fileName);
+         }
+      timer = NULL;
++     SchedulesStateKey.Remove();
+      return;
+      }
+ 
+@@ -5105,6 +5116,7 @@
+         cStatus::MsgRecording(device, Recording.Name(), Recording.FileName(), true);
+         if (!Timer && !cReplayControl::LastReplayed()) // an instant recording, maybe from cRecordControls::PauseLiveVideo()
+            cReplayControl::SetRecording(fileName);
++        SchedulesStateKey.Remove();
+         LOCK_RECORDINGS_WRITE;
+         Recordings->AddByName(fileName);
+         return;
+@@ -5118,6 +5130,7 @@
+      Timers->Del(timer);
+      timer = NULL;
+      }
++  SchedulesStateKey.Remove();
+ }
+ 
+ cRecordControl::~cRecordControl()
+diff -ruN vdr-2.3.5/newplugin vdr-2.3.6/newplugin
+--- vdr-2.3.5/newplugin	2017-05-22 17:34:01.000000000 +0200
++++ vdr-2.3.6/newplugin	2017-05-29 10:55:21.000000000 +0200
+@@ -12,7 +12,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: newplugin 4.2 2017/05/22 15:34:01 kls Exp $
++# $Id: newplugin 4.3 2017/05/29 08:55:21 kls Exp $
+ 
+ $PLUGIN_NAME = $ARGV[0] || die "Usage: newplugin <name>\n";
+ 
+@@ -122,7 +122,7 @@
+ 
+ %.o: %.c
+ 	\@echo CC \$\@
+-	\@\$(CXX) \$(CXXFLAGS) -c \$(DEFINES) \$(INCLUDES) -o \$\@ \$<
++	\$(Q)\$(CXX) \$(CXXFLAGS) -c \$(DEFINES) \$(INCLUDES) -o \$\@ \$<
+ 
+ ### Dependencies:
+ 
+@@ -143,15 +143,15 @@
+ 
+ %.mo: %.po
+ 	\@echo MO \$\@
+-	\@msgfmt -c -o \$\@ \$<
++	\$(Q)msgfmt -c -o \$\@ \$<
+ 
+ \$(I18Npot): \$(wildcard *.c)
+ 	\@echo GT \$\@
+-	\@xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-\$(PLUGIN) --package-version=\$(VERSION) --msgid-bugs-address='<see README>' -o \$\@ `ls \$^`
++	\$(Q)xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=vdr-\$(PLUGIN) --package-version=\$(VERSION) --msgid-bugs-address='<see README>' -o \$\@ `ls \$^`
+ 
+ %.po: \$(I18Npot)
+ 	\@echo PO \$\@
+-	\@msgmerge -U --no-wrap --no-location --backup=none -q -N \$\@ \$<
++	\$(Q)msgmerge -U --no-wrap --no-location --backup=none -q -N \$\@ \$<
+ 	\@touch \$\@
+ 
+ \$(I18Nmsgs): \$(DESTDIR)\$(LOCDIR)/%/LC_MESSAGES/vdr-\$(PLUGIN).mo: \$(PODIR)/%.mo
+@@ -166,7 +166,7 @@
+ 
+ \$(SOFILE): \$(OBJS)
+ 	\@echo LD \$\@
+-	\@\$(CXX) \$(CXXFLAGS) \$(LDFLAGS) -shared \$(OBJS) -o \$\@
++	\$(Q)\$(CXX) \$(CXXFLAGS) \$(LDFLAGS) -shared \$(OBJS) -o \$\@
+ 
+ install-lib: \$(SOFILE)
+ 	install -D \$^ \$(DESTDIR)\$(LIBDIR)/\$^.\$(APIVERSION)
+diff -ruN vdr-2.3.5/recording.c vdr-2.3.6/recording.c
+--- vdr-2.3.5/recording.c	2017-04-03 15:34:30.000000000 +0200
++++ vdr-2.3.6/recording.c	2017-05-27 17:46:57.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 4.8 2017/04/03 13:34:30 kls Exp $
++ * $Id: recording.c 4.9 2017/05/27 15:46:57 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -1469,7 +1469,7 @@
+ time_t cRecordings::lastUpdate = 0;
+ 
+ cRecordings::cRecordings(bool Deleted)
+-:cList<cRecording>(Deleted ? "DelRecs" : "Recordings")
++:cList<cRecording>(Deleted ? "4 DelRecs" : "3 Recordings")
+ {
+ }
+ 
+diff -ruN vdr-2.3.5/svdrp.c vdr-2.3.6/svdrp.c
+--- vdr-2.3.5/svdrp.c	2017-05-18 17:51:24.000000000 +0200
++++ vdr-2.3.6/svdrp.c	2017-05-31 16:02:17.000000000 +0200
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 4.18 2017/05/18 15:51:24 kls Exp $
++ * $Id: svdrp.c 4.20 2017/05/31 14:02:17 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -385,7 +385,8 @@
+      file.Close();
+      socket.Close();
+      LOCK_TIMERS_WRITE;
+-     Timers->DelRemoteTimers(serverName);
++     if (Timers)
++        Timers->DelRemoteTimers(serverName);
+      }
+ }
+ 
+@@ -463,6 +464,7 @@
+             else if (r <= 0) {
+                isyslog("SVDRP < %s lost connection to remote server '%s'", ipAddress.Connection(), *serverName);
+                Close();
++               return false;
+                }
+             }
+          else if (!Response)
+@@ -1615,6 +1617,7 @@
+ 
+ void cSVDRPServer::CmdLSTE(const char *Option)
+ {
++  LOCK_CHANNELS_READ;
+   LOCK_SCHEDULES_READ;
+   const cSchedule* Schedule = NULL;
+   eDumpMode DumpMode = dmAll;
+@@ -1646,7 +1649,6 @@
+                  }
+               }
+            else if (!Schedule) {
+-              LOCK_CHANNELS_READ;
+               const cChannel* Channel = NULL;
+               if (isnumber(p))
+                  Channel = Channels->GetByNumber(strtol(Option, NULL, 10));
+@@ -1676,7 +1678,7 @@
+      FILE *f = fdopen(fd, "w");
+      if (f) {
+         if (Schedule)
+-           Schedule->Dump(f, "215-", DumpMode, AtTime);
++           Schedule->Dump(Channels, f, "215-", DumpMode, AtTime);
+         else
+            Schedules->Dump(f, "215-", DumpMode, AtTime);
+         fflush(f);
+diff -ruN vdr-2.3.5/thread.c vdr-2.3.6/thread.c
+--- vdr-2.3.5/thread.c	2016-12-08 10:45:25.000000000 +0100
++++ vdr-2.3.6/thread.c	2017-06-03 14:43:22.000000000 +0200
+@@ -4,26 +4,31 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.c 4.2 2016/12/08 09:45:25 kls Exp $
++ * $Id: thread.c 4.4 2017/06/03 12:43:22 kls Exp $
+  */
+ 
+ #include "thread.h"
++#include <cxxabi.h>
++#include <dlfcn.h>
+ #include <errno.h>
++#include <execinfo.h>
+ #include <linux/unistd.h>
+ #include <malloc.h>
+ #include <stdarg.h>
+ #include <stdlib.h>
++#include <sys/prctl.h>
+ #include <sys/resource.h>
+ #include <sys/syscall.h>
+ #include <sys/time.h>
+ #include <sys/wait.h>
+-#include <sys/prctl.h>
+ #include <unistd.h>
+ #include "tools.h"
+ 
+-#define ABORT { dsyslog("ABORT!"); abort(); } // use debugger to trace back the problem
++#define ABORT { dsyslog("ABORT!"); cBackTrace::BackTrace(); abort(); }
+ 
+-//#define DEBUG_LOCKING // uncomment this line to activate debug output for locking
++//#define DEBUG_LOCKING  // uncomment this line to activate debug output for locking
++#define DEBUG_LOCKSEQ  // uncomment this line to activate debug output for invalid locking sequence
++//#define DEBUG_LOCKCALL // uncomment this line to activate caller information with DEBUG_LOCKSEQ (WARNING: expensive operation, use only when actually debugging the locking sequence!)
+ 
+ #ifdef DEBUG_LOCKING
+ #define dbglocking(a...) fprintf(stderr, a)
+@@ -429,6 +434,249 @@
+   return false;
+ }
+ 
++// --- cBackTrace ------------------------------------------------------------
++
++#define BT_BUF_SIZE 100
++
++cString cBackTrace::Demangle(char *s)
++{
++  char *Module = s;
++  char *Function = NULL;
++  char *Offset = NULL;
++  char *Address = NULL;
++  // separate the string:
++  for (char *q = Module; *q; q++) {
++      if (*q == '(') {
++         *q = 0;
++         Function = q + 1;
++         }
++      else if (*q == '+') {
++         *q = 0;
++         Offset = q + 1;
++         }
++      else if (*q == ')')
++         *q = 0;
++      else if (*q == '[')
++         Address = q + 1;
++      else if (*q == ']') {
++         *q = 0;
++         break;
++         }
++      }
++  // demangle the function name:
++  char *DemangledFunction = NULL;
++  if (Function) {
++     int status;
++     DemangledFunction = abi::__cxa_demangle(Function, NULL, 0, &status);
++     if (DemangledFunction)
++        Function = DemangledFunction;
++     if (!*Function)
++        Function = NULL;
++     }
++  cString d = cString::sprintf("%s%s%s", Module, Function ? " " : "", Function ? Function : "");
++  // convert string address to numbers:
++  unsigned long long addr = Address ? strtoull(Address, NULL, 0) : 0;
++  unsigned long long offs = Offset ? strtoull(Offset, NULL, 0) : 0;
++  // for shared libraries we need get the offset inside the library:
++  if (Function) {
++     // check whether the module name ends with ".so*":
++     char *e = Module;
++     char *p = NULL;
++     while (e = strstr(e, ".so"))
++           p = e++;
++     if (p && !strchr(p, '/')) {
++        Dl_info dlinfo;
++        if (dladdr(reinterpret_cast<void*>(addr), &dlinfo)) {
++           if ((strcmp(Module, dlinfo.dli_fname) == 0) && dlinfo.dli_fbase) {
++              unsigned long long base = reinterpret_cast<unsigned long long>(dlinfo.dli_fbase);
++              addr -= base;
++              addr &= 0x0FFFFFFFF; // to make it work on both 32 and 64 bit systems
++              }
++           }
++        }
++     }
++  // determine the file name and line number:
++  cString cmd = cString::sprintf("addr2line --functions --demangle --inlines --basename --exe=%s 0x%llx", Module, Function ? addr : offs);
++  cPipe p;
++  if (p.Open(cmd, "r")) {
++     int n = 0;
++     cReadLine rl;
++     while (char *l = rl.Read(p)) {
++           if (n == 0) {
++              if (Function && strcmp(l, Function))
++                 d = cString::sprintf("%s calling %s", *d, l);
++              }
++           else
++              d = cString::sprintf("%s at %s", *d, l);
++           n++;
++           }
++     p.Close();
++     }
++  free(DemangledFunction);
++  return d;
++}
++
++void cBackTrace::BackTrace(cStringList &StringList, int Level, bool Mangled)
++{
++  void *b[BT_BUF_SIZE];
++  int n = backtrace(b, BT_BUF_SIZE);
++  if (char **s = backtrace_symbols(b, n)) {
++     for (int i = max(Level, 0) + 1; i < n; i++) // 1 is the call to this function itself
++         StringList.Append(strdup(Mangled ? s[i] : *Demangle(s[i])));
++     free(s);
++     }
++}
++
++void cBackTrace::BackTrace(FILE *f, int Level, bool Mangled)
++{
++  cStringList sl;
++  BackTrace(sl, Level + 1, Mangled); // 1 is the call to this function itself
++  for (int i = 0; i < sl.Size(); i++) {
++      if (f)
++         fprintf(f, "%s\n", sl[i]);
++      else
++         dsyslog("%s", sl[i]);
++      }
++}
++
++cString cBackTrace::GetCaller(int Level, bool Mangled)
++{
++  cString Caller;
++  Level = max(Level, 0) + 1; // 1 is the call to this function itself
++  void *b[BT_BUF_SIZE];
++  int n = backtrace(b, BT_BUF_SIZE);
++  if (char **s = backtrace_symbols(b, n)) {
++     if (Level < n)
++        Caller = Mangled ? s[Level] : *Demangle(s[Level]);
++     free(s);
++     }
++  return Caller;
++}
++
++// --- cStateLockLog ---------------------------------------------------------
++
++#ifdef DEBUG_LOCKSEQ
++#define SLL_SIZE     20 // the number of log entries
++#define SLL_LENGTH  256 // the maximum length of log entries
++#define SLL_MAX_LIST  9 // max. number of lists to log
++#define SLL_WRITE_FLAG 0x80000000
++
++class cStateLockLog {
++private:
++  cMutex mutex;
++  cVector<tThreadId> threadIds;
++  cVector<int> flags;
++  tThreadId logThreadIds[SLL_SIZE];
++  int logFlags[SLL_SIZE];
++  char logCaller[SLL_SIZE][SLL_LENGTH];
++  int logIndex;
++  bool dumped;
++  void Dump(const char *Name, tThreadId ThreadId);
++public:
++  cStateLockLog(void);
++  void Check(const char *Name, bool Lock, bool Write = false);
++  };
++
++cStateLockLog::cStateLockLog(void)
++{
++  memset(logThreadIds, 0, sizeof(logThreadIds));
++  memset(logFlags, 0, sizeof(logFlags));
++  memset(logCaller, 0, sizeof(logCaller));
++  logIndex = 0;
++  dumped = false;
++}
++
++void cStateLockLog::Dump(const char *Name, tThreadId ThreadId)
++{
++  dsyslog("--- begin invalid lock sequence report");
++  int LastFlags = 0;
++  for (int i = 0; i < SLL_SIZE; i++) {
++      if (tThreadId tid = logThreadIds[logIndex]) {
++         char msg[SLL_LENGTH];
++         char *q = msg;
++         q += sprintf(q, "%5d", tid);
++         int Flags = logFlags[logIndex];
++         bool Write = Flags & SLL_WRITE_FLAG;
++         Flags &= ~SLL_WRITE_FLAG;
++         int Changed = LastFlags ^ Flags;
++         LastFlags = Flags;
++         bool Lock = (Flags & Changed) != 0;
++         for (int i = 0; i <= SLL_MAX_LIST; i++) {
++             char c = '-';
++             int b = 1 << i;
++             if ((Flags & b) != 0)
++                c = '*';
++             if ((Changed & b) != 0)
++                c = Lock ? Write ? 'W' : 'R' : '-';
++             q += sprintf(q, "  %c", c);
++             }
++         q += sprintf(q, "  %c", Lock ? 'L' : 'U');
++         if (*logCaller[logIndex]) {
++            *q++ = ' ';
++            strn0cpy(q, *cBackTrace::Demangle(logCaller[logIndex]), sizeof(msg) - (q - msg));
++            }
++         dsyslog("%s", msg);
++         }
++      if (++logIndex >= SLL_SIZE)
++         logIndex = 0;
++      }
++  dsyslog("%5d invalid lock sequence: %s", ThreadId, Name);
++  dsyslog("full backtrace:");
++  cBackTrace::BackTrace(NULL, 2);
++  dsyslog("--- end invalid lock sequence report");
++  fprintf(stderr, "invalid lock sequence at %s\n", *DayDateTime(time(NULL)));
++}
++
++void cStateLockLog::Check(const char *Name, bool Lock, bool Write)
++{
++  if (!dumped && Name) {
++     int n = *Name - '0';
++     if (1 <= n && n <= SLL_MAX_LIST) {
++        int b = 1 << (n - 1);
++        cMutexLock MutexLock(&mutex);
++        tThreadId ThreadId = cThread::ThreadId();
++        int Index = threadIds.IndexOf(ThreadId);
++        if (Index < 0) {
++           if (Lock) {
++              Index = threadIds.Size();
++              threadIds.Append(ThreadId);
++              flags.Append(0);
++              }
++           else
++              return;
++           }
++        bool DoDump = false;
++        if (Lock) {
++           if ((flags[Index] & ~b) < b) // thread holds only "smaller" locks -> OK
++              ;
++           else if ((flags[Index] & b) == 0) // thread already holds "bigger" locks, so it may only re-lock one that it already has!
++              DoDump = true;
++           flags[Index] |= b;
++           }
++        else
++           flags[Index] &= ~b;
++        logThreadIds[logIndex] = ThreadId;
++        logFlags[logIndex] = flags[Index] | (Write ? SLL_WRITE_FLAG : 0);
++#ifdef DEBUG_LOCKCALL
++        strn0cpy(logCaller[logIndex], cBackTrace::GetCaller(Lock ? 5 : 3, true), SLL_LENGTH);
++#endif
++        if (++logIndex >= SLL_SIZE)
++           logIndex = 0;
++        if (DoDump) {
++           Dump(Name, ThreadId);
++           dumped = true;
++           }
++        }
++     }
++}
++
++static cStateLockLog StateLockLog;
++
++#define dbglockseq(n, l, w) StateLockLog.Check(n, l, w)
++#else
++#define dbglockseq(n, l, w)
++#endif // DEBUG_LOCKSEQ
++
+ // --- cStateLock ------------------------------------------------------------
+ 
+ cStateLock::cStateLock(const char *Name)
+@@ -442,7 +690,7 @@
+ 
+ bool cStateLock::Lock(cStateKey &StateKey, bool Write, int TimeoutMs)
+ {
+-  dbglocking("%5d %-10s %10p   lock state = %d/%d write = %d timeout = %d\n", cThread::ThreadId(), name, &StateKey, state, StateKey.state, Write, TimeoutMs);
++  dbglocking("%5d %-12s %10p   lock state = %d/%d write = %d timeout = %d\n", cThread::ThreadId(), name, &StateKey, state, StateKey.state, Write, TimeoutMs);
+   StateKey.timedOut = false;
+   if (StateKey.stateLock) {
+      esyslog("ERROR: StateKey already in use in call to cStateLock::Lock() (tid=%d, lock=%s)", StateKey.stateLock->threadId, name);
+@@ -450,25 +698,27 @@
+      return false;
+      }
+   if (rwLock.Lock(Write, TimeoutMs)) {
++     dbglockseq(name, true, Write);
+      StateKey.stateLock = this;
+      if (Write) {
+-        dbglocking("%5d %-10s %10p   locked write\n", cThread::ThreadId(), name, &StateKey);
++        dbglocking("%5d %-12s %10p   locked write\n", cThread::ThreadId(), name, &StateKey);
+         threadId = cThread::ThreadId();
+         StateKey.write = true;
+         return true;
+         }
+      else if (state != StateKey.state) {
+-        dbglocking("%5d %-10s %10p   locked read\n", cThread::ThreadId(), name, &StateKey);
++        dbglocking("%5d %-12s %10p   locked read\n", cThread::ThreadId(), name, &StateKey);
+         return true;
+         }
+      else {
+-        dbglocking("%5d %-10s %10p   state unchanged\n", cThread::ThreadId(), name, &StateKey);
++        dbglocking("%5d %-12s %10p   state unchanged\n", cThread::ThreadId(), name, &StateKey);
+         StateKey.stateLock = NULL;
++        dbglockseq(name, false, false);
+         rwLock.Unlock();
+         }
+      }
+   else if (TimeoutMs) {
+-     dbglocking("%5d %-10s %10p   timeout\n", cThread::ThreadId(), name, &StateKey);
++     dbglocking("%5d %-12s %10p   timeout\n", cThread::ThreadId(), name, &StateKey);
+      StateKey.timedOut = true;
+      }
+   return false;
+@@ -476,7 +726,7 @@
+ 
+ void cStateLock::Unlock(cStateKey &StateKey, bool IncState)
+ {
+-  dbglocking("%5d %-10s %10p unlock state = %d/%d inc = %d\n", cThread::ThreadId(), name, &StateKey, state, StateKey.state, IncState);
++  dbglocking("%5d %-12s %10p unlock state = %d/%d inc = %d\n", cThread::ThreadId(), name, &StateKey, state, StateKey.state, IncState);
+   if (StateKey.stateLock != this) {
+      esyslog("ERROR: cStateLock::Unlock() called with an unused key (tid=%d, lock=%s)", threadId, name);
+      ABORT;
+@@ -495,6 +745,7 @@
+      threadId = 0;
+      explicitModify = false;
+      }
++  dbglockseq(name, false, false);
+   rwLock.Unlock();
+ }
+ 
+diff -ruN vdr-2.3.5/thread.h vdr-2.3.6/thread.h
+--- vdr-2.3.5/thread.h	2016-12-08 10:11:24.000000000 +0100
++++ vdr-2.3.6/thread.h	2017-05-31 13:39:11.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.h 4.2 2016/12/08 09:11:24 kls Exp $
++ * $Id: thread.h 4.3 2017/05/31 11:39:11 kls Exp $
+  */
+ 
+ #ifndef __THREAD_H
+@@ -291,6 +291,37 @@
+   int Close(void);
+   };
+ 
++// cBackTrace can be used for debugging.
++
++class cStringList;
++class cString;
++
++class cBackTrace {
++public:
++  static cString Demangle(char *s);
++         ///< Demangles the function name in the given string and returns the converted
++         ///< version of s. s must be one of the strings returned by a call to
++         ///< BackTrace() or GetCaller().
++         ///< Note that this function works on the given string by inserting '\0'
++         ///< characters to separate the individual parts. Therefore the string
++         ///< will be modified upon return.
++  static void BackTrace(cStringList &StringList, int Level = 0, bool Mangled = false);
++         ///< Produces a backtrace and stores it in the given StringList.
++         ///< If Level is given, only calls up to the given value are listed.
++         ///< If Mangled is true, the raw backtrace will be returned and you can use
++         ///< Demangle() to make the function names readable.
++  static void BackTrace(FILE *f = NULL, int Level = 0, bool Mangled = false);
++         ///< Produces a backtrace beginning at the given Level, and
++         ///< writes it to the given file. If no file is given, the backtrace is
++         ///< written to the logfile. If Mangled is true, the raw backtrace will
++         ///< be printed/logged.
++  static cString GetCaller(int Level = 0, bool Mangled = false);
++         ///< Returns the caller at the given Level (or the immediate caller,
++         ///< if Level is 0).
++         ///< If Mangled is true, the raw backtrace will be returned and you can use
++         ///< Demangle() to make the function name readable.
++  };
++
+ // SystemExec() implements a 'system()' call that closes all unnecessary file
+ // descriptors in the child process.
+ // With Detached=true, calls command in background and in a separate session,
+diff -ruN vdr-2.3.5/timers.c vdr-2.3.6/timers.c
+--- vdr-2.3.5/timers.c	2017-04-20 11:15:06.000000000 +0200
++++ vdr-2.3.6/timers.c	2017-05-26 17:43:38.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 4.9 2017/04/20 09:15:06 kls Exp $
++ * $Id: timers.c 4.10 2017/05/26 15:43:38 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -714,7 +714,7 @@
+ int cTimers::lastTimerId = 0;
+ 
+ cTimers::cTimers(void)
+-:cConfig<cTimer>("Timers")
++:cConfig<cTimer>("1 Timers")
+ {
+   lastDeleteExpired = 0;
+ }
+diff -ruN vdr-2.3.5/vdr.c vdr-2.3.6/vdr.c
+--- vdr-2.3.5/vdr.c	2017-05-21 14:31:37.000000000 +0200
++++ vdr-2.3.6/vdr.c	2017-05-29 13:30:27.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 4.14 2017/05/21 12:31:37 kls Exp $
++ * $Id: vdr.c 4.16 2017/05/29 11:30:27 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -1274,8 +1274,10 @@
+           case kChanUp:
+           case kChanDn|k_Repeat:
+           case kChanDn:
+-               if (!Interact)
++               if (!Interact) {
+                   Menu = new cDisplayChannel(NORMALKEY(key));
++                  continue;
++                  }
+                else if (cDisplayChannel::IsOpen() || cControl::Control()) {
+                   Interact->ProcessKey(key);
+                   continue;
+@@ -1585,6 +1587,7 @@
+   cVideoDirectory::Destroy();
+   EpgHandlers.Clear();
+   cSchedules::Cleanup(true);
++  CiResourceHandlers.Clear();
+   ListGarbageCollector.Purge(true);
+   PluginManager.Shutdown(true);
+   ReportEpgBugFixStats(true);

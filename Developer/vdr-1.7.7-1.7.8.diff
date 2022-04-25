@@ -1,0 +1,4035 @@
+diff -ruN vdr-1.7.7/CONTRIBUTORS vdr-1.7.8/CONTRIBUTORS
+--- vdr-1.7.7/CONTRIBUTORS	2009-05-03 16:45:53.000000000 +0200
++++ vdr-1.7.8/CONTRIBUTORS	2009-06-13 15:35:49.000000000 +0200
+@@ -672,6 +672,8 @@
+  VPID is 0
+  for reporting chirping sound disturbences at editing points in TS recordings
+  for reporting broken index generation in TS recordings after a buffer overflow
++ for fixing the way the OSD size is determined on full featured DVB cards
++ for his input on calculating the Aspect factor in GetOsdSize()
+ 
+ Reinhard Walter Buchner <rw.buchner@freenet.de>
+  for adding some satellites to 'sources.conf'
+@@ -918,6 +920,8 @@
+  for a hint on using _nl_msg_cat_cntr
+  for adding some missing 'const' keywords
+  for pointing out that "%016llX" should be used instead of "%016LX"
++ for adding some missing 'const' keywords to avoid compilation errors with gcc 4.4
++ for reporting that cSVDRP::CmdGRAB() writes into const data
+ 
+ Thomas Koch <tom@harhar.net>
+  for his support in keeping the Premiere World channels up to date in 'channels.conf'
+@@ -1073,6 +1077,8 @@
+  for replacing the Finnish language code "smi" with "suo"
+  for adding cap_sys_nice to the capabilities that are not dropped
+  for adding cThread::SetIOPriority() and using it in cRemoveDeletedRecordingsThread
++ for suggesting to introduce cDevice::GetOsdSize()
++ for adding a note about the meaning of PERCENTAGEDELTA in cRingBuffer::UpdatePercentage()
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1212,6 +1218,17 @@
+  for making sure vdr-xine no longer needs cDvbPlayer::Action() to call DeviceFlush()
+  for fixing the 'VideoOnly' condition in the PlayPes() and PlayTs() calls in
+  cDvbPlayer::Action()
++ for reporting a problem in case the PIDs change during recording
++ for reporting a memory leak when reaching the end of a recording during replay
++ for reporting a call to close(-1) in cUnbufferedFile::Close()
++ for reporting a possible problem in handling the length of DiSEqC command sequences
++ for fixing cOsdMenu::Display() in case the menu size has changed
++ for suggesting to change the type of the Aspect parameter of GetVideoSize()
++ to 'double'
++ for suggesting to use different names for the Aspect parameter in GetVideoSize()
++ and GetOsdSize()
++ for reporting a problem with calculating menu colum widths in case the font has a
++ size other than the default size
+ 
+ Richard Robson <richard_robson@beeb.net>
+  for reporting freezing replay if a timer starts while in Transfer Mode from the
+@@ -1623,6 +1640,7 @@
+  for reporting a problem with handling the maximum video file size
+  for suggesting to add a note to the INSTALL file about using subdirectories to
+  split a large disk into separate areas for VDR's video data and other stuff
++ for reporting wrong variable types in cIndexFile
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -1814,6 +1832,7 @@
+  menu
+  for adding missing #include <limits.h> to epg.c and menuitems.h
+  for fixing various spelling errors and improving PLUGINS.html
++ for adding some missing 'const' keywords to avoid compilation errors with gcc 4.4
+ 
+ Steffen Beyer <cpunk@reactor.de>
+  for fixing setting the colored button help after deleting a recording in case the next
+@@ -1953,6 +1972,7 @@
+ 
+ Nicolas Huillard <nhuillard@e-dition.fr>
+  for translating OSD texts to the French language
++ for suggesting to increase MAXOSDHEIGHT to 1200
+ 
+ Patrick Fischer <patrick_fischer@gmx.de>
+  for reporting an error in the cFilter example in PLUGINS.html
+@@ -2126,6 +2146,9 @@
+  check to it
+  for changing cBitmap::DrawText() to always draw the background unless ColorBg
+  is clrTransparent
++ for reporting unused 'synced' member in cTsToPes
++ for suggesting to add a note to cTsToPes about all TS packets having to belong to
++ the same PID
+ 
+ Pekka Mauno <pekka.mauno@iki.fi>
+  for fixing cSchedule::GetFollowingEvent() in case there is currently no present
+@@ -2164,6 +2187,7 @@
+  for fixing a signed character used as index in cBase64Encoder::NextLine()
+  for fixing formatting the name section in the VDR man pages
+  for reporting unneeded include files <linux/dvb/dmx.h> und <time.h> in remux.h
++ for a patch that added a workaround for the broken linux-dvb driver header files
+ 
+ Helge Lenz <h.lenz@gmx.de>
+  for reporting a bug in setting the 'Delta' parameter when calling the shutdown
+@@ -2310,6 +2334,8 @@
+  for optimizing cNitFilter::Process()
+  for reducing the number of time(NULL) calls in vdr.c's main loop to a single call
+  for improving efficiency of cEIT::cEIT()
++ for fixing the use of time_t in cEIT::cEIT()
++ for making EIT events be processed only if a plausible system time is available
+ 
+ Bruno Roussel <bruno.roussel@free.fr>
+  for translating OSD texts to the French language
+@@ -2331,6 +2357,7 @@
+ Timo Eskola <timo@tolleri.net>
+  for implementing sending all frames to devices that can handle them in fast forward
+  trick speeds
++ for implementing the setup option "Recording/Pause key handling"
+ 
+ Elias Luttinen <el@iki.fi>
+  for improving the description of where logging goes in the INSTALL file
+@@ -2394,6 +2421,7 @@
+ Ales Jurik <ajurik@quick.cz>
+  for reporting broken SI data on Czech/Slovak channels after changing the default
+  character set to ISO-8859-9
++ for adding MPEG 1 handling to remux.c
+ 
+ Magnus Andersson <svankan@bahnhof.se>
+  for translating OSD texts to the Swedish language
+@@ -2446,3 +2474,7 @@
+ 
+ G¸nter Niedermeier <linuxtv@ncs-online.de>
+  for reporting a problem with file I/O overhead during recording in TS format
++
++Martin Neuditschko <yosuke.tomoe@gmx.net>
++ for reporting a problem with error messages from cDvbDevice::GetVideoSize()
++ on systems with no real primary replay device
+diff -ruN vdr-1.7.7/HISTORY vdr-1.7.8/HISTORY
+--- vdr-1.7.7/HISTORY	2009-05-03 16:45:17.000000000 +0200
++++ vdr-1.7.8/HISTORY	2009-06-13 15:35:31.000000000 +0200
+@@ -6074,3 +6074,64 @@
+   (provided the output device implements the GetVideoSize() function).
+ - cFrameDetector::Analyze() now syncs on the TS packet sync bytes (thanks to
+   Oliver Endriss for reporting broken index generation after a buffer overflow).
++
++2009-06-13: Version 1.7.8
++
++- The name of the function cDevice::GetVideoSize() wasn't very well chosen
++  for its purpose of defining the optimum size of the OSD for the current
++  output device. Therefore a new function named cDevice::GetOsdSize() has
++  been introduced (suggested by Rolf Ahrenberg). Plugin authors should
++  implement this function in classes derived from cDevice, if they are able
++  to replay video. cDevice::GetVideoSize() still exists and should return the
++  actual size of the video material that is currently replayed. Note that
++  because of the many possible aspect ratios for video material, the type
++  of the Aspect parameter of GetVideoSize() has been changed to 'double',
++  and the Aspect parameter in both functions is named differently, because
++  it returns different values (suggested by Reinhard Nissl).
++  Thanks to Oliver Endriss for his input on calculating the Aspect factor in
++  GetOsdSize().
++- Fixed the way the OSD size is determined on full featured DVB cards (thanks
++  to Oliver Endriss).
++- Increased MAXOSDHEIGHT to 1200 (suggested by Nicolas Huillard).
++- Removed limitation to PAL resolution from SPU handling.
++- Checking fd_video in cDvbDevice::GetVideoSize() to avoid error messages on
++  systems with no real primary replay device (reported by Martin Neuditschko).
++- Added a note to cTsToPes::GetPes() about having to call it repeatedly, once
++  it has returned a non-NULL value.
++- Added MPEG 1 handling to remux.c (thanks to Ales Jurik).
++- Fixed use of time_t in cEIT::cEIT() (thanks to Tobias Bratfisch).
++- Added missing update of lastOsdSizeUpdate.
++- EIT events are now only processed if a plausible system time is available, to
++  avoid wrong handling of PDC descriptors (thanks to Tobias Bratfisch).
++- Removed unused 'synced' member from cTsToPes (reported by Christoph Haubrich).
++- Added a note to cTsToPes about all TS packets having to belong to the same PID,
++  and that for video data GetPes() may only be called if the next TS packet that
++  will be given to PutTs() has the "payload start" flag set (suggested by Christoph
++  Haubrich).
++- Added a note about the meaning of PERCENTAGEDELTA in cRingBuffer::UpdatePercentage()
++  (thanks to Rolf Ahrenberg).
++- The new setup option "Recording/Pause key handling" can be used to define
++  what happens if the Pause key on the remote control is pressed during
++  live tv (thanks to Timo Eskola).
++- Added a note about cFont::GetFont() not being thread-safe.
++- Fixed generating PAT/PMT version numbers in case the PIDs change during
++  recording (reported by Reinhard Nissl).
++- Updated the Ukrainian OSD texts (thanks to Yarema Aka Knedlyk).
++- Fixed a memory leak when reaching the end of a recording during replay (reported
++  by Reinhard Nissl).
++- Fixed calling close(-1) in cUnbufferedFile::Close() (reported by Reinhard Nissl).
++- Added a workaround for the broken linux-dvb driver header files (based on a patch
++  from Tobias Grimm).
++- Fixed handling the length of DiSEqC command sequences (reported by Reinhard Nissl).
++- Fixed cOsdMenu::Display() in case the menu size has changed (thanks to
++  Reinhard Nissl).
++- Added some missing 'const' keywords to avoid compilation errors with gcc 4.4
++  (thanks to Ville Skytt‰ and Ludwig Nussel).
++- Modified cSVDRP::CmdGRAB() to avoid writing into const data (reported by
++  Ludwig Nussel).
++- Fixed calculating menu colum widths in case the font has a size other than the
++  default size (reported by Reinhard Nissl).
++- Added a plausibility check for the OSD percentage parameters
++  to avoid problems in case the values are stored in the setup.conf
++  file in a  wrong way.
++- Fixed variable types in cIndexFile (reported by Udo Richter).
+diff -ruN vdr-1.7.7/MANUAL vdr-1.7.8/MANUAL
+--- vdr-1.7.7/MANUAL	2009-05-03 16:04:22.000000000 +0200
++++ vdr-1.7.8/MANUAL	2009-05-21 13:28:41.000000000 +0200
+@@ -748,6 +748,13 @@
+   Pause priority = 10    The Priority and Lifetime values used when pausing live
+   Pause lifetime = 1     video.
+ 
++  Pause key handling = 3 Defines what happens if the Pause key on the remote control
++                         is pressed during live tv.
++                         0 = do not pause live video
++                         1 = confirm pause live video
++                         2 = pause live video
++                         The default is 2.
++
+   Use episode name = yes Repeating timers use the EPG's 'Episode name' information
+                          to create recording file names in a hierarchical structure
+                          (for instance to gather all episodes of a series in a
+diff -ruN vdr-1.7.7/PLUGINS.html vdr-1.7.8/PLUGINS.html
+--- vdr-1.7.7/PLUGINS.html	2009-05-02 13:15:42.000000000 +0200
++++ vdr-1.7.8/PLUGINS.html	2009-05-09 12:03:26.000000000 +0200
+@@ -1944,10 +1944,10 @@
+ should implement the function
+ 
+ <p><table><tr><td class="code"><pre>
+-virtual void GetVideoSize(int &amp;Width, int &amp;Height, eVideoAspect &amp;Aspect);
++virtual void GetOsdSize(int &amp;Width, int &amp;Height, double &amp;Aspect);
+ </pre></td></tr></table><p>
+ 
+-By default, an OSD size of 480x324 with an aspect ratio of 4:3 is assumed.
++By default, an OSD size of 720x480 with an aspect ratio of 1.0 is assumed.
+ </div modified>
+ 
+ <p>
+diff -ruN vdr-1.7.7/config.c vdr-1.7.8/config.c
+--- vdr-1.7.7/config.c	2009-05-03 15:58:08.000000000 +0200
++++ vdr-1.7.8/config.c	2009-06-13 12:25:05.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 2.2 2009/05/03 13:58:08 kls Exp $
++ * $Id: config.c 2.5 2009/06/13 10:25:05 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -20,6 +20,8 @@
+ // format characters in order to allow any number of blanks after a numeric
+ // value!
+ 
++#define ChkDoublePlausibility(Variable, Default) { if (Variable < 0.00001) Variable = Default; }
++
+ // --- cCommand --------------------------------------------------------------
+ 
+ char *cCommand::result = NULL;
+@@ -250,6 +252,7 @@
+   PrimaryLimit = 0;
+   DefaultPriority = 50;
+   DefaultLifetime = 99;
++  PauseKeyHandling = 2;
+   PausePriority = 10;
+   PauseLifetime = 1;
+   UseSubtitle = 1;
+@@ -270,6 +273,7 @@
+   OSDTop = 45;
+   OSDWidth = 624;
+   OSDHeight = 486;
++  OSDAspect = 1.0;
+   OSDMessageTime = 1;
+   UseSmallFont = 1;
+   AntiAlias = 1;
+@@ -435,6 +439,7 @@
+   else if (!strcasecmp(Name, "PrimaryLimit"))        PrimaryLimit       = atoi(Value);
+   else if (!strcasecmp(Name, "DefaultPriority"))     DefaultPriority    = atoi(Value);
+   else if (!strcasecmp(Name, "DefaultLifetime"))     DefaultLifetime    = atoi(Value);
++  else if (!strcasecmp(Name, "PauseKeyHandling"))    PauseKeyHandling   = atoi(Value);
+   else if (!strcasecmp(Name, "PausePriority"))       PausePriority      = atoi(Value);
+   else if (!strcasecmp(Name, "PauseLifetime"))       PauseLifetime      = atoi(Value);
+   else if (!strcasecmp(Name, "UseSubtitle"))         UseSubtitle        = atoi(Value);
+@@ -449,21 +454,22 @@
+   else if (!strcasecmp(Name, "ChannelInfoTime"))     ChannelInfoTime    = atoi(Value);
+   else if (!strcasecmp(Name, "OSDLeftP"))            OSDLeftP           = atof(Value);
+   else if (!strcasecmp(Name, "OSDTopP"))             OSDTopP            = atof(Value);
+-  else if (!strcasecmp(Name, "OSDWidthP"))           OSDWidthP          = atof(Value);
+-  else if (!strcasecmp(Name, "OSDHeightP"))          OSDHeightP         = atof(Value);
++  else if (!strcasecmp(Name, "OSDWidthP"))         { OSDWidthP          = atof(Value); ChkDoublePlausibility(OSDWidthP, 0.87); }
++  else if (!strcasecmp(Name, "OSDHeightP"))        { OSDHeightP         = atof(Value); ChkDoublePlausibility(OSDHeightP, 0.84); }
+   else if (!strcasecmp(Name, "OSDLeft"))             OSDLeft            = atoi(Value);
+   else if (!strcasecmp(Name, "OSDTop"))              OSDTop             = atoi(Value);
+   else if (!strcasecmp(Name, "OSDWidth"))          { OSDWidth           = atoi(Value); OSDWidth &= ~0x07; } // OSD width must be a multiple of 8
+   else if (!strcasecmp(Name, "OSDHeight"))           OSDHeight          = atoi(Value);
++  else if (!strcasecmp(Name, "OSDAspect"))           OSDAspect          = atof(Value);
+   else if (!strcasecmp(Name, "OSDMessageTime"))      OSDMessageTime     = atoi(Value);
+   else if (!strcasecmp(Name, "UseSmallFont"))        UseSmallFont       = atoi(Value);
+   else if (!strcasecmp(Name, "AntiAlias"))           AntiAlias          = atoi(Value);
+   else if (!strcasecmp(Name, "FontOsd"))             Utf8Strn0Cpy(FontOsd, Value, MAXFONTNAME);
+   else if (!strcasecmp(Name, "FontSml"))             Utf8Strn0Cpy(FontSml, Value, MAXFONTNAME);
+   else if (!strcasecmp(Name, "FontFix"))             Utf8Strn0Cpy(FontFix, Value, MAXFONTNAME);
+-  else if (!strcasecmp(Name, "FontOsdSizeP"))        FontOsdSizeP       = atof(Value);
+-  else if (!strcasecmp(Name, "FontSmlSizeP"))        FontSmlSizeP       = atof(Value);
+-  else if (!strcasecmp(Name, "FontFixSizeP"))        FontFixSizeP       = atof(Value);
++  else if (!strcasecmp(Name, "FontOsdSizeP"))      { FontOsdSizeP       = atof(Value); ChkDoublePlausibility(FontOsdSizeP, 0.038); }
++  else if (!strcasecmp(Name, "FontSmlSizeP"))      { FontSmlSizeP       = atof(Value); ChkDoublePlausibility(FontSmlSizeP, 0.035); }
++  else if (!strcasecmp(Name, "FontFixSizeP"))      { FontFixSizeP       = atof(Value); ChkDoublePlausibility(FontFixSizeP, 0.031); }
+   else if (!strcasecmp(Name, "FontOsdSize"))         FontOsdSize        = atoi(Value);
+   else if (!strcasecmp(Name, "FontSmlSize"))         FontSmlSize        = atoi(Value);
+   else if (!strcasecmp(Name, "FontFixSize"))         FontFixSize        = atoi(Value);
+@@ -525,6 +531,7 @@
+   Store("PrimaryLimit",       PrimaryLimit);
+   Store("DefaultPriority",    DefaultPriority);
+   Store("DefaultLifetime",    DefaultLifetime);
++  Store("PauseKeyHandling",   PauseKeyHandling);
+   Store("PausePriority",      PausePriority);
+   Store("PauseLifetime",      PauseLifetime);
+   Store("UseSubtitle",        UseSubtitle);
+@@ -545,6 +552,7 @@
+   Store("OSDTop",             OSDTop);
+   Store("OSDWidth",           OSDWidth);
+   Store("OSDHeight",          OSDHeight);
++  Store("OSDAspect",          OSDAspect);
+   Store("OSDMessageTime",     OSDMessageTime);
+   Store("UseSmallFont",       UseSmallFont);
+   Store("AntiAlias",          AntiAlias);
+diff -ruN vdr-1.7.7/config.h vdr-1.7.8/config.h
+--- vdr-1.7.7/config.h	2009-05-03 15:15:35.000000000 +0200
++++ vdr-1.7.8/config.h	2009-05-21 13:11:32.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.9 2009/05/03 13:15:35 kls Exp $
++ * $Id: config.h 2.13 2009/05/21 11:11:32 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.7"
+-#define VDRVERSNUM   10707  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.8"
++#define VDRVERSNUM   10708  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.7"
+-#define APIVERSNUM   10707  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.8"
++#define APIVERSNUM   10708  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+@@ -42,7 +42,7 @@
+ #define MINOSDWIDTH   480
+ #define MAXOSDWIDTH  1920
+ #define MINOSDHEIGHT  324
+-#define MAXOSDHEIGHT 1080
++#define MAXOSDHEIGHT 1200
+ 
+ #define MaxFileName 256
+ #define MaxSkinName 16
+@@ -234,6 +234,7 @@
+   int PrimaryLimit;
+   int DefaultPriority, DefaultLifetime;
+   int PausePriority, PauseLifetime;
++  int PauseKeyHandling;
+   int UseSubtitle;
+   int UseVps;
+   int VpsMargin;
+@@ -246,6 +247,7 @@
+   int ChannelInfoTime;
+   double OSDLeftP, OSDTopP, OSDWidthP, OSDHeightP;
+   int OSDLeft, OSDTop, OSDWidth, OSDHeight;
++  double OSDAspect;
+   int OSDMessageTime;
+   int UseSmallFont;
+   int AntiAlias;
+diff -ruN vdr-1.7.7/device.c vdr-1.7.8/device.c
+--- vdr-1.7.7/device.c	2009-05-02 14:17:39.000000000 +0200
++++ vdr-1.7.8/device.c	2009-06-06 15:25:58.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.17 2009/05/02 12:17:39 kls Exp $
++ * $Id: device.c 2.23 2009/06/06 13:25:58 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -19,11 +19,6 @@
+ #include "status.h"
+ #include "transfer.h"
+ 
+-const char *VideoAspectString[] = { "4:3",
+-                                    "16:9",
+-                                    "2.21:9"
+-                                  };
+-
+ // --- cLiveSubtitle ---------------------------------------------------------
+ 
+ class cLiveSubtitle : public cReceiver {
+@@ -66,6 +61,7 @@
+ cDevice *cDevice::avoidDevice = NULL;
+ 
+ cDevice::cDevice(void)
++:patPmtParser(true)
+ {
+   cardIndex = nextCardIndex++;
+ 
+@@ -389,11 +385,18 @@
+   return vsPAL;
+ }
+ 
+-void cDevice::GetVideoSize(int &Width, int &Height, eVideoAspect &Aspect)
++void cDevice::GetVideoSize(int &Width, int &Height, double &VideoAspect)
++{
++  Width = 0;
++  Height = 0;
++  VideoAspect = 1.0;
++}
++
++void cDevice::GetOsdSize(int &Width, int &Height, double &PixelAspect)
+ {
+-  Width = MINOSDWIDTH;
+-  Height = MINOSDHEIGHT;
+-  Aspect = va4_3;
++  Width = 720;
++  Height = 480;
++  PixelAspect = 1.0;
+ }
+ 
+ //#define PRINTPIDS(s) { char b[500]; char *q = b; q += sprintf(q, "%d %s ", CardIndex(), s); for (int i = 0; i < MAXPIDHANDLES; i++) q += sprintf(q, " %s%4d %d", i == ptOther ? "* " : "", pidHandles[i].pid, pidHandles[i].used); dsyslog(b); }
+diff -ruN vdr-1.7.7/device.h vdr-1.7.8/device.h
+--- vdr-1.7.7/device.h	2009-05-02 14:16:20.000000000 +0200
++++ vdr-1.7.8/device.h	2009-06-06 13:15:49.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 2.10 2009/05/02 12:16:20 kls Exp $
++ * $Id: device.h 2.15 2009/06/06 11:15:49 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -56,13 +56,6 @@
+                     vsNTSC
+                   };
+ 
+-enum eVideoAspect { va4_3,
+-                    va16_9,
+-                    va221_9
+-                  };
+-
+-extern const char *VideoAspectString[];
+-
+ enum eVideoDisplayFormat { vdfPanAndScan,
+                            vdfLetterBox,
+                            vdfCenterCutOut
+@@ -384,9 +377,25 @@
+   virtual eVideoSystem GetVideoSystem(void);
+          ///< Returns the video system of the currently displayed material
+          ///< (default is PAL).
+-  virtual void GetVideoSize(int &Width, int &Height, eVideoAspect &Aspect);
+-         ///< Returns the With, Height and Aspect ratio of the currently
+-         ///< displayed material.
++  virtual void GetVideoSize(int &Width, int &Height, double &VideoAspect);
++         ///< Returns the With, Height and VideoAspect ratio of the currently
++         ///< displayed video material. The data returned by this function is
++         ///< only used for informational purposes (if any). Width and
++         ///< Height are given in pixel (e.g. 720x576) and VideoAspect is
++         ///< e.g. 1.33333 for a 4:3 broadcast, or 1.77778 for 16:9.
++         ///< The default implementation returns 0 for Width and Height
++         ///< and 1.0 for VideoAspect.
++  virtual void GetOsdSize(int &Width, int &Height, double &PixelAspect);
++         ///< Returns the With, Height and PixelAspect ratio the OSD should use
++         ///< to best fit the resolution of the output device. If PixelAspect
++         ///< is not 1.0, the OSD may take this as a hint to scale its
++         ///< graphics in a way that, e.g., a circle will actually
++         ///< show up as a circle on the screen, and not as an ellipse.
++         ///< Values greater than 1.0 mean to stretch the graphics in the
++         ///< vertical direction (or shrink it in the horizontal direction,
++         ///< depending on which dimension shall be fixed). Values less than
++         ///< 1.0 work the other way round. Note that the OSD is not guaranteed
++         ///< to actually use this hint.
+ 
+ // Track facilities
+ 
+diff -ruN vdr-1.7.7/dvbdevice.c vdr-1.7.8/dvbdevice.c
+--- vdr-1.7.7/dvbdevice.c	2009-05-03 15:49:41.000000000 +0200
++++ vdr-1.7.8/dvbdevice.c	2009-06-06 13:17:20.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.15 2009/05/03 13:49:41 kls Exp $
++ * $Id: dvbdevice.c 2.21 2009/06/06 11:17:20 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -232,8 +232,8 @@
+                          uchar *codes = diseqc->Codes(n);
+                          if (codes) {
+                             struct dvb_diseqc_master_cmd cmd;
+-                            memcpy(cmd.msg, codes, min(n, int(sizeof(cmd.msg))));
+-                            cmd.msg_len = n;
++                            cmd.msg_len = min(n, int(sizeof(cmd.msg)));
++                            memcpy(cmd.msg, codes, cmd.msg_len);
+                             CHECK(ioctl(fd_frontend, FE_DISEQC_SEND_MASTER_CMD, &cmd));
+                             }
+                          }
+@@ -736,31 +736,62 @@
+ eVideoSystem cDvbDevice::GetVideoSystem(void)
+ {
+   eVideoSystem VideoSystem = vsPAL;
+-  video_size_t vs;
+-  if (ioctl(fd_video, VIDEO_GET_SIZE, &vs) == 0) {
+-     if (vs.h == 480 || vs.h == 240)
+-        VideoSystem = vsNTSC;
++  if (fd_video >= 0) {
++     video_size_t vs;
++     if (ioctl(fd_video, VIDEO_GET_SIZE, &vs) == 0) {
++        if (vs.h == 480 || vs.h == 240)
++           VideoSystem = vsNTSC;
++        }
++     else
++        LOG_ERROR;
+      }
+-  else
+-     LOG_ERROR;
+   return VideoSystem;
+ }
+ 
+-void cDvbDevice::GetVideoSize(int &Width, int &Height, eVideoAspect &Aspect)
++void cDvbDevice::GetVideoSize(int &Width, int &Height, double &VideoAspect)
+ {
+-  video_size_t vs;
+-  if (ioctl(fd_video, VIDEO_GET_SIZE, &vs) == 0) {
+-     Width = vs.w;
+-     if (Width < 720) // FIXME: some channels result in a With of, e.g. 544, but the final video *is* 720 wide
++  if (fd_video >= 0) {
++     video_size_t vs;
++     if (ioctl(fd_video, VIDEO_GET_SIZE, &vs) == 0) {
++        Width = vs.w;
++        Height = vs.h;
++        switch (vs.aspect_ratio) {
++          default:
++          case VIDEO_FORMAT_4_3:   VideoAspect =  4.0 / 3.0; break;
++          case VIDEO_FORMAT_16_9:  VideoAspect = 16.0 / 9.0; break;
++          case VIDEO_FORMAT_221_1: VideoAspect =       2.21; break;
++          }
++        return;
++        }
++     else
++        LOG_ERROR;
++     }
++  cDevice::GetVideoSize(Width, Height, VideoAspect);
++}
++
++void cDvbDevice::GetOsdSize(int &Width, int &Height, double &PixelAspect)
++{
++  if (fd_video >= 0) {
++     video_size_t vs;
++     if (ioctl(fd_video, VIDEO_GET_SIZE, &vs) == 0) {
+         Width = 720;
+-     Height = vs.h;
+-     Aspect = eVideoAspect(vs.aspect_ratio);
+-     if (Width >= MINOSDWIDTH && Width <= MAXOSDWIDTH && Height >= MINOSDHEIGHT && Height <= MAXOSDHEIGHT)
++        if (vs.h != 480 && vs.h != 240)
++           Height = 576; // PAL
++        else
++           Height = 480; // NTSC
++        switch (Setup.VideoFormat ? vs.aspect_ratio : VIDEO_FORMAT_4_3) {
++          default:
++          case VIDEO_FORMAT_4_3:   PixelAspect =  4.0 / 3.0; break;
++          case VIDEO_FORMAT_221_1: // FF DVB cards only distinguish between 4:3 and 16:9
++          case VIDEO_FORMAT_16_9:  PixelAspect = 16.0 / 9.0; break;
++          }
++        PixelAspect /= double(Width) / Height;
+         return;
++        }
++     else
++        LOG_ERROR;
+      }
+-  else
+-     LOG_ERROR;
+-  cDevice::GetVideoSize(Width, Height, Aspect);
++  cDevice::GetOsdSize(Width, Height, PixelAspect);
+ }
+ 
+ bool cDvbDevice::SetAudioBypass(bool On)
+diff -ruN vdr-1.7.7/dvbdevice.h vdr-1.7.8/dvbdevice.h
+--- vdr-1.7.7/dvbdevice.h	2009-05-02 12:44:40.000000000 +0200
++++ vdr-1.7.8/dvbdevice.h	2009-06-06 13:16:47.000000000 +0200
+@@ -4,12 +4,13 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 2.4 2009/05/02 10:44:40 kls Exp $
++ * $Id: dvbdevice.h 2.8 2009/06/06 11:16:47 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+ #define __DVBDEVICE_H
+ 
++#include <sys/mman.h> // FIXME: workaround for broken linux-dvb header files
+ #include <linux/dvb/frontend.h>
+ #include <linux/dvb/version.h>
+ #include "device.h"
+@@ -107,7 +108,8 @@
+   virtual void SetVideoDisplayFormat(eVideoDisplayFormat VideoDisplayFormat);
+   virtual void SetVideoFormat(bool VideoFormat16_9);
+   virtual eVideoSystem GetVideoSystem(void);
+-  virtual void GetVideoSize(int &Width, int &Height, eVideoAspect &Aspect);
++  virtual void GetVideoSize(int &Width, int &Height, double &VideoAspect);
++  virtual void GetOsdSize(int &Width, int &Height, double &PixelAspect);
+ 
+ // Track facilities
+ 
+diff -ruN vdr-1.7.7/dvbplayer.c vdr-1.7.8/dvbplayer.c
+--- vdr-1.7.7/dvbplayer.c	2009-04-19 17:19:10.000000000 +0200
++++ vdr-1.7.8/dvbplayer.c	2009-05-31 16:12:42.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.c 2.15 2009/04/19 15:19:10 kls Exp $
++ * $Id: dvbplayer.c 2.17 2009/05/31 14:12:42 kls Exp $
+  */
+ 
+ #include "dvbplayer.h"
+@@ -89,7 +89,6 @@
+   uchar *buffer;
+   int wanted;
+   int length;
+-  bool hasData;
+   cCondWait newSet;
+   cCondVar newDataCond;
+   cMutex newDataMutex;
+@@ -99,7 +98,8 @@
+   cNonBlockingFileReader(void);
+   ~cNonBlockingFileReader();
+   void Clear(void);
+-  int Read(cUnbufferedFile *File, uchar *Buffer, int Length);
++  void Request(cUnbufferedFile *File, int Length);
++  int Result(uchar **Buffer);
+   bool Reading(void) { return buffer; }
+   bool WaitForDataMs(int msToWait);
+   };
+@@ -110,7 +110,6 @@
+   f = NULL;
+   buffer = NULL;
+   wanted = length = 0;
+-  hasData = false;
+   Start();
+ }
+ 
+@@ -128,29 +127,27 @@
+   free(buffer);
+   buffer = NULL;
+   wanted = length = 0;
+-  hasData = false;
++  Unlock();
++}
++
++void cNonBlockingFileReader::Request(cUnbufferedFile *File, int Length)
++{
++  Lock();
++  Clear();
++  wanted = Length;
++  buffer = MALLOC(uchar, wanted);
++  f = File;
+   Unlock();
+   newSet.Signal();
+ }
+ 
+-int cNonBlockingFileReader::Read(cUnbufferedFile *File, uchar *Buffer, int Length)
++int cNonBlockingFileReader::Result(uchar **Buffer)
+ {
+-  if (hasData && buffer) {
+-     if (buffer != Buffer) {
+-        esyslog("ERROR: cNonBlockingFileReader::Read() called with different buffer!");
+-        errno = EINVAL;
+-        return -1;
+-        }
++  LOCK_THREAD;
++  if (buffer && length == wanted) {
++     *Buffer = buffer;
+      buffer = NULL;
+-     return length;
+-     }
+-  if (!buffer) {
+-     f = File;
+-     buffer = Buffer;
+-     wanted = Length;
+-     length = 0;
+-     hasData = false;
+-     newSet.Signal();
++     return wanted;
+      }
+   errno = EAGAIN;
+   return -1;
+@@ -160,20 +157,23 @@
+ {
+   while (Running()) {
+         Lock();
+-        if (!hasData && f && buffer) {
++        if (f && buffer && length < wanted) {
+            int r = f->Read(buffer + length, wanted - length);
+-           if (r >= 0) {
++           if (r > 0)
+               length += r;
+-              if (!r || length == wanted) { // r == 0 means EOF
+-                 cMutexLock NewDataLock(&newDataMutex);
+-                 hasData = true;
+-                 newDataCond.Broadcast();
+-                 }
++           else if (r == 0) { // r == 0 means EOF
++              if (length > 0)
++                 wanted = length; // already read something, so return the rest
++              else
++                 length = wanted = 0; // report EOF
+               }
+-           else if (r < 0 && FATALERRNO) {
++           else if (FATALERRNO) {
+               LOG_ERROR;
+-              length = r; // this will forward the error status to the caller
+-              hasData = true;
++              length = wanted = r; // this will forward the error status to the caller
++              }
++           if (length == wanted) {
++              cMutexLock NewDataLock(&newDataMutex);
++              newDataCond.Broadcast();
+               }
+            }
+         Unlock();
+@@ -184,7 +184,7 @@
+ bool cNonBlockingFileReader::WaitForDataMs(int msToWait)
+ {
+   cMutexLock NewDataLock(&newDataMutex);
+-  if (hasData)
++  if (buffer && length == wanted)
+      return true;
+   return newDataCond.TimedWait(newDataMutex, msToWait);
+ }
+@@ -381,7 +381,6 @@
+ 
+ void cDvbPlayer::Action(void)
+ {
+-  uchar *b = NULL;
+   uchar *p = NULL;
+   int pc = 0;
+ 
+@@ -461,10 +460,12 @@
+                       esyslog("ERROR: frame larger than buffer (%d > %d)", Length, MAXFRAMESIZE);
+                       Length = MAXFRAMESIZE;
+                       }
+-                   b = MALLOC(uchar, Length);
++                   if (!eof)
++                      nonBlockingFileReader->Request(replayFile, Length);
+                    }
+                 if (!eof) {
+-                   int r = nonBlockingFileReader->Read(replayFile, b, Length);
++                   uchar *b = NULL;
++                   int r = nonBlockingFileReader->Result(&b);
+                    if (r > 0) {
+                       WaitingForData = false;
+                       uint32_t Pts = 0;
+@@ -473,15 +474,16 @@
+                          LastReadIFrame = readIndex;
+                          }
+                       readFrame = new cFrame(b, -r, ftUnknown, readIndex, Pts); // hands over b to the ringBuffer
+-                      b = NULL;
+                       }
+-                   else if (r == 0)
+-                      eof = true;
+                    else if (r < 0 && errno == EAGAIN)
+                       WaitingForData = true;
+-                   else if (r < 0 && FATALERRNO) {
+-                      LOG_ERROR;
+-                      break;
++                   else {
++                      if (r == 0)
++                         eof = true;
++                      else if (r < 0 && FATALERRNO) {
++                         LOG_ERROR;
++                         break;
++                         }
+                       }
+                    }
+                 }
+diff -ruN vdr-1.7.7/dvbspu.c vdr-1.7.8/dvbspu.c
+--- vdr-1.7.7/dvbspu.c	2007-02-03 11:13:18.000000000 +0100
++++ vdr-1.7.8/dvbspu.c	2009-05-09 18:25:59.000000000 +0200
+@@ -8,7 +8,7 @@
+  *
+  * parts of this file are derived from the OMS program.
+  *
+- * $Id: dvbspu.c 2.0 2007/02/03 10:13:18 kls Exp $
++ * $Id: dvbspu.c 2.1 2009/05/09 16:25:59 kls Exp $
+  */
+ 
+ #include "dvbspu.h"
+@@ -55,18 +55,16 @@
+ #define setMin(a, b) if (a > b) a = b
+ #define setMax(a, b) if (a < b) a = b
+ 
+-#define spuXres   720
+-#define spuYres   576
+-
+ #define revRect(r1, r2) { r1.x1 = r2.x2; r1.y1 = r2.y2; r1.x2 = r2.x1; r1.y2 = r2.y1; }
+ 
+ cDvbSpuBitmap::cDvbSpuBitmap(sDvbSpuRect size,
+                              uint8_t * fodd, uint8_t * eodd,
+                              uint8_t * feven, uint8_t * eeven)
+ {
+-    if (size.x1 < 0 || size.y1 < 0 || size.x2 >= spuXres
+-        || size.y2 >= spuYres)
+-        throw;
++    size.x1 = max(size.x1, 0);
++    size.y1 = max(size.y1, 0);
++    size.x2 = min(size.x2, Setup.OSDWidth);
++    size.y2 = min(size.y2, Setup.OSDHeight);
+ 
+     bmpsize = size;
+     revRect(minsize[0], size);
+@@ -74,10 +72,11 @@
+     revRect(minsize[2], size);
+     revRect(minsize[3], size);
+ 
+-    if (!(bmp = new uint8_t[spuXres * spuYres * sizeof(uint8_t)]))
+-        throw;
++    int MemSize = bmpsize.width() * bmpsize.height() * sizeof(uint8_t);
++    bmp = new uint8_t[MemSize];
+ 
+-    memset(bmp, 0, spuXres * spuYres * sizeof(uint8_t));
++    if (bmp)
++       memset(bmp, 0, MemSize);
+     putFieldData(0, fodd, eodd);
+     putFieldData(1, feven, eeven);
+ }
+@@ -94,10 +93,10 @@
+     int h = size.height();
+     int w = size.width();
+ 
+-    if (size.y1 + h >= spuYres)
+-        h = spuYres - size.y1 - 1;
+-    if (size.x1 + w >= spuXres)
+-        w = spuXres - size.x1 - 1;
++    if (size.y1 + h >= bmpsize.height())
++        h = bmpsize.height() - size.y1 - 1;
++    if (size.x1 + w >= bmpsize.width())
++        w = bmpsize.width() - size.x1 - 1;
+ 
+     if (w & 0x03)
+         w += 4 - (w & 0x03);
+@@ -114,7 +113,7 @@
+     // set the content
+     for (int yp = 0; yp < h; yp++) {
+         for (int xp = 0; xp < w; xp++) {
+-            uint8_t idx = bmp[(size.y1 + yp) * spuXres + size.x1 + xp];
++            uint8_t idx = bmp[(size.y1 + yp) * bmpsize.width() + size.x1 + xp];
+             ret->SetIndex(xp, yp, idx);
+         }
+     }
+@@ -150,7 +149,7 @@
+ 
+ void cDvbSpuBitmap::putPixel(int xp, int yp, int len, uint8_t colorid)
+ {
+-    memset(bmp + spuXres * yp + xp, colorid, len);
++    memset(bmp + bmpsize.width() * yp + xp, colorid, len);
+     setMin(minsize[colorid].x1, xp);
+     setMin(minsize[colorid].y1, yp);
+     setMax(minsize[colorid].x2, xp + len - 1);
+diff -ruN vdr-1.7.7/dvbspu.h vdr-1.7.8/dvbspu.h
+--- vdr-1.7.7/dvbspu.h	2006-04-17 14:47:29.000000000 +0200
++++ vdr-1.7.8/dvbspu.h	2009-05-09 18:26:45.000000000 +0200
+@@ -8,7 +8,7 @@
+  *
+  * parts of this file are derived from the OMS program.
+  *
+- * $Id: dvbspu.h 2.0 2006/04/17 12:47:29 kls Exp $
++ * $Id: dvbspu.h 2.1 2009/05/09 16:26:45 kls Exp $
+  */
+ 
+ #ifndef __DVBSPU_H
+@@ -32,10 +32,10 @@
+     int x1, y1;
+     int x2, y2;
+ 
+-    int width() {
++    int width() const {
+         return x2 - x1 + 1;
+     };
+-    int height() {
++    int height() const {
+         return y2 - y1 + 1;
+     };
+ 
+@@ -63,8 +63,6 @@
+ // --- cDvbSpuBitmap----------------------------------------------------------
+ 
+ class cDvbSpuBitmap {
+-
+-  public:
+   private:
+     sDvbSpuRect bmpsize;
+     sDvbSpuRect minsize[4];
+diff -ruN vdr-1.7.7/eit.c vdr-1.7.8/eit.c
+--- vdr-1.7.7/eit.c	2009-04-11 12:03:24.000000000 +0200
++++ vdr-1.7.8/eit.c	2009-05-15 14:34:43.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 2.3 2009/04/11 10:03:24 kls Exp $
++ * $Id: eit.c 2.5 2009/05/15 12:34:43 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -17,6 +17,8 @@
+ #include "libsi/section.h"
+ #include "libsi/descriptor.h"
+ 
++#define VALID_TIME (31536000 * 2) // two years
++
+ // --- cEIT ------------------------------------------------------------------
+ 
+ class cEIT : public SI::EIT {
+@@ -46,10 +48,13 @@
+   struct tm tm_r;
+   struct tm t = *localtime_r(&Now, &tm_r); // this initializes the time zone in 't'
+ 
++  if (Now < VALID_TIME)
++     return; // we need the current time for handling PDC descriptors
++
+   SI::EIT::Event SiEitEvent;
+   for (SI::Loop::Iterator it; eventLoop.getNext(SiEitEvent, it); ) {
+       bool ExternalData = false;
+-      int StartTime = SiEitEvent.getStartTime();
++      time_t StartTime = SiEitEvent.getStartTime();
+       int Duration = SiEitEvent.getDuration();
+       // Drop bogus events - but keep NVOD reference events, where all bits of the start time field are set to 1, resulting in a negative number.
+       if (StartTime == 0 || StartTime > 0 && Duration == 0)
+diff -ruN vdr-1.7.7/font.h vdr-1.7.8/font.h
+--- vdr-1.7.7/font.h	2009-05-03 13:00:19.000000000 +0200
++++ vdr-1.7.8/font.h	2009-05-23 12:10:40.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: font.h 2.1 2009/05/03 11:00:19 kls Exp $
++ * $Id: font.h 2.2 2009/05/23 10:10:40 kls Exp $
+  */
+ 
+ #ifndef __FONT_H
+@@ -55,9 +55,11 @@
+   static const cFont *GetFont(eDvbFont Font);
+           ///< Gets the given Font, which was previously set by a call to SetFont().
+           ///< If no SetFont() call has been made, the font as defined in the setup is returned.
+-          ///< The caller must not use the returned font outside the scope in which
+-          ///< it was retrieved by the call to GetFont(), because a call to SetFont()
+-          ///< may delete an existing font.
++          ///< GetFont() is not thread-safe, and shall only be called from the main
++          ///< thread! A font returned by GetFont() must only be used locally inside the
++          ///< function it was retrieved from, and no long term pointer to it shall be kept,
++          ///< because the cFont object may become invalid at any time after the
++          ///< function that called GetFont() has returned.
+   static cFont *CreateFont(const char *Name, int CharHeight, int CharWidth = 0);
+           ///< Creates a new font object with the given Name and makes its characters
+           ///< CharHeight pixels high. If CharWidth is given, it overwrites the font's
+diff -ruN vdr-1.7.7/menu.c vdr-1.7.8/menu.c
+--- vdr-1.7.7/menu.c	2009-05-03 15:30:13.000000000 +0200
++++ vdr-1.7.8/menu.c	2009-05-21 13:10:38.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 2.7 2009/05/03 13:30:13 kls Exp $
++ * $Id: menu.c 2.8 2009/05/21 11:10:38 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -2672,18 +2672,24 @@
+ // --- cMenuSetupRecord ------------------------------------------------------
+ 
+ class cMenuSetupRecord : public cMenuSetupBase {
++private:
++  const char *pauseKeyHandlingTexts[3];
+ public:
+   cMenuSetupRecord(void);
+   };
+ 
+ cMenuSetupRecord::cMenuSetupRecord(void)
+ {
++  pauseKeyHandlingTexts[0] = tr("do not pause live video");
++  pauseKeyHandlingTexts[1] = tr("confirm pause live video");
++  pauseKeyHandlingTexts[2] = tr("pause live video");
+   SetSection(tr("Recording"));
+   Add(new cMenuEditIntItem( tr("Setup.Recording$Margin at start (min)"),     &data.MarginStart));
+   Add(new cMenuEditIntItem( tr("Setup.Recording$Margin at stop (min)"),      &data.MarginStop));
+   Add(new cMenuEditIntItem( tr("Setup.Recording$Primary limit"),             &data.PrimaryLimit, 0, MAXPRIORITY));
+   Add(new cMenuEditIntItem( tr("Setup.Recording$Default priority"),          &data.DefaultPriority, 0, MAXPRIORITY));
+   Add(new cMenuEditIntItem( tr("Setup.Recording$Default lifetime (d)"),      &data.DefaultLifetime, 0, MAXLIFETIME));
++  Add(new cMenuEditStraItem(tr("Setup.Recording$Pause key handling"),        &data.PauseKeyHandling, 3, pauseKeyHandlingTexts));
+   Add(new cMenuEditIntItem( tr("Setup.Recording$Pause priority"),            &data.PausePriority, 0, MAXPRIORITY));
+   Add(new cMenuEditIntItem( tr("Setup.Recording$Pause lifetime (d)"),        &data.PauseLifetime, 0, MAXLIFETIME));
+   Add(new cMenuEditBoolItem(tr("Setup.Recording$Use episode name"),          &data.UseSubtitle));
+diff -ruN vdr-1.7.7/osd.c vdr-1.7.8/osd.c
+--- vdr-1.7.7/osd.c	2009-05-03 15:52:47.000000000 +0200
++++ vdr-1.7.8/osd.c	2009-05-09 12:42:35.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 2.3 2009/05/03 13:52:47 kls Exp $
++ * $Id: osd.c 2.5 2009/05/09 10:42:35 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -883,7 +883,7 @@
+ cOsdProvider *cOsdProvider::osdProvider = NULL;
+ int cOsdProvider::oldWidth = 0;
+ int cOsdProvider::oldHeight = 0;
+-int cOsdProvider::oldAspect = va4_3;
++double cOsdProvider::oldAspect = 1.0;
+ 
+ cOsdProvider::cOsdProvider(void)
+ {
+@@ -919,13 +919,14 @@
+ {
+   int Width;
+   int Height;
+-  eVideoAspect Aspect;
+-  cDevice::PrimaryDevice()->GetVideoSize(Width, Height, Aspect);
++  double Aspect;
++  cDevice::PrimaryDevice()->GetOsdSize(Width, Height, Aspect);
+   if (Width != oldWidth || Height != oldHeight || Aspect != oldAspect || Force) {
+      Setup.OSDLeft = int(round(Width * Setup.OSDLeftP));
+      Setup.OSDTop = int(round(Height * Setup.OSDTopP));
+      Setup.OSDWidth = int(round(Width * Setup.OSDWidthP)) & ~0x07; // OSD width must be a multiple of 8
+      Setup.OSDHeight = int(round(Height * Setup.OSDHeightP));
++     Setup.OSDAspect = Aspect;
+      Setup.FontOsdSize = int(round(Height * Setup.FontOsdSizeP));
+      Setup.FontFixSize = int(round(Height * Setup.FontFixSizeP));
+      Setup.FontSmlSize = int(round(Height * Setup.FontSmlSizeP));
+@@ -935,7 +936,7 @@
+      oldWidth = Width;
+      oldHeight = Height;
+      oldAspect = Aspect;
+-     dsyslog("OSD size changed to %dx%d @ %s", Width, Height, VideoAspectString[Aspect]);
++     dsyslog("OSD size changed to %dx%d @ %g", Width, Height, Aspect);
+      }
+ }
+ 
+diff -ruN vdr-1.7.7/osd.h vdr-1.7.8/osd.h
+--- vdr-1.7.7/osd.h	2009-05-03 15:52:10.000000000 +0200
++++ vdr-1.7.8/osd.h	2009-05-08 15:41:03.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.h 2.3 2009/05/03 13:52:10 kls Exp $
++ * $Id: osd.h 2.4 2009/05/08 13:41:03 kls Exp $
+  */
+ 
+ #ifndef __OSD_H
+@@ -408,7 +408,7 @@
+   static cOsdProvider *osdProvider;
+   static int oldWidth;
+   static int oldHeight;
+-  static int oldAspect;
++  static double oldAspect;
+ protected:
+   virtual cOsd *CreateOsd(int Left, int Top, uint Level) = 0;
+       ///< Returns a pointer to a newly created cOsd object, which will be located
+diff -ruN vdr-1.7.7/osdbase.c vdr-1.7.8/osdbase.c
+--- vdr-1.7.7/osdbase.c	2008-02-17 12:33:04.000000000 +0100
++++ vdr-1.7.8/osdbase.c	2009-06-01 13:54:50.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osdbase.c 2.0 2008/02/17 11:33:04 kls Exp $
++ * $Id: osdbase.c 2.1 2009/06/01 11:54:50 kls Exp $
+  */
+ 
+ #include "osdbase.h"
+@@ -217,6 +217,7 @@
+          }
+      if (current < 0)
+         current = 0; // just for safety - there HAS to be a current item!
++     first = min(first, max(0, count - displayMenuItems)); // in case the menu size has changed
+      if (current - first >= displayMenuItems || current < first) {
+         first = current - displayMenuItems / 2;
+         if (first + displayMenuItems > count)
+diff -ruN vdr-1.7.7/po/ca_ES.po vdr-1.7.8/po/ca_ES.po
+--- vdr-1.7.7/po/ca_ES.po	2009-05-03 16:15:20.000000000 +0200
++++ vdr-1.7.8/po/ca_ES.po	2009-06-06 17:22:37.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Catalanian\n"
+@@ -707,6 +707,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "No puc reiniciar la CAM!"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "Opcions de GravaciÛ"
+ 
+@@ -725,6 +734,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Durada predefinida"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Prioritat de la pausa"
+ 
+@@ -986,6 +998,9 @@
+ msgid "Upcoming recording!"
+ msgstr "GravaciÛ a punt d'iniciar!"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "GravaciÛ comenÁada"
+ 
+diff -ruN vdr-1.7.7/po/cs_CZ.po vdr-1.7.8/po/cs_CZ.po
+--- vdr-1.7.7/po/cs_CZ.po	2009-05-03 16:15:20.000000000 +0200
++++ vdr-1.7.8/po/cs_CZ.po	2009-06-06 17:22:37.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2008-02-28 15:00+0200\n"
+ "Last-Translator: VladimÌr B·rta <vladimir.barta@k2atmitec.cz>, Ji¯Ì Dobr˝ <jdobry@centrum.cz>\n"
+ "Language-Team: Czech\n"
+@@ -705,6 +705,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "CAM modul nelze restartovat!"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "Nahr·v·nÌ"
+ 
+@@ -723,6 +732,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "V˝chozÌ æivotnost"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Priorita p¯eruπenÌ"
+ 
+@@ -984,6 +996,9 @@
+ msgid "Upcoming recording!"
+ msgstr "Brzo zaËne nahr·v·nÌ!"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "ZaËalo nahr·v·nÌ"
+ 
+diff -ruN vdr-1.7.7/po/da_DK.po vdr-1.7.8/po/da_DK.po
+--- vdr-1.7.7/po/da_DK.po	2009-05-03 16:15:20.000000000 +0200
++++ vdr-1.7.8/po/da_DK.po	2009-06-06 17:22:37.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish\n"
+@@ -704,6 +704,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "Kan ikke nulstille CAM!"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "Optagelse"
+ 
+@@ -722,6 +731,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Standard levetid (d)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Pause prioritet"
+ 
+@@ -983,6 +995,9 @@
+ msgid "Upcoming recording!"
+ msgstr "Optagelse starter snart!"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "Optagelse startet"
+ 
+diff -ruN vdr-1.7.7/po/de_DE.po vdr-1.7.8/po/de_DE.po
+--- vdr-1.7.7/po/de_DE.po	2009-05-03 16:15:20.000000000 +0200
++++ vdr-1.7.8/po/de_DE.po	2009-06-06 17:22:37.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2007-11-25 15:19+0200\n"
+ "Last-Translator: Klaus Schmidinger <kls@cadsoft.de>\n"
+ "Language-Team: German\n"
+@@ -704,6 +704,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "Zur¸cksetzen des CAM fehlgeschlagen!"
+ 
++msgid "do not pause live video"
++msgstr "Live-Signal nicht anhalten"
++
++msgid "confirm pause live video"
++msgstr "Anhalten des Live-Signals best‰tigen"
++
++msgid "pause live video"
++msgstr "Live-Signal anhalten"
++
+ msgid "Recording"
+ msgstr "Aufnahme"
+ 
+@@ -722,6 +731,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Default-Lebensdauer (d)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr "Funktion der Pause-Taste"
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Pause-Priorit‰t"
+ 
+@@ -983,6 +995,9 @@
+ msgid "Upcoming recording!"
+ msgstr "Aufnahme beginnt in K¸rze!"
+ 
++msgid "Pause live video?"
++msgstr "Live-Signal anhalten?"
++
+ msgid "Recording started"
+ msgstr "Aufzeichnung gestartet"
+ 
+diff -ruN vdr-1.7.7/po/el_GR.po vdr-1.7.8/po/el_GR.po
+--- vdr-1.7.7/po/el_GR.po	2009-05-03 16:15:20.000000000 +0200
++++ vdr-1.7.8/po/el_GR.po	2009-06-06 17:22:37.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek\n"
+@@ -704,6 +704,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "¡‰˝Ì·ÙÁ Á Â·Ì·ˆÔÒ‹ ÛÙ¸ CAM"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "≈„„Ò·ˆﬁ"
+ 
+@@ -722,6 +731,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "–ÒÔÍ·ËÔÒÈÛÏ›ÌÁ ‰È‹ÒÍÂÈ· ·Ò·ÏÔÌﬁÚ («Ï›ÒÂÚ)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "–ÒÔÙÂÒ·È¸ÙÁÙ· ‰È·ÎÂﬂÏÏ·ÙÔÚ"
+ 
+@@ -983,6 +995,9 @@
+ msgid "Upcoming recording!"
+ msgstr ""
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr ""
+ 
+diff -ruN vdr-1.7.7/po/es_ES.po vdr-1.7.8/po/es_ES.po
+--- vdr-1.7.7/po/es_ES.po	2009-05-03 16:15:20.000000000 +0200
++++ vdr-1.7.8/po/es_ES.po	2009-06-06 17:22:38.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Spanish\n"
+@@ -705,6 +705,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "°No se puede reiniciar CAM!"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "Opciones de grabaciÛn"
+ 
+@@ -723,6 +732,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "DuraciÛn por defecto (dÌas)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Prioridad en modo pausa"
+ 
+@@ -984,6 +996,9 @@
+ msgid "Upcoming recording!"
+ msgstr "°GrabaciÛn a punto de empezar!"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "Iniciando grabaciÛn"
+ 
+diff -ruN vdr-1.7.7/po/et_EE.po vdr-1.7.8/po/et_EE.po
+--- vdr-1.7.7/po/et_EE.po	2009-05-03 16:15:20.000000000 +0200
++++ vdr-1.7.8/po/et_EE.po	2009-06-06 17:22:38.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <kasjas@hot.ee>\n"
+ "Language-Team: Estonian\n"
+@@ -704,6 +704,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "CAM mooduli taask‰ivitus ebaınnestus!"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "Salvestamine"
+ 
+@@ -722,6 +731,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Salvestuse eluiga (p‰evi)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Pausi prioriteet"
+ 
+@@ -983,6 +995,9 @@
+ msgid "Upcoming recording!"
+ msgstr "Salvestamine tulekul!"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "Salvestamine algas"
+ 
+diff -ruN vdr-1.7.7/po/fi_FI.po vdr-1.7.8/po/fi_FI.po
+--- vdr-1.7.7/po/fi_FI.po	2009-05-03 16:15:20.000000000 +0200
++++ vdr-1.7.8/po/fi_FI.po	2009-06-06 17:22:38.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+ "Language-Team: Finnish\n"
+@@ -707,6 +707,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "CA-moduulin nollaus ep‰onnistui!"
+ 
++msgid "do not pause live video"
++msgstr "‰l‰ pys‰yt‰ l‰hetyst‰"
++
++msgid "confirm pause live video"
++msgstr "varmista l‰hetyksen pys‰ytt‰minen"
++
++msgid "pause live video"
++msgstr "pys‰yt‰ l‰hetys"
++
+ msgid "Recording"
+ msgstr "Tallennus"
+ 
+@@ -725,6 +734,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Tallenteen oletuselinik‰ (d)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr "Taukon‰pp‰imen toiminta"
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Taukotallenteen prioriteetti"
+ 
+@@ -986,6 +998,9 @@
+ msgid "Upcoming recording!"
+ msgstr "Tallennus on alkamassa!"
+ 
++msgid "Pause live video?"
++msgstr "Pys‰ytet‰‰nkˆ l‰hetys?"
++
+ msgid "Recording started"
+ msgstr "Tallennus aloitettu"
+ 
+diff -ruN vdr-1.7.7/po/fr_FR.po vdr-1.7.8/po/fr_FR.po
+--- vdr-1.7.7/po/fr_FR.po	2009-05-03 16:15:20.000000000 +0200
++++ vdr-1.7.8/po/fr_FR.po	2009-06-06 17:22:38.000000000 +0200
+@@ -13,7 +13,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2008-02-27 18:14+0100\n"
+ "Last-Translator: Jean-Claude Repetto <jc@repetto.org>\n"
+ "Language-Team: French\n"
+@@ -710,6 +710,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "Impossible de rÈinitialiser le CAM !"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "Enregistrement"
+ 
+@@ -728,6 +737,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "DurÈe de vie par dÈfaut (j)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "PrioritÈ des pauses"
+ 
+@@ -989,6 +1001,9 @@
+ msgid "Upcoming recording!"
+ msgstr "L'enregistrement va commencer !"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "L'enregistrement a commencÈ"
+ 
+diff -ruN vdr-1.7.7/po/hr_HR.po vdr-1.7.8/po/hr_HR.po
+--- vdr-1.7.7/po/hr_HR.po	2009-05-03 16:15:21.000000000 +0200
++++ vdr-1.7.8/po/hr_HR.po	2009-06-06 17:22:38.000000000 +0200
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian\n"
+@@ -706,6 +706,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "Ponovno pokretanje CAM-a neuspjeπno!"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "Snimanje"
+ 
+@@ -724,6 +733,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Zadano trajanje (d)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Prioritet pauze"
+ 
+@@ -985,6 +997,9 @@
+ msgid "Upcoming recording!"
+ msgstr "Obnovljena snimka!"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "Snimanje zapoËelo"
+ 
+diff -ruN vdr-1.7.7/po/hu_HU.po vdr-1.7.8/po/hu_HU.po
+--- vdr-1.7.7/po/hu_HU.po	2009-05-03 16:15:21.000000000 +0200
++++ vdr-1.7.8/po/hu_HU.po	2009-06-06 17:22:38.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2007-12-01 21:42+0200\n"
+ "Last-Translator: Istv·n F¸ley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian\n"
+@@ -707,6 +707,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "A CAM ˙jraindÌt·s nem siker¸lt"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "FelvÈtel"
+ 
+@@ -725,6 +734,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "AlapÈrtelmezett Èlettartam"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Sz¸net priorit·s"
+ 
+@@ -986,6 +998,9 @@
+ msgid "Upcoming recording!"
+ msgstr "FelvÈtel rˆgtˆn kezdıdik!"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "A felvÈtel elindÌtva"
+ 
+diff -ruN vdr-1.7.7/po/it_IT.po vdr-1.7.8/po/it_IT.po
+--- vdr-1.7.7/po/it_IT.po	2009-05-03 16:15:21.000000000 +0200
++++ vdr-1.7.8/po/it_IT.po	2009-06-06 17:22:38.000000000 +0200
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2009-02-08 18:58+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian\n"
+@@ -711,6 +711,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "Impossibile reimpostare il modulo CAM!"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "Registrazione"
+ 
+@@ -729,6 +738,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Scadenza predefinita (gg)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Priorit√† di pausa"
+ 
+@@ -990,6 +1002,9 @@
+ msgid "Upcoming recording!"
+ msgstr "Registrazione imminente!"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "Registrazione avviata"
+ 
+diff -ruN vdr-1.7.7/po/nl_NL.po vdr-1.7.8/po/nl_NL.po
+--- vdr-1.7.7/po/nl_NL.po	2009-05-03 16:15:21.000000000 +0200
++++ vdr-1.7.8/po/nl_NL.po	2009-06-06 17:22:38.000000000 +0200
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2008-02-26 17:20+0100\n"
+ "Last-Translator: Johan Schuring <johan.schuring@vetteblei.nl>\n"
+ "Language-Team: Dutch\n"
+@@ -708,6 +708,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "Kan CAM niet herstarten!"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "Opname"
+ 
+@@ -726,6 +735,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Standaard levensduur (d)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Pauze prioriteit"
+ 
+@@ -987,6 +999,9 @@
+ msgid "Upcoming recording!"
+ msgstr "Opname start binnenkort!"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "Opname is gestart!"
+ 
+diff -ruN vdr-1.7.7/po/nn_NO.po vdr-1.7.8/po/nn_NO.po
+--- vdr-1.7.7/po/nn_NO.po	2009-05-03 16:15:21.000000000 +0200
++++ vdr-1.7.8/po/nn_NO.po	2009-06-06 17:22:38.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian\n"
+@@ -705,6 +705,15 @@
+ msgid "Can't reset CAM!"
+ msgstr ""
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "Opptak"
+ 
+@@ -723,6 +732,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Normal levetid timer (d)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr ""
+ 
+@@ -984,6 +996,9 @@
+ msgid "Upcoming recording!"
+ msgstr ""
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr ""
+ 
+diff -ruN vdr-1.7.7/po/pl_PL.po vdr-1.7.8/po/pl_PL.po
+--- vdr-1.7.7/po/pl_PL.po	2009-05-03 16:15:21.000000000 +0200
++++ vdr-1.7.8/po/pl_PL.po	2009-06-06 17:22:38.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2008-03-09 12:59+0100\n"
+ "Last-Translator: Michael Rakowski <mrak@gmx.de>\n"
+ "Language-Team:  Polish\n"
+@@ -705,6 +705,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "Nie moøna zresetowaÊ CAM!"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "Nagranie"
+ 
+@@ -723,6 +732,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Domy∂lny czas øycia (d)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Priorytet pauzy"
+ 
+@@ -984,6 +996,9 @@
+ msgid "Upcoming recording!"
+ msgstr "WkrÛtce nagranie!"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "RozpoczÍto nagrywanie"
+ 
+diff -ruN vdr-1.7.7/po/pt_PT.po vdr-1.7.8/po/pt_PT.po
+--- vdr-1.7.7/po/pt_PT.po	2009-05-03 16:15:21.000000000 +0200
++++ vdr-1.7.8/po/pt_PT.po	2009-06-06 17:22:38.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2008-03-18 17:04+0100\n"
+ "Last-Translator: anonymous\n"
+ "Language-Team: Portuguese\n"
+@@ -704,6 +704,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "N„o È possÌvel reiniciar a CAM"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "OpÁıes de gravaÁ„o"
+ 
+@@ -722,6 +731,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Validade por defeito (d)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Prioridade da pausa"
+ 
+@@ -983,6 +995,9 @@
+ msgid "Upcoming recording!"
+ msgstr "GravaÁ„o agendada!"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "GravaÁ„o iniciada"
+ 
+diff -ruN vdr-1.7.7/po/ro_RO.po vdr-1.7.8/po/ro_RO.po
+--- vdr-1.7.7/po/ro_RO.po	2009-05-03 16:15:21.000000000 +0200
++++ vdr-1.7.8/po/ro_RO.po	2009-06-06 17:22:38.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2008-02-25 00:39+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+ "Language-Team: Romanian\n"
+@@ -707,6 +707,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "Nu pot reseta CAM"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "Œnregistrare"
+ 
+@@ -725,6 +734,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Timp de p„strare predefinit (zile)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Prioritate pauz„"
+ 
+@@ -986,6 +998,9 @@
+ msgid "Upcoming recording!"
+ msgstr "Urmeaz„ o Ónregistrare!"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "A Ónceput Ónregistrarea"
+ 
+diff -ruN vdr-1.7.7/po/ru_RU.po vdr-1.7.8/po/ru_RU.po
+--- vdr-1.7.7/po/ru_RU.po	2009-05-03 16:15:21.000000000 +0200
++++ vdr-1.7.8/po/ru_RU.po	2009-06-06 17:22:39.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2008-12-15 14:37+0100\n"
+ "Last-Translator: Oleg Roitburd <oleg@roitburd.de>\n"
+ "Language-Team: Russian\n"
+@@ -705,6 +705,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "æËÿ—⁄– ﬂ’‡’◊–ﬂ„·⁄– CAM-‹ﬁ‘„€Ô!"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "∑–ﬂÿ·Ï"
+ 
+@@ -723,6 +732,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "¡‡ﬁ⁄ Â‡–›’›ÿÔ ◊–ﬂÿ·ÿ ﬂﬁ „‹ﬁ€Á–›ÿÓ (‘)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "ø‡ÿﬁ‡ÿ‚’‚ ﬁ‚€ﬁ÷’››ﬁ”ﬁ ﬂ‡ﬁ·‹ﬁ‚‡–"
+ 
+@@ -984,6 +996,9 @@
+ msgid "Upcoming recording!"
+ msgstr "∑–ﬂÿ·Ï ·⁄ﬁ‡ﬁ ›–Á›’‚·Ô"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "∑–ﬂÿ·Ï ›–Á–‚–"
+ 
+diff -ruN vdr-1.7.7/po/sl_SI.po vdr-1.7.8/po/sl_SI.po
+--- vdr-1.7.7/po/sl_SI.po	2009-05-03 16:15:21.000000000 +0200
++++ vdr-1.7.8/po/sl_SI.po	2009-06-06 17:22:39.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2008-02-28 19:44+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian\n"
+@@ -705,6 +705,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "Ne morem resetirati CAM-a!"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "Snemanje"
+ 
+@@ -723,6 +732,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Privzeti æivljenski Ëas (d)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Prioriteta pavze"
+ 
+@@ -984,6 +996,9 @@
+ msgid "Upcoming recording!"
+ msgstr "Sledi snemanje!"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "Snemanje se je priËelo"
+ 
+diff -ruN vdr-1.7.7/po/sv_SE.po vdr-1.7.8/po/sv_SE.po
+--- vdr-1.7.7/po/sv_SE.po	2009-05-03 16:15:21.000000000 +0200
++++ vdr-1.7.8/po/sv_SE.po	2009-06-06 17:22:39.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2008-03-12 18:25+0100\n"
+ "Last-Translator: Magnus Andersson <svankan@bahnhof.se>\n"
+ "Language-Team: Swedish\n"
+@@ -707,6 +707,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "Kan inte Âterst‰lla CAM!"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "Inspelning"
+ 
+@@ -725,6 +734,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Normal livstid (dagar)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Prioritet fˆr direktinspelning"
+ 
+@@ -986,6 +998,9 @@
+ msgid "Upcoming recording!"
+ msgstr "strax inspelning..."
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "Inspelningen har startat"
+ 
+diff -ruN vdr-1.7.7/po/tr_TR.po vdr-1.7.8/po/tr_TR.po
+--- vdr-1.7.7/po/tr_TR.po	2009-05-03 16:15:21.000000000 +0200
++++ vdr-1.7.8/po/tr_TR.po	2009-06-06 17:22:39.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay YolgeÁen <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish\n"
+@@ -704,6 +704,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "CAM s˝f˝rlanamad˝!"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "Kay˝t"
+ 
+@@ -722,6 +731,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Olaan Áekim ˆmr¸ (g¸n)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Duraklama prioritesi"
+ 
+@@ -983,6 +995,9 @@
+ msgid "Upcoming recording!"
+ msgstr "«ekim yak˝nda ba˛l˝yor!"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "Kay˝t ba˛land˝"
+ 
+diff -ruN vdr-1.7.7/po/uk_UA.po vdr-1.7.8/po/uk_UA.po
+--- vdr-1.7.7/po/uk_UA.po	2009-05-03 16:15:21.000000000 +0200
++++ vdr-1.7.8/po/uk_UA.po	2009-06-06 17:22:39.000000000 +0200
+@@ -5,261 +5,261 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 1.7.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
+-"PO-Revision-Date: 2008-03-07 14:17+0200\n"
+-"Last-Translator: Yarema Aka Knedlyk <yupadmin@gmail.com>\n"
++"POT-Creation-Date: 2009-05-31 11:11+0200\n"
++"PO-Revision-Date: 2009-05-31 13:17+0200\n"
++"Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian\n"
+ "MIME-Version: 1.0\n"
+-"Content-Type: text/plain; charset=ISO-8859-5\n"
++"Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
+ msgid "off"
+-msgstr "“ÿ⁄€"
++msgstr "–≤–∏–∫–ª"
+ 
+ msgid "on"
+-msgstr ""
++msgstr "–≤–∫–ª"
+ 
+ msgid "auto"
+-msgstr "–“‚ﬁ"
++msgstr "–∞–≤—Ç–æ"
+ 
+ msgid "none"
+-msgstr "›ˆÁﬁ”ﬁ"
++msgstr "–Ω—ñ—á–æ–≥–æ"
+ 
+ msgid "*** Invalid Channel ***"
+-msgstr "*** Ω’ﬂ‡–“ÿ€Ï›ÿŸ ⁄–›–€ ***"
++msgstr "*** –ù–µ–ø—Ä–∞–≤–∏–ª—å–Ω–∏–π –∫–∞–Ω–∞–ª ***"
+ 
+ msgid "Channel not available!"
+-msgstr "∫–›–€ ›’‘ﬁ·‚„ﬂ›ÿŸ!"
++msgstr "–ö–∞–Ω–∞–ª –Ω–µ–¥–æ—Å—Ç—É–ø–Ω–∏–π!"
+ 
+ msgid "Can't start Transfer Mode!"
+-msgstr "Ω’‹ﬁ÷€ÿ“ﬁ “⁄€ÓÁÿ‚ÿ ‡’÷ÿ‹ ﬂ‡ﬁﬂ„·⁄„!"
++msgstr "–ù–µ–º–æ–∂–ª–∏–≤–æ –≤–∫–ª—é—á–∏—Ç–∏ —Ä–µ–∂–∏–º –ø—Ä–æ–ø—É—Å–∫—É!"
+ 
+ msgid "Starting EPG scan"
+-msgstr "øﬁÁÿ›–Ó EPG-·⁄–›„“–››Ô"
++msgstr "–ü–æ—á–∏–Ω–∞—é EPG-—Å–∫–∞–Ω—É–≤–∞–Ω–Ω—è"
+ 
+ msgid "No title"
+-msgstr "±’◊ ›–◊“ÿ"
++msgstr "–ë–µ–∑ –Ω–∞–∑–≤–∏"
+ 
+ #. TRANSLATORS: The name of the language, as written natively
+ msgid "LanguageName$English"
+-msgstr "√⁄‡–˜›·Ï⁄–"
++msgstr "–£–∫—Ä–∞—ó–Ω—Å—å–∫–∞"
+ 
+ #. TRANSLATORS: The 3-letter code of the language
+ msgid "LanguageCode$eng"
+ msgstr "ukr"
+ 
+ msgid "Phase 1: Detecting RC code type"
+-msgstr "∫‡ﬁ⁄ 1: ≤ÿ◊›–Á’››Ô ‚ÿﬂ„ ⁄ﬁ‘„ ﬂ„€Ï‚–"
++msgstr "–ö—Ä–æ–∫ 1: –í–∏–∑–Ω–∞—á–µ–Ω–Ω—è —Ç–∏–ø—É –∫–æ–¥—É –ø—É–ª—å—Ç–∞"
+ 
+ msgid "Press any key on the RC unit"
+-msgstr "Ω–‚ÿ·›ˆ‚Ï —„‘Ï-Ô⁄„ ⁄›ﬁﬂ⁄„ ›– ﬂ„€Ï‚ˆ"
++msgstr "–ù–∞—Ç–∏—Å–Ω—ñ—Ç—å –±—É–¥—å-—è–∫—É –∫–Ω–æ–ø–∫—É –Ω–∞ –ø—É–ª—å—Ç—ñ"
+ 
+ msgid "RC code detected!"
+-msgstr "≤ÿ◊›–Á’›ﬁ ⁄ﬁ‘ ﬂ„€Ï‚–!"
++msgstr "–í–∏–∑–Ω–∞—á–µ–Ω–æ –∫–æ–¥ –ø—É–ª—å—Ç–∞!"
+ 
+ msgid "Do not press any key..."
+-msgstr "Ω’ ›–‚ÿ·⁄–Ÿ‚’ ⁄›ﬁﬂ⁄ÿ..."
++msgstr "–ù–µ –Ω–∞—Ç–∏—Å–∫–∞–π—Ç–µ –∫–Ω–æ–ø–∫–∏..."
+ 
+ msgid "Phase 2: Learning specific key codes"
+-msgstr "∫‡ﬁ⁄ 2: ø‡ÿﬂÿ·„“–››Ô ⁄ﬁ‘ˆ“ ‘€Ô “ˆ‘ﬂﬁ“ˆ‘›ÿÂ ⁄›ﬁﬂﬁ⁄"
++msgstr "–ö—Ä–æ–∫ 2: –ü—Ä–∏–ø–∏—Å—É–≤–∞–Ω–Ω—è –∫–æ–¥—ñ–≤ –¥–ª—è –≤—ñ–¥–ø–æ–≤—ñ–¥–Ω–∏—Ö –∫–Ω–æ–ø–æ–∫"
+ 
+ #, c-format
+ msgid "Press key for '%s'"
+-msgstr "Ω–‚ÿ·›ˆ‚Ï ⁄›ﬁﬂ⁄„ '%s'"
++msgstr "–ù–∞—Ç–∏—Å–Ω—ñ—Ç—å –∫–Ω–æ–ø–∫—É '%s'"
+ 
+ msgid "Press 'Up' to confirm"
+-msgstr "Ω–‚ÿ·›ˆ‚Ï '≤“’‡Â' ‘€Ô ﬂˆ‘‚“’‡‘÷’››Ô"
++msgstr "–ù–∞—Ç–∏—Å–Ω—ñ—Ç—å '–í–≤–µ—Ä—Ö' –¥–ª—è –ø—ñ–¥—Ç–≤–µ—Ä–¥–∂–µ–Ω–Ω—è"
+ 
+ msgid "Press 'Down' to continue"
+-msgstr "Ω–‚ÿ·›ˆ‚Ï '≤›ÿ◊' ‘€Ô ﬂ‡ﬁ‘ﬁ“÷’››Ô"
++msgstr "–ù–∞—Ç–∏—Å–Ω—ñ—Ç—å '–í–Ω–∏–∑' –¥–ª—è –ø—Ä–æ–¥–æ–≤–∂–µ–Ω–Ω—è"
+ 
+ msgid "(press 'Up' to go back)"
+-msgstr "(Ω–‚ÿ·›ˆ‚Ï '≤“’‡Â' ‘€Ô ﬂﬁ“’‡›’››Ô)"
++msgstr "(–ù–∞—Ç–∏—Å–Ω—ñ—Ç—å '–í–≤–µ—Ä—Ö' –¥–ª—è –ø–æ–≤–µ—Ä–Ω–µ–Ω–Ω—è)"
+ 
+ msgid "(press 'Down' to end key definition)"
+-msgstr "(Ω–‚ÿ·›ˆ‚Ï '≤›ÿ◊' ‘€Ô ◊–⁄ˆ›Á’››Ô ›–·‚‡ﬁŸ⁄ÿ ﬂ„€Ï‚–)"
++msgstr "(–ù–∞—Ç–∏—Å–Ω—ñ—Ç—å '–í–Ω–∏–∑' –¥–ª—è –∑–∞–∫—ñ–Ω—á–µ–Ω–Ω—è –Ω–∞—Å—Ç—Ä–æ–π–∫–∏ –ø—É–ª—å—Ç–∞)"
+ 
+ msgid "(press 'Menu' to skip this key)"
+-msgstr "(Ω–‚ÿ·›ˆ‚Ï 'º’›Ó' Èﬁ— ﬂ‡ﬁﬂ„·‚ÿ‚ÿ ⁄›ﬁﬂ⁄„)"
++msgstr "(–ù–∞—Ç–∏—Å–Ω—ñ—Ç—å '–ú–µ–Ω—é' —â–æ–± –ø—Ä–æ–ø—É—Å—Ç–∏—Ç–∏ –∫–Ω–æ–ø–∫—É)"
+ 
+ msgid "Learning Remote Control Keys"
+-msgstr "Ω–“Á–››Ô ﬂ„€Ï‚–"
++msgstr "–ù–∞–≤—á–∞–Ω–Ω—è –ø—É–ª—å—Ç–∞"
+ 
+ msgid "Phase 3: Saving key codes"
+-msgstr "∫‡ﬁ⁄ 3: ∑–ﬂ–‹'Ô‚ﬁ“„“–››Ô ⁄ﬁ‘ˆ“ ⁄›ﬁﬂﬁ⁄"
++msgstr "–ö—Ä–æ–∫ 3: –ó–∞–ø–∞–º'—è—Ç–æ–≤—É–≤–∞–Ω–Ω—è –∫–æ–¥—ñ–≤ –∫–Ω–æ–ø–æ–∫"
+ 
+ msgid "Press 'Up' to save, 'Down' to cancel"
+-msgstr "Ω–‚ÿ·›ˆ‚Ï '≤“’‡Â' ‘€Ô ◊–⁄ˆ›Á’››Ô, '≤›ÿ◊' ‘€Ô “ˆ‘‹ﬁ“ÿ"
++msgstr "–ù–∞—Ç–∏—Å–Ω—ñ—Ç—å '–í–≤–µ—Ä—Ö' –¥–ª—è –∑–∞–∫—ñ–Ω—á–µ–Ω–Ω—è, '–í–Ω–∏–∑' –¥–ª—è –≤—ñ–¥–º–æ–≤–∏"
+ 
+ msgid "Key$Up"
+-msgstr "≤“’‡Â"
++msgstr "–í–≤–µ—Ä—Ö"
+ 
+ msgid "Key$Down"
+-msgstr "≤›ÿ◊"
++msgstr "–í–Ω–∏–∑"
+ 
+ msgid "Key$Menu"
+-msgstr "º’›Ó"
++msgstr "–ú–µ–Ω—é"
+ 
+ msgid "Key$Ok"
+ msgstr "Ok"
+ 
+ msgid "Key$Back"
+-msgstr "Ω–◊–‘"
++msgstr "–ù–∞–∑–∞–¥"
+ 
+ msgid "Key$Left"
+-msgstr "Ω–€ˆ“ﬁ"
++msgstr "–ù–∞–ª—ñ–≤–æ"
+ 
+ msgid "Key$Right"
+-msgstr "Ω–ﬂ‡–“ﬁ"
++msgstr "–ù–∞–ø—Ä–∞–≤–æ"
+ 
+ msgid "Key$Red"
+-msgstr "«’‡“ﬁ›–"
++msgstr "–ß–µ—Ä–≤–æ–Ω–∞"
+ 
+ msgid "Key$Green"
+-msgstr "∑’€’›–"
++msgstr "–ó–µ–ª–µ–Ω–∞"
+ 
+ msgid "Key$Yellow"
+-msgstr "∂ﬁ“‚–"
++msgstr "–ñ–æ–≤—Ç–∞"
+ 
+ msgid "Key$Blue"
+-msgstr "¡ÿ›Ô"
++msgstr "–°–∏–Ω—è"
+ 
+ msgid "Key$Info"
+-msgstr "¶›‰ﬁ"
++msgstr "–Ü–Ω—Ñ–æ"
+ 
+ msgid "Key$Play"
+-msgstr "ø‡ﬁ”‡–“–››Ô"
++msgstr "–ü—Ä–æ–≥—Ä–∞–≤–∞–Ω–Ω—è"
+ 
+ msgid "Key$Pause"
+-msgstr "ø–„◊–"
++msgstr "–ü–∞—É–∑–∞"
+ 
+ msgid "Key$Stop"
+-msgstr "¡‚ﬁﬂ"
++msgstr "–°—Ç–æ–ø"
+ 
+ msgid "Key$Record"
+-msgstr "∑–ﬂÿ·"
++msgstr "–ó–∞–ø–∏—Å"
+ 
+ msgid "Key$FastFwd"
+-msgstr "ø‡ﬁ⁄‡„‚⁄– “ﬂ’‡’‘"
++msgstr "–ü—Ä–æ–∫—Ä—É—Ç–∫–∞ –≤–ø–µ—Ä–µ–¥"
+ 
+ msgid "Key$FastRew"
+-msgstr "ø‡ﬁ⁄‡„‚⁄– ›–◊–‘"
++msgstr "–ü—Ä–æ–∫—Ä—É—Ç–∫–∞ –Ω–∞–∑–∞–¥"
+ 
+ msgid "Key$Next"
+-msgstr "≤ﬂ’‡’‘"
++msgstr "–í–ø–µ—Ä–µ–¥"
+ 
+ msgid "Key$Prev"
+-msgstr "Ω–◊–‘"
++msgstr "–ù–∞–∑–∞–¥"
+ 
+ msgid "Key$Power"
+-msgstr "≤ÿ⁄€ÓÁÿ‚ÿ"
++msgstr "–í–∏–∫–ª—é—á–∏—Ç–∏"
+ 
+ msgid "Key$Channel+"
+-msgstr "∫–›–€ +"
++msgstr "–ö–∞–Ω–∞–ª +"
+ 
+ msgid "Key$Channel-"
+-msgstr "∫–›–€ -"
++msgstr "–ö–∞–Ω–∞–ª -"
+ 
+ msgid "Key$PrevChannel"
+-msgstr "øﬁﬂ’‡’‘›ˆŸ ⁄–›–€"
++msgstr "–ü–æ–ø–µ—Ä–µ–¥–Ω—ñ–π –∫–∞–Ω–∞–ª"
+ 
+ msgid "Key$Volume+"
+-msgstr "≥„Á›ˆ·‚Ï +"
++msgstr "–ì—É—á–Ω—ñ—Å—Ç—å +"
+ 
+ msgid "Key$Volume-"
+-msgstr "≥„Á›ˆ·‚Ï -"
++msgstr "–ì—É—á–Ω—ñ—Å—Ç—å -"
+ 
+ msgid "Key$Mute"
+-msgstr "≤ÿ⁄€ÓÁÿ‚ÿ ◊“„⁄"
++msgstr "–í–∏–∫–ª—é—á–∏—Ç–∏ –∑–≤—É–∫"
+ 
+ msgid "Key$Audio"
+-msgstr "ºﬁ“–"
++msgstr "–ú–æ–≤–∞"
+ 
+ msgid "Key$Subtitles"
+-msgstr "¡„—‚ÿ‚‡ÿ"
++msgstr "–°—É–±—Ç–∏—Ç—Ä–∏"
+ 
+ msgid "Key$Schedule"
+-msgstr "¬’€’”ˆ‘"
++msgstr "–¢–µ–ª–µ–≥—ñ–¥"
+ 
+ msgid "Key$Channels"
+-msgstr "∫–›–€ÿ"
++msgstr "–ö–∞–Ω–∞–ª–∏"
+ 
+ msgid "Key$Timers"
+-msgstr "¬–Ÿ‹’‡ÿ"
++msgstr "–¢–∞–π–º–µ—Ä–∏"
+ 
+ msgid "Key$Recordings"
+-msgstr "∑–ﬂÿ·ÿ"
++msgstr "–ó–∞–ø–∏—Å–∏"
+ 
+ msgid "Key$Setup"
+-msgstr "Ω–€–Ë‚„“–››Ô"
++msgstr "–ù–∞–ª–∞—à—Ç—É–≤–∞–Ω–Ω—è"
+ 
+ msgid "Key$Commands"
+-msgstr "∫ﬁ‹–›‘ÿ"
++msgstr "–ö–æ–º–∞–Ω–¥–∏"
+ 
+ msgid "Key$User1"
+-msgstr "∫ﬁ‡ÿ·‚„“–Á1"
++msgstr "–ö–æ—Ä–∏—Å—Ç—É–≤–∞—á1"
+ 
+ msgid "Key$User2"
+-msgstr "∫ﬁ‡ÿ·‚„“–Á2"
++msgstr "–ö–æ—Ä–∏—Å—Ç—É–≤–∞—á2"
+ 
+ msgid "Key$User3"
+-msgstr "∫ﬁ‡ÿ·‚„“–Á3"
++msgstr "–ö–æ—Ä–∏—Å—Ç—É–≤–∞—á3"
+ 
+ msgid "Key$User4"
+-msgstr "∫ﬁ‡ÿ·‚„“–Á4"
++msgstr "–ö–æ—Ä–∏—Å—Ç—É–≤–∞—á4"
+ 
+ msgid "Key$User5"
+-msgstr "∫ﬁ‡ÿ·‚„“–Á5"
++msgstr "–ö–æ—Ä–∏—Å—Ç—É–≤–∞—á5"
+ 
+ msgid "Key$User6"
+-msgstr "∫ﬁ‡ÿ·‚„“–Á6"
++msgstr "–ö–æ—Ä–∏—Å—Ç—É–≤–∞—á6"
+ 
+ msgid "Key$User7"
+-msgstr "∫ﬁ‡ÿ·‚„“–Á7"
++msgstr "–ö–æ—Ä–∏—Å—Ç—É–≤–∞—á7"
+ 
+ msgid "Key$User8"
+-msgstr "∫ﬁ‡ÿ·‚„“–Á8"
++msgstr "–ö–æ—Ä–∏—Å—Ç—É–≤–∞—á8"
+ 
+ msgid "Key$User9"
+-msgstr "∫ﬁ‡ÿ·‚„“–Á8"
++msgstr "–ö–æ—Ä–∏—Å—Ç—É–≤–∞—á8"
+ 
+ msgid "Disk"
+-msgstr "¥ÿ·⁄"
++msgstr "–î–∏—Å–∫"
+ 
+ msgid "free"
+-msgstr "“ˆ€Ï›ﬁ"
++msgstr "–≤—ñ–ª—å–Ω–æ"
+ 
+ msgid "Free To Air"
+-msgstr "FTA (›’◊–⁄ﬁ‘ﬁ“–›ﬁ)"
++msgstr "FTA (–Ω–µ–∑–∞–∫–æ–¥–æ–≤–∞–Ω–æ)"
+ 
+ msgid "encrypted"
+-msgstr "◊–⁄ﬁ‘ﬁ“–›ﬁ"
++msgstr "–∑–∞–∫–æ–¥–æ–≤–∞–Ω–æ"
+ 
+ msgid "Edit channel"
+-msgstr "¿’‘–⁄‚„“–››Ô ⁄–›–€„"
++msgstr "–†–µ–¥–∞–≥—É–≤–∞–Ω–Ω—è –∫–∞–Ω–∞–ª—É"
+ 
+ msgid "Name"
+-msgstr "Ω–◊“–"
++msgstr "–ù–∞–∑–≤–∞"
+ 
+ msgid "Source"
+-msgstr "¥÷’‡’€ﬁ"
++msgstr "–î–∂–µ—Ä–µ–ª–æ"
+ 
+ msgid "Frequency"
+-msgstr "«–·‚ﬁ‚–"
++msgstr "–ß–∞—Å—Ç–æ—Ç–∞"
+ 
+ msgid "Vpid"
+-msgstr "Vpid (“ˆ‘’ﬁ)"
++msgstr "Vpid (–≤—ñ–¥–µ–æ)"
+ 
+ msgid "Ppid"
+ msgstr "Ppid"
+ 
+ msgid "Apid1"
+-msgstr "Apid1 (–„‘ˆﬁ 1)"
++msgstr "Apid1 (–∞—É–¥—ñ–æ 1)"
+ 
+ msgid "Apid2"
+-msgstr "Apid2 (–„‘ˆﬁ 2)"
++msgstr "Apid2 (–∞—É–¥—ñ–æ 2)"
+ 
+ msgid "Dpid1"
+ msgstr "Dpid1 (AC3 1)"
+@@ -268,31 +268,31 @@
+ msgstr "Dpid2 (AC3 2)"
+ 
+ msgid "Spid1"
+-msgstr "¡„—‚ÿ‚‡ÿ ø¶¥1"
++msgstr "–°—É–±—Ç–∏—Ç—Ä–∏ 1"
+ 
+ msgid "Spid2"
+-msgstr "¡„—‚ÿ‚‡ÿ ø¶¥2"
++msgstr "–°—É–±—Ç–∏—Ç—Ä–∏ 2"
+ 
+ msgid "Tpid"
+-msgstr "Tpid (‚’€’‚’⁄·‚)"
++msgstr "Tpid (—Ç–µ–ª–µ—Ç–µ–∫—Å—Ç)"
+ 
+ msgid "CA"
+-msgstr "CA (‘’⁄ﬁ‘’‡)"
++msgstr "CA (–¥–µ–∫–æ–¥–µ—Ä)"
+ 
+ msgid "Sid"
+ msgstr "Sid"
+ 
+ msgid "Polarization"
+-msgstr "øﬁ€Ô‡ÿ◊–ÊˆÔ"
++msgstr "–ü–æ–ª—è—Ä–∏–∑–∞—Ü—ñ—è"
+ 
+ msgid "System"
+-msgstr ""
++msgstr "–°–∏—Å—Ç–µ–º–∞"
+ 
+ msgid "Srate"
+-msgstr "¡ÿ‹“. Ë“ÿ‘⁄ˆ·‚Ï"
++msgstr "–°–∏–º–≤. —à–≤–∏–¥–∫—ñ—Å—Ç—å"
+ 
+ msgid "Inversion"
+-msgstr "¶›“’‡·ˆÔ"
++msgstr "–Ü–Ω–≤–µ—Ä—Å—ñ—è"
+ 
+ msgid "CoderateH"
+ msgstr "CoderateH"
+@@ -301,709 +301,724 @@
+ msgstr "CoderateL"
+ 
+ msgid "Modulation"
+-msgstr "ºﬁ‘„€ÔÊˆÔ"
++msgstr "–ú–æ–¥—É–ª—è—Ü—ñ—è"
+ 
+ msgid "Bandwidth"
+-msgstr "¥ˆ–ﬂ–◊ﬁ›"
++msgstr "–î—ñ–∞–ø–∞–∑–æ–Ω"
+ 
+ msgid "Transmission"
+-msgstr "ø’‡’‘–Á–"
++msgstr "–ü–µ—Ä–µ–¥–∞—á–∞"
+ 
+ msgid "Guard"
+-msgstr "∑–Âÿ·‚"
++msgstr "–ó–∞—Ö–∏—Å—Ç"
+ 
+ msgid "Hierarchy"
+-msgstr "¶Ù‡–‡ÂˆÔ"
++msgstr "–Ü—î—Ä–∞—Ä—Ö—ñ—è"
+ 
+ msgid "Rolloff"
+-msgstr ""
++msgstr "–ö—Ä–µ–Ω"
+ 
+ msgid "Channel settings are not unique!"
+-msgstr "Ω–·‚‡ﬁŸ⁄ÿ ⁄–›–€„ ›’ Ù‘ÿ›ˆ!"
++msgstr "–ù–∞—Å—Ç—Ä–æ–π–∫–∏ –∫–∞–Ω–∞–ª—É –Ω–µ —î–¥–∏–Ω—ñ!"
+ 
+ msgid "Channels"
+-msgstr "∫–›–€ÿ"
++msgstr "–ö–∞–Ω–∞–ª–∏"
+ 
+ msgid "Button$Edit"
+-msgstr "¿’‘–⁄‚„“–‚ÿ"
++msgstr "–†–µ–¥–∞–≥—É–≤–∞—Ç–∏"
+ 
+ msgid "Button$New"
+-msgstr "¥ﬁ‘–‚ÿ"
++msgstr "–î–æ–¥–∞—Ç–∏"
+ 
+ msgid "Button$Delete"
+-msgstr "≤ÿ‘–€ÿ‚ÿ"
++msgstr "–í–∏–¥–∞–ª–∏—Ç–∏"
+ 
+ msgid "Button$Mark"
+-msgstr "ø’‡’‹ˆ·‚ÿ‚ÿ"
++msgstr "–ü–µ—Ä–µ–º—ñ—Å—Ç–∏—Ç–∏"
+ 
+ msgid "Channel is being used by a timer!"
+-msgstr "∫–›–€ ◊–›Ô‚ÿŸ ‚–Ÿ‹’‡ﬁ‹!"
++msgstr "–ö–∞–Ω–∞–ª –∑–∞–π–Ω—è—Ç–∏–π —Ç–∞–π–º–µ—Ä–æ–º!"
+ 
+ msgid "Delete channel?"
+-msgstr "≤ÿ‘–€ÿ‚ÿ ⁄–›–€?"
++msgstr "–í–∏–¥–∞–ª–∏—Ç–∏ –∫–∞–Ω–∞–ª?"
+ 
+ msgid "Edit timer"
+-msgstr "Ω–€–Ë‚„“–››Ô ‚–Ÿ‹’‡–"
++msgstr "–ù–∞–ª–∞—à—Ç—É–≤–∞–Ω–Ω—è —Ç–∞–π–º–µ—Ä–∞"
+ 
+ msgid "Active"
+-msgstr "∞⁄‚ÿ“ﬁ“–›ﬁ"
++msgstr "–ê–∫—Ç–∏–≤–æ–≤–∞–Ω–æ"
+ 
+ msgid "Channel"
+-msgstr "∫–›–€"
++msgstr "–ö–∞–Ω–∞–ª"
+ 
+ msgid "Day"
+-msgstr "¥’›Ï"
++msgstr "–î–µ–Ω—å"
+ 
+ msgid "Start"
+-msgstr "øﬁÁ–‚ﬁ⁄"
++msgstr "–ü–æ—á–∞—Ç–æ–∫"
+ 
+ msgid "Stop"
+-msgstr "∫ˆ›’ÊÏ"
++msgstr "–ö—ñ–Ω–µ—Ü—å"
+ 
+ msgid "VPS"
+-msgstr "VPS ﬂﬁﬂ‡–“⁄–"
++msgstr "VPS –ø–æ–ø—Ä–∞–≤–∫–∞"
+ 
+ msgid "Priority"
+-msgstr "ø‡ˆﬁ‡ÿ‚’‚"
++msgstr "–ü—Ä—ñ–æ—Ä–∏—Ç–µ—Ç"
+ 
+ msgid "Lifetime"
+-msgstr "¡‚‡ﬁ⁄ ◊—’‡ˆ”–››Ô"
++msgstr "–°—Ç—Ä–æ–∫ –∑–±–µ—Ä—ñ–≥–∞–Ω–Ω—è"
+ 
+ msgid "File"
+-msgstr "ƒ–Ÿ€"
++msgstr "–§–∞–π–ª"
+ 
+ msgid "First day"
+-msgstr "ø’‡ËÿŸ ‘’›Ï"
++msgstr "–ü–µ—Ä—à–∏–π –¥–µ–Ω—å"
+ 
+ msgid "Timers"
+-msgstr "¬–Ÿ‹’‡ÿ"
++msgstr "–¢–∞–π–º–µ—Ä–∏"
+ 
+ msgid "Button$On/Off"
+-msgstr "≤⁄€/≤ÿ⁄€"
++msgstr "–í–∫–ª/–í–∏–∫–ª"
+ 
+ msgid "Button$Info"
+-msgstr "¶›‰ﬁ"
++msgstr "–Ü–Ω—Ñ–æ"
+ 
+ msgid "Delete timer?"
+-msgstr "≤ÿ‘–€ÿ‚ÿ ‚–Ÿ‹’‡?"
++msgstr "–í–∏–¥–∞–ª–∏—Ç–∏ —Ç–∞–π–º–µ—Ä?"
+ 
+ msgid "Timer still recording - really delete?"
+-msgstr "π‘’ ◊–ﬂÿ· ﬂﬁ ‚–Ÿ‹’‡„ - ‘ˆŸ·›ﬁ “ÿ‘–€ÿ‚ÿ?"
++msgstr "–ô–¥–µ –∑–∞–ø–∏—Å –ø–æ —Ç–∞–π–º–µ—Ä—É - –¥—ñ–π—Å–Ω–æ –≤–∏–¥–∞–ª–∏—Ç–∏?"
+ 
+ msgid "Event"
+-msgstr "ø’‡’‘–Á–"
++msgstr "–ü–µ—Ä–µ–¥–∞—á–∞"
+ 
+ msgid "Button$Timer"
+-msgstr "¬–Ÿ‹’‡"
++msgstr "–¢–∞–π–º–µ—Ä"
+ 
+ msgid "Button$Record"
+-msgstr "∑–ﬂÿ·"
++msgstr "–ó–∞–ø–∏—Å"
+ 
+ msgid "Button$Switch"
+-msgstr "ø’‡’⁄€ÓÁÿ‚ÿ"
++msgstr "–ü–µ—Ä–µ–∫–ª—é—á–∏—Ç–∏"
+ 
+ msgid "What's on now?"
+-msgstr "∑–‡–◊ “ ’‰ˆ‡ˆ:"
++msgstr "–ó–∞—Ä–∞–∑ –≤ –µ—Ñ—ñ—Ä—ñ:"
+ 
+ msgid "What's on next?"
+-msgstr "¥–€ˆ “ ﬂ‡ﬁ”‡–‹ˆ:"
++msgstr "–î–∞–ª—ñ –≤ –ø—Ä–æ–≥—Ä–∞–º—ñ:"
+ 
+ msgid "Button$Next"
+-msgstr "¥–€ˆ"
++msgstr "–î–∞–ª—ñ"
+ 
+ msgid "Button$Now"
+-msgstr "∑–‡–◊"
++msgstr "–ó–∞—Ä–∞–∑"
+ 
+ msgid "Button$Schedule"
+-msgstr "ø‡ﬁ”‡–‹–"
++msgstr "–ü—Ä–æ–≥—Ä–∞–º–∞"
+ 
+ msgid "Can't switch channel!"
+-msgstr "Ω’‹ﬁ÷€ÿ“ﬁ ﬂ’‡’⁄€ÓÁÿ‚ÿ ⁄–›–€!"
++msgstr "–ù–µ–º–æ–∂–ª–∏–≤–æ –ø–µ—Ä–µ–∫–ª—é—á–∏—Ç–∏ –∫–∞–Ω–∞–ª!"
+ 
+ #, c-format
+ msgid "Schedule - %s"
+-msgstr "ø‡ﬁ”‡–‹– - %s"
++msgstr "–ü—Ä–æ–≥—Ä–∞–º–∞ - %s"
+ 
+ #, c-format
+ msgid "This event - %s"
+-msgstr "∆Ô ﬂ’‡’‘–Á– - %s"
++msgstr "–¶—è –ø–µ—Ä–µ–¥–∞—á–∞ - %s"
+ 
+ msgid "This event - all channels"
+-msgstr "∆Ô ﬂ’‡’‘–Á– - “·ˆ ⁄–›–€ÿ"
++msgstr "–¶—è –ø–µ—Ä–µ–¥–∞—á–∞ - –≤—Å—ñ –∫–∞–Ω–∞–ª–∏"
+ 
+ msgid "All events - all channels"
+-msgstr "≤·ˆ ﬂ’‡’‘–Áˆ - “·ˆ ⁄–›–€ÿ"
++msgstr "–í—Å—ñ –ø–µ—Ä–µ–¥–∞—á—ñ - –≤—Å—ñ –∫–∞–Ω–∞–ª–∏"
+ 
+ #, c-format
+ msgid "Please enter %d digits!"
+-msgstr "Ω–‚ÿ·›ˆ‚Ï %d Êÿ‰‡ÿ"
++msgstr "–ù–∞—Ç–∏—Å–Ω—ñ—Ç—å %d —Ü–∏—Ñ—Ä–∏!"
+ 
+ msgid "CAM not responding!"
+-msgstr "CAM ›’ “ˆ‘ﬂﬁ“ˆ‘–Ù"
++msgstr "CAM –Ω–µ –≤—ñ–¥–ø–æ–≤—ñ–¥–∞—î!"
+ 
+ msgid "Recording info"
+-msgstr "ø‡ﬁ ◊–ﬂÿ·"
++msgstr "–ü—Ä–æ –∑–∞–ø–∏—Å"
+ 
+ msgid "Button$Play"
+-msgstr "ø‡ﬁ”‡–“–‚ÿ"
++msgstr "–ü—Ä–æ–≥—Ä–∞–≤–∞—Ç–∏"
+ 
+ msgid "Button$Rewind"
+-msgstr "Ω–◊–‘"
++msgstr "–ù–∞–∑–∞–¥"
+ 
+ msgid "Recordings"
+-msgstr "∑–ﬂÿ·ÿ"
++msgstr "–ó–∞–ø–∏—Å–∏"
+ 
+ msgid "Button$Open"
+-msgstr "≤ˆ‘⁄‡ÿ‚ÿ"
++msgstr "–í—ñ–¥–∫—Ä–∏—Ç–∏"
+ 
+ msgid "Commands"
+-msgstr "∫ﬁ‹–›‘ÿ"
++msgstr "–ö–æ–º–∞–Ω–¥–∏"
+ 
+ msgid "Error while accessing recording!"
+-msgstr "øﬁ‹ÿ€⁄– ‘ﬁ·‚„ﬂ„ ‘ﬁ ◊–ﬂÿ·„!"
++msgstr "–ü–æ–º–∏–ª–∫–∞ –¥–æ—Å—Ç—É–ø—É –¥–æ –∑–∞–ø–∏—Å—É!"
+ 
+ msgid "Delete recording?"
+-msgstr "≤ÿ‚’‡‚ÿ ◊–ﬂÿ·?"
++msgstr "–í–∏—Ç–µ—Ä—Ç–∏ –∑–∞–ø–∏—Å?"
+ 
+ msgid "Error while deleting recording!"
+-msgstr "øﬁ‹ÿ€⁄– “ÿ‘–€’››Ô ◊–ﬂÿ·„!"
++msgstr "–ü–æ–º–∏–ª–∫–∞ –≤–∏–¥–∞–ª–µ–Ω–Ω—è –∑–∞–ø–∏—Å—É!"
+ 
+ msgid "Recording commands"
+-msgstr "∫ﬁ‹–›‘ÿ ◊–ﬂÿ·„"
++msgstr "–ö–æ–º–∞–Ω–¥–∏ –∑–∞–ø–∏—Å—É"
+ 
+ msgid "never"
+-msgstr "›ˆ⁄ﬁ€ÿ"
++msgstr "–Ω—ñ–∫–æ–ª–∏"
+ 
+ msgid "skin dependent"
+-msgstr "◊”ˆ‘›ﬁ ◊ ·‚ÿ€’‹"
++msgstr "–∑–≥—ñ–¥–Ω–æ –∑ —Å—Ç–∏–ª–µ–º"
+ 
+ msgid "always"
+-msgstr "◊–“÷‘ÿ"
++msgstr "–∑–∞–≤–∂–¥–∏"
+ 
+ msgid "OSD"
+-msgstr "º’›Ó"
++msgstr "OSD –º–µ–Ω—é"
+ 
+ msgid "Setup.OSD$Language"
+-msgstr "ºﬁ“–"
++msgstr "–ú–æ–≤–∞"
+ 
+ msgid "Setup.OSD$Skin"
+-msgstr "¡‚ÿ€Ï"
++msgstr "–°—Ç–∏–ª—å"
+ 
+ msgid "Setup.OSD$Theme"
+-msgstr "¬’‹–"
++msgstr "–¢–µ–º–∞"
+ 
+ msgid "Setup.OSD$Left (%)"
+-msgstr "≤ˆ‘·‚„ﬂ ◊€ˆ“– (%)"
++msgstr "–í—ñ–¥—Å—Ç—É–ø –∑–ª—ñ–≤–∞ (%)"
+ 
+ msgid "Setup.OSD$Top (%)"
+-msgstr "≤ˆ‘·‚„ﬂ ◊“’‡Â„ (%)"
++msgstr "–í—ñ–¥—Å—Ç—É–ø –∑–≤–µ—Ä—Ö—É (%)"
+ 
+ msgid "Setup.OSD$Width (%)"
+-msgstr "»ÿ‡ÿ›– (%)"
++msgstr "–®–∏—Ä–∏–Ω–∞ (%)"
+ 
+ msgid "Setup.OSD$Height (%)"
+-msgstr "≤ÿ·ﬁ‚– (%)"
++msgstr "–í–∏—Å–æ—Ç–∞ (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+-msgstr "¬‡ÿ“–€ˆ·‚Ï ﬂﬁ⁄–◊„ ﬂﬁ“ˆ‘ﬁ‹€’›Ï (·’⁄)"
++msgstr "–¢—Ä–∏–≤–∞–ª—ñ—Å—Ç—å –ø–æ–∫–∞–∑—É –ø–æ–≤—ñ–¥–æ–º–ª–µ–Ω—å (—Å–µ–∫)"
+ 
+ msgid "Setup.OSD$Use small font"
+-msgstr "≤ÿ⁄ﬁ‡ÿ·‚ﬁ“„“–‚ÿ ‹–€ÿŸ Ë‡ÿ‰‚"
++msgstr "–í–∏–∫–æ—Ä–∏—Å—Ç–æ–≤—É–≤–∞—Ç–∏ –º–∞–ª–∏–π —Ñ–æ–Ω—Ç"
+ 
+ msgid "Setup.OSD$Anti-alias"
+-msgstr "∑”€–‘÷ÿ“–››Ô Ë‡ÿ‰‚ˆ“"
++msgstr "–ó–≥–ª–∞–¥–∂—É–≤–∞–Ω–Ω—è —Ñ–æ–Ω—Ç—ñ–≤"
+ 
+ msgid "Setup.OSD$Default font"
+-msgstr "¡‚–›‘–‡‚›ÿŸ ‰ﬁ›‚"
++msgstr "–°—Ç–∞–Ω–¥–∞—Ä—Ç–Ω–∏–π —Ñ–æ–Ω—Ç"
+ 
+ msgid "Setup.OSD$Small font"
+-msgstr "º–€ÿŸ ‰ﬁ›‚"
++msgstr "–ú–∞–ª–∏–π —Ñ–æ–Ω—Ç"
+ 
+ msgid "Setup.OSD$Fixed font"
+-msgstr "ƒˆ⁄·ﬁ“–›ÿŸ ‰ﬁ›‚"
++msgstr "–§—ñ–∫—Å–æ–≤–∞–Ω–∏–π —Ñ–æ–Ω—Ç"
+ 
+ msgid "Setup.OSD$Default font size (%)"
+-msgstr "¿–◊‹ˆ‡ ‰ﬁ›‚– ‘€Ô ‹’›Ó (%)"
++msgstr "–†–∞–∑–º—ñ—Ä —Ñ–æ–Ω—Ç–∞ –¥–ª—è –º–µ–Ω—é (%)"
+ 
+ msgid "Setup.OSD$Small font size (%)"
+-msgstr "¿–◊‹ˆ‡ ‹–€ﬁ”ﬁ ‰ﬁ›‚– (%)"
++msgstr "–†–∞–∑–º—ñ—Ä –º–∞–ª–æ–≥–æ —Ñ–æ–Ω—Ç–∞ (%)"
+ 
+ msgid "Setup.OSD$Fixed font size (%)"
+-msgstr "¿–◊‹ˆ‡ ‰ˆ⁄·ﬁ“–›ﬁ”ﬁ ‰ﬁ›‚– (%)"
++msgstr "–†–∞–∑–º—ñ—Ä —Ñ—ñ–∫—Å–æ–≤–∞–Ω–æ–≥–æ —Ñ–æ–Ω—Ç–∞ (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+-msgstr "øﬁ€ﬁ÷’››Ô “ˆ⁄›– ˆ›‰ﬁ‡‹–Êˆ˜ ﬂ‡ﬁ ⁄–›–€"
++msgstr "–ü–æ–ª–æ–∂–µ–Ω–Ω—è –≤—ñ–∫–Ω–∞ —ñ–Ω—Ñ–æ—Ä–º–∞—Ü—ñ—ó –ø—Ä–æ –∫–∞–Ω–∞–ª"
+ 
+ msgid "bottom"
+-msgstr "“›ÿ◊„"
++msgstr "–≤–Ω–∏–∑—É"
+ 
+ msgid "top"
+-msgstr "““’‡Â„"
++msgstr "–≤–≤–µ—Ä—Ö—É"
+ 
+ msgid "Setup.OSD$Channel info time (s)"
+-msgstr "øﬁ⁄–◊ ˆ›‰ﬁ‡‹–Êˆ˜ ﬂ‡ﬁ ⁄–›–€ (·’⁄)"
++msgstr "–ü–æ–∫–∞–∑ —ñ–Ω—Ñ–æ—Ä–º–∞—Ü—ñ—ó –ø—Ä–æ –∫–∞–Ω–∞–ª (—Å–µ–∫)"
+ 
+ msgid "Setup.OSD$Info on channel switch"
+-msgstr "øﬁ⁄–◊„“–‚ÿ ˆ›‰ﬁ‡‹–ÊˆÓ ﬂ‡ﬁ ⁄–›–€"
++msgstr "–ü–æ–∫–∞–∑ –∫–∞–Ω–∞–ª-—ñ–Ω—Ñ–æ –ø—Ä–∏ –ø–µ—Ä–µ–∫–ª—é—á–∞–Ω–Ω—ñ "
+ 
+ msgid "Setup.OSD$Timeout requested channel info"
+-msgstr "¶›‰ﬁ‡‹–ÊˆÓ ﬂ‡ﬁ ⁄–›–€ ◊–⁄‡ÿ‚ÿ"
++msgstr "–Ü–Ω—Ñ–æ—Ä–º–∞—Ü—ñ—é –ø—Ä–æ –∫–∞–Ω–∞–ª –∑–∞–∫—Ä–∏—Ç–∏"
+ 
+ msgid "Setup.OSD$Scroll pages"
+-msgstr "ø‡ﬁ⁄‡„‚⁄– ·‚ﬁ‡ˆ›ﬁ⁄ ‹’›Ó"
++msgstr "–ü—Ä–æ–∫—Ä—É—Ç–∫–∞ —Å—Ç–æ—Ä—ñ–Ω–æ–∫ –º–µ–Ω—é"
+ 
+ msgid "Setup.OSD$Scroll wraps"
+-msgstr "∆ÿ⁄€ˆÁ›– ﬂ‡ﬁ⁄‡„‚⁄–"
++msgstr "–¶–∏–∫–ª—ñ—á–Ω–∞ –ø—Ä–æ–∫—Ä—É—Ç–∫–∞"
+ 
+ msgid "Setup.OSD$Menu key closes"
+-msgstr "∫›ﬁﬂ⁄„ º’›Ó ◊–⁄‡ÿ‚ÿ"
++msgstr "–ö–Ω–æ–ø–∫—É –ú–µ–Ω—é –∑–∞–∫—Ä–∏—Ç–∏"
+ 
+ msgid "Setup.OSD$Recording directories"
+-msgstr "∫–‚–€ﬁ”ÿ ◊—’‡ˆ”–››Ô ◊–ﬂÿ·ˆ“"
++msgstr "–ö–∞—Ç–∞–ª–æ–≥–∏ –∑–±–µ—Ä—ñ–≥–∞–Ω–Ω—è –∑–∞–ø–∏—Å—ñ–≤"
+ 
+ msgid "EPG"
+-msgstr "¬’€’”ˆ‘"
++msgstr "–¢–µ–ª–µ–≥—ñ–¥"
+ 
+ msgid "Button$Scan"
+-msgstr "¡⁄–›„‡ﬁ“–‚ÿ"
++msgstr "–°–∫–∞–Ω—É–≤–∞—Ç–∏"
+ 
+ msgid "Setup.EPG$EPG scan timeout (h)"
+-msgstr "∑–‚‡ÿ‹⁄– ·⁄–›„“–››Ô ‚’€’”ˆ‘– (Á)"
++msgstr "–ó–∞—Ç—Ä–∏–º–∫–∞ —Å–∫–∞–Ω—É–≤–∞–Ω–Ω—è —Ç–µ–ª–µ–≥—ñ–¥–∞ (—á)"
+ 
+ msgid "Setup.EPG$EPG bugfix level"
+-msgstr "¿ˆ“’›Ï ⁄ﬁ‡’⁄Êˆ˜ ﬂﬁ‹ÿ€ﬁ⁄"
++msgstr "–†—ñ–≤–µ–Ω—å –∫–æ—Ä–µ–∫—Ü—ñ—ó –ø–æ–º–∏–ª–æ–∫"
+ 
+ msgid "Setup.EPG$EPG linger time (min)"
+-msgstr "∑—’‡ˆ”–››Ô ◊–·‚–‡ˆ€ÿÂ ‘–›ÿÂ (Â“)"
++msgstr "–ó–±–µ—Ä—ñ–≥–∞–Ω–Ω—è –∑–∞—Å—Ç–∞—Ä—ñ–ª–∏—Ö –¥–∞–Ω–∏—Ö (—Ö–≤)"
+ 
+ msgid "Setup.EPG$Set system time"
+-msgstr "≤‚–›ﬁ“ÿ‚ÿ ·ÿ·‚’‹ÿŸ Á–·"
++msgstr "–í—Å—Ç–∞–Ω–æ–≤–∏—Ç–∏ —Å–∏—Å—Ç–µ–º–∏–π —á–∞—Å"
+ 
+ msgid "Setup.EPG$Use time from transponder"
+-msgstr "≤ÿ⁄ﬁ‡ÿ·‚–‚ÿ Á–· ‚‡–›·ﬂﬁ›‘’‡–"
++msgstr "–í–∏–∫–æ—Ä–∏—Å—Ç–∞—Ç–∏ —á–∞—Å —Ç—Ä–∞–Ω—Å–ø–æ–Ω–¥–µ—Ä–∞"
+ 
+ #. TRANSLATORS: note the plural!
+ msgid "Setup.EPG$Preferred languages"
+-msgstr "±–÷–›ˆ ‹ﬁ“ÿ (‚’€’”ˆ‘)"
++msgstr "–ë–∞–∂–∞–Ω—ñ –º–æ–≤–∏ (—Ç–µ–ª–µ–≥—ñ–¥)"
+ 
+ #. TRANSLATORS: note the singular!
+ msgid "Setup.EPG$Preferred language"
+-msgstr "≤ÿ—‡–›ﬁ"
++msgstr "–ë–∞–∂–∞–Ω–∞ –º–æ–≤–∞ (—Ç–µ–ª–µ–≥—ñ–¥)"
+ 
+ msgid "pan&scan"
+-msgstr "ﬂ–›ﬁ‡–‹„“–‚ÿ"
++msgstr "–ø–∞–Ω–æ—Ä–∞–º—É–≤–∞—Ç–∏"
+ 
+ msgid "letterbox"
+-msgstr "◊‹’›Ë„“–‚ÿ"
++msgstr "–∑–º–µ–Ω—à—É–≤–∞—Ç–∏"
+ 
+ msgid "center cut out"
+-msgstr "ﬁ—‡ˆ◊–‚ÿ ◊—ﬁ⁄„"
++msgstr "–æ–±—Ä—ñ–∑–∞—Ç–∏ –ø–æ –±–æ–∫–∞—Ö"
+ 
+ msgid "no"
+-msgstr "›ˆ"
++msgstr "–Ω—ñ"
+ 
+ msgid "names only"
+-msgstr "‚ˆ€Ï⁄ÿ ›–◊“ÿ"
++msgstr "—Ç—ñ–ª—å–∫–∏ –Ω–∞–∑–≤–∏"
+ 
+ msgid "PIDs only"
+-msgstr "¬ˆ€Ï⁄ÿ PIDÿ"
++msgstr "–¢—ñ–ª—å–∫–∏ PID–∏"
+ 
+ msgid "names and PIDs"
+-msgstr "›–◊“ÿ ˆ PIDÿ"
++msgstr "–Ω–∞–∑–≤–∏ —ñ PID–∏"
+ 
+ msgid "add new channels"
+-msgstr "‘ﬁ‘–‚ÿ ›ﬁ“ˆ ⁄–›–€ÿ"
++msgstr "–¥–æ–¥–∞—Ç–∏ –Ω–æ–≤—ñ –∫–∞–Ω–∞–ª–∏"
+ 
+ msgid "add new transponders"
+-msgstr "‘ﬁ‘–‚ÿ ›ﬁ“ˆ ‚‡–›·ﬂﬁ›‘’‡ÿ"
++msgstr "–¥–æ–¥–∞—Ç–∏ –Ω–æ–≤—ñ —Ç—Ä–∞–Ω—Å–ø–æ–Ω–¥–µ—Ä–∏"
+ 
+ msgid "DVB"
+ msgstr "DVB"
+ 
+ msgid "Setup.DVB$Primary DVB interface"
+-msgstr "æ·›ﬁ“›ÿŸ DVB-ﬂ‡ÿ·‚‡ˆŸ"
++msgstr "–û—Å–Ω–æ–≤–Ω–∏–π DVB-–ø—Ä–∏—Å—Ç—Ä—ñ–π"
+ 
+ msgid "Setup.DVB$Video format"
+-msgstr "ƒﬁ‡‹–‚ “ˆ‘’ﬁ"
++msgstr "–§–æ—Ä–º–∞—Ç –≤—ñ–¥–µ–æ"
+ 
+ msgid "Setup.DVB$Video display format"
+-msgstr "»ÿ‡ﬁ⁄ﬁ’⁄‡–›’ ◊ﬁ—‡–÷’››Ô"
++msgstr "–§–æ—Ä–º–∞—Ç –∑–æ–±—Ä–∞–∂–µ–Ω–Ω—è –≤—ñ–¥–µ–æ"
+ 
+ msgid "Setup.DVB$Use Dolby Digital"
+-msgstr "≤⁄€ÓÁÿ‚ÿ Dolby Digital"
++msgstr "–í–∏–∫–æ—Ä–∏—Å—Ç–æ–≤—É–≤–∞—Ç–∏ Dolby Digital"
+ 
+ msgid "Setup.DVB$Update channels"
+-msgstr "æ›ﬁ“€Ó“–‚ÿ ›–·‚‡ﬁŸ⁄ÿ ⁄–›–€ˆ“"
++msgstr "–û–Ω–æ–≤–ª—é–≤–∞—Ç–∏ –Ω–∞—Å—Ç—Ä–æ–π–∫–∏ –∫–∞–Ω–∞–ª—ñ–≤"
+ 
+ msgid "Setup.DVB$Audio languages"
+-msgstr "±–÷–›ˆ ‹ﬁ“ÿ (◊“„⁄)"
++msgstr "–ë–∞–∂–∞–Ω—ñ –º–æ–≤–∏ (–∑–≤—É–∫)"
+ 
+ msgid "Setup.DVB$Audio language"
+-msgstr "≤ÿ—‡–›ﬁ"
++msgstr "–ú–æ–≤–∞ –∞—É–¥—ñ–æ"
+ 
+ msgid "Setup.DVB$Display subtitles"
+-msgstr "øﬁ⁄–◊„“–‚ÿ ·„—‚ÿ‚‡ÿ"
++msgstr "–ü–æ–∫–∞–∑—É–≤–∞—Ç–∏ —Å—É–±—Ç–∏—Ç—Ä–∏"
+ 
+ msgid "Setup.DVB$Subtitle languages"
+-msgstr "ºﬁ“ÿ ·„—‚ÿ‚‡ˆ“"
++msgstr "–ú–æ–≤–∏ —Å—É–±—Ç–∏—Ç—Ä—ñ–≤"
+ 
+ msgid "Setup.DVB$Subtitle language"
+-msgstr "ºﬁ“– ·„—‚ÿ‚‡ˆ“"
++msgstr "–ú–æ–≤–∞ —Å—É–±—Ç–∏—Ç—Ä—ñ–≤"
+ 
+ msgid "Setup.DVB$Subtitle offset"
+-msgstr "≤ˆ‘·‚„ﬂ ·„—‚ÿ‚‡ˆ“"
++msgstr "–í—ñ–¥—Å—Ç—É–ø —Å—É–±—Ç–∏—Ç—Ä—ñ–≤"
+ 
+ msgid "Setup.DVB$Subtitle foreground transparency"
+-msgstr "ø‡ﬁ◊ﬁ‡ˆ·‚Ï ﬂ’‡’‘›Ïﬁ”ﬁ ﬂ€–›„ ·„—‚ÿ‚‡ˆ“"
++msgstr "–ü—Ä–æ–∑–æ—Ä—ñ—Å—Ç—å –ø–µ—Ä–µ–¥–Ω—å–æ–≥–æ –ø–ª–∞–Ω—É —Å—É–±—Ç–∏—Ç—Ä—ñ–≤"
+ 
+ msgid "Setup.DVB$Subtitle background transparency"
+-msgstr "ø‡ﬁ◊ﬁ‡ˆ·‚Ï ◊–‘›Ïﬁ”ﬁ ﬂ€–›„ ·„—‚ÿ‚‡ˆ“"
++msgstr "–ü—Ä–æ–∑–æ—Ä—ñ—Å—Ç—å –∑–∞–¥–Ω—å–æ–≥–æ –ø–ª–∞–Ω—É —Å—É–±—Ç–∏—Ç—Ä—ñ–≤"
+ 
+ msgid "LNB"
+-msgstr "∫ﬁ›“’‡‚’‡"
++msgstr "–ö–æ–Ω–≤–µ—Ä—Ç–µ—Ä"
+ 
+ msgid "Setup.LNB$Use DiSEqC"
+-msgstr "≤ÿ⁄ﬁ‡ÿ·‚ﬁ“„“–‚ÿ DiSEqC"
++msgstr "–í–∏–∫–æ—Ä–∏—Å—Ç–æ–≤—É–≤–∞—Ç–∏ DiSEqC"
+ 
+ msgid "Setup.LNB$SLOF (MHz)"
+-msgstr "«–·‚ﬁ‚– ﬂ’‡’⁄€ÓÁ–››Ô (SLOF) (º≥Ê)"
++msgstr "–ß–∞—Å—Ç–æ—Ç–∞ –ø–µ—Ä–µ–∫–ª—é—á–∞–Ω–Ω—è (SLOF) (–ú–ì—Ü)"
+ 
+ msgid "Setup.LNB$Low LNB frequency (MHz)"
+-msgstr "Ωÿ÷›Ô Á–·‚ﬁ‚– ⁄ﬁ›“’‡‚’‡– (º≥Ê)"
++msgstr "–ù–∏–∂–Ω—è —á–∞—Å—Ç–æ—Ç–∞ –∫–æ–Ω–≤–µ—Ä—Ç–µ—Ä–∞ (–ú–ì—Ü)"
+ 
+ msgid "Setup.LNB$High LNB frequency (MHz)"
+-msgstr "≤’‡Â›Ô Á–·‚ﬁ‚– ⁄ﬁ›“’‡‚’‡– (º≥Ê)"
++msgstr "–í–µ—Ä—Ö–Ω—è —á–∞—Å—Ç–æ—Ç–∞ –∫–æ–Ω–≤–µ—Ä—Ç–µ—Ä–∞ (–ú–ì—Ü)"
+ 
+ msgid "CAM reset"
+-msgstr "ø’‡’◊–“–›‚–÷’››Ô CAM"
++msgstr "–ü–µ—Ä–µ–∑–∞–≤–∞–Ω—Ç–∞–∂–µ–Ω–Ω—è CAM"
+ 
+ msgid "CAM present"
+-msgstr "CAM ﬂ‡ÿ·„‚›ˆŸ"
++msgstr "CAM –ø—Ä–∏—Å—É—Ç–Ω—ñ–π"
+ 
+ msgid "CAM ready"
+-msgstr "CAM ”ﬁ‚ﬁ“ÿŸ"
++msgstr "CAM –≥–æ—Ç–æ–≤–∏–π"
+ 
+ msgid "CAM"
+-msgstr "√‹ﬁ“›ÿŸ ‘ﬁ·‚„ﬂ"
++msgstr "CAM (–£–º–æ–≤–Ω–∏–π –¥–æ—Å—Ç—É–ø)"
+ 
+ msgid "Button$Menu"
+-msgstr "º’›Ó"
++msgstr "–ú–µ–Ω—é"
+ 
+ msgid "Button$Reset"
+-msgstr "¡⁄ÿ›„‚ÿ"
++msgstr "–°–∫–∏–Ω—É—Ç–∏"
+ 
+ msgid "Opening CAM menu..."
+-msgstr "≤ˆ‘⁄‡ÿ“–Ó ‹’›Ó ‹ﬁ‘„€Ô „‹ﬁ“›ﬁ”ﬁ ‘ﬁ·‚„ﬂ„ (CAM)"
++msgstr "–í—ñ–¥–∫—Ä–∏–≤–∞—é –º–µ–Ω—é CAM-–º–æ–¥—É–ª—è..."
+ 
+ msgid "Can't open CAM menu!"
+-msgstr "º’›Ó CAM-‹ﬁ‘„€Ô ›’‘ﬁ·‚„ﬂ›’!"
++msgstr "–ú–µ–Ω—é CAM-–º–æ–¥—É–ª—è –Ω–µ–¥–æ—Å—Ç—É–ø–Ω–µ!"
+ 
+ msgid "CAM is in use - really reset?"
+-msgstr "CAM “ÿ⁄ﬁ‡ÿ·‚ﬁ“„Ù‚Ï·Ô - ‘ˆŸ·›ﬁ ﬂ’‡’◊–“–›‚–÷ÿ‚ÿ?"
++msgstr "CAM –≤–∏–∫–æ—Ä–∏—Å—Ç–æ–≤—É—î—Ç—å—Å—è - –¥—ñ–π—Å–Ω–æ –ø–µ—Ä–µ–∑–∞–≤–∞–Ω—Ç–∞–∂–∏—Ç–∏?"
+ 
+ msgid "Can't reset CAM!"
+-msgstr "øﬁ‹ÿ€⁄– ﬂ’‡’◊–ﬂ„·⁄„ CAM-‹ﬁ‘„€Ô!"
++msgstr "–ü–æ–º–∏–ª–∫–∞ –ø–µ—Ä–µ–∑–∞–ø—É—Å–∫—É CAM-–º–æ–¥—É–ª—è!"
++
++msgid "do not pause live video"
++msgstr "–Ω–µ –ø—Ä–∏–∑—É–ø–∏–Ω—è—Ç–∏ –ø–µ—Ä–µ–≥–ª—è–¥"
++
++msgid "confirm pause live video"
++msgstr "–ø—ñ–¥—Ç–≤–µ—Ä–¥–∏—Ç–∏ –ø—Ä–∏–∑—É–ø–∏–Ω–µ–Ω–Ω—è –ø–µ—Ä–µ–≥–ª—è–¥—É"
++
++msgid "pause live video"
++msgstr "–ø—Ä–∏–∑—É–ø–∏–Ω–∏—Ç–∏ –ø–µ—Ä–µ–≥–ª—è–¥"
+ 
+ msgid "Recording"
+-msgstr "∑–ﬂÿ·"
++msgstr "–ó–∞–ø–∏—Å"
+ 
+ msgid "Setup.Recording$Margin at start (min)"
+-msgstr "≤ÿﬂ’‡’‘÷’››Ô ﬂﬁÁ–‚⁄„ ◊–ﬂÿ·„ (Â“)"
++msgstr "–í–∏–ø–µ—Ä–µ–¥–∂–µ–Ω–Ω—è –ø–æ—á–∞—Ç–∫—É –∑–∞–ø–∏—Å—É (—Ö–≤)"
+ 
+ msgid "Setup.Recording$Margin at stop (min)"
+-msgstr "∑–ﬂˆ◊›’››Ô ◊„ﬂÿ›⁄ÿ ◊–ﬂÿ·„ (Â“)"
++msgstr "–ó–∞–ø—ñ–∑–Ω–µ–Ω–Ω—è –∑—É–ø–∏–Ω–∫–∏ –∑–∞–ø–∏—Å—É (—Ö–≤)"
+ 
+ msgid "Setup.Recording$Primary limit"
+-msgstr "ºˆ›. ﬂ‡ˆﬁ‡ÿ‚’‚ ◊–Âﬁﬂ€’››Ô ﬁ·›. ﬂ‡ÿ·‚‡ﬁÓ"
++msgstr "–ú—ñ–Ω. –ø—Ä—ñ–æ—Ä–∏—Ç–µ—Ç –∑–∞—Ö–æ–ø–ª–µ–Ω–Ω—è –æ—Å–Ω. –ø—Ä–∏—Å—Ç—Ä–æ—é"
+ 
+ msgid "Setup.Recording$Default priority"
+-msgstr "ø‡ˆﬁ‡ÿ‚’‚ ‚–Ÿ‹’‡– ﬂﬁ ◊–‹ﬁ“Á„“–››Ó"
++msgstr "–ü—Ä—ñ–æ—Ä–∏—Ç–µ—Ç —Ç–∞–π–º–µ—Ä–∞ –ø–æ –∑–∞–º–æ–≤—á—É–≤–∞–Ω–Ω—é"
+ 
+ msgid "Setup.Recording$Default lifetime (d)"
+-msgstr "¡‚‡ﬁ⁄ ◊—’‡ˆ”–››Ô ◊–ﬂÿ·„ ﬂﬁ ◊–‹ﬁ“Á„“–››Ó (‘)"
++msgstr "–°—Ç—Ä–æ–∫ –∑–±–µ—Ä—ñ–≥–∞–Ω–Ω—è –∑–∞–ø–∏—Å—É –ø–æ –∑–∞–º–æ–≤—á—É–≤–∞–Ω–Ω—é (–¥–Ω—ñ)"
++
++msgid "Setup.Recording$Pause key handling"
++msgstr "–û–±—Ä–æ–±–∫–∞ –∫–ª–∞–≤—ñ—à—ñ –≤—ñ–¥–∫–ª–∞–¥–µ–Ω–æ–≥–æ –ø–µ—Ä–µ–≥–ª—è–¥—É"
+ 
+ msgid "Setup.Recording$Pause priority"
+-msgstr "ø‡ˆﬁ‡ÿ‚’‚ “ˆ‘⁄€–‘’›ﬁ”ﬁ ﬂ’‡’”€Ô‘„"
++msgstr "–ü—Ä—ñ–æ—Ä–∏—Ç–µ—Ç –≤—ñ–¥–∫–ª–∞–¥–µ–Ω–æ–≥–æ –ø–µ—Ä–µ–≥–ª—è–¥—É"
+ 
+ msgid "Setup.Recording$Pause lifetime (d)"
+-msgstr "∑—’‡ˆ”–››Ô “ˆ‘⁄€–‘’›ﬁ”ﬁ ﬂ’‡’”€Ô‘„ (‘)"
++msgstr "–ó–±–µ—Ä—ñ–≥–∞–Ω–Ω—è –≤—ñ–¥–∫–ª–∞–¥–µ–Ω–æ–≥–æ –ø–µ—Ä–µ–≥–ª—è–¥—É (–¥–Ω—ñ)"
+ 
+ msgid "Setup.Recording$Use episode name"
+-msgstr "≥‡„ﬂ„“–‚ÿ ‰–Ÿ€ÿ ﬂﬁ ’ﬂˆ◊ﬁ‘–Â"
++msgstr "–í–∏–∫–æ—Ä–∏—Å—Ç–æ–≤—É–≤–∞—Ç–∏ –Ω–∞–∑–≤—É –µ–ø—ñ–∑–æ–¥—É"
+ 
+ msgid "Setup.Recording$Use VPS"
+-msgstr "≤ÿ⁄ﬁ‡ÿ·‚ﬁ“„“–‚ÿ ·ÿ”›–€ÿ VPS"
++msgstr "–í–∏–∫–æ—Ä–∏—Å—Ç–æ–≤—É–≤–∞—Ç–∏ —Å–∏–≥–Ω–∞–ª–∏ VPS"
+ 
+ msgid "Setup.Recording$VPS margin (s)"
+-msgstr "±„‰’‡›ÿŸ Á–· VPS (·’⁄)"
++msgstr "–ë—É—Ñ–µ—Ä–Ω–∏–π —á–∞—Å VPS (—Å–µ–∫)"
+ 
+ msgid "Setup.Recording$Mark instant recording"
+-msgstr "≤ˆ‘‹ˆÁ–‚ÿ ◊‡ﬁ—€’›ˆ “‡„Á›„ ◊–ﬂÿ·ÿ"
++msgstr "–ü–æ–º—ñ—Ç–∏—Ç–∏ –∑—Ä–æ–±–ª–µ–Ω—ñ –≤—Ä—É—á–Ω—É –∑–∞–ø–∏—Å–∏"
+ 
+ msgid "Setup.Recording$Name instant recording"
+-msgstr "¡Â’‹– ›–Ÿ‹’›„“–›Ï ‡„Á›ÿÂ ◊–ﬂÿ·ˆ“"
++msgstr "–°—Ö–µ–º–∞ –Ω–∞–π–º–µ–Ω—É–≤–∞–Ω—å —Ä—É—á–Ω–∏—Ö –∑–∞–ø–∏—Å—ñ–≤"
+ 
+ msgid "Setup.Recording$Instant rec. time (min)"
+-msgstr "ø‡ﬁ‚Ô÷›ˆ·‚Ï ‡„Á›ﬁ”ﬁ ◊–ﬂÿ·„ (Â“)"
++msgstr "–ü—Ä–æ—Ç—è–∂–Ω—ñ—Å—Ç—å —Ä—É—á–Ω–æ–≥–æ –∑–∞–ø–∏—Å—É (—Ö–≤)"
+ 
+ msgid "Setup.Recording$Max. video file size (MB)"
+-msgstr "º–⁄·. ‡–◊‹ˆ‡ “ˆ‘’ﬁ‰–Ÿ€„ (º—)"
++msgstr "–ú–∞–∫—Å. —Ä–∞–∑–º—ñ—Ä –≤—ñ–¥–µ–æ—Ñ–∞–π–ª—É (–ú–±)"
+ 
+ msgid "Setup.Recording$Split edited files"
+-msgstr "¥ˆ€ÿ‚ÿ “ˆ‘‡’‘–⁄‚ﬁ“–›ˆ ‰–Ÿ€ÿ"
++msgstr "–î—ñ–ª–∏—Ç–∏ –≤—ñ–¥—Ä–µ–¥–∞–≥–æ–≤–∞–Ω—ñ —Ñ–∞–π–ª–∏"
+ 
+ msgid "Replay"
+-msgstr "ø’‡’”€Ô‘"
++msgstr "–ü–µ—Ä–µ–≥–ª—è–¥"
+ 
+ msgid "Setup.Replay$Multi speed mode"
+-msgstr "±–”–‚ﬁË“ÿ‘⁄ˆ·›ÿŸ ‡’÷ÿ‹"
++msgstr "–ë–∞–≥–∞—Ç–æ—à–≤–∏–¥–∫—ñ—Å–Ω–∏–π —Ä–µ–∂–∏–º"
+ 
+ msgid "Setup.Replay$Show replay mode"
+-msgstr "≤ˆﬁ—‡–÷–‚ÿ ‡’÷ÿ‹ ﬂ’‡’”€Ô‘„"
++msgstr "–í—ñ–æ–±—Ä–∞–∂–∞—Ç–∏ —Ä–µ–∂–∏–º –ø–µ—Ä–µ–≥–ª—è–¥—É"
+ 
+ msgid "Setup.Replay$Resume ID"
+-msgstr "ID ﬂ’‡’”€Ô‘„"
++msgstr "ID –ø–µ—Ä–µ–≥–ª—è–¥—É"
+ 
+ msgid "Miscellaneous"
+-msgstr "¿ˆ◊›’"
++msgstr "–†—ñ–∑–Ω–µ"
+ 
+ msgid "Setup.Miscellaneous$Min. event timeout (min)"
+-msgstr "ºˆ›. Á–· ﬁÁˆ⁄„“–››Ô ﬂﬁ‘ˆ˜ (Â“)"
++msgstr "–ú—ñ–Ω. —á–∞—Å –æ—á—ñ–∫—É–≤–∞–Ω–Ω—è –ø–æ–¥—ñ—ó (—Ö–≤)"
+ 
+ msgid "Setup.Miscellaneous$Min. user inactivity (min)"
+-msgstr "ºˆ›. Á–· ﬁÁˆ⁄„“–››Ô ““ﬁ‘„ (Â“)"
++msgstr "–ú—ñ–Ω. —á–∞—Å –æ—á—ñ–∫—É–≤–∞–Ω–Ω—è –≤–≤–æ–¥—É (—Ö–≤)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP timeout (s)"
+-msgstr "∑–‚‡ÿ‹⁄⁄– ﬁ—‡ÿ“„ ◊'Ù‘›–››Ô SVDRP (·’⁄)"
++msgstr "–ó–∞—Ç—Ä–∏–º–∫–∫–∞ –æ–±—Ä–∏–≤—É –∑'—î–¥–Ω–∞–Ω–Ω—è SVDRP (—Å–µ–∫)"
+ 
+ msgid "Setup.Miscellaneous$Zap timeout (s)"
+-msgstr "∑–‚‡ÿ‹⁄– ﬂ’‡’⁄€ÓÁ–››Ô ⁄–›–€„ (·’⁄)"
++msgstr "–ó–∞—Ç—Ä–∏–º–∫–∞ –ø–µ—Ä–µ–∫–ª—é—á–∞–Ω–Ω—è –∫–∞–Ω–∞–ª—É (—Å–µ–∫)"
+ 
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+-msgstr "∑–‚‡ÿ‹⁄– Á–·„ ‘€Ô “ﬂ‡ﬁ“–‘÷’››Ô ⁄–›–€„ (ms)"
++msgstr "–ó–∞—Ç—Ä–∏–º–∫–∞ —á–∞—Å—É –¥–ª—è –≤–ø—Ä–æ–≤–∞–¥–∂–µ–Ω–Ω—è –∫–∞–Ω–∞–ª—É (ms)"
+ 
+ msgid "Setup.Miscellaneous$Initial channel"
+-msgstr "∫–›–€ ﬂ‡ÿ “⁄€ÓÁ–››Ó"
++msgstr "–ö–∞–Ω–∞–ª –ø—Ä–∏ –≤–∫–ª—é—á–µ–Ω–Ω—ñ"
+ 
+ msgid "Setup.Miscellaneous$as before"
+-msgstr "Ô⁄ ‡–›ˆË’"
++msgstr "—è–∫ —Ä–∞–Ω—ñ—à–µ"
+ 
+ msgid "Setup.Miscellaneous$Initial volume"
+-msgstr "≥„Á›ˆ·‚Ï ﬂ‡ÿ “⁄€ÓÁ’››ˆ"
++msgstr "–ì—É—á–Ω—ñ—Å—Ç—å –ø—Ä–∏ –≤–∫–ª—é—á–µ–Ω–Ω—ñ"
+ 
+ msgid "Setup.Miscellaneous$Emergency exit"
+-msgstr "∞“–‡ˆŸ›ÿŸ “ÿÂˆ‘"
++msgstr "–ê–≤–∞—Ä—ñ–π–Ω–∏–π –≤–∏—Ö—ñ–¥"
+ 
+ msgid "Plugins"
+-msgstr "ºﬁ‘„€ˆ ‡ﬁ◊Ëÿ‡’››Ô"
++msgstr "–ú–æ–¥—É–ª—ñ —Ä–æ–∑—à–∏—Ä–µ–Ω–Ω—è"
+ 
+ msgid "This plugin has no setup parameters!"
+-msgstr "ºﬁ‘„€Ï ›’ ‹–Ù ﬂ–‡–‹’‚‡ˆ“ ›–€–Ë‚„“–›Ï!"
++msgstr "–ú–æ–¥—É–ª—å –Ω–µ –º–∞—î –ø–∞—Ä–∞–º–µ—Ç—Ä—ñ–≤ –Ω–∞–ª–∞—à—Ç—É–≤–∞–Ω—å!"
+ 
+ msgid "Setup"
+-msgstr "Ω–€–Ë‚„“–››Ô"
++msgstr "–ù–∞–ª–∞—à—Ç—É–≤–∞–Ω–Ω—è"
+ 
+ msgid "Restart"
+-msgstr "ø’‡’◊–ﬂ„·‚ÿ‚ÿ"
++msgstr "–ü–µ—Ä–µ–∑–∞–ø—É—Å—Ç–∏—Ç–∏"
+ 
+ msgid "Really restart?"
+-msgstr "¥ˆŸ·›ﬁ ﬂ’‡’◊–ﬂ„·‚ÿ‚ÿ?"
++msgstr "–î—ñ–π—Å–Ω–æ –ø–µ—Ä–µ–∑–∞–ø—É—Å—Ç–∏—Ç–∏?"
+ 
+ #. TRANSLATORS: note the leading and trailing blanks!
+ msgid " Stop recording "
+-msgstr " ∑„ﬂÿ›ÿ‚ÿ ◊–ﬂÿ· "
++msgstr " –ó—É–ø–∏–Ω–∏—Ç–∏ –∑–∞–ø–∏—Å "
+ 
+ msgid "Schedule"
+-msgstr "¬’€’”ˆ‘"
++msgstr "–¢–µ–ª–µ–≥—ñ–¥"
+ 
+ msgid "VDR"
+ msgstr "VDR"
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " Stop replaying"
+-msgstr " ∑„ﬂÿ›ÿ‚ÿ ﬂ‡ﬁ”‡–“–››Ô"
++msgstr " –ó—É–ø–∏–Ω–∏—Ç–∏ –ø—Ä–æ–≥—Ä–∞–≤–∞–Ω–Ω—è"
+ 
+ msgid "Button$Audio"
+-msgstr "ºﬁ“–"
++msgstr "–ú–æ–≤–∞ –∞—É–¥—ñ–æ"
+ 
+ msgid "Button$Pause"
+-msgstr "ø–„◊–"
++msgstr "–ü–∞—É–∑–∞"
+ 
+ msgid "Button$Stop"
+-msgstr "¡‚ﬁﬂ"
++msgstr "–°—Ç–æ–ø"
+ 
+ msgid "Button$Resume"
+-msgstr "ø‡ﬁ‘ﬁ“÷ÿ‚ÿ"
++msgstr "–ü—Ä–æ–¥–æ–≤–∂–∏—Ç–∏"
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " Cancel editing"
+-msgstr " ø’‡’‡“–‚ÿ ‹ﬁ›‚–÷ ◊–ﬂÿ·„"
++msgstr " –ü–µ—Ä–µ—Ä–≤–∞—Ç–∏ –º–æ–Ω—Ç–∞–∂ –∑–∞–ø–∏—Å—É"
+ 
+ msgid "Stop recording?"
+-msgstr "ø‡ÿﬂÿ›ÿ‚ÿ ◊–ﬂÿ·?"
++msgstr "–ü—Ä–∏–ø–∏–Ω–∏—Ç–∏ –∑–∞–ø–∏—Å?"
+ 
+ msgid "Cancel editing?"
+-msgstr "ø’‡’‡“–‚ÿ ‡’‘–⁄‚„“–››Ô?"
++msgstr "–ü–µ—Ä–µ—Ä–≤–∞—Ç–∏ —Ä–µ–¥–∞–∫—Ç—É–≤–∞–Ω–Ω—è?"
+ 
+ msgid "No audio available!"
+-msgstr "≤ˆ‘·„‚›ˆŸ ◊“„⁄!"
++msgstr "–í—ñ–¥—Å—É—Ç–Ω—ñ–π –∑–≤—É–∫!"
+ 
+ msgid "No subtitles"
+-msgstr "Ω’‹–Ù ·„—‚ÿ‚‡ˆ“"
++msgstr "–ù–µ–º–∞—î —Å—É–±—Ç–∏—Ç—Ä—ñ–≤"
+ 
+ msgid "Button$Subtitles"
+-msgstr "¡„—‚ÿ‚‡ÿ"
++msgstr "–°—É–±—Ç–∏—Ç—Ä–∏"
+ 
+ msgid "No subtitles available!"
+-msgstr "¡„—‚ÿ‚‡ˆ“ ›’‹–Ù!"
++msgstr "–°—É–±—Ç–∏—Ç—Ä—ñ–≤ –Ω–µ–º–∞—î!"
+ 
+ msgid "Not enough disk space to start recording!"
+-msgstr "Ω’‘ﬁ·‚–‚›Ïﬁ ‹ˆ·ÊÔ ›– ‘ÿ·⁄„ ‘€Ô ﬂﬁÁ–‚⁄„ ◊–ﬂÿ·„"
++msgstr "–ù–µ–¥–æ—Å—Ç–∞—Ç–Ω—å–æ –º—ñ—Å—Ü—è –Ω–∞ –¥–∏—Å–∫—É –¥–ª—è –ø–æ—á–∞—Ç–∫—É –∑–∞–ø–∏—Å—É"
+ 
+ msgid "No free DVB device to record!"
+-msgstr "Ω’‹–Ù “ˆ€Ï›ﬁ”ﬁ DVB-ﬂ‡ÿ·‚‡ﬁÓ ‘€Ô ◊–ﬂÿ·„!"
++msgstr "–ù–µ–º–∞—î –≤—ñ–ª—å–Ω–æ–≥–æ DVB-–ø—Ä–∏—Å—Ç—Ä–æ—é –¥–ª—è –∑–∞–ø–∏—Å—É!"
+ 
+ msgid "Pausing live video..."
+-msgstr "¿’÷ÿ‹ “ˆ‘⁄€–‘’›ﬁ”ﬁ ﬂ’‡’”€Ô‘„..."
++msgstr "–†–µ–∂–∏–º –≤—ñ–¥–∫–ª–∞–¥–µ–Ω–æ–≥–æ –ø–µ—Ä–µ–≥–ª—è–¥—É..."
+ 
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+-msgstr "ø’‡’Ÿ‚ÿ: "
++msgstr "–ü–µ—Ä–µ–π—Ç–∏: "
+ 
+ msgid "No editing marks defined!"
+-msgstr "Ω’ ◊–‘–›ﬁ ‹ˆ‚ﬁ⁄ ‘€Ô ‹ﬁ›‚–÷„!"
++msgstr "–ù–µ –∑–∞–¥–∞–Ω–æ –º—ñ—Ç–æ–∫ –¥–ª—è –º–æ–Ω—Ç–∞–∂—É!"
+ 
+ msgid "Can't start editing process!"
+-msgstr "Ω’‹ﬁ÷€ÿ“ﬁ ﬂﬁÁ–‚ÿ ‹ﬁ›‚–÷ ◊–ﬂÿ·„!"
++msgstr "–ù–µ–º–æ–∂–ª–∏–≤–æ –ø–æ—á–∞—Ç–∏ –º–æ–Ω—Ç–∞–∂ –∑–∞–ø–∏—Å—É!"
+ 
+ msgid "Editing process started"
+-msgstr "ºﬁ›‚–÷ ◊–ﬂÿ·„ ﬂﬁÁ–“·Ô"
++msgstr "–ú–æ–Ω—Ç–∞–∂ –∑–∞–ø–∏—Å—É –ø–æ—á–∞–≤—Å—è"
+ 
+ msgid "Editing process already active!"
+-msgstr "ø‡ﬁÊ’· “ˆ‘’ﬁ‹ﬁ›‚–÷„ “÷’ ◊–ﬂ„È’›ÿŸ!"
++msgstr "–ü—Ä–æ—Ü–µ—Å –≤—ñ–¥–µ–æ–º–æ–Ω—Ç–∞–∂—É –≤–∂–µ –∑–∞–ø—É—â–µ–Ω–∏–π!"
+ 
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+-msgstr " abcdefghijklmnopqrstuvwxyz–—“”‘’ÙÒ÷◊ÿˆ˜Ÿ⁄€‹›ﬁﬂ‡·‚„‰ÂÊÁËÈÍÎÏÓÔ0123456789-.#~,/_@"
++msgstr " abcdefghijklmnopqrstuvwxyz–∞–±–≤–≥–¥–µ—î—ë–∂–∑–∏—ñ—ó–π–∫–ª–º–Ω–æ–ø—Ä—Å—Ç—É—Ñ—Ö—Ü—á—à—â—ä—ã—å—é—è0123456789-.#~,/_@"
+ 
+ msgid "yes"
+-msgstr "‚–⁄"
++msgstr "—Ç–∞–∫"
+ 
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+-msgstr " 0\t-.#~,/_@1\tabc–—“”2\tdef‘’ÙÒ÷◊3\tghiÿˆ˜Ÿ⁄€4\tjkl‹›ﬁ5\tmnoﬂ‡·6\tpqrs‚„‰Â7\ttuvÊÁËÈÍ8\twxyzÎÏÌÓÔ9"
++msgstr " 0\t-.#~,/_@1\tabc–∞–±–≤–≥2\tdef–¥–µ—î—ë–∂–∑3\tghi–∏—ñ—ó–π–∫–ª4\tjkl–º–Ω–æ5\tmno–ø—Ä—Å6\tpqrs—Ç—É—Ñ—Ö7\ttuv—Ü—á—à—â—ä8\twxyz—ã—å—ç—é—è9"
+ 
+ msgid "Button$ABC/abc"
+-msgstr "∞±≤/–—“"
++msgstr "–ê–ë–í/–∞–±–≤"
+ 
+ msgid "Button$Overwrite"
+-msgstr "∑–‹ˆ›–"
++msgstr "–ó–∞–º—ñ–Ω–∞"
+ 
+ msgid "Button$Insert"
+-msgstr "≤·‚–“⁄–"
++msgstr "–í—Å—Ç–∞–≤–∫–∞"
+ 
+ msgid "Plugin"
+-msgstr "ºﬁ‘„€Ï"
++msgstr "–ú–æ–¥—É–ª—å"
+ 
+ msgid "Up/Dn for new location - OK to move"
+-msgstr "Ω–‚ÿ·⁄–Ÿ‚’ \"≤“’‡Â\"/\"≤›ÿ◊\" ‘€Ô “ÿ—ﬁ‡„ ﬂﬁ◊ÿÊˆ˜, – ﬂﬁ‚ˆ‹ \"OK\""
++msgstr "–ù–∞—Ç–∏—Å–∫–∞–π—Ç–µ \"–í–≤–µ—Ä—Ö\"/\"–í–Ω–∏–∑\" –¥–ª—è –≤–∏–±–æ—Ä—É –ø–æ–∑–∏—Ü—ñ—ó, –∞ –ø–æ—Ç—ñ–º \"OK\""
+ 
+ msgid "Channel locked (recording)!"
+-msgstr "∫–›–€ ◊–—€ﬁ⁄ﬁ“–›ﬁ (Ÿ‘’ ◊–ﬂÿ·)!"
++msgstr "–ö–∞–Ω–∞–ª –∑–∞–±–ª–æ–∫–æ–≤–∞–Ω–æ (–π–¥–µ –∑–∞–ø–∏—Å)!"
+ 
+ msgid "Low disk space!"
+-msgstr "Ω’‘ﬁ·‚–‚›Ïﬁ ‹ˆ·ÊÔ ›– ‘ÿ·⁄„!"
++msgstr "–ù–µ–¥–æ—Å—Ç–∞—Ç–Ω—å–æ –º—ñ—Å—Ü—è –Ω–∞ –¥–∏—Å–∫—É!"
+ 
+ msgid "Can't shutdown - option '-s' not given!"
+-msgstr "≤ÿ⁄€ÓÁ’›››Ô ›’‹ﬁ÷€ÿ“’ - ›’ ◊–‘–›ﬁ ﬂ–‡–‹’‚‡ '-s'!"
++msgstr "–í–∏–∫–ª—é—á–µ–Ω–Ω–Ω—è –Ω–µ–º–æ–∂–ª–∏–≤–µ - –Ω–µ –∑–∞–¥–∞–Ω–æ –ø–∞—Ä–∞–º–µ—Ç—Ä '-s'!"
+ 
+ msgid "Editing - shut down anyway?"
+-msgstr "π‘’ ‹ﬁ›‚–÷ - ‘ˆŸ·›ﬁ “ÿ⁄€ÓÁÿ‚ÿ?"
++msgstr "–ô–¥–µ –º–æ–Ω—Ç–∞–∂ - –¥—ñ–π—Å–Ω–æ –≤–∏–∫–ª—é—á–∏—Ç–∏?"
+ 
+ msgid "Recording - shut down anyway?"
+-msgstr "π‘’ ◊–ﬂÿ· - ‘ˆŸ·›ﬁ “ÿ⁄€ÓÁÿ‚ÿ?"
++msgstr "–ô–¥–µ –∑–∞–ø–∏—Å - –¥—ñ–π—Å–Ω–æ –≤–∏–∫–ª—é—á–∏—Ç–∏?"
+ 
+ #, c-format
+ msgid "Recording in %ld minutes, shut down anyway?"
+-msgstr "«’‡’◊ %ld Â“ÿ€ÿ› ﬂﬁÁ›’‚Ï·Ô ◊–ﬂÿ· - ‘ˆŸ·›ﬁ “ÿ⁄€ÓÁÿ‚ÿ?"
++msgstr "–ß–µ—Ä–µ–∑ %ld —Ö–≤–∏–ª–∏–Ω –ø–æ—á–Ω–µ—Ç—å—Å—è –∑–∞–ø–∏—Å - –¥—ñ–π—Å–Ω–æ –≤–∏–∫–ª—é—á–∏—Ç–∏?"
+ 
+ msgid "shut down anyway?"
+-msgstr "‘ˆŸ·›ﬁ “ÿ⁄€ÓÁÿ‚ÿ?"
++msgstr "–¥—ñ–π—Å–Ω–æ –≤–∏–∫–ª—é—á–∏—Ç–∏?"
+ 
+ #, c-format
+ msgid "Plugin %s wakes up in %ld min, continue?"
+-msgstr "Plugin %s ﬂ‡ﬁ·›’‚Ï·Ô Á’‡’◊ %ld Â“ÿ€ÿ› - ﬂ‡ﬁ‘ﬁ“÷ÿ‚ÿ?"
++msgstr "–ú–æ–¥—É–ª—å %s –≤–∫–ª—é—á–∏—Ç—å—Å—è —á–µ—Ä–µ–∑ %ld —Ö–≤–∏–ª–∏–Ω - –ø—Ä–æ–¥–æ–≤–∂–∏—Ç–∏?"
+ 
+ msgid "Editing - restart anyway?"
+-msgstr "ø‡ﬁÊ’· ‹ﬁ›‚–÷„ - ‘ˆŸ·›ﬁ ﬂ’‡’◊–ﬂ„·‚ÿ‚ÿ?"
++msgstr "–ü—Ä–æ—Ü–µ—Å –º–æ–Ω—Ç–∞–∂—É - –¥—ñ–π—Å–Ω–æ –ø–µ—Ä–µ–∑–∞–ø—É—Å—Ç–∏—Ç–∏?"
+ 
+ msgid "Recording - restart anyway?"
+-msgstr "π‘’ ◊–ﬂÿ· - ‘ˆŸ·›ﬁ ﬂ’‡’◊–ﬂ„·‚ÿ‚ÿ?"
++msgstr "–ô–¥–µ –∑–∞–ø–∏—Å - –¥—ñ–π—Å–Ω–æ –ø–µ—Ä–µ–∑–∞–ø—É—Å—Ç–∏—Ç–∏?"
+ 
+ msgid "restart anyway?"
+-msgstr "‘ˆŸ·›ﬁ ﬂ’‡’◊–ﬂ„·‚ÿ‚ÿ?"
++msgstr "–¥—ñ–π—Å–Ω–æ –ø–µ—Ä–µ–∑–∞–ø—É—Å—Ç–∏—Ç–∏?"
+ 
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Volume "
+-msgstr "≥„Á›ˆ·‚Ï "
++msgstr "–ì—É—á–Ω—ñ—Å—Ç—å "
+ 
+ msgid "Classic VDR"
+-msgstr "∫€–·ÿÁ›ÿŸ"
++msgstr "–ö–ª–∞—Å–∏—á–Ω–∏–π VDR"
+ 
+ msgid "ST:TNG Panels"
+-msgstr "ST:TNG ﬂ–›’€ˆ"
++msgstr "ST:TNG –ø–∞–Ω–µ–ª—ñ"
+ 
+ #. TRANSLATORS: the first character of each weekday, beginning with monday
+ msgid "MTWTFSS"
+-msgstr "ø≤¡«ø¡Ω"
++msgstr "–ü–í–°–ß–ü–°–ù"
+ 
+ #. TRANSLATORS: abbreviated weekdays, beginning with monday (must all be 3 letters!)
+ msgid "MonTueWedThuFriSatSun"
+-msgstr "øﬁ›≤‚‡¡‡‘«‚“ø‚›¡„—Ω’‘"
++msgstr "–ü–æ–Ω–í—Ç—Ä–°—Ä–¥–ß—Ç–≤–ü—Ç–Ω–°—É–±–ù–µ–¥"
+ 
+ msgid "Monday"
+-msgstr "øﬁ›’‘ˆ€ﬁ⁄"
++msgstr "–ü–æ–Ω–µ–¥—ñ–ª–æ–∫"
+ 
+ msgid "Tuesday"
+-msgstr "≤ˆ“‚ﬁ‡ﬁ⁄"
++msgstr "–í—ñ–≤—Ç–æ—Ä–æ–∫"
+ 
+ msgid "Wednesday"
+-msgstr "¡’‡’‘–"
++msgstr "–°–µ—Ä–µ–¥–∞"
+ 
+ msgid "Thursday"
+-msgstr "«’‚“’‡"
++msgstr "–ß–µ—Ç–≤–µ—Ä"
+ 
+ msgid "Friday"
+-msgstr "ø'Ô‚›ÿÊÔ"
++msgstr "–ü'—è—Ç–Ω–∏—Ü—è"
+ 
+ msgid "Saturday"
+-msgstr "¡„—ﬁ‚–"
++msgstr "–°—É–±–æ—Ç–∞"
+ 
+ msgid "Sunday"
+-msgstr "Ω’‘ˆ€Ô"
++msgstr "–ù–µ–¥—ñ–ª—è"
+ 
+ msgid "Upcoming recording!"
+-msgstr "∑–ﬂÿ· ·⁄ﬁ‡ﬁ ﬂﬁÁ›’‚Ï·Ô"
++msgstr "–ó–∞–ø–∏—Å —Å–∫–æ—Ä–æ –ø–æ—á–Ω–µ—Ç—å—Å—è"
++
++msgid "Pause live video?"
++msgstr "–†–µ–∂–∏–º –≤—ñ–¥–∫–ª–∞–¥–µ–Ω–æ–≥–æ –ø–µ—Ä–µ–≥–ª—è–¥—É..."
+ 
+ msgid "Recording started"
+-msgstr "∑–ﬂÿ· ﬂﬁÁ–“·Ô"
++msgstr "–ó–∞–ø–∏—Å –ø–æ—á–∞–≤—Å—è"
+ 
+ msgid "VDR will shut down later - press Power to force"
+-msgstr "VDR “ÿ⁄€ÓÁÿ‚Ï·Ô ﬂﬂˆ◊›ˆË’ - ›–‚ÿ·›ˆ‚Ï Power ‘€Ô ﬂ‡ÿË“ÿ‘Ë’››Ô"
++msgstr "VDR –≤–∏–∫–ª—é—á–∏—Ç—å—Å—è –ø–ø—ñ–∑–Ω—ñ—à–µ - –Ω–∞—Ç–∏—Å–Ω—ñ—Ç—å Power –¥–ª—è –ø—Ä–∏—à–≤–∏–¥—à–µ–Ω–Ω—è"
+ 
+ msgid "Press any key to cancel shutdown"
+-msgstr "Ω–‚ÿ·›ˆ‚Ï —„‘Ï-Ô⁄„ ⁄›ﬁﬂ⁄„ ‘€Ô “ˆ‘‹ˆ›ÿ “ÿ⁄€ÓÁ’››Ô."
++msgstr "–ù–∞—Ç–∏—Å–Ω—ñ—Ç—å –±—É–¥—å-—è–∫—É –∫–Ω–æ–ø–∫—É –¥–ª—è –≤—ñ–¥–º—ñ–Ω–∏ –≤–∏–∫–ª—é—á–µ–Ω–Ω—è."
+ 
+ msgid "Switching primary DVB..."
+-msgstr "∑‹ˆ›– ﬁ·›ﬁ“›ﬁ”ﬁ DVB-ﬂ‡ÿ·‚‡ﬁÓ..."
++msgstr "–ó–º—ñ–Ω–∞ –æ—Å–Ω–æ–≤–Ω–æ–≥–æ DVB-–ø—Ä–∏—Å—Ç—Ä–æ—é..."
+ 
+ msgid "Editing process failed!"
+-msgstr "øﬁ‹ÿ€⁄– ﬂˆ‘ Á–· ‹ﬁ›‚–÷„ ◊–ﬂÿ·„!"
++msgstr "–ü–æ–º–∏–ª–∫–∞ –ø—ñ–¥ —á–∞—Å –º–æ–Ω—Ç–∞–∂—É –∑–∞–ø–∏—Å—É!"
+ 
+ msgid "Editing process finished"
+-msgstr "ºﬁ›‚–÷ ◊–⁄ˆ›Á’›ﬁ"
++msgstr "–ú–æ–Ω—Ç–∞–∂ –∑–∞–∫—ñ–Ω—á–µ–Ω–æ"
+ 
+ msgid "Press any key to cancel restart"
+-msgstr "Ω–‚ÿ·›ˆ‚Ï —„‘Ï-Ô⁄„ ⁄›ﬁﬂ⁄„ ‘€Ô “ˆ‘‹ˆ›ÿ ﬂ’‡’◊–“–›‚–÷’››Ô"
++msgstr "–ù–∞—Ç–∏—Å–Ω—ñ—Ç—å –±—É–¥—å-—è–∫—É –∫–Ω–æ–ø–∫—É –¥–ª—è –≤—ñ–¥–º—ñ–Ω–∏ –ø–µ—Ä–µ–∑–∞–≤–∞–Ω—Ç–∞–∂–µ–Ω–Ω—è"
+ 
+ #, c-format
+ msgid "VDR will shut down in %s minutes"
+-msgstr "VDR “ÿ⁄€ÓÁÿ‚Ï·Ô Á’‡’◊ %s Â“ÿ€ÿ›"
++msgstr "VDR –≤–∏–∫–ª—é—á–∏—Ç—å—Å—è —á–µ—Ä–µ–∑ %s —Ö–≤–∏–ª–∏–Ω"
+diff -ruN vdr-1.7.7/po/zh_CN.po vdr-1.7.8/po/zh_CN.po
+--- vdr-1.7.7/po/zh_CN.po	2009-05-03 16:15:21.000000000 +0200
++++ vdr-1.7.8/po/zh_CN.po	2009-06-06 17:22:40.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-12-14 16:10+0100\n"
++"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+ "PO-Revision-Date: 2008-03-21 08:44+0800\n"
+ "Last-Translator: Nan Feng <nfgx@21cn.com>\n"
+ "Language-Team: Chinese\n"
+@@ -707,6 +707,15 @@
+ msgid "Can't reset CAM!"
+ msgstr "‰∏çËÉΩÈáçÂêØCAM"
+ 
++msgid "do not pause live video"
++msgstr ""
++
++msgid "confirm pause live video"
++msgstr ""
++
++msgid "pause live video"
++msgstr ""
++
+ msgid "Recording"
+ msgstr "ËÆ∞ÂΩï‰∏≠"
+ 
+@@ -725,6 +734,9 @@
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "ÈªòËÆ§ÁªàË∫´ (d)"
+ 
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
+ msgid "Setup.Recording$Pause priority"
+ msgstr "ÊöÇÂÅú‰ºòÂÖà"
+ 
+@@ -986,6 +998,9 @@
+ msgid "Upcoming recording!"
+ msgstr "Âç≥Â∞ÜÁöÑËÆ∞ÂΩïÔºÅ"
+ 
++msgid "Pause live video?"
++msgstr ""
++
+ msgid "Recording started"
+ msgstr "ËÆ∞ÂΩïÂºÄÂßãÔºÅ"
+ 
+diff -ruN vdr-1.7.7/recorder.c vdr-1.7.8/recorder.c
+--- vdr-1.7.7/recorder.c	2009-03-20 16:49:02.000000000 +0100
++++ vdr-1.7.8/recorder.c	2009-05-23 14:18:25.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.c 2.3 2009/03/20 15:49:02 kls Exp $
++ * $Id: recorder.c 2.4 2009/05/23 12:18:25 kls Exp $
+  */
+ 
+ #include "recorder.h"
+@@ -44,12 +44,14 @@
+      Type = 0x06;
+      }
+   frameDetector = new cFrameDetector(Pid, Type);
+-  patPmtGenerator.SetChannel(Channel);
+-  fileName = NULL;
+   index = NULL;
+   fileSize = 0;
+   lastDiskSpaceCheck = time(NULL);
+   fileName = new cFileName(FileName, true);
++  int PatVersion, PmtVersion;
++  if (fileName->GetLastPatPmtVersions(PatVersion, PmtVersion))
++     patPmtGenerator.SetVersions(PatVersion + 1, PmtVersion + 1);
++  patPmtGenerator.SetChannel(Channel);
+   recordFile = fileName->Open();
+   if (!recordFile)
+      return;
+diff -ruN vdr-1.7.7/recording.c vdr-1.7.8/recording.c
+--- vdr-1.7.7/recording.c	2009-04-13 15:50:39.000000000 +0200
++++ vdr-1.7.8/recording.c	2009-06-13 15:34:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.12 2009/04/13 13:50:39 kls Exp $
++ * $Id: recording.c 2.16 2009/06/13 13:34:08 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -20,6 +20,7 @@
+ #include "channels.h"
+ #include "i18n.h"
+ #include "interface.h"
++#include "remux.h"
+ #include "skins.h"
+ #include "tools.h"
+ #include "videodir.h"
+@@ -622,8 +623,8 @@
+      Utf8Strn0Cpy(SubtitleBuffer, Subtitle, MAX_SUBTITLE_LENGTH);
+      Subtitle = SubtitleBuffer;
+      }
+-  char *macroTITLE   = strstr(Timer->File(), TIMERMACRO_TITLE);
+-  char *macroEPISODE = strstr(Timer->File(), TIMERMACRO_EPISODE);
++  const char *macroTITLE   = strstr(Timer->File(), TIMERMACRO_TITLE);
++  const char *macroEPISODE = strstr(Timer->File(), TIMERMACRO_EPISODE);
+   if (macroTITLE || macroEPISODE) {
+      name = strdup(Timer->File());
+      name = strreplace(name, TIMERMACRO_TITLE, Title);
+@@ -672,7 +673,7 @@
+   sortBuffer = NULL;
+   fileName = strdup(FileName);
+   FileName += strlen(VideoDirectory) + 1;
+-  char *p = strrchr(FileName, '/');
++  const char *p = strrchr(FileName, '/');
+ 
+   name = NULL;
+   info = new cRecordingInfo;
+@@ -1528,8 +1529,8 @@
+         if (Independent)
+            *Independent = index[Index].independent;
+         if (Length) {
+-           int fn = index[Index + 1].number;
+-           int fo = index[Index + 1].offset;
++           uint16_t fn = index[Index + 1].number;
++           off_t fo = index[Index + 1].offset;
+            if (fn == *FileNumber)
+               *Length = fo - *FileOffset;
+            else
+@@ -1559,8 +1560,8 @@
+                *FileOffset = index[Index].offset;
+                if (Length) {
+                   // all recordings end with a non-independent frame, so the following should be safe:
+-                  int fn = index[Index + 1].number;
+-                  int fo = index[Index + 1].offset;
++                  uint16_t fn = index[Index + 1].number;
++                  off_t fo = index[Index + 1].offset;
+                   if (fn == *FileNumber)
+                      *Length = fo - *FileOffset;
+                   else {
+@@ -1629,6 +1630,57 @@
+   free(fileName);
+ }
+ 
++bool cFileName::GetLastPatPmtVersions(int &PatVersion, int &PmtVersion)
++{
++  if (fileName && !isPesRecording) {
++     // Find the last recording file:
++     int Number = 1;
++     for (; Number <= MAXFILESPERRECORDINGTS + 1; Number++) { // +1 to correctly set Number in case there actually are that many files
++         sprintf(pFileNumber, RECORDFILESUFFIXTS, Number);
++         if (access(fileName, F_OK) != 0) { // file doesn't exist
++            Number--;
++            break;
++            }
++         }
++     for (; Number > 0; Number--) {
++         // Search for a PAT packet from the end of the file:
++         cPatPmtParser PatPmtParser;
++         sprintf(pFileNumber, RECORDFILESUFFIXTS, Number);
++         int fd = open(fileName, O_RDONLY | O_LARGEFILE, DEFFILEMODE);
++         if (fd >= 0) {
++            off_t pos = lseek(fd, -TS_SIZE, SEEK_END);
++            while (pos >= 0) {
++                  // Read and parse the PAT/PMT:
++                  uchar buf[TS_SIZE];
++                  while (read(fd, buf, sizeof(buf)) == sizeof(buf)) {
++                        if (buf[0] == TS_SYNC_BYTE) {
++                           int Pid = TsPid(buf);
++                           if (Pid == 0)
++                              PatPmtParser.ParsePat(buf, sizeof(buf));
++                           else if (Pid == PatPmtParser.PmtPid()) {
++                              PatPmtParser.ParsePmt(buf, sizeof(buf));
++                              if (PatPmtParser.GetVersions(PatVersion, PmtVersion)) {
++                                 close(fd);
++                                 return true;
++                                 }
++                              }
++                           else
++                              break; // PAT/PMT is always in one sequence
++                           }
++                        else
++                           return false;
++                        }
++                  pos = lseek(fd, pos - TS_SIZE, SEEK_SET);
++                  }
++            close(fd);
++            }
++         else
++            break;
++         }
++     }
++  return false;
++}
++
+ cUnbufferedFile *cFileName::Open(void)
+ {
+   if (!file) {
+diff -ruN vdr-1.7.7/recording.h vdr-1.7.8/recording.h
+--- vdr-1.7.7/recording.h	2009-04-19 11:00:45.000000000 +0200
++++ vdr-1.7.8/recording.h	2009-05-23 14:14:42.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 2.7 2009/04/19 09:00:45 kls Exp $
++ * $Id: recording.h 2.8 2009/05/23 12:14:42 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -260,6 +260,7 @@
+   ~cFileName();
+   const char *Name(void) { return fileName; }
+   int Number(void) { return fileNumber; }
++  bool GetLastPatPmtVersions(int &PatVersion, int &PmtVersion);
+   cUnbufferedFile *Open(void);
+   void Close(void);
+   cUnbufferedFile *SetOffset(int Number, off_t Offset = 0);
+diff -ruN vdr-1.7.7/remux.c vdr-1.7.8/remux.c
+--- vdr-1.7.7/remux.c	2009-05-03 16:43:25.000000000 +0200
++++ vdr-1.7.8/remux.c	2009-06-06 15:24:57.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 2.20 2009/05/03 14:43:25 kls Exp $
++ * $Id: remux.c 2.24 2009/06/06 13:24:57 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -357,6 +357,12 @@
+      }
+ }
+ 
++void cPatPmtGenerator::SetVersions(int PatVersion, int PmtVersion)
++{
++  patVersion = PatVersion & 0x1F;
++  pmtVersion = PmtVersion & 0x1F;
++}
++
+ void cPatPmtGenerator::SetChannel(cChannel *Channel)
+ {
+   if (Channel) {
+@@ -383,8 +389,9 @@
+ 
+ // --- cPatPmtParser ---------------------------------------------------------
+ 
+-cPatPmtParser::cPatPmtParser(void)
++cPatPmtParser::cPatPmtParser(bool UpdatePrimaryDevice)
+ {
++  updatePrimaryDevice = UpdatePrimaryDevice;
+   Reset();
+ }
+ 
+@@ -472,7 +479,8 @@
+      dbgpatpmt("     pcr = %d\n", Pmt.getPCRPid());
+      if (pmtVersion == Pmt.getVersionNumber())
+         return;
+-     cDevice::PrimaryDevice()->ClrAvailableTracks(false, true);
++     if (updatePrimaryDevice)
++        cDevice::PrimaryDevice()->ClrAvailableTracks(false, true);
+      int NumApids = 0;
+      int NumDpids = 0;
+      int NumSpids = 0;
+@@ -481,6 +489,7 @@
+      for (SI::Loop::Iterator it; Pmt.streamLoop.getNext(stream, it); ) {
+          dbgpatpmt("     stream type = %02X, pid = %d", stream.getStreamType(), stream.getPid());
+          switch (stream.getStreamType()) {
++           case 0x01: // STREAMTYPE_11172_VIDEO
+            case 0x02: // STREAMTYPE_13818_VIDEO
+            case 0x1B: // MPEG4
+                       vpid = stream.getPid();
+@@ -515,7 +524,8 @@
+                                }
+                              delete d;
+                              }
+-                         cDevice::PrimaryDevice()->SetAvailableTrack(ttAudio, NumApids, stream.getPid(), ALangs);
++                         if (updatePrimaryDevice)
++                            cDevice::PrimaryDevice()->SetAvailableTrack(ttAudio, NumApids, stream.getPid(), ALangs);
+                          NumApids++;
+                          }
+                       }
+@@ -550,7 +560,8 @@
+                                               break;
+                                            }
+                                         }
+-                                    cDevice::PrimaryDevice()->SetAvailableTrack(ttSubtitle, NumSpids, stream.getPid(), SLangs);
++                                    if (updatePrimaryDevice)
++                                       cDevice::PrimaryDevice()->SetAvailableTrack(ttSubtitle, NumSpids, stream.getPid(), SLangs);
+                                     NumSpids++;
+                                     }
+                                  break;
+@@ -566,7 +577,8 @@
+                           }
+                       if (dpid) {
+                          if (NumDpids < MAXDPIDS) {
+-                            cDevice::PrimaryDevice()->SetAvailableTrack(ttDolby, NumDpids, dpid, lang);
++                            if (updatePrimaryDevice)
++                               cDevice::PrimaryDevice()->SetAvailableTrack(ttDolby, NumDpids, dpid, lang);
+                             NumDpids++;
+                             }
+                          }
+@@ -574,8 +586,10 @@
+                       break;
+            }
+          dbgpatpmt("\n");
+-         cDevice::PrimaryDevice()->EnsureAudioTrack(true);
+-         cDevice::PrimaryDevice()->EnsureSubtitleTrack();
++         if (updatePrimaryDevice) {
++            cDevice::PrimaryDevice()->EnsureAudioTrack(true);
++            cDevice::PrimaryDevice()->EnsureSubtitleTrack();
++            }
+          }
+      pmtVersion = Pmt.getVersionNumber();
+      }
+@@ -584,13 +598,19 @@
+   pmtSize = 0;
+ }
+ 
++bool cPatPmtParser::GetVersions(int &PatVersion, int &PmtVersion)
++{
++  PatVersion = patVersion;
++  PmtVersion = pmtVersion;
++  return patVersion >= 0 && pmtVersion >= 0;
++}
++
+ // --- cTsToPes --------------------------------------------------------------
+ 
+ cTsToPes::cTsToPes(void)
+ {
+   data = NULL;
+   size = length = offset = 0;
+-  synced = false;
+ }
+ 
+ cTsToPes::~cTsToPes()
+@@ -702,7 +722,7 @@
+   newFrame = independentFrame = false;
+   numPtsValues = 0;
+   numIFrames = 0;
+-  isVideo = type == 0x02 || type == 0x1B; // MPEG 2 or MPEG 4
++  isVideo = type == 0x01 || type == 0x02 || type == 0x1B; // MPEG 1, 2 or 4
+   frameDuration = 0;
+   framesInPayloadUnit = framesPerPayloadUnit = 0;
+   payloadUnitOfFrame = 0;
+@@ -795,6 +815,7 @@
+                   scanner <<= 8;
+                   scanner |= Data[i];
+                   switch (type) {
++                    case 0x01: // MPEG 1 video
+                     case 0x02: // MPEG 2 video
+                          if (scanner == 0x00000100) { // Picture Start Code
+                             if (synced && Processed)
+diff -ruN vdr-1.7.7/remux.h vdr-1.7.8/remux.h
+--- vdr-1.7.7/remux.h	2009-04-19 12:57:09.000000000 +0200
++++ vdr-1.7.8/remux.h	2009-06-06 15:26:23.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 2.10 2009/04/19 10:57:09 kls Exp $
++ * $Id: remux.h 2.17 2009/06/06 13:26:23 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+@@ -181,6 +181,15 @@
+        ///< with GetPmt().
+ public:
+   cPatPmtGenerator(cChannel *Channel = NULL);
++  void SetVersions(int PatVersion, int PmtVersion);
++       ///< Sets the version numbers for the generated PAT and PMT, in case
++       ///< this generator is used to, e.g.,  continue a previously interrupted
++       ///< recording (in which case the numbers given should be derived from
++       ///< the PAT/PMT versions last used in the existing recording, incremented
++       ///< by 1. If the given numbers exceed the allowed range of 0..31, the
++       ///< higher bits will automatically be cleared.
++       ///< SetVersions() needs to be called before SetChannel() in order to
++       ///< have an effect from the very start.
+   void SetChannel(cChannel *Channel);
+        ///< Sets the Channel for which the PAT/PMT shall be generated.
+   uchar *GetPat(void);
+@@ -204,10 +213,11 @@
+   int pmtPid;
+   int vpid;
+   int vtype;
++  bool updatePrimaryDevice;
+ protected:
+   int SectionLength(const uchar *Data, int Length) { return (Length >= 3) ? ((int(Data[1]) & 0x0F) << 8)| Data[2] : 0; }
+ public:
+-  cPatPmtParser(void);
++  cPatPmtParser(bool UpdatePrimaryDevice = false);
+   void Reset(void);
+        ///< Resets the parser. This function must be called whenever a new
+        ///< stream is parsed.
+@@ -221,6 +231,9 @@
+        ///< are delivered to the parser through several subsequent calls to
+        ///< ParsePmt(). The whole PMT data will be processed once the last packet
+        ///< has been received.
++  bool GetVersions(int &PatVersion, int &PmtVersion);
++       ///< Returns true if a valid PAT/PMT has been parsed and stores
++       ///< the current version numbers in the given variables.
+   int PmtPid(void) { return pmtPid; }
+        ///< Returns the PMT pid as defined by the current PAT.
+        ///< If no PAT has been received yet, -1 will be returned.
+@@ -239,7 +252,6 @@
+   int size;
+   int length;
+   int offset;
+-  bool synced;
+ public:
+   cTsToPes(void);
+   ~cTsToPes();
+@@ -249,11 +261,24 @@
+        ///< If the given TS packet starts a new PES payload packet, the converter
+        ///< will be automatically reset. Any packets before the first one that starts
+        ///< a new PES payload packet will be ignored.
++       ///< Once a TS packet has been put into a cTsToPes converter, all subsequent
++       ///< packets until the next call to Reset() must belong to the same PID as
++       ///< the first packet. There is no check whether this actually is the case, so
++       ///< the caller is responsible for making sure this condition is met.
+   const uchar *GetPes(int &Length);
+        ///< Gets a pointer to the complete PES packet, or NULL if the packet
+        ///< is not complete yet. If the packet is complete, Length will contain
+        ///< the total packet length. The returned pointer is only valid until
+        ///< the next call to PutTs() or Reset(), or until this object is destroyed.
++       ///< Once GetPes() has returned a non-NULL value, it must be called
++       ///< repeatedly, and the data processed, until it returns NULL. This
++       ///< is because video packets may be larger than the data a single
++       ///< PES packet with an actual length field can hold, and are therefore
++       ///< split into several PES packets with smaller sizes.
++       ///< Note that for video data GetPes() may only be called if the next
++       ///< TS packet that will be given to PutTs() has the "payload start" flag
++       ///< set, because this is the only way to determine the end of a video PES
++       ///< packet.
+   void Reset(void);
+        ///< Resets the converter. This needs to be called after a PES packet has
+        ///< been fetched by a call to GetPes(), and before the next call to
+diff -ruN vdr-1.7.7/ringbuffer.c vdr-1.7.8/ringbuffer.c
+--- vdr-1.7.7/ringbuffer.c	2009-02-24 12:32:14.000000000 +0100
++++ vdr-1.7.8/ringbuffer.c	2009-05-17 12:05:17.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Parts of this file were inspired by the 'ringbuffy.c' from the
+  * LinuxDVB driver (see linuxtv.org).
+  *
+- * $Id: ringbuffer.c 2.1 2009/02/24 11:32:14 kls Exp $
++ * $Id: ringbuffer.c 2.2 2009/05/17 10:05:17 kls Exp $
+  */
+ 
+ #include "ringbuffer.h"
+@@ -43,7 +43,7 @@
+ {
+   if (Fill > maxFill)
+      maxFill = Fill;
+-  int percent = Fill * 100 / (Size() - 1) / PERCENTAGEDELTA * PERCENTAGEDELTA;
++  int percent = Fill * 100 / (Size() - 1) / PERCENTAGEDELTA * PERCENTAGEDELTA; // clamp down to nearest quantum
+   if (percent != lastPercent) {
+      if (percent >= PERCENTAGETHRESHOLD && percent > lastPercent || percent < PERCENTAGETHRESHOLD && lastPercent >= PERCENTAGETHRESHOLD) {
+         dsyslog("buffer usage: %d%% (tid=%d)", percent, getThreadTid);
+diff -ruN vdr-1.7.7/skins.c vdr-1.7.8/skins.c
+--- vdr-1.7.7/skins.c	2008-02-17 12:31:09.000000000 +0100
++++ vdr-1.7.8/skins.c	2009-06-06 17:12:31.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skins.c 2.0 2008/02/17 11:31:09 kls Exp $
++ * $Id: skins.c 2.1 2009/06/06 15:12:31 kls Exp $
+  */
+ 
+ #include "skins.h"
+@@ -78,8 +78,9 @@
+   tabs[3] = Tab3 ? tabs[2] + Tab3 : 0;
+   tabs[4] = Tab4 ? tabs[3] + Tab4 : 0;
+   tabs[5] = Tab5 ? tabs[4] + Tab5 : 0;
++  int AvgCharWidth = Setup.FontOsdSize * 3 / 5; // just an estimate
+   for (int i = 1; i < MaxTabs; i++)
+-      tabs[i] *= 12;//XXX average character width of font used for items - see also skincurses.c!!!
++      tabs[i] *= AvgCharWidth;
+ }
+ 
+ void cSkinDisplayMenu::Scroll(bool Up, bool Page)
+diff -ruN vdr-1.7.7/svdrp.c vdr-1.7.8/svdrp.c
+--- vdr-1.7.7/svdrp.c	2009-04-13 15:35:29.000000000 +0200
++++ vdr-1.7.8/svdrp.c	2009-06-06 16:03:55.000000000 +0200
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 2.3 2009/04/13 13:35:29 kls Exp $
++ * $Id: svdrp.c 2.5 2009/06/06 14:03:55 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -739,7 +739,7 @@
+      char *strtok_next;
+      FileName = strtok_r(p, delim, &strtok_next);
+      // image type:
+-     char *Extension = strrchr(FileName, '.');
++     const char *Extension = strrchr(FileName, '.');
+      if (Extension) {
+         if (strcasecmp(Extension, ".jpg") == 0 || strcasecmp(Extension, ".jpeg") == 0)
+            Jpeg = true;
+@@ -798,16 +798,17 @@
+      char RealFileName[PATH_MAX];
+      if (FileName) {
+         if (grabImageDir) {
+-           cString s;
+-           char *slash = strrchr(FileName, '/');
++           cString s(FileName);
++           FileName = s;
++           const char *slash = strrchr(FileName, '/');
+            if (!slash) {
+               s = AddDirectory(grabImageDir, FileName);
+               FileName = s;
+               }
+            slash = strrchr(FileName, '/'); // there definitely is one
+-           *slash = 0;
+-           char *r = realpath(FileName, RealFileName);
+-           *slash = '/';
++           cString t(s);
++           t.Truncate(slash - FileName);
++           char *r = realpath(t, RealFileName);
+            if (!r) {
+               LOG_ERROR_STR(FileName);
+               Reply(501, "Invalid file name \"%s\"", FileName);
+diff -ruN vdr-1.7.7/tools.c vdr-1.7.8/tools.c
+--- vdr-1.7.7/tools.c	2009-01-16 15:29:08.000000000 +0100
++++ vdr-1.7.8/tools.c	2009-05-31 13:43:24.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 2.2 2009/01/16 14:29:08 kls Exp $
++ * $Id: tools.c 2.3 2009/05/31 11:43:24 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -1473,16 +1473,18 @@
+ 
+ int cUnbufferedFile::Close(void)
+ {
+-#ifdef USE_FADVISE
+   if (fd >= 0) {
++#ifdef USE_FADVISE
+      if (totwritten)    // if we wrote anything make sure the data has hit the disk before
+         fdatasync(fd);  // calling fadvise, as this is our last chance to un-cache it.
+      posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+-     }
+ #endif
+-  int OldFd = fd;
+-  fd = -1;
+-  return close(OldFd);
++     int OldFd = fd;
++     fd = -1;
++     return close(OldFd);
++     }
++  errno = EBADF;
++  return -1;
+ }
+ 
+ // When replaying and going e.g. FF->PLAY the position jumps back 2..8M
+diff -ruN vdr-1.7.7/vdr.c vdr-1.7.8/vdr.c
+--- vdr-1.7.7/vdr.c	2009-05-03 12:33:06.000000000 +0200
++++ vdr-1.7.8/vdr.c	2009-05-21 13:14:48.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 2.8 2009/05/03 10:33:06 kls Exp $
++ * $Id: vdr.c 2.10 2009/05/21 11:14:48 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -750,8 +750,10 @@
+         // Update the OSD size:
+         {
+           static time_t lastOsdSizeUpdate = 0;
+-          if (Now != lastOsdSizeUpdate) // once per second
++          if (Now != lastOsdSizeUpdate) { // once per second
+              cOsdProvider::UpdateOsdSize();
++             lastOsdSizeUpdate = Now;
++             }
+         }
+         // Restart the Watchdog timer:
+         if (WatchdogTimeout > 0) {
+@@ -1060,8 +1062,12 @@
+           case kPause:
+                if (!cControl::Control()) {
+                   DELETE_MENU;
+-                  if (!cRecordControls::PauseLiveVideo())
+-                     Skins.Message(mtError, tr("No free DVB device to record!"));
++                  if (Setup.PauseKeyHandling) {
++                     if (Setup.PauseKeyHandling > 1 || Interface->Confirm(tr("Pause live video?"))) {
++                        if (!cRecordControls::PauseLiveVideo())
++                           Skins.Message(mtError, tr("No free DVB device to record!"));
++                        }
++                     }
+                   key = kNone; // nobody else needs to see this key
+                   }
+                break;

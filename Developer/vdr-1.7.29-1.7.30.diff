@@ -1,0 +1,2677 @@
+diff -ruN vdr-1.7.29/CONTRIBUTORS vdr-1.7.30/CONTRIBUTORS
+--- vdr-1.7.29/CONTRIBUTORS	2012-07-14 14:24:31.000000000 +0200
++++ vdr-1.7.30/CONTRIBUTORS	2012-09-09 14:32:42.000000000 +0200
+@@ -87,6 +87,8 @@
+  for fixing setting the OSD size in the 'Confirm' interface call
+  for fixing handling improper buffer lengths in the EIT parser
+  for a patch that was used to implement StopSectionHandler()
++ for adding cDevice::ReadFilter() to allow devices to implement their own way of
++ retrieving section filter data
+ 
+ Dave Chapman <dave@dchapman.com>
+  for implementing support for the teletext PID
+@@ -139,7 +141,7 @@
+ J¯rgen Tvedt <pjtvedt@online.no>
+  for translating OSD texts to the Norwegian language
+ 
+-Stefan Huelswitt <huels@iname.com>
++Stefan Huelswitt <s.huelswitt@gmx.de>
+  for fixing the repeat function with LIRC
+  for making the position of the channel display configurable
+  for making the width and height of the OSD configurable
+@@ -225,6 +227,8 @@
+  cStatus::MsgSetVolume() bug to react properly
+  for improving the 'i18n' target in the Makefile to avoid unnecessary work
+  for a patch that was used to implement the --localedir option
++ for reporting a problem with updating CA descriptors in transfer mode on full
++ featured DVB cards
+ 
+ Ulrich Rˆder <roeder@efr-net.de>
+  for pointing out that there are channels that have a symbol rate higher than 27500
+@@ -1317,6 +1321,7 @@
+  receive channels
+  for reporting that the Transfer Mode indicator bitmap in the LCARS skin may not
+  fit with small font sizes
++ for reporting a race condition when zapping in transfer mode
+ 
+ Richard Robson <richard_robson@beeb.net>
+  for reporting freezing replay if a timer starts while in Transfer Mode from the
+@@ -1751,6 +1756,7 @@
+  editing mark
+  for adding the option --outputonly to the dvbsddevice plugin
+  for adding a missing template specification to the c'tor of cSortedTimers
++ for contributing to a patch that implements FHS support
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -2342,6 +2348,9 @@
+  for avoiding a gcc 4.6 compiler error in the skincurses plugin.
+  for suggesting to move setting LC_NUMERIC further up to make sure any floating point
+  numbers use a decimal point
++ for implementing cDevice::HasInternalCam(), which can be implemented by devices that
++ provide encrypted channels in an already decrypted form, without requiring explicit
++ handling of a CAM
+ 
+ Helge Lenz <h.lenz@gmx.de>
+  for reporting a bug in setting the 'Delta' parameter when calling the shutdown
+@@ -2467,6 +2476,7 @@
+ Jˆrg Wendel <vdr-ml@jwendel.de>
+  for reporting that cPlugin::Active() was called too often
+  for adding HandledExternally() to the EPG handler interface
++ for adding IsUpdate() to the EPG handler interface
+ 
+ Peter Pinnau <vdr@unterbrecher.de>
+  for reporting that 'uint32_t' requires including stdint.h in font.h on some systems
+@@ -2766,6 +2776,7 @@
+ Christopher Reimer <reimer.christopher@freenet.de>
+  for reporting a problem with external Dolby Digital processing via the '-a' option
+  in live mode and with TS recordings
++ for contributing to a patch that implements FHS support
+ 
+ Stefan Huskamp <coca_cola1@gmx.de>
+  for suggesting to make entering characters via the number keys
+@@ -2875,6 +2886,8 @@
+  is stored on the video directory file system within the cRecording data
+  for suppressing setting the "broken link" or "TEI" flags when cutting recordings
+  if the editing point merges two seamlessly fitting parts of the same stream
++ for reporting a sluggish response when manipulating editing marks while a cutting
++ thread is running
+ 
+ Christian Ruppert <idl0r@gentoo.org>
+  for some improvements to the Makefiles
+@@ -2917,3 +2930,12 @@
+ 
+ Ludi Kaleni <ludi113@hotmail.com>
+  for suggesting to add the source character to channel names whenever they are displayed
++
++Mehdi Karamnejad <mehdi_karamnejad@sfu.ca>
++ for reporting a problem with garbled UTF-8 EPG data and helping to debug it
++
++Dennis Bendlin <dennisbendlin@online.de>
++ for a patch that implements FHS support
++
++Oliver Schinagl <oliver@schinagl.nl>
++ for a patch that was used to implement the setup options "OSD/Color key [0123]"
+diff -ruN vdr-1.7.29/HISTORY vdr-1.7.30/HISTORY
+--- vdr-1.7.29/HISTORY	2012-07-14 14:23:30.000000000 +0200
++++ vdr-1.7.30/HISTORY	2012-09-09 16:37:15.000000000 +0200
+@@ -7190,3 +7190,47 @@
+ - The new setup option "Miscellaneous/Show channel names with source" can be used to
+   turn on adding the source character to channel names whenever they are displayed
+   (suggested by Ludi Kaleni).
++
++2012-09-09: Version 1.7.30
++
++- Fixed sorting recordings in the top level video directory.
++- Fixed handling control characters in SI data in case of UTF-8 encoded strings
++  (thanks to Mehdi Karamnejad for reporting a problem with garbled UTF-8 EPG data
++  and helping to debug it).
++- Updated the Finnish OSD texts (thanks to Rolf Ahrenberg).
++- When checking whether a video directory is empty, file names that start with a
++  dot ('.') are now ignored and will be implicitly removed if the directory contains
++  no other files. This fixes the leftover ".sort" files that were introduced in
++  version 1.7.29.
++- Added IsUpdate() to the EPG handler interface (thanks to Jˆrg Wendel).
++- Fixed detecting transfer mode on full featured DVB cards (thanks to Stefan Huelswitt
++  for reporting a problem with updating CA descriptors in such cases).
++- Fixed a race condition when zapping in transfer mode (reported by Reinhard Nissl).
++  This involves a slight change in the semantics of the cReceiver::Activate() function,
++  which is now called with 'false' *after* the receiver has been detached from the
++  device.
++- The new function cDevice::ReadFilter() can be used by devices to implement their
++  own way of retrieving section filter data (thanks to Deti Fliegl).
++- The new function cDevice::HasInternalCam() can be implemented by devices that
++  provide encrypted channels in an already decrypted form, without requiring explicit
++  handling of a CAM (thanks to Tobias Grimm).
++- VDR can now be built according to the FHS ("File system Hierarchy Standard") by
++  activating the line
++  #USEFHS = 1
++  in a copy of the file Make.config.template (thanks to Dennis Bendlin, as well as
++  Christopher Reimer and Udo Richter for contributing to the patch).
++- By default (without FHS support) the config directory is now set to the value
++  given in the -v option if only -v and no -c is given.
++- Fixed a long delay at the end when replaying a recording that has stopped recording
++  less than an hour ago (typically time shift mode or a freshly edited recording).
++- Fixed getting the file size and number of frames of ongoing recordings (only the
++  timestamp of the recording's directory was checked, while it should have been that
++  of the index file).
++- Fixed sluggish response when manipulating editing marks while a cutting thread
++  is running (reported by Torsten Lang).
++- The new setup options "OSD/Color key [0123]" can be used to adjust the sequence
++  of the color buttons displayed in the menus to that of the color keys on your
++  remote control (based on a patch from Oliver Schinagl).
++  Authors of plugins that implement skins may want to adapt their SetButtons()
++  function in order to make use of this new feature. See, for instance, the function
++  cSkinClassicDisplayMenu::SetButtons() in skinclassic.c for details.
+diff -ruN vdr-1.7.29/INSTALL vdr-1.7.30/INSTALL
+--- vdr-1.7.29/INSTALL	2012-06-03 11:24:21.000000000 +0200
++++ vdr-1.7.30/INSTALL	2012-09-01 12:35:08.000000000 +0200
+@@ -386,6 +386,15 @@
+ VDR archive into your video directory (or into your config directory,
+ respectively, in case you have redirected it with the -c option).
+ 
++If you prefer to have your system set up according to the FHS
++("File system Hierarchy Standard") and thus have your files spread
++all over the place ;-), you can do this by copying the file Make.config.template
++to Make.config in the VDR source directory, and activating the line
++
++#USEFHS = 1
++
++in that file.
++
+ Setting up DiSEqC:
+ ------------------
+ 
+diff -ruN vdr-1.7.29/MANUAL vdr-1.7.30/MANUAL
+--- vdr-1.7.29/MANUAL	2012-06-17 14:16:33.000000000 +0200
++++ vdr-1.7.30/MANUAL	2012-09-09 14:28:27.000000000 +0200
+@@ -601,6 +601,14 @@
+                          characters in a text input field. You may want to set this
+                          to "no" if you are using an actual keyboard to control VDR.
+ 
++  Color key 0 = 0        By default, VDR assumes that the sequence of the color
++  Color key 1 = 1        keys on the remote control is red-green-yellow-blue. If
++  Color key 2 = 2        your remote control has these keys in a different sequence,
++  Color key 3 = 3        you can adjust these parameters to reorder the corresponding
++                         color buttons in the menus accordingly. Note that this does
++                         not change the functionality of the individual keys; it only
++                         changes the sequence in which the color buttons are displayed.
++
+   EPG:
+ 
+   EPG scan timeout = 5   The time (in hours) of user inactivity after which the
+diff -ruN vdr-1.7.29/Make.config.template vdr-1.7.30/Make.config.template
+--- vdr-1.7.29/Make.config.template	2012-03-20 12:20:13.000000000 +0100
++++ vdr-1.7.30/Make.config.template	2012-09-01 12:31:33.000000000 +0200
+@@ -6,7 +6,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Make.config.template 2.8 2012/03/20 11:20:13 kls Exp $
++# $Id: Make.config.template 2.9 2012/09/01 10:31:33 kls Exp $
+ 
+ ### The C compiler and options:
+ 
+@@ -28,11 +28,22 @@
+ MANDIR   = $(PREFIX)/man
+ BINDIR   = $(PREFIX)/bin
+ 
++# By default locale and plugin files are built under the source directory:
+ LOCDIR       = ./locale
+ PLUGINDIR    = ./PLUGINS
+ PLUGINLIBDIR = $(PLUGINDIR)/lib
++# By default VDR requires only one single directory to operate:
+ VIDEODIR     = /video
+-CONFDIR      = $(VIDEODIR)
++# Activate the following line to build VDR according to the FHS ("File system Hierarchy Standard"):
++#USEFHS = 1
++ifdef USEFHS
++VIDEODIR     = /srv/vdr/video
++CONFDIR      = /var/lib/vdr
++CACHEDIR     = /var/cache/vdr
++RESDIR       = $(PREFIX)/share/vdr
++LOCDIR       = $(PREFIX)/share/locale
++PLUGINLIBDIR = $(PREFIX)/lib/vdr
++endif
+ 
+ ### The remote control:
+ 
+diff -ruN vdr-1.7.29/Makefile vdr-1.7.30/Makefile
+--- vdr-1.7.29/Makefile	2012-04-15 15:21:31.000000000 +0200
++++ vdr-1.7.30/Makefile	2012-09-07 16:11:37.000000000 +0200
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 2.27 2012/04/15 13:21:31 kls Exp $
++# $Id: Makefile 2.29 2012/09/07 14:11:37 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -27,8 +27,9 @@
+ PLUGINDIR= ./PLUGINS
+ PLUGINLIBDIR= $(PLUGINDIR)/lib
+ 
+-VIDEODIR = /video
+-CONFDIR  = $(VIDEODIR)
++# By default VDR requires only one single directory to operate:
++VIDEODIR     = /video
++# See Make.config.template if you want to build VDR according to the FHS ("File system Hierarchy Standard")
+ 
+ DOXYGEN ?= /usr/bin/doxygen
+ DOXYFILE = Doxyfile
+@@ -70,9 +71,17 @@
+ 
+ DEFINES += -DVIDEODIR=\"$(VIDEODIR)\"
+ DEFINES += -DCONFDIR=\"$(CONFDIR)\"
++DEFINES += -DCACHEDIR=\"$(CACHEDIR)\"
++DEFINES += -DRESDIR=\"$(RESDIR)\"
+ DEFINES += -DPLUGINDIR=\"$(PLUGINLIBDIR)\"
+ DEFINES += -DLOCDIR=\"$(LOCDIR)\"
+ 
++# Default values for directories:
++
++CONFDIRDEF  = $(firstword $(CONFDIR)  $(VIDEODIR))
++CACHEDIRDEF = $(firstword $(CACHEDIR) $(VIDEODIR))
++RESDIRDEF   = $(firstword $(RESDIR)   $(CONFDIRDEF))
++
+ # The version numbers of VDR and the plugin API (taken from VDR's "config.h"):
+ 
+ VDRVERSION = $(shell sed -ne '/define VDRVERSION/s/^.*"\(.*\)".*$$/\1/p' config.h)
+@@ -109,8 +118,10 @@
+ vdr.pc: Makefile Make.global
+ 	@echo "bindir=$(BINDIR)" > $@
+ 	@echo "includedir=$(INCDIR)" >> $@
+-	@echo "configdir=$(CONFDIR)" >> $@
++	@echo "configdir=$(CONFDIRDEF)" >> $@
+ 	@echo "videodir=$(VIDEODIR)" >> $@
++	@echo "cachedir=$(CACHEDIRDEF)" >> $@
++	@echo "resdir=$(RESDIRDEF)" >> $@
+ 	@echo "plugindir=$(PLUGINLIBDIR)" >> $@
+ 	@echo "localedir=$(LOCDIR)" >> $@
+ 	@echo "apiversion=$(APIVERSION)" >> $@
+@@ -183,7 +194,7 @@
+ 
+ # Install the files:
+ 
+-install: install-bin install-conf install-doc install-plugins install-i18n install-includes install-pc
++install: install-bin install-dirs install-conf install-doc install-plugins install-i18n install-includes install-pc
+ 
+ # VDR binary:
+ 
+@@ -193,12 +204,15 @@
+ 
+ # Configuration files:
+ 
+-install-conf:
++install-dirs:
+ 	@mkdir -p $(DESTDIR)$(VIDEODIR)
+-	@if [ ! -d $(DESTDIR)$(CONFDIR) ]; then\
+-	    mkdir -p $(DESTDIR)$(CONFDIR);\
+-	    cp *.conf $(DESTDIR)$(CONFDIR);\
+-	    fi
++	@mkdir -p $(DESTDIR)$(CONFDIRDEF)
++	@mkdir -p $(DESTDIR)$(CACHEDIRDEF)
++	@mkdir -p $(DESTDIR)$(RESDIRDEF)
++
++install-conf:
++	@cp *.conf $(DESTDIR)$(CONFDIRDEF)
++
+ 
+ # Documentation:
+ 
+diff -ruN vdr-1.7.29/PLUGINS.html vdr-1.7.30/PLUGINS.html
+--- vdr-1.7.29/PLUGINS.html	2012-06-08 00:01:31.000000000 +0200
++++ vdr-1.7.30/PLUGINS.html	2012-08-31 14:46:07.000000000 +0200
+@@ -82,7 +82,7 @@
+ <li><a href="#Wakeup">Wakeup</a>
+ <li><a href="#Setup parameters">Setup parameters</a>
+ <li><a href="#The Setup menu">The Setup menu</a>
+-<li><a href="#Configuration files">Configuration files</a>
++<li><modified><a href="#Additional files">Additional files</modified></a>
+ <li><a href="#Internationalization">Internationalization</a>
+ <li><a href="#Custom services">Custom services</a>
+ <li><a href="#SVDRP commands">SVDRP commands</a>
+@@ -885,39 +885,70 @@
+ your setup parameters and use that one to copy all parameters with one single statement
+ (like VDR does with its cSetup class).
+ 
+-<hr><h2><a name="Configuration files">Configuration files</a></h2>
++<hr><h2><modified><a name="Additional files">Additional files</a></modified></h2>
+ 
+ <div class="blurb">I want my own stuff!</div><p>
+ 
+-There may be situations where a plugin requires configuration files of its own, maybe
+-for data that can't be stored in the simple <a href="#Setup parameters">setup parameters</a>
+-of VDR, or maybe because it needs to launch other programs that simply need a separate
+-configuration file. While the plugin is free to store such files anywhere it
+-sees fit, it might be a good idea to put them in a common place, preferably
+-where other configuration data already exists. VDR provides the function
++<modified>
++There may be situations where a plugin requires files of its own. While the plugin is
++free to store such files anywhere it sees fit, it might be a good idea to put them in a common
++place, preferably where such data already exists.
++</modified>
++<p>
++<modified>
++<i>configuration files</i>, maybe for data that can't be stored in the simple
++<a href="#Setup parameters">setup parameters</a> of VDR, or maybe because it needs to
++launch other programs that simply need a separate configuration file.
++</modified>
++<p>
++<modified>
++<i>cache files</i>, to store data so that future requests for that data can be served faster. The data
++that is stored within a cache might be values that have been computed earlier or duplicates of
++original values that are stored elsewhere.
++</modified>
++<p>
++<modified>
++<i>resource files</i>, for providing additional files, like pictures, movie clips or channel logos.
++</modified>
++<p>
++<modified>
++Threfore VDR provides the functions
+ 
+ <p><table><tr><td class="code"><pre>
++<modified>
+ const char *ConfigDirectory(const char *PluginName = NULL);
++const char *CacheDirectory(const char *PluginName = NULL);
++const char *ResourceDirectory(const char *PluginName = NULL);
++</modified>
+ </pre></td></tr></table><p>
+ 
+-which returns a string containing the directory that VDR uses for its own configuration
+-files (defined through the <tt><b>-c</b></tt> option in the call to VDR), extended by
++<modified>
++each of which returns a string containing the directory that VDR uses for its own
++files (defined through the options in the call to VDR), extended by
++</modified>
+ <tt>"/plugins"</tt>. So assuming the VDR configuration directory is <tt>/video</tt>
+ (the default if no <tt><b>-c</b></tt> or <tt><b>-v</b></tt> option is given),
+ a call to <tt>ConfigDirectory()</tt> will return <tt>/video/plugins</tt>. The first
+ call to <tt>ConfigDirectory()</tt> will automatically make sure that the <tt>plugins</tt>
+ subdirectory will exist. If, for some reason, this cannot be achieved, <tt>NULL</tt>
+ will be returned.
++<modified>
++The behavoir of <tt>CacheDirectory()</tt> and <tt>ResourceDirectory()</tt> is similar.
++</modified>
+ <p>
+ The additional <tt>plugins</tt> directory is used to keep files from plugins apart
+ from those of VDR itself, making sure there will be no name clashes. If a plugin
+-needs only one extra configuration file, it is suggested that this file be named
+-<tt>name.conf</tt>, where <i>name</i> shall be the name of the plugin.
++<modified>
++needs only one extra file, it is suggested that this file be named <tt>name.*</tt>,
++where <i>name</i> shall be the name of the plugin.
++</modified>
+ <p>
+ If a plugin needs more than one such file, it is suggested that the plugin stores
+ these in a subdirectory of its own, named after the plugin. To easily get such a name
+-the <tt>ConfigDirectory()</tt> function can be given an additional string that will
+-be appended to the returned directory name, as in
++<modified>
++the functions can be given an additional string that will be appended to the returned
++directory name, as in
++</modified>
+ 
+ <p><table><tr><td class="code"><pre>
+ const char *MyConfigDir = ConfigDirectory(Name());
+@@ -928,13 +959,16 @@
+ (or return <tt>NULL</tt> in case of an error).
+ <p>
+ <b>
+-The returned string is statically allocated and will be overwritten by subsequent
+-calls to ConfigDirectory()!
++<modified>
++The returned strings are statically allocated and will be overwritten by subsequent calls!
++</modified>
+ </b>
+ <p>
+-The <tt>ConfigDirectory()</tt> function is a static member function of the <tt>cPlugin</tt>
+-class. This allows it to be called even from outside any member function of the derived
+-plugin class, by writing
++<modified>
++The <tt>ConfigDirectory()</tt>, <tt>CacheDirectory()</tt> and <tt>ResourceDirectory()</tt>
++functions are static member functions of the <tt>cPlugin</tt> class. This allows them to be
++called even from outside any member function of the derived plugin class, by writing
++</modified>
+ 
+ <p><table><tr><td class="code"><pre>
+ const char *MyConfigDir = cPlugin::ConfigDirectory();
+@@ -1888,6 +1922,7 @@
+ 
+ <p><table><tr><td class="code"><pre>
+ virtual int OpenFilter(u_short Pid, u_char Tid, u_char Mask);
++<modified>virtual int ReadFilter(int Handle, void *Buffer, size_t Length);</modified>
+ virtual void CloseFilter(int Handle);
+ </pre></td></tr></table><p>
+ 
+diff -ruN vdr-1.7.29/config.c vdr-1.7.30/config.c
+--- vdr-1.7.29/config.c	2012-06-17 14:27:07.000000000 +0200
++++ vdr-1.7.30/config.c	2012-09-09 14:58:23.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 2.26 2012/06/17 12:27:07 kls Exp $
++ * $Id: config.c 2.27 2012/09/09 12:58:23 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -418,6 +418,10 @@
+   RecordingDirs = 1;
+   FoldersInTimerMenu = 1;
+   NumberKeysForChars = 1;
++  ColorKey0 = 0;
++  ColorKey1 = 1;
++  ColorKey2 = 2;
++  ColorKey3 = 3;
+   VideoDisplayFormat = 1;
+   VideoFormat = 0;
+   UpdateChannels = 5;
+@@ -614,6 +618,10 @@
+   else if (!strcasecmp(Name, "RecordingDirs"))       RecordingDirs      = atoi(Value);
+   else if (!strcasecmp(Name, "FoldersInTimerMenu"))  FoldersInTimerMenu = atoi(Value);
+   else if (!strcasecmp(Name, "NumberKeysForChars"))  NumberKeysForChars = atoi(Value);
++  else if (!strcasecmp(Name, "ColorKey0"))           ColorKey0          = atoi(Value);
++  else if (!strcasecmp(Name, "ColorKey1"))           ColorKey1          = atoi(Value);
++  else if (!strcasecmp(Name, "ColorKey2"))           ColorKey2          = atoi(Value);
++  else if (!strcasecmp(Name, "ColorKey3"))           ColorKey3          = atoi(Value);
+   else if (!strcasecmp(Name, "VideoDisplayFormat"))  VideoDisplayFormat = atoi(Value);
+   else if (!strcasecmp(Name, "VideoFormat"))         VideoFormat        = atoi(Value);
+   else if (!strcasecmp(Name, "UpdateChannels"))      UpdateChannels     = atoi(Value);
+@@ -713,6 +721,10 @@
+   Store("RecordingDirs",      RecordingDirs);
+   Store("FoldersInTimerMenu", FoldersInTimerMenu);
+   Store("NumberKeysForChars", NumberKeysForChars);
++  Store("ColorKey0",          ColorKey0);
++  Store("ColorKey1",          ColorKey1);
++  Store("ColorKey2",          ColorKey2);
++  Store("ColorKey3",          ColorKey3);
+   Store("VideoDisplayFormat", VideoDisplayFormat);
+   Store("VideoFormat",        VideoFormat);
+   Store("UpdateChannels",     UpdateChannels);
+diff -ruN vdr-1.7.29/config.h vdr-1.7.30/config.h
+--- vdr-1.7.29/config.h	2012-06-17 13:14:50.000000000 +0200
++++ vdr-1.7.30/config.h	2012-09-09 14:57:33.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.49 2012/06/17 11:14:50 kls Exp $
++ * $Id: config.h 2.51 2012/09/09 12:57:33 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.29"
+-#define VDRVERSNUM   10729  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.30"
++#define VDRVERSNUM   10730  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.29"
+-#define APIVERSNUM   10729  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.30"
++#define APIVERSNUM   10730  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+@@ -288,6 +288,7 @@
+   int RecordingDirs;
+   int FoldersInTimerMenu;
+   int NumberKeysForChars;
++  int ColorKey0, ColorKey1, ColorKey2, ColorKey3;
+   int VideoDisplayFormat;
+   int VideoFormat;
+   int UpdateChannels;
+diff -ruN vdr-1.7.29/device.c vdr-1.7.30/device.c
+--- vdr-1.7.29/device.c	2012-06-10 15:13:18.000000000 +0200
++++ vdr-1.7.30/device.c	2012-09-02 11:26:36.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.62 2012/06/10 13:13:18 kls Exp $
++ * $Id: device.c 2.67 2012/09/02 09:26:36 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -241,6 +241,7 @@
+   int NumCamSlots = CamSlots.Count();
+   int SlotPriority[NumCamSlots];
+   int NumUsableSlots = 0;
++  bool InternalCamNeeded = false;
+   if (Channel->Ca() >= CA_ENCRYPTED_MIN) {
+      for (cCamSlot *CamSlot = CamSlots.First(); CamSlot; CamSlot = CamSlots.Next(CamSlot)) {
+          SlotPriority[CamSlot->Index()] = MAXPRIORITY + 1; // assumes it can't be used
+@@ -254,7 +255,7 @@
+             }
+          }
+      if (!NumUsableSlots)
+-        return NULL; // no CAM is able to decrypt this channel
++        InternalCamNeeded = true; // no CAM is able to decrypt this channel
+      }
+ 
+   bool NeedsDetachReceivers = false;
+@@ -268,11 +269,14 @@
+       for (int i = 0; i < numDevices; i++) {
+           if (Channel->Ca() && Channel->Ca() <= CA_DVB_MAX && Channel->Ca() != device[i]->CardIndex() + 1)
+              continue; // a specific card was requested, but not this one
+-          if (NumUsableSlots && !CamSlots.Get(j)->Assign(device[i], true))
++          bool HasInternalCam = device[i]->HasInternalCam();
++          if (InternalCamNeeded && !HasInternalCam)
++             continue; // no CAM is able to decrypt this channel and the device uses vdr handled CAMs
++          if (NumUsableSlots && !HasInternalCam && !CamSlots.Get(j)->Assign(device[i], true))
+              continue; // CAM slot can't be used with this device
+           bool ndr;
+           if (device[i]->ProvidesChannel(Channel, Priority, &ndr)) { // this device is basically able to do the job
+-             if (NumUsableSlots && device[i]->CamSlot() && device[i]->CamSlot() != CamSlots.Get(j))
++             if (NumUsableSlots && !HasInternalCam && device[i]->CamSlot() && device[i]->CamSlot() != CamSlots.Get(j))
+                 ndr = true; // using a different CAM slot requires detaching receivers
+              // Put together an integer number that reflects the "impact" using
+              // this device would have on the overall system. Each condition is represented
+@@ -287,18 +291,18 @@
+              imp <<= 4; imp |= GetClippedNumProvidedSystems(4, device[i]) - 1;                                       // avoid cards which support multiple delivery systems
+              imp <<= 1; imp |= device[i] == cTransferControl::ReceiverDevice();                                      // avoid the Transfer Mode receiver device
+              imp <<= 8; imp |= device[i]->Priority() - IDLEPRIORITY;                                                 // use the device with the lowest priority (- IDLEPRIORITY to assure that values -100..99 can be used)
+-             imp <<= 8; imp |= (NumUsableSlots ? SlotPriority[j] : IDLEPRIORITY) - IDLEPRIORITY;                     // use the CAM slot with the lowest priority (- IDLEPRIORITY to assure that values -100..99 can be used)
++             imp <<= 8; imp |= ((NumUsableSlots && !HasInternalCam) ? SlotPriority[j] : IDLEPRIORITY) - IDLEPRIORITY;// use the CAM slot with the lowest priority (- IDLEPRIORITY to assure that values -100..99 can be used)
+              imp <<= 1; imp |= ndr;                                                                                  // avoid devices if we need to detach existing receivers
+-             imp <<= 1; imp |= NumUsableSlots ? 0 : device[i]->HasCi();                                              // avoid cards with Common Interface for FTA channels
++             imp <<= 1; imp |= (NumUsableSlots || InternalCamNeeded) ? 0 : device[i]->HasCi();                       // avoid cards with Common Interface for FTA channels
+              imp <<= 1; imp |= device[i]->AvoidRecording();                                                          // avoid SD full featured cards
+-             imp <<= 1; imp |= NumUsableSlots ? !ChannelCamRelations.CamDecrypt(Channel->GetChannelID(), j + 1) : 0; // prefer CAMs that are known to decrypt this channel
++             imp <<= 1; imp |= (NumUsableSlots && !HasInternalCam) ? !ChannelCamRelations.CamDecrypt(Channel->GetChannelID(), j + 1) : 0; // prefer CAMs that are known to decrypt this channel
+              imp <<= 1; imp |= device[i]->IsPrimaryDevice();                                                         // avoid the primary device
+              if (imp < Impact) {
+                 // This device has less impact than any previous one, so we take it.
+                 Impact = imp;
+                 d = device[i];
+                 NeedsDetachReceivers = ndr;
+-                if (NumUsableSlots)
++                if (NumUsableSlots && !HasInternalCam)
+                    s = CamSlots.Get(j);
+                 }
+              }
+@@ -593,6 +597,11 @@
+   return -1;
+ }
+ 
++int cDevice::ReadFilter(int Handle, void *Buffer, size_t Length)
++{
++  return safe_read(Handle, Buffer, Length);
++}
++
+ void cDevice::CloseFilter(int Handle)
+ {
+   close(Handle);
+@@ -1195,7 +1204,7 @@
+ 
+ bool cDevice::Transferring(void) const
+ {
+-  return ActualDevice() != PrimaryDevice();
++  return cTransferControl::ReceiverDevice() != NULL;
+ }
+ 
+ bool cDevice::AttachPlayer(cPlayer *Player)
+@@ -1666,11 +1675,11 @@
+   cMutexLock MutexLock(&mutexReceiver);
+   for (int i = 0; i < MAXRECEIVERS; i++) {
+       if (receiver[i] == Receiver) {
+-         Receiver->Activate(false);
+          Lock();
+          receiver[i] = NULL;
+          Receiver->device = NULL;
+          Unlock();
++         Receiver->Activate(false);
+          for (int n = 0; n < Receiver->numPids; n++)
+              DelPid(Receiver->pids[n]);
+          }
+diff -ruN vdr-1.7.29/device.h vdr-1.7.30/device.h
+--- vdr-1.7.29/device.h	2012-04-04 11:48:21.000000000 +0200
++++ vdr-1.7.30/device.h	2012-08-26 15:25:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 2.39 2012/04/04 09:48:21 kls Exp $
++ * $Id: device.h 2.41 2012/08/26 13:25:44 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -393,6 +393,10 @@
+        ///< Opens a file handle for the given filter data.
+        ///< A derived device that provides section data must
+        ///< implement this function.
++  virtual int ReadFilter(int Handle, void *Buffer, size_t Length);
++       ///< Reads data from a handle for the given filter.
++       ///< A derived class need not implement this function, because this
++       ///< is done by the default implementation.
+   virtual void CloseFilter(int Handle);
+        ///< Closes a file handle that has previously been opened
+        ///< by OpenFilter(). If this is as simple as calling close(Handle),
+@@ -411,6 +415,12 @@
+ public:
+   virtual bool HasCi(void);
+          ///< Returns true if this device has a Common Interface.
++  virtual bool HasInternalCam(void) { return false; }
++         ///< Returns true if this device handles encrypted channels itself
++         ///< without VDR assistance. This can be e.g. if the device is a
++         ///< client that gets the stream from another VDR instance that has
++         ///< already decrypted the stream. In this case ProvidesChannel()
++         ///< shall check whether the channel can be decrypted.
+   void SetCamSlot(cCamSlot *CamSlot);
+          ///< Sets the given CamSlot to be used with this device.
+   cCamSlot *CamSlot(void) const { return camSlot; }
+diff -ruN vdr-1.7.29/eit.c vdr-1.7.30/eit.c
+--- vdr-1.7.29/eit.c	2012-06-04 12:26:10.000000000 +0200
++++ vdr-1.7.30/eit.c	2012-08-25 13:13:00.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 2.20 2012/06/04 10:26:10 kls Exp $
++ * $Id: eit.c 2.21 2012/08/25 11:13:00 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -74,6 +74,8 @@
+       if (!pEvent || handledExternally) {
+          if (OnlyRunningStatus)
+             continue;
++         if (handledExternally && !EpgHandlers.IsUpdate(SiEitEvent.getEventId(), StartTime, Tid, getVersionNumber()))
++            continue;
+          // If we don't have that event yet, we create a new one.
+          // Otherwise we copy the information into the existing event anyway, because the data might have changed.
+          pEvent = newEvent = new cEvent(SiEitEvent.getEventId());
+diff -ruN vdr-1.7.29/epg.c vdr-1.7.30/epg.c
+--- vdr-1.7.29/epg.c	2012-06-04 12:26:10.000000000 +0200
++++ vdr-1.7.30/epg.c	2012-08-25 13:10:29.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 2.17 2012/06/04 10:26:10 kls Exp $
++ * $Id: epg.c 2.18 2012/08/25 11:10:29 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -1338,6 +1338,15 @@
+          return true;
+       }
+   return false;
++}
++
++bool cEpgHandlers::IsUpdate(tEventID EventID, time_t StartTime, uchar TableID, uchar Version)
++{
++  for (cEpgHandler *eh = First(); eh; eh = Next(eh)) {
++      if (eh->IsUpdate(EventID, StartTime, TableID, Version))
++         return true;
++      }
++  return false;
+ }
+ 
+ void cEpgHandlers::SetEventID(cEvent *Event, tEventID EventID)
+diff -ruN vdr-1.7.29/epg.h vdr-1.7.30/epg.h
+--- vdr-1.7.29/epg.h	2012-06-04 12:26:10.000000000 +0200
++++ vdr-1.7.30/epg.h	2012-08-25 13:15:18.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.h 2.13 2012/06/04 10:26:10 kls Exp $
++ * $Id: epg.h 2.14 2012/08/25 11:15:18 kls Exp $
+  */
+ 
+ #ifndef __EPG_H
+@@ -250,6 +250,10 @@
+           ///< source. Incoming EIT data is processed as usual, but any new EPG event
+           ///< will not be added to the respective schedule. It's up to the EPG
+           ///< handler to take care of this.
++  virtual bool IsUpdate(tEventID EventID, time_t StartTime, uchar TableID, uchar Version) { return false; }
++          ///< VDR can't perform the update check (version, tid) for externally handled events,
++          ///< therefore the EPG handlers have to take care of this. Otherwise the parsing of
++          ///< non-updates will waste a lot of resources.
+   virtual bool SetEventID(cEvent *Event, tEventID EventID) { return false; }
+   virtual bool SetTitle(cEvent *Event, const char *Title) { return false; }
+   virtual bool SetShortText(cEvent *Event, const char *ShortText) { return false; }
+@@ -277,6 +281,7 @@
+   bool IgnoreChannel(const cChannel *Channel);
+   bool HandleEitEvent(cSchedule *Schedule, const SI::EIT::Event *EitEvent, uchar TableID, uchar Version);
+   bool HandledExternally(const cChannel *Channel);
++  bool IsUpdate(tEventID EventID, time_t StartTime, uchar TableID, uchar Version);
+   void SetEventID(cEvent *Event, tEventID EventID);
+   void SetTitle(cEvent *Event, const char *Title);
+   void SetShortText(cEvent *Event, const char *ShortText);
+diff -ruN vdr-1.7.29/i18n.c vdr-1.7.30/i18n.c
+--- vdr-1.7.29/i18n.c	2011-08-15 12:01:45.000000000 +0200
++++ vdr-1.7.30/i18n.c	2012-09-01 12:53:43.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 2.4 2011/08/15 10:01:45 kls Exp $
++ * $Id: i18n.c 2.5 2012/09/01 10:53:43 kls Exp $
+  */
+ 
+ /*
+@@ -63,7 +63,7 @@
+   NULL
+   };
+ 
+-static const char *I18nLocaleDir = LOCDIR;
++static cString I18nLocaleDir;
+ 
+ static cStringList LanguageLocales;
+ static cStringList LanguageNames;
+@@ -102,8 +102,7 @@
+ 
+ void I18nInitialize(const char *LocaleDir)
+ {
+-  if (LocaleDir)
+-     I18nLocaleDir = LocaleDir;
++  I18nLocaleDir = LocaleDir;
+   LanguageLocales.Append(strdup(I18N_DEFAULT_LOCALE));
+   LanguageNames.Append(strdup(SkipContext(LanguageName)));
+   LanguageCodes.Append(strdup(LanguageCodeList[0]));
+@@ -113,7 +112,7 @@
+   if (Locales.Size() > 0) {
+      char *OldLocale = strdup(setlocale(LC_MESSAGES, NULL));
+      for (int i = 0; i < Locales.Size(); i++) {
+-         cString FileName = cString::sprintf("%s/%s/LC_MESSAGES/vdr.mo", I18nLocaleDir, Locales[i]);
++         cString FileName = cString::sprintf("%s/%s/LC_MESSAGES/vdr.mo", *I18nLocaleDir, Locales[i]);
+          if (access(FileName, F_OK) == 0) { // found a locale with VDR texts
+             if (NumLocales < I18N_MAX_LANGUAGES - 1) {
+                SetEnvLanguage(Locales[i]);
+@@ -142,7 +141,7 @@
+          }
+      SetEnvLanguage(LanguageLocales[CurrentLanguage]);
+      free(OldLocale);
+-     dsyslog("found %d locales in %s", NumLocales - 1, I18nLocaleDir);
++     dsyslog("found %d locales in %s", NumLocales - 1, *I18nLocaleDir);
+      }
+   // Prepare any known language codes for which there was no locale:
+   for (const char **lc = LanguageCodeList; *lc; lc++) {
+diff -ruN vdr-1.7.29/libsi/si.c vdr-1.7.30/libsi/si.c
+--- vdr-1.7.29/libsi/si.c	2011-12-10 16:47:15.000000000 +0100
++++ vdr-1.7.30/libsi/si.c	2012-08-21 10:10:00.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.c 2.6 2011/12/10 15:47:15 kls Exp $
++ *   $Id: si.c 2.7 2012/08/21 08:10:00 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -405,6 +405,21 @@
+   return false;
+ }
+ 
++// A similar version is used in VDR/tools.c:
++static int Utf8CharLen(const char *s)
++{
++  if (SystemCharacterTableIsSingleByte)
++     return 1;
++#define MT(s, m, v) ((*(s) & (m)) == (v)) // Mask Test
++  if (MT(s, 0xE0, 0xC0) && MT(s + 1, 0xC0, 0x80))
++     return 2;
++  if (MT(s, 0xF0, 0xE0) && MT(s + 1, 0xC0, 0x80) && MT(s + 2, 0xC0, 0x80))
++     return 3;
++  if (MT(s, 0xF8, 0xF0) && MT(s + 1, 0xC0, 0x80) && MT(s + 2, 0xC0, 0x80) && MT(s + 3, 0xC0, 0x80))
++     return 4;
++  return 1;
++}
++
+ // originally from libdtv, Copyright Rolf Hakenes <hakenes@hippomi.de>
+ void String::decodeText(char *buffer, int size) {
+    const unsigned char *from=data.getData(0);
+@@ -413,82 +428,71 @@
+    if (len <= 0) {
+       *to = '\0';
+       return;
+-      }
++   }
+    bool singleByte;
+    const char *cs = getCharacterTable(from, len, &singleByte);
+-   // FIXME Need to make this UTF-8 aware (different control codes).
+-   // However, there's yet to be found a broadcaster that actually
+-   // uses UTF-8 for the SI data... (kls 2007-06-10)
+-   for (int i = 0; i < len; i++) {
+-      if (*from == 0)
+-         break;
+-      if (    ((' ' <= *from) && (*from <= '~'))
+-           || (*from == '\n')
+-           || (0xA0 <= *from)
+-         )
+-         *to++ = *from;
+-      else if (*from == 0x8A)
+-         *to++ = '\n';
+-      from++;
+-      if (to - buffer >= size - 1)
+-         break;
+-   }
+-   *to = '\0';
+-   if (!singleByte || !SystemCharacterTableIsSingleByte) {
+-      char convBuffer[size];
+-      if (convertCharacterTable(buffer, strlen(buffer), convBuffer, sizeof(convBuffer), cs))
+-         strncpy(buffer, convBuffer, strlen(convBuffer) + 1);
++   if (singleByte && SystemCharacterTableIsSingleByte || !convertCharacterTable((const char *)from, len, to, size, cs)) {
++      if (len >= size)
++         len = size - 1;
++      strncpy(to, (const char *)from, len);
++      to[len] = 0;
++   }
++   else
++      len = strlen(to); // might have changed
++   // Handle control codes:
++   while (len > 0) {
++      int l = Utf8CharLen(to);
++      if (l <= 2) {
++         unsigned char *p = (unsigned char *)to;
++         if (l == 2 && *p == 0xC2) // UTF-8 sequence
++            p++;
++         bool Move = true;
++         switch (*p) {
++           case 0x8A: *to = '\n'; break;
++           case 0xA0: *to = ' ';  break;
++           default:   Move = false;
++         }
++         if (l == 2 && Move) {
++            memmove(p, p + 1, len - 1); // we also copy the terminating 0!
++            l = 1;
++         }
++      }
++      to += l;
++      len -= l;
+    }
+ }
+ 
+ void String::decodeText(char *buffer, char *shortVersion, int sizeBuffer, int sizeShortVersion) {
+-   const unsigned char *from=data.getData(0);
++   decodeText(buffer, sizeBuffer);
++   if (!*buffer) {
++      *shortVersion = '\0';
++      return;
++   }
++   // Handle control codes:
+    char *to=buffer;
+-   char *toShort=shortVersion;
++   int len=strlen(to);
+    int IsShortName=0;
+-   int len=getLength();
+-   if (len <= 0) {
+-      *to = '\0';
+-      *toShort = '\0';
+-      return;
++   while (len > 0) {
++      int l = Utf8CharLen(to);
++      unsigned char *p = (unsigned char *)to;
++      if (l == 2 && *p == 0xC2) // UTF-8 sequence
++         p++;
++      if (*p == 0x86 || *p == 0x87) {
++         IsShortName += (*p == 0x86) ? 1 : -1;
++         memmove(to, to + l, len - l + 1); // we also copy the terminating 0!
++         l = 0;
+       }
+-   bool singleByte;
+-   const char *cs = getCharacterTable(from, len, &singleByte);
+-   // FIXME Need to make this UTF-8 aware (different control codes).
+-   // However, there's yet to be found a broadcaster that actually
+-   // uses UTF-8 for the SI data... (kls 2007-06-10)
+-   for (int i = 0; i < len; i++) {
+-      if (    ((' ' <= *from) && (*from <= '~'))
+-           || (*from == '\n')
+-           || (0xA0 <= *from)
+-         )
+-      {
+-         *to++ = *from;
+-         if (IsShortName)
+-            *toShort++ = *from;
++      if (l && IsShortName) {
++         if (l < sizeShortVersion) {
++            for (int i = 0; i < l; i++)
++                *shortVersion++ = to[i];
++            sizeShortVersion -= l;
++         }
+       }
+-      else if (*from == 0x8A)
+-         *to++ = '\n';
+-      else if (*from == 0x86)
+-         IsShortName++;
+-      else if (*from == 0x87)
+-         IsShortName--;
+-      else if (*from == 0)
+-         break;
+-      from++;
+-      if (to - buffer >= sizeBuffer - 1 || toShort - shortVersion >= sizeShortVersion - 1)
+-         break;
+-   }
+-   *to = '\0';
+-   *toShort = '\0';
+-   if (!singleByte || !SystemCharacterTableIsSingleByte) {
+-      char convBuffer[sizeBuffer];
+-      if (convertCharacterTable(buffer, strlen(buffer), convBuffer, sizeof(convBuffer), cs))
+-         strncpy(buffer, convBuffer, strlen(convBuffer) + 1);
+-      char convShortVersion[sizeShortVersion];
+-      if (convertCharacterTable(shortVersion, strlen(shortVersion), convShortVersion, sizeof(convShortVersion), cs))
+-         strncpy(shortVersion, convShortVersion, strlen(convShortVersion) + 1);
++      to += l;
++      len -= l;
+    }
++   *shortVersion = '\0';
+ }
+ 
+ Descriptor *Descriptor::getDescriptor(CharArray da, DescriptorTagDomain domain, bool returnUnimplemetedDescriptor) {
+diff -ruN vdr-1.7.29/menu.c vdr-1.7.30/menu.c
+--- vdr-1.7.29/menu.c	2012-06-17 13:12:25.000000000 +0200
++++ vdr-1.7.30/menu.c	2012-09-09 14:23:00.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 2.58 2012/06/17 11:12:25 kls Exp $
++ * $Id: menu.c 2.60 2012/09/09 12:23:00 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -2510,6 +2510,7 @@
+ class cMenuSetupOSD : public cMenuSetupBase {
+ private:
+   const char *useSmallFontTexts[3];
++  const char *keyColorTexts[4];
+   int osdLanguageIndex;
+   int numSkins;
+   int originalSkinIndex;
+@@ -2560,6 +2561,10 @@
+   useSmallFontTexts[0] = tr("never");
+   useSmallFontTexts[1] = tr("skin dependent");
+   useSmallFontTexts[2] = tr("always");
++  keyColorTexts[0] = tr("Key$Red");
++  keyColorTexts[1] = tr("Key$Green");
++  keyColorTexts[2] = tr("Key$Yellow");
++  keyColorTexts[3] = tr("Key$Blue");
+   Clear();
+   SetSection(tr("OSD"));
+   Add(new cMenuEditStraItem(tr("Setup.OSD$Language"),               &osdLanguageIndex, I18nNumLanguagesWithLocale(), &I18nLanguages()->At(0)));
+@@ -2589,6 +2594,10 @@
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Recording directories"),  &data.RecordingDirs));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Folders in timer menu"),  &data.FoldersInTimerMenu));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Number keys for characters"), &data.NumberKeysForChars));
++  Add(new cMenuEditStraItem(tr("Setup.OSD$Color key 0"),            &data.ColorKey0, 4, keyColorTexts));
++  Add(new cMenuEditStraItem(tr("Setup.OSD$Color key 1"),            &data.ColorKey1, 4, keyColorTexts));
++  Add(new cMenuEditStraItem(tr("Setup.OSD$Color key 2"),            &data.ColorKey2, 4, keyColorTexts));
++  Add(new cMenuEditStraItem(tr("Setup.OSD$Color key 3"),            &data.ColorKey3, 4, keyColorTexts));
+   SetCurrent(Get(current));
+   Display();
+ }
+@@ -4455,6 +4464,7 @@
+ {
+   currentReplayControl = this;
+   displayReplay = NULL;
++  marksModified = false;
+   visible = modeOnly = shown = displayFrames = false;
+   lastCurrent = lastTotal = -1;
+   lastPlay = lastForward = false;
+@@ -4472,6 +4482,10 @@
+   Hide();
+   cStatus::MsgReplaying(this, NULL, fileName, false);
+   Stop();
++  if (marksModified) {
++     marks.Save();
++     marksModified = false;
++     }
+   if (currentReplayControl == this)
+      currentReplayControl = NULL;
+ }
+@@ -4729,7 +4743,7 @@
+            Goto(Current, true);
+         }
+      ShowTimed(2);
+-     marks.Save();
++     marksModified = true;
+      }
+ }
+ 
+@@ -4766,7 +4780,7 @@
+            }
+         m->SetPosition(p);
+         Goto(m->Position(), true);
+-        marks.Save();
++        marksModified = true;
+         }
+      }
+ }
+@@ -4775,6 +4789,10 @@
+ {
+   if (*fileName) {
+      Hide();
++     if (marksModified) {
++        marks.Save();
++        marksModified = false;
++        }
+      if (!cCutter::Active()) {
+         if (!marks.Count())
+            Skins.Message(mtError, tr("No editing marks defined!"));
+diff -ruN vdr-1.7.29/menu.h vdr-1.7.30/menu.h
+--- vdr-1.7.29/menu.h	2012-06-13 13:23:11.000000000 +0200
++++ vdr-1.7.30/menu.h	2012-09-07 10:48:34.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 2.11 2012/06/13 11:23:11 kls Exp $
++ * $Id: menu.h 2.12 2012/09/07 08:48:34 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -260,6 +260,7 @@
+ private:
+   cSkinDisplayReplay *displayReplay;
+   cMarks marks;
++  bool marksModified;
+   bool visible, modeOnly, shown, displayFrames;
+   int lastCurrent, lastTotal;
+   bool lastPlay, lastForward;
+diff -ruN vdr-1.7.29/plugin.c vdr-1.7.30/plugin.c
+--- vdr-1.7.29/plugin.c	2012-03-11 14:56:02.000000000 +0100
++++ vdr-1.7.30/plugin.c	2012-09-01 15:10:27.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: plugin.c 2.3 2012/03/11 13:56:02 kls Exp $
++ * $Id: plugin.c 2.4 2012/09/01 13:10:27 kls Exp $
+  */
+ 
+ #include "plugin.h"
+@@ -25,7 +25,9 @@
+ 
+ // --- cPlugin ---------------------------------------------------------------
+ 
+-char *cPlugin::configDirectory = NULL;
++cString cPlugin::configDirectory;
++cString cPlugin::cacheDirectory;
++cString cPlugin::resourceDirectory;
+ 
+ cPlugin::cPlugin(void)
+ {
+@@ -132,8 +134,7 @@
+ 
+ void cPlugin::SetConfigDirectory(const char *Dir)
+ {
+-  free(configDirectory);
+-  configDirectory = strdup(Dir);
++  configDirectory = Dir;
+ }
+ 
+ const char *cPlugin::ConfigDirectory(const char *PluginName)
+@@ -141,7 +142,35 @@
+   static cString buffer;
+   if (!cThread::IsMainThread())
+      esyslog("ERROR: plugin '%s' called cPlugin::ConfigDirectory(), which is not thread safe!", PluginName ? PluginName : "<no name given>");
+-  buffer = cString::sprintf("%s/plugins%s%s", configDirectory, PluginName ? "/" : "", PluginName ? PluginName : "");
++  buffer = cString::sprintf("%s/plugins%s%s", *configDirectory, PluginName ? "/" : "", PluginName ? PluginName : "");
++  return MakeDirs(buffer, true) ? *buffer : NULL;
++}
++
++void cPlugin::SetCacheDirectory(const char *Dir)
++{
++  cacheDirectory = Dir;
++}
++
++const char *cPlugin::CacheDirectory(const char *PluginName)
++{
++  static cString buffer;
++  if (!cThread::IsMainThread())
++     esyslog("ERROR: plugin '%s' called cPlugin::CacheDirectory(), which is not thread safe!", PluginName ? PluginName : "<no name given>");
++  buffer = cString::sprintf("%s/plugins%s%s", *cacheDirectory, PluginName ? "/" : "", PluginName ? PluginName : "");
++  return MakeDirs(buffer, true) ? *buffer : NULL;
++}
++
++void cPlugin::SetResourceDirectory(const char *Dir)
++{
++  resourceDirectory = Dir;
++}
++
++const char *cPlugin::ResourceDirectory(const char *PluginName)
++{
++  static cString buffer;
++  if (!cThread::IsMainThread())
++     esyslog("ERROR: plugin '%s' called cPlugin::ResourceDirectory(), which is not thread safe!", PluginName ? PluginName : "<no name given>");
++  buffer = cString::sprintf("%s/plugins%s%s", *resourceDirectory, PluginName ? "/" : "", PluginName ? PluginName : "");
+   return MakeDirs(buffer, true) ? *buffer : NULL;
+ }
+ 
+diff -ruN vdr-1.7.29/plugin.h vdr-1.7.30/plugin.h
+--- vdr-1.7.29/plugin.h	2012-03-11 14:55:56.000000000 +0100
++++ vdr-1.7.30/plugin.h	2012-09-01 15:08:54.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: plugin.h 2.1 2012/03/11 13:55:56 kls Exp $
++ * $Id: plugin.h 2.2 2012/09/01 13:08:54 kls Exp $
+  */
+ 
+ #ifndef __PLUGIN_H
+@@ -21,7 +21,9 @@
+   friend class cDll;
+   friend class cPluginManager;
+ private:
+-  static char *configDirectory;
++  static cString configDirectory;
++  static cString cacheDirectory;
++  static cString resourceDirectory;
+   const char *name;
+   bool started;
+   void SetName(const char *s);
+@@ -57,6 +59,10 @@
+ 
+   static void SetConfigDirectory(const char *Dir);
+   static const char *ConfigDirectory(const char *PluginName = NULL);
++  static void SetCacheDirectory(const char *Dir);
++  static const char *CacheDirectory(const char *PluginName = NULL);
++  static void SetResourceDirectory(const char *Dir);
++  static const char *ResourceDirectory(const char *PluginName = NULL);
+   };
+ 
+ class cDll : public cListObject {
+diff -ruN vdr-1.7.29/po/ar.po vdr-1.7.30/po/ar.po
+--- vdr-1.7.29/po/ar.po	2012-06-17 13:59:43.000000000 +0200
++++ vdr-1.7.30/po/ar.po	2012-09-09 15:20:14.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2008-10-16 11:16-0400\n"
+ "Last-Translator: Osama Alrawab <alrawab@hotmail.com>\n"
+ "Language-Team: Arabic <ar@li.org>\n"
+@@ -870,6 +870,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "ÿ≤ÿ± ÿßÿ∫ŸÑÿßŸÇ ÿßŸÑŸÇÿßÿßÿ¶ŸÖÿ©"
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "ÿßŸÑÿØŸÑŸäŸÑ ÿßŸÑÿßŸÑŸÉÿ™ŸàŸÜŸâ ŸÑŸÑŸÇŸÜŸàÿßÿ™"
+ 
+diff -ruN vdr-1.7.29/po/ca_ES.po vdr-1.7.30/po/ca_ES.po
+--- vdr-1.7.29/po/ca_ES.po	2012-06-17 13:59:41.000000000 +0200
++++ vdr-1.7.30/po/ca_ES.po	2012-09-09 15:20:13.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Catalan <vdr@linuxtv.org>\n"
+@@ -852,6 +852,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Guia de Programes"
+ 
+diff -ruN vdr-1.7.29/po/cs_CZ.po vdr-1.7.30/po/cs_CZ.po
+--- vdr-1.7.29/po/cs_CZ.po	2012-06-17 13:59:41.000000000 +0200
++++ vdr-1.7.30/po/cs_CZ.po	2012-09-09 15:20:13.000000000 +0200
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.14\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2010-05-06 11:00+0200\n"
+ "Last-Translator: Radek ≈†≈•astn√Ω <dedkus@gmail.com>\n"
+ "Language-Team: Czech <vdr@linuxtv.org>\n"
+@@ -851,6 +851,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.29/po/da_DK.po vdr-1.7.30/po/da_DK.po
+--- vdr-1.7.29/po/da_DK.po	2012-06-17 13:59:42.000000000 +0200
++++ vdr-1.7.30/po/da_DK.po	2012-09-09 15:20:13.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish <vdr@linuxtv.org>\n"
+@@ -849,6 +849,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.29/po/de_DE.po vdr-1.7.30/po/de_DE.po
+--- vdr-1.7.29/po/de_DE.po	2012-06-17 14:00:25.000000000 +0200
++++ vdr-1.7.30/po/de_DE.po	2012-09-09 15:21:16.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2010-01-16 16:46+0100\n"
+ "Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
+@@ -849,6 +849,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Nummerntasten f¸r Zeichen"
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr "Farbtaste 0"
++
++msgid "Setup.OSD$Color key 1"
++msgstr "Farbtaste 1"
++
++msgid "Setup.OSD$Color key 2"
++msgstr "Farbtaste 2"
++
++msgid "Setup.OSD$Color key 3"
++msgstr "Farbtaste 3"
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.29/po/el_GR.po vdr-1.7.30/po/el_GR.po
+--- vdr-1.7.29/po/el_GR.po	2012-06-17 13:59:42.000000000 +0200
++++ vdr-1.7.30/po/el_GR.po	2012-09-09 15:20:14.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek <vdr@linuxtv.org>\n"
+@@ -849,6 +849,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "«ÎÂÍÙÒÔÌÈÍ¸Ú Ô‰Á„¸Ú ÒÔ„Ò‹ÏÏ·ÙÔÚ"
+ 
+diff -ruN vdr-1.7.29/po/es_ES.po vdr-1.7.30/po/es_ES.po
+--- vdr-1.7.29/po/es_ES.po	2012-06-17 13:59:42.000000000 +0200
++++ vdr-1.7.30/po/es_ES.po	2012-09-09 15:20:14.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Spanish <vdr@linuxtv.org>\n"
+@@ -850,6 +850,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "GuÌa de ProgramaciÛn"
+ 
+diff -ruN vdr-1.7.29/po/et_EE.po vdr-1.7.30/po/et_EE.po
+--- vdr-1.7.29/po/et_EE.po	2012-06-17 13:59:41.000000000 +0200
++++ vdr-1.7.30/po/et_EE.po	2012-09-09 15:20:13.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
+ "Language-Team: Estonian <vdr@linuxtv.org>\n"
+@@ -849,6 +849,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Teksti sisestamine numbriklahvidega"
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.29/po/fi_FI.po vdr-1.7.30/po/fi_FI.po
+--- vdr-1.7.29/po/fi_FI.po	2012-06-17 13:59:42.000000000 +0200
++++ vdr-1.7.30/po/fi_FI.po	2012-09-09 15:20:13.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
+@@ -852,6 +852,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "K√§yt√§ numeron√§pp√§imi√§ tekstisy√∂tteess√§"
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Ohjelmaopas"
+ 
+@@ -1123,7 +1135,7 @@
+ msgstr "Kanavien rullaus"
+ 
+ msgid "Setup.Miscellaneous$Show channel names with source"
+-msgstr ""
++msgstr "N√§yt√§ l√§hde kanavien nimiss√§"
+ 
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "K√§yt√§ h√§t√§sammutusta"
+diff -ruN vdr-1.7.29/po/fr_FR.po vdr-1.7.30/po/fr_FR.po
+--- vdr-1.7.29/po/fr_FR.po	2012-06-17 13:59:43.000000000 +0200
++++ vdr-1.7.30/po/fr_FR.po	2012-09-09 15:20:14.000000000 +0200
+@@ -13,7 +13,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2008-02-27 18:14+0100\n"
+ "Last-Translator: Jean-Claude Repetto <jc@repetto.org>\n"
+ "Language-Team: French <vdr@linuxtv.org>\n"
+@@ -855,6 +855,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Guide des programmes"
+ 
+diff -ruN vdr-1.7.29/po/hr_HR.po vdr-1.7.30/po/hr_HR.po
+--- vdr-1.7.29/po/hr_HR.po	2012-06-17 13:59:43.000000000 +0200
++++ vdr-1.7.30/po/hr_HR.po	2012-09-09 15:20:15.000000000 +0200
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian <vdr@linuxtv.org>\n"
+@@ -851,6 +851,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG (elektronski programski vodiË)"
+ 
+diff -ruN vdr-1.7.29/po/hu_HU.po vdr-1.7.30/po/hu_HU.po
+--- vdr-1.7.29/po/hu_HU.po	2012-06-17 13:59:42.000000000 +0200
++++ vdr-1.7.30/po/hu_HU.po	2012-09-09 15:20:13.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2012-01-02 11:54+0200\n"
+ "Last-Translator: Istv·n F¸ley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian <vdr@linuxtv.org>\n"
+@@ -852,6 +852,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Sz·mgombok a bet˚kˆn"
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.29/po/it_IT.po vdr-1.7.30/po/it_IT.po
+--- vdr-1.7.29/po/it_IT.po	2012-06-17 13:59:42.000000000 +0200
++++ vdr-1.7.30/po/it_IT.po	2012-09-09 15:20:14.000000000 +0200
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2012-06-06 22:50+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
+@@ -856,6 +856,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Tasti numerici per i caratteri"
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Guida programmi EPG"
+ 
+diff -ruN vdr-1.7.29/po/lt_LT.po vdr-1.7.30/po/lt_LT.po
+--- vdr-1.7.29/po/lt_LT.po	2012-06-17 13:59:42.000000000 +0200
++++ vdr-1.7.30/po/lt_LT.po	2012-09-09 15:20:14.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.16\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2010-10-30 11:55+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian <vdr@linuxtv.org>\n"
+@@ -849,6 +849,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Skaiƒçi≈≥ mygtukai simboliams"
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Elektroninis program≈≥ gidas (EPG)"
+ 
+diff -ruN vdr-1.7.29/po/mk_MK.po vdr-1.7.30/po/mk_MK.po
+--- vdr-1.7.29/po/mk_MK.po	2012-06-17 13:59:43.000000000 +0200
++++ vdr-1.7.30/po/mk_MK.po	2012-09-09 15:20:14.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR-1.7.14\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2010-03-11 00:54+0100\n"
+ "Last-Translator: Dimitar Petrovski <dimeptr@gmail.com>\n"
+ "Language-Team: Macedonian <en@li.org>\n"
+@@ -850,6 +850,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG (–µ–ª–µ–∫—Ç—Ä–æ–Ω—Å–∫–∏ –≤–æ–¥–∏—á –Ω–∞ –ø—Ä–æ–≥—Ä–∞–º–∏)"
+ 
+diff -ruN vdr-1.7.29/po/nl_NL.po vdr-1.7.30/po/nl_NL.po
+--- vdr-1.7.29/po/nl_NL.po	2012-06-17 13:59:42.000000000 +0200
++++ vdr-1.7.30/po/nl_NL.po	2012-09-09 15:20:14.000000000 +0200
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2008-02-26 17:20+0100\n"
+ "Last-Translator: Johan Schuring <johan.schuring@vetteblei.nl>\n"
+ "Language-Team: Dutch <vdr@linuxtv.org>\n"
+@@ -853,6 +853,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.29/po/nn_NO.po vdr-1.7.30/po/nn_NO.po
+--- vdr-1.7.29/po/nn_NO.po	2012-06-17 13:59:43.000000000 +0200
++++ vdr-1.7.30/po/nn_NO.po	2012-09-09 15:20:15.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian Nynorsk <vdr@linuxtv.org>\n"
+@@ -850,6 +850,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Programoversikt"
+ 
+diff -ruN vdr-1.7.29/po/pl_PL.po vdr-1.7.30/po/pl_PL.po
+--- vdr-1.7.29/po/pl_PL.po	2012-06-17 13:59:41.000000000 +0200
++++ vdr-1.7.30/po/pl_PL.po	2012-09-09 15:20:12.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2008-03-09 12:59+0100\n"
+ "Last-Translator: Michael Rakowski <mrak@gmx.de>\n"
+ "Language-Team: Polish <vdr@linuxtv.org>\n"
+@@ -850,6 +850,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.29/po/pt_PT.po vdr-1.7.30/po/pt_PT.po
+--- vdr-1.7.29/po/pt_PT.po	2012-06-17 13:59:41.000000000 +0200
++++ vdr-1.7.30/po/pt_PT.po	2012-09-09 15:20:12.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.15\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2010-03-28 22:49+0100\n"
+ "Last-Translator: Cris Silva <hudokkow@gmail.com>\n"
+ "Language-Team: Portuguese <vdr@linuxtv.org>\n"
+@@ -850,6 +850,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Teclas numÈricas para caracteres"
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Guia de ProgramaÁ„o"
+ 
+diff -ruN vdr-1.7.29/po/ro_RO.po vdr-1.7.30/po/ro_RO.po
+--- vdr-1.7.29/po/ro_RO.po	2012-06-17 13:59:41.000000000 +0200
++++ vdr-1.7.30/po/ro_RO.po	2012-09-09 15:20:12.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.12\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2011-03-10 23:52+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+ "Language-Team: Romanian <vdr@linuxtv.org>\n"
+@@ -852,6 +852,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Caractere pe tastele numerice"
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.29/po/ru_RU.po vdr-1.7.30/po/ru_RU.po
+--- vdr-1.7.29/po/ru_RU.po	2012-06-17 13:59:43.000000000 +0200
++++ vdr-1.7.30/po/ru_RU.po	2012-09-09 15:20:15.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2008-12-15 14:37+0100\n"
+ "Last-Translator: Oleg Roitburd <oleg@roitburd.de>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
+@@ -850,6 +850,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "¬’€’”ÿ‘"
+ 
+diff -ruN vdr-1.7.29/po/sk_SK.po vdr-1.7.30/po/sk_SK.po
+--- vdr-1.7.29/po/sk_SK.po	2012-06-17 13:59:43.000000000 +0200
++++ vdr-1.7.30/po/sk_SK.po	2012-09-09 15:20:14.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.16\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2011-02-15 16:29+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak <vdr@linuxtv.org>\n"
+@@ -849,6 +849,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "»ÌselnÈ tlaËidl· pre znaky"
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.29/po/sl_SI.po vdr-1.7.30/po/sl_SI.po
+--- vdr-1.7.29/po/sl_SI.po	2012-06-17 13:59:43.000000000 +0200
++++ vdr-1.7.30/po/sl_SI.po	2012-09-09 15:20:15.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2008-02-28 19:44+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian <vdr@linuxtv.org>\n"
+@@ -850,6 +850,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Programski vodnik"
+ 
+diff -ruN vdr-1.7.29/po/sr_SR.po vdr-1.7.30/po/sr_SR.po
+--- vdr-1.7.29/po/sr_SR.po	2012-06-17 13:59:43.000000000 +0200
++++ vdr-1.7.30/po/sr_SR.po	2012-09-09 15:20:14.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.1\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2011-01-09 15:57+0100\n"
+ "Last-Translator: Milan CvijanoviÊ <elcom_cvijo@hotmail.com>\n"
+ "Language-Team: Serbian <vdr@linuxtv.org>\n"
+@@ -867,6 +867,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Number keys for characters"
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG (TV Raspored®)"
+ 
+diff -ruN vdr-1.7.29/po/sv_SE.po vdr-1.7.30/po/sv_SE.po
+--- vdr-1.7.29/po/sv_SE.po	2012-06-17 13:59:42.000000000 +0200
++++ vdr-1.7.30/po/sv_SE.po	2012-09-09 15:20:14.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2008-03-12 18:25+0100\n"
+ "Last-Translator: Magnus Andersson <svankan@bahnhof.se>\n"
+ "Language-Team: Swedish <vdr@linuxtv.org>\n"
+@@ -852,6 +852,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.29/po/tr_TR.po vdr-1.7.30/po/tr_TR.po
+--- vdr-1.7.29/po/tr_TR.po	2012-06-17 13:59:41.000000000 +0200
++++ vdr-1.7.30/po/tr_TR.po	2012-09-09 15:20:13.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay YolgeÁen <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish <vdr@linuxtv.org>\n"
+@@ -849,6 +849,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.29/po/uk_UA.po vdr-1.7.30/po/uk_UA.po
+--- vdr-1.7.29/po/uk_UA.po	2012-06-17 13:59:42.000000000 +0200
++++ vdr-1.7.30/po/uk_UA.po	2012-09-09 15:20:14.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2010-04-25 16:35+0200\n"
+ "Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian <vdr@linuxtv.org>\n"
+@@ -849,6 +849,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "–¢–µ–ª–µ–≥—ñ–¥ (EPG)"
+ 
+diff -ruN vdr-1.7.29/po/zh_CN.po vdr-1.7.30/po/zh_CN.po
+--- vdr-1.7.29/po/zh_CN.po	2012-06-17 13:59:41.000000000 +0200
++++ vdr-1.7.30/po/zh_CN.po	2012-09-09 15:20:13.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2012-06-17 13:59+0200\n"
++"POT-Creation-Date: 2012-09-09 15:20+0200\n"
+ "PO-Revision-Date: 2009-09-23 23:50+0800\n"
+ "Last-Translator: Nan Feng <nfgx@21cn.com>\n"
+ "Language-Team: Chinese (simplified) <vdr@linuxtv.org>\n"
+@@ -852,6 +852,18 @@
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
++msgid "Setup.OSD$Color key 0"
++msgstr ""
++
++msgid "Setup.OSD$Color key 1"
++msgstr ""
++
++msgid "Setup.OSD$Color key 2"
++msgstr ""
++
++msgid "Setup.OSD$Color key 3"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "ÁîµÂ≠êËäÇÁõÆÂçïËÆæÁΩÆ"
+ 
+diff -ruN vdr-1.7.29/receiver.h vdr-1.7.30/receiver.h
+--- vdr-1.7.29/receiver.h	2012-06-02 15:20:44.000000000 +0200
++++ vdr-1.7.30/receiver.h	2012-09-02 11:27:20.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: receiver.h 2.8 2012/06/02 13:20:44 kls Exp $
++ * $Id: receiver.h 2.9 2012/09/02 09:27:20 kls Exp $
+  */
+ 
+ #ifndef __RECEIVER_H
+@@ -27,7 +27,7 @@
+   void Detach(void);
+   virtual void Activate(bool On) {}
+                ///< This function is called just before the cReceiver gets attached to
+-               ///< (On == true) or detached from (On == false) a cDevice. It can be used
++               ///< (On == true) and right after it gets detached from (On == false) a cDevice. It can be used
+                ///< to do things like starting/stopping a thread.
+                ///< It is guaranteed that Receive() will not be called before Activate(true).
+   virtual void Receive(uchar *Data, int Length) = 0;
+diff -ruN vdr-1.7.29/recording.c vdr-1.7.30/recording.c
+--- vdr-1.7.29/recording.c	2012-06-09 15:57:30.000000000 +0200
++++ vdr-1.7.30/recording.c	2012-09-06 11:57:31.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.57 2012/06/09 13:57:30 kls Exp $
++ * $Id: recording.c 2.60 2012/09/06 09:57:31 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -831,8 +831,8 @@
+ {
+   char **sb = (RecordingsSortMode == rsmName) ? &sortBufferName : &sortBufferTime;
+   if (!*sb) {
+-     char *s = (RecordingsSortMode == rsmName) ? strdup(FileName() + strlen(VideoDirectory) + 1)
+-                                              : StripEpisodeName(strdup(FileName() + strlen(VideoDirectory) + 1));
++     char *s = (RecordingsSortMode == rsmName) ? strdup(FileName() + strlen(VideoDirectory))
++                                              : StripEpisodeName(strdup(FileName() + strlen(VideoDirectory)));
+      strreplace(s, '/', 'a'); // some locales ignore '/' when sorting
+      int l = strxfrm(NULL, s, 0) + 1;
+      *sb = MALLOC(char, l);
+@@ -1067,7 +1067,7 @@
+ {
+   if (numFrames < 0) {
+      int nf = cIndexFile::GetLength(FileName(), IsPesRecording());
+-     if (time(NULL) - LastModifiedTime(FileName()) < MININDEXAGE)
++     if (time(NULL) - LastModifiedTime(cIndexFile::IndexFileName(FileName(), IsPesRecording())) < MININDEXAGE)
+         return nf; // check again later for ongoing recordings
+      numFrames = nf;
+      }
+@@ -1086,7 +1086,7 @@
+ {
+   if (fileSizeMB < 0) {
+      int fs = DirSizeMB(FileName());
+-     if (time(NULL) - LastModifiedTime(FileName()) < MININDEXAGE)
++     if (time(NULL) - LastModifiedTime(cIndexFile::IndexFileName(FileName(), IsPesRecording())) < MININDEXAGE)
+         return fs; // check again later for ongoing recordings
+      fileSizeMB = fs;
+      }
+@@ -1607,6 +1607,9 @@
+ #define INDEXFILECHECKINTERVAL 500 // ms between checks for existence of the regenerated index file
+ #define INDEXFILETESTINTERVAL   10 // ms between tests for the size of the index file in case of pausing live video
+ 
++cMutex cIndexFile::indexListMutex;
++cVector<const cIndexFile *> cIndexFile::indexList;
++
+ cIndexFile::cIndexFile(const char *FileName, bool Record, bool IsPesRecording, bool PauseLive)
+ :resumeFile(FileName, IsPesRecording)
+ {
+@@ -1687,10 +1690,13 @@
+            LOG_ERROR_STR(*fileName);
+         }
+      }
++  if (Record)
++     AddToIndexList(this);
+ }
+ 
+ cIndexFile::~cIndexFile()
+ {
++  RemoveFromIndexList(this);
+   if (f >= 0)
+      close(f);
+   free(index);
+@@ -1735,8 +1741,7 @@
+      for (int i = 0; i <= MAXINDEXCATCHUP && (Index < 0 || Index >= last); i++) {
+          struct stat buf;
+          if (fstat(f, &buf) == 0) {
+-            if (time(NULL) - buf.st_mtime > MININDEXAGE) {
+-               // apparently the index file is not being written any more
++            if (!IsInIndexList(this)) {
+                close(f);
+                f = -1;
+                break;
+@@ -1902,6 +1907,39 @@
+   return -1;
+ }
+ 
++void cIndexFile::AddToIndexList(const cIndexFile *IndexFile)
++{
++  cMutexLock MutexLock(&indexListMutex);
++  for (int i = 0; i < indexList.Size(); i++) {
++      if (!indexList[i]) {
++         indexList[i] = IndexFile;
++         return;
++         }
++      }
++  indexList.Append(IndexFile);
++}
++
++void cIndexFile::RemoveFromIndexList(const cIndexFile *IndexFile)
++{
++  cMutexLock MutexLock(&indexListMutex);
++  for (int i = 0; i < indexList.Size(); i++) {
++      if (indexList[i] == IndexFile) {
++         indexList[i] = NULL;
++         return;
++         }
++      }
++}
++
++bool cIndexFile::IsInIndexList(const cIndexFile *IndexFile)
++{
++  cMutexLock MutexLock(&indexListMutex);
++  for (int i = 0; i < indexList.Size(); i++) {
++      if (indexList[i] && !strcmp(indexList[i]->fileName, IndexFile->fileName))
++         return true;
++      }
++  return false;
++}
++
+ bool GenerateIndex(const char *FileName) 
+ {
+   if (DirectoryOk(FileName)) {
+diff -ruN vdr-1.7.29/recording.h vdr-1.7.30/recording.h
+--- vdr-1.7.29/recording.h	2012-06-09 15:55:22.000000000 +0200
++++ vdr-1.7.30/recording.h	2012-09-06 11:59:11.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 2.34 2012/06/09 13:55:22 kls Exp $
++ * $Id: recording.h 2.36 2012/09/06 09:59:11 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -275,7 +275,11 @@
+   cResumeFile resumeFile;
+   cIndexFileGenerator *indexFileGenerator;
+   cMutex mutex;
+-  static cString IndexFileName(const char *FileName, bool IsPesRecording);
++  static cMutex indexListMutex;
++  static cVector<const cIndexFile *> indexList;
++  static void AddToIndexList(const cIndexFile *IndexFile);
++  static void RemoveFromIndexList(const cIndexFile *IndexFile);
++  static bool IsInIndexList(const cIndexFile *IndexFile);
+   void ConvertFromPes(tIndexTs *IndexTs, int Count);
+   void ConvertToPes(tIndexTs *IndexTs, int Count);
+   bool CatchUp(int Index = -1);
+@@ -295,6 +299,7 @@
+   static int GetLength(const char *FileName, bool IsPesRecording = false);
+        ///< Calculates the recording length (number of frames) without actually reading the index file.
+        ///< Returns -1 in case of error.
++  static cString IndexFileName(const char *FileName, bool IsPesRecording);
+   };
+ 
+ class cFileName {
+diff -ruN vdr-1.7.29/sections.c vdr-1.7.30/sections.c
+--- vdr-1.7.29/sections.c	2007-10-14 14:52:07.000000000 +0200
++++ vdr-1.7.30/sections.c	2012-08-26 14:53:39.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sections.c 2.0 2007/10/14 12:52:07 kls Exp $
++ * $Id: sections.c 2.1 2012/08/26 12:53:39 kls Exp $
+  */
+ 
+ #include "sections.h"
+@@ -198,7 +198,7 @@
+                   if (fh) {
+                      // Read section data:
+                      unsigned char buf[4096]; // max. allowed size for any EIT section
+-                     int r = safe_read(fh->handle, buf, sizeof(buf));
++                     int r = device->ReadFilter(fh->handle, buf, sizeof(buf));
+                      if (!DeviceHasLock)
+                         continue; // we do the read anyway, to flush any data that might have come from a different transponder
+                      if (r > 3) { // minimum number of bytes necessary to get section length
+diff -ruN vdr-1.7.29/skinclassic.c vdr-1.7.30/skinclassic.c
+--- vdr-1.7.29/skinclassic.c	2012-04-23 10:48:03.000000000 +0200
++++ vdr-1.7.30/skinclassic.c	2012-09-09 13:39:06.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinclassic.c 2.7 2012/04/23 08:48:03 kls Exp $
++ * $Id: skinclassic.c 2.8 2012/09/09 11:39:06 kls Exp $
+  */
+ 
+ #include "skinclassic.h"
+@@ -291,16 +291,19 @@
+ void cSkinClassicDisplayMenu::SetButtons(const char *Red, const char *Green, const char *Yellow, const char *Blue)
+ {
+   const cFont *font = cFont::GetFont(fontOsd);
++  const char *lutText[] = { Red, Green, Yellow, Blue };
++  tColor lutFg[] = { clrButtonRedFg, clrButtonGreenFg, clrButtonYellowFg, clrButtonBlueFg };
++  tColor lutBg[] = { clrButtonRedBg, clrButtonGreenBg, clrButtonYellowBg, clrButtonBlueBg };
+   int w = x3 - x0;
+   int t0 = x0;
+   int t1 = x0 + w / 4;
+   int t2 = x0 + w / 2;
+   int t3 = x3 - w / 4;
+   int t4 = x3;
+-  osd->DrawText(t0, y4, Red,    Theme.Color(clrButtonRedFg),    Red    ? Theme.Color(clrButtonRedBg)    : Theme.Color(clrBackground), font, t1 - t0, 0, taCenter);
+-  osd->DrawText(t1, y4, Green,  Theme.Color(clrButtonGreenFg),  Green  ? Theme.Color(clrButtonGreenBg)  : Theme.Color(clrBackground), font, t2 - t1, 0, taCenter);
+-  osd->DrawText(t2, y4, Yellow, Theme.Color(clrButtonYellowFg), Yellow ? Theme.Color(clrButtonYellowBg) : Theme.Color(clrBackground), font, t3 - t2, 0, taCenter);
+-  osd->DrawText(t3, y4, Blue,   Theme.Color(clrButtonBlueFg),   Blue   ? Theme.Color(clrButtonBlueBg)   : Theme.Color(clrBackground), font, t4 - t3, 0, taCenter);
++  osd->DrawText(t0, y4, lutText[Setup.ColorKey0], Theme.Color(lutFg[Setup.ColorKey0]), lutText[Setup.ColorKey0] ? Theme.Color(lutBg[Setup.ColorKey0]) : Theme.Color(clrBackground), font, t1 - t0, 0, taCenter);
++  osd->DrawText(t1, y4, lutText[Setup.ColorKey1], Theme.Color(lutFg[Setup.ColorKey1]), lutText[Setup.ColorKey1] ? Theme.Color(lutBg[Setup.ColorKey1]) : Theme.Color(clrBackground), font, t2 - t1, 0, taCenter);
++  osd->DrawText(t2, y4, lutText[Setup.ColorKey2], Theme.Color(lutFg[Setup.ColorKey2]), lutText[Setup.ColorKey2] ? Theme.Color(lutBg[Setup.ColorKey2]) : Theme.Color(clrBackground), font, t3 - t2, 0, taCenter);
++  osd->DrawText(t3, y4, lutText[Setup.ColorKey3], Theme.Color(lutFg[Setup.ColorKey3]), lutText[Setup.ColorKey3] ? Theme.Color(lutBg[Setup.ColorKey3]) : Theme.Color(clrBackground), font, t4 - t3, 0, taCenter);
+ }
+ 
+ void cSkinClassicDisplayMenu::SetMessage(eMessageType Type, const char *Text)
+diff -ruN vdr-1.7.29/skinlcars.c vdr-1.7.30/skinlcars.c
+--- vdr-1.7.29/skinlcars.c	2012-06-13 15:27:31.000000000 +0200
++++ vdr-1.7.30/skinlcars.c	2012-09-09 14:16:50.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinlcars.c 2.13 2012/06/13 13:27:31 kls Exp $
++ * $Id: skinlcars.c 2.14 2012/09/09 12:16:50 kls Exp $
+  */
+ 
+ // "Star Trek: The Next Generation"(R) is a registered trademark of Paramount Pictures,
+@@ -975,10 +975,11 @@
+   osd->DrawEllipse  (xa08 + lineHeight / 2, yb14, xa09 - 1, yb15 - 1, frameColor, 5);
+   osd->DrawText(xa00, yb10, "VDR", Theme.Color(clrMenuFrameFg), frameColor, tallFont, xa02 - xa00, yb11 - yb10, taTop | taRight | taBorder);
+   // Color buttons:
+-  osd->DrawRectangle(xb00, yb14, xb01 - 1, yb15 - 1, Theme.Color(clrButtonRedBg));
+-  osd->DrawRectangle(xb04, yb14, xb05 - 1, yb15 - 1, Theme.Color(clrButtonGreenBg));
+-  osd->DrawRectangle(xb08, yb14, xb09 - 1, yb15 - 1, Theme.Color(clrButtonYellowBg));
+-  osd->DrawRectangle(xb12, yb14, xb13 - 1, yb15 - 1, Theme.Color(clrButtonBlueBg));
++  tColor lutBg[] = { clrButtonRedBg, clrButtonGreenBg, clrButtonYellowBg, clrButtonBlueBg };
++  osd->DrawRectangle(xb00, yb14, xb01 - 1, yb15 - 1, Theme.Color(lutBg[Setup.ColorKey0]));
++  osd->DrawRectangle(xb04, yb14, xb05 - 1, yb15 - 1, Theme.Color(lutBg[Setup.ColorKey1]));
++  osd->DrawRectangle(xb08, yb14, xb09 - 1, yb15 - 1, Theme.Color(lutBg[Setup.ColorKey2]));
++  osd->DrawRectangle(xb12, yb14, xb13 - 1, yb15 - 1, Theme.Color(lutBg[Setup.ColorKey3]));
+ }
+ 
+ void cSkinLCARSDisplayMenu::DrawDate(void)
+@@ -1458,19 +1459,22 @@
+ 
+ void cSkinLCARSDisplayMenu::SetButtons(const char *Red, const char *Green, const char *Yellow, const char *Blue)
+ {
++  const char *lutText[] = { Red, Green, Yellow, Blue };
++  tColor lutFg[] = { clrButtonRedFg, clrButtonGreenFg, clrButtonYellowFg, clrButtonBlueFg };
++  tColor lutBg[] = { clrButtonRedBg, clrButtonGreenBg, clrButtonYellowBg, clrButtonBlueBg };
+   const cFont *font = cFont::GetFont(fontSml);
+   if (MenuCategory() == mcMain) {
+-     DrawMainButton(Red,    xd00, xd01, xd02, xd03, yd02, yd03, Theme.Color(clrButtonRedFg),    Theme.Color(clrButtonRedBg),    font);
+-     DrawMainButton(Green,  xd04, xd05, xd06, xd07, yd02, yd03, Theme.Color(clrButtonGreenFg),  Theme.Color(clrButtonGreenBg),  font);
+-     DrawMainButton(Yellow, xd00, xd01, xd02, xd03, yd04, yd05, Theme.Color(clrButtonYellowFg), Theme.Color(clrButtonYellowBg), font);
+-     DrawMainButton(Blue,   xd04, xd05, xd06, xd07, yd04, yd05, Theme.Color(clrButtonBlueFg),   Theme.Color(clrButtonBlueBg),   font);
++     DrawMainButton(lutText[Setup.ColorKey0], xd00, xd01, xd02, xd03, yd02, yd03, Theme.Color(lutFg[Setup.ColorKey0]), Theme.Color(lutBg[Setup.ColorKey0]), font);
++     DrawMainButton(lutText[Setup.ColorKey1], xd04, xd05, xd06, xd07, yd02, yd03, Theme.Color(lutFg[Setup.ColorKey1]), Theme.Color(lutBg[Setup.ColorKey1]), font);
++     DrawMainButton(lutText[Setup.ColorKey2], xd00, xd01, xd02, xd03, yd04, yd05, Theme.Color(lutFg[Setup.ColorKey2]), Theme.Color(lutBg[Setup.ColorKey2]), font);
++     DrawMainButton(lutText[Setup.ColorKey3], xd04, xd05, xd06, xd07, yd04, yd05, Theme.Color(lutFg[Setup.ColorKey3]), Theme.Color(lutBg[Setup.ColorKey3]), font);
+      }
+   else {
+      int h = yb15 - yb14;
+-     osd->DrawText(xb02, yb14, Red,    Theme.Color(clrButtonRedFg),    Theme.Color(clrButtonRedBg),    font, xb03 - xb02, h, taLeft | taBorder);
+-     osd->DrawText(xb06, yb14, Green,  Theme.Color(clrButtonGreenFg),  Theme.Color(clrButtonGreenBg),  font, xb07 - xb06, h, taLeft | taBorder);
+-     osd->DrawText(xb10, yb14, Yellow, Theme.Color(clrButtonYellowFg), Theme.Color(clrButtonYellowBg), font, xb11 - xb10, h, taLeft | taBorder);
+-     osd->DrawText(xb14, yb14, Blue,   Theme.Color(clrButtonBlueFg),   Theme.Color(clrButtonBlueBg),   font, xb15 - xb14, h, taLeft | taBorder);
++     osd->DrawText(xb02, yb14, lutText[Setup.ColorKey0], Theme.Color(lutFg[Setup.ColorKey0]), Theme.Color(lutBg[Setup.ColorKey0]), font, xb03 - xb02, h, taLeft | taBorder);
++     osd->DrawText(xb06, yb14, lutText[Setup.ColorKey1], Theme.Color(lutFg[Setup.ColorKey1]), Theme.Color(lutBg[Setup.ColorKey1]), font, xb07 - xb06, h, taLeft | taBorder);
++     osd->DrawText(xb10, yb14, lutText[Setup.ColorKey2], Theme.Color(lutFg[Setup.ColorKey2]), Theme.Color(lutBg[Setup.ColorKey2]), font, xb11 - xb10, h, taLeft | taBorder);
++     osd->DrawText(xb14, yb14, lutText[Setup.ColorKey3], Theme.Color(lutFg[Setup.ColorKey3]), Theme.Color(lutBg[Setup.ColorKey3]), font, xb15 - xb14, h, taLeft | taBorder);
+      }
+ }
+ 
+diff -ruN vdr-1.7.29/skinlcars.h vdr-1.7.30/skinlcars.h
+--- vdr-1.7.29/skinlcars.h	2012-04-15 15:17:35.000000000 +0200
++++ vdr-1.7.30/skinlcars.h	2012-04-15 15:17:35.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinlcars.h 1.1 2012/04/15 13:17:35 kls Exp $
++ * $Id: skinlcars.h 2.1 2012/04/15 13:17:35 kls Exp $
+  */
+ 
+ #ifndef __SKINLCARS_H
+diff -ruN vdr-1.7.29/skinsttng.c vdr-1.7.30/skinsttng.c
+--- vdr-1.7.29/skinsttng.c	2012-04-23 10:39:11.000000000 +0200
++++ vdr-1.7.30/skinsttng.c	2012-09-09 13:39:06.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinsttng.c 2.15 2012/04/23 08:39:11 kls Exp $
++ * $Id: skinsttng.c 2.16 2012/09/09 11:39:06 kls Exp $
+  */
+ 
+ // "Star Trek: The Next Generation"(R) is a registered trademark of Paramount Pictures
+@@ -571,6 +571,9 @@
+ 
+ void cSkinSTTNGDisplayMenu::SetButtons(const char *Red, const char *Green, const char *Yellow, const char *Blue)
+ {
++  const char *lutText[] = { Red, Green, Yellow, Blue };
++  tColor lutFg[] = { clrButtonRedFg, clrButtonGreenFg, clrButtonYellowFg, clrButtonBlueFg };
++  tColor lutBg[] = { clrButtonRedBg, clrButtonGreenBg, clrButtonYellowBg, clrButtonBlueBg };
+   cString date = DayDateTime();
+   const cFont *font = cFont::GetFont(fontSml);
+   int d = 2 * Gap;
+@@ -585,10 +588,10 @@
+   osd->DrawRectangle(t1 + d2, y6, t2 - d2, y7 - 1, clrBlack);
+   osd->DrawRectangle(t2 + d2, y6, t3 - d2, y7 - 1, clrBlack);
+   osd->DrawRectangle(t3 + d2, y6, t4 - d2, y7 - 1, clrBlack);
+-  osd->DrawText(t0 + d, y6, Red,    Theme.Color(clrButtonRedFg),    Theme.Color(clrButtonRedBg),    font, t1 - t0 - 2 * d, 0, taCenter);
+-  osd->DrawText(t1 + d, y6, Green,  Theme.Color(clrButtonGreenFg),  Theme.Color(clrButtonGreenBg),  font, t2 - t1 - 2 * d, 0, taCenter);
+-  osd->DrawText(t2 + d, y6, Yellow, Theme.Color(clrButtonYellowFg), Theme.Color(clrButtonYellowBg), font, t3 - t2 - 2 * d, 0, taCenter);
+-  osd->DrawText(t3 + d, y6, Blue,   Theme.Color(clrButtonBlueFg),   Theme.Color(clrButtonBlueBg),   font, t4 - t3 - 2 * d, 0, taCenter);
++  osd->DrawText(t0 + d, y6, lutText[Setup.ColorKey0], Theme.Color(lutFg[Setup.ColorKey0]), Theme.Color(lutBg[Setup.ColorKey0]), font, t1 - t0 - 2 * d, 0, taCenter);
++  osd->DrawText(t1 + d, y6, lutText[Setup.ColorKey1], Theme.Color(lutFg[Setup.ColorKey1]), Theme.Color(lutBg[Setup.ColorKey1]), font, t2 - t1 - 2 * d, 0, taCenter);
++  osd->DrawText(t2 + d, y6, lutText[Setup.ColorKey2], Theme.Color(lutFg[Setup.ColorKey2]), Theme.Color(lutBg[Setup.ColorKey2]), font, t3 - t2 - 2 * d, 0, taCenter);
++  osd->DrawText(t3 + d, y6, lutText[Setup.ColorKey3], Theme.Color(lutFg[Setup.ColorKey3]), Theme.Color(lutBg[Setup.ColorKey3]), font, t4 - t3 - 2 * d, 0, taCenter);
+ }
+ 
+ void cSkinSTTNGDisplayMenu::SetMessage(eMessageType Type, const char *Text)
+diff -ruN vdr-1.7.29/tools.c vdr-1.7.30/tools.c
+--- vdr-1.7.29/tools.c	2012-05-12 15:29:20.000000000 +0200
++++ vdr-1.7.30/tools.c	2012-08-21 12:34:37.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 2.24 2012/05/12 13:29:20 kls Exp $
++ * $Id: tools.c 2.25 2012/08/21 10:34:37 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -435,6 +435,7 @@
+ 
+ bool RemoveEmptyDirectories(const char *DirName, bool RemoveThis)
+ {
++  bool HasDotFiles = false;
+   cReadDir d(DirName);
+   if (d.Ok()) {
+      bool empty = true;
+@@ -448,6 +449,8 @@
+                     if (!RemoveEmptyDirectories(buffer, true))
+                        empty = false;
+                     }
++                 else if (*e->d_name == '.') // "dot files" don't count
++                    HasDotFiles = true;
+                  else
+                     empty = false;
+                  }
+@@ -458,6 +461,22 @@
+               }
+            }
+      if (RemoveThis && empty) {
++        if (HasDotFiles) {
++           cReadDir d(DirName);
++           if (d.Ok()) {
++              struct dirent *e;
++              while ((e = d.Next()) != NULL) {
++                    if (*e->d_name == '.') { // for safety - should always be true
++                       cString buffer = AddDirectory(DirName, e->d_name);
++                       dsyslog("removing %s", *buffer);
++                       if (remove(buffer) < 0) {
++                          LOG_ERROR_STR(*buffer);
++                          return false;
++                          }
++                       }
++                    }
++              }
++           }
+         dsyslog("removing %s", DirName);
+         if (remove(DirName) < 0) {
+            LOG_ERROR_STR(DirName);
+diff -ruN vdr-1.7.29/vdr.1 vdr-1.7.30/vdr.1
+--- vdr-1.7.29/vdr.1	2012-02-27 12:01:17.000000000 +0100
++++ vdr-1.7.30/vdr.1	2012-09-01 15:40:49.000000000 +0200
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.1 2.8 2012/02/27 11:01:17 kls Exp $
++.\" $Id: vdr.1 2.9 2012/09/01 13:40:49 kls Exp $
+ .\"
+ .TH vdr 1 "10 Feb 2008" "1.6" "Video Disk Recorder"
+ .SH NAME
+@@ -42,6 +42,10 @@
+ .BI \-a\  cmd ,\ \-\-audio= cmd
+ Send Dolby Digital audio to stdin of command \fIcmd\fR.
+ .TP
++.BI \-\-cachedir= dir
++save cache files in \fIdir\fR
++(default is to save them in the video directory).
++.TP
+ .BI \-c\  dir ,\ \-\-config= dir
+ Read config files from directory \fIdir\fR
+ (default is to read them from the video directory).
+@@ -157,6 +161,10 @@
+ Call \fIcmd\fR before and after a recording. See the file \fIINSTALL\fR for
+ more information.
+ .TP
++.BI \-\-resdir= dir
++read resource files from \fIdir\fR
++(default is to read them from the config directory).
++.TP
+ .BI \-s\  cmd ,\ \-\-shutdown= cmd
+ Call \fIcmd\fR to shutdown the computer. See the file \fIINSTALL\fR for more
+ information.
+diff -ruN vdr-1.7.29/vdr.c vdr-1.7.30/vdr.c
+--- vdr-1.7.29/vdr.c	2012-06-13 13:28:41.000000000 +0200
++++ vdr-1.7.30/vdr.c	2012-09-01 15:30:19.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 2.37 2012/06/13 11:28:41 kls Exp $
++ * $Id: vdr.c 2.38 2012/09/01 13:30:19 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -178,10 +178,15 @@
+ 
+   // Command line options:
+ 
++#define dd(a, b) (*a ? a : b)
+ #define DEFAULTSVDRPPORT 6419
+ #define DEFAULTWATCHDOG     0 // seconds
+-#define DEFAULTCONFDIR CONFDIR
++#define DEFAULTVIDEODIR VIDEODIR
++#define DEFAULTCONFDIR dd(CONFDIR, VideoDirectory)
++#define DEFAULTCACHEDIR dd(CACHEDIR, VideoDirectory)
++#define DEFAULTRESDIR dd(RESDIR, ConfigDirectory)
+ #define DEFAULTPLUGINDIR PLUGINDIR
++#define DEFAULTLOCDIR LOCDIR
+ #define DEFAULTEPGDATAFILENAME "epg.data"
+ 
+   bool StartedAsRoot = false;
+@@ -189,7 +194,11 @@
+   bool UserDump = false;
+   int SVDRPport = DEFAULTSVDRPPORT;
+   const char *AudioCommand = NULL;
++  const char *VideoDirectory = DEFAULTVIDEODIR;
+   const char *ConfigDirectory = NULL;
++  const char *CacheDirectory = NULL;
++  const char *ResourceDirectory = NULL;
++  const char *LocaleDirectory = DEFAULTLOCDIR;
+   const char *EpgDataFileName = DEFAULTEPGDATAFILENAME;
+   bool DisplayHelp = false;
+   bool DisplayVersion = false;
+@@ -198,7 +207,6 @@
+   bool MuteAudio = false;
+   int WatchdogTimeout = DEFAULTWATCHDOG;
+   const char *Terminal = NULL;
+-  const char *LocaleDir = NULL;
+ 
+   bool UseKbd = true;
+   const char *LircDevice = NULL;
+@@ -216,6 +224,7 @@
+ 
+   static struct option long_options[] = {
+       { "audio",    required_argument, NULL, 'a' },
++      { "cachedir", required_argument, NULL, 'c' | 0x100 },
+       { "config",   required_argument, NULL, 'c' },
+       { "daemon",   no_argument,       NULL, 'd' },
+       { "device",   required_argument, NULL, 'D' },
+@@ -235,6 +244,7 @@
+       { "plugin",   required_argument, NULL, 'P' },
+       { "port",     required_argument, NULL, 'p' },
+       { "record",   required_argument, NULL, 'r' },
++      { "resdir",   required_argument, NULL, 'r' | 0x100 },
+       { "shutdown", required_argument, NULL, 's' },
+       { "split",    no_argument,       NULL, 's' | 0x100 },
+       { "terminal", required_argument, NULL, 't' },
+@@ -252,6 +262,9 @@
+         switch (c) {
+           case 'a': AudioCommand = optarg;
+                     break;
++          case 'c' | 0x100:
++                    CacheDirectory = optarg;
++                    break;
+           case 'c': ConfigDirectory = optarg;
+                     break;
+           case 'd': DaemonMode = true; break;
+@@ -327,7 +340,7 @@
+                     break;
+           case 'l' | 0x200:
+                     if (access(optarg, R_OK | X_OK) == 0)
+-                       LocaleDir = optarg;
++                       LocaleDirectory = optarg;
+                     else {
+                        fprintf(stderr, "vdr: can't access locale directory: %s\n", optarg);
+                        return 2;
+@@ -349,6 +362,9 @@
+                     break;
+           case 'r': cRecordingUserCommand::SetCommand(optarg);
+                     break;
++          case 'r' | 0x100:
++                    ResourceDirectory = optarg;
++                    break;
+           case 's': ShutdownHandler.SetShutdownCommand(optarg);
+                     break;
+           case 's' | 0x100:
+@@ -414,6 +430,7 @@
+      if (DisplayHelp) {
+         printf("Usage: vdr [OPTIONS]\n\n"          // for easier orientation, this is column 80|
+                "  -a CMD,   --audio=CMD    send Dolby Digital audio to stdin of command CMD\n"
++               "            --cachedir=DIR save cache files in DIR (default: %s)\n"
+                "  -c DIR,   --config=DIR   read config files from DIR (default: %s)\n"
+                "  -d,       --daemon       run in daemon mode\n"
+                "  -D NUM,   --device=NUM   use only the given DVB device (NUM = 0, 1, 2...)\n"
+@@ -450,6 +467,7 @@
+                "                           0 turns off SVDRP\n"
+                "  -P OPT,   --plugin=OPT   load a plugin defined by the given options\n"
+                "  -r CMD,   --record=CMD   call CMD before and after a recording\n"
++               "            --resdir=DIR   read resource files from DIR (default: %s)\n"
+                "  -s CMD,   --shutdown=CMD call CMD to shutdown the computer\n"
+                "            --split        split edited files at the editing marks (only\n"
+                "                           useful in conjunction with --edit)\n"
+@@ -464,14 +482,16 @@
+                "  -w SEC,   --watchdog=SEC activate the watchdog timer with a timeout of SEC\n"
+                "                           seconds (default: %d); '0' disables the watchdog\n"
+                "\n",
++               DEFAULTCACHEDIR,
+                DEFAULTCONFDIR,
+                DEFAULTEPGDATAFILENAME,
+                MAXVIDEOFILESIZEDEFAULT,
+                DEFAULTPLUGINDIR,
+                LIRC_DEVICE,
+-               LOCDIR,
++               DEFAULTLOCDIR,
+                DEFAULTSVDRPPORT,
+-               VideoDirectory,
++               DEFAULTRESDIR,
++               DEFAULTVIDEODIR,
+                DEFAULTWATCHDOG
+                );
+         }
+@@ -555,7 +575,7 @@
+ 
+   // Initialize internationalization:
+ 
+-  I18nInitialize(LocaleDir);
++  I18nInitialize(LocaleDirectory);
+ 
+   // Main program loop variables - need to be here to have them initialized before any EXIT():
+ 
+@@ -577,14 +597,22 @@
+   if (!PluginManager.LoadPlugins(true))
+      EXIT(2);
+ 
+-  // Configuration data:
++  // Directories:
+ 
++  SetVideoDirectory(VideoDirectory);
+   if (!ConfigDirectory)
+      ConfigDirectory = DEFAULTCONFDIR;
+-
+   cPlugin::SetConfigDirectory(ConfigDirectory);
++  if (!CacheDirectory)
++     CacheDirectory = DEFAULTCACHEDIR;
++  cPlugin::SetCacheDirectory(CacheDirectory);
++  if (!ResourceDirectory)
++     ResourceDirectory = DEFAULTRESDIR;
++  cPlugin::SetResourceDirectory(ResourceDirectory);
+   cThemes::SetThemesDirectory(AddDirectory(ConfigDirectory, "themes"));
+ 
++  // Configuration data:
++
+   Setup.Load(AddDirectory(ConfigDirectory, "setup.conf"));
+   Sources.Load(AddDirectory(ConfigDirectory, "sources.conf"), true, true);
+   Diseqcs.Load(AddDirectory(ConfigDirectory, "diseqc.conf"), true, Setup.DiSEqC);
+@@ -618,7 +646,7 @@
+         EpgDataFileName = DEFAULTEPGDATAFILENAME;
+         }
+      else if (*EpgDataFileName != '/' && *EpgDataFileName != '.')
+-        EpgDirectory = VideoDirectory;
++        EpgDirectory = CacheDirectory;
+      if (EpgDirectory)
+         cSchedules::SetEpgDataFileName(AddDirectory(EpgDirectory, EpgDataFileName));
+      else
+diff -ruN vdr-1.7.29/videodir.c vdr-1.7.30/videodir.c
+--- vdr-1.7.29/videodir.c	2012-06-10 15:45:21.000000000 +0200
++++ vdr-1.7.30/videodir.c	2012-09-01 12:57:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: videodir.c 2.2 2012/06/10 13:45:21 kls Exp $
++ * $Id: videodir.c 2.3 2012/09/01 10:57:44 kls Exp $
+  */
+ 
+ #include "videodir.h"
+@@ -21,6 +21,11 @@
+ 
+ const char *VideoDirectory = VIDEODIR;
+ 
++void SetVideoDirectory(const char *Directory)
++{
++  VideoDirectory = strdup(Directory);
++}
++
+ class cVideoDirectory {
+ private:
+   char *name, *stored, *adjusted;
+diff -ruN vdr-1.7.29/videodir.h vdr-1.7.30/videodir.h
+--- vdr-1.7.29/videodir.h	2012-04-22 17:07:56.000000000 +0200
++++ vdr-1.7.30/videodir.h	2012-09-01 12:57:07.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: videodir.h 2.1 2012/04/22 15:07:56 kls Exp $
++ * $Id: videodir.h 2.2 2012/09/01 10:57:07 kls Exp $
+  */
+ 
+ #ifndef __VIDEODIR_H
+@@ -15,6 +15,7 @@
+ 
+ extern const char *VideoDirectory;
+ 
++void SetVideoDirectory(const char *Directory);
+ cUnbufferedFile *OpenVideoFile(const char *FileName, int Flags);
+ int CloseVideoFile(cUnbufferedFile *File);
+ bool RenameVideoFile(const char *OldName, const char *NewName);

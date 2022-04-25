@@ -1,0 +1,1584 @@
+diff -ruN vdr-1.3.28/CONTRIBUTORS vdr-1.3.29/CONTRIBUTORS
+--- vdr-1.3.28/CONTRIBUTORS	2005-08-07 16:25:31.000000000 +0200
++++ vdr-1.3.29/CONTRIBUTORS	2005-08-15 13:21:14.000000000 +0200
+@@ -520,6 +520,7 @@
+  for fixing a frequency/transponder handling mixup when setting the time from the
+  DVB data stream
+  for implementing a default cRemote::Initialize()
++ for suggesting to increase the default value for 'Min. user inactivity' to 300 minutes
+ 
+ Jeremy Hall <jhall@UU.NET>
+  for fixing an incomplete initialization of the filter parameters in eit.c
+@@ -570,6 +571,8 @@
+  being learned overwriting the date/time in the 'classic' skin
+  for making cDvbOsd check available OSD memory at runtime
+  for making cEIT::cEIT() drop EPG events that have a zero start time or duration
++ for reporting an unnecessary OSD draw operation caused by the audio track description
++ display in the ST:TNG skin's channel display
+ 
+ Reinhard Walter Buchner <rw.buchner@freenet.de>
+  for adding some satellites to 'sources.conf'
+@@ -822,6 +825,8 @@
+  the actual plugin library files from this version of VDR
+  for making files and directories created with rights according to the shell's
+  umask settings
++ for reporting that there are empty info.vdr files created if there is no EPG
++ info available
+ 
+ Manuel Hartl <icecep@gmx.net>
+  for suggesting to extend the logging info when starting/stopping timers
+@@ -889,6 +894,7 @@
+  for fixing internationalization of the text for "Setup/DVB/Audio language(s)"
+  for making pressing the Power button not stop Transfer Mode or replay immediately
+  for making EPG events without a title display "No title" instead of "(null)"
++ for changing the title of the recording info menu
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1143,6 +1149,7 @@
+  mtError
+  for reporting an unused variable from cTimer::GetWDayFromMDay()
+  for reporting a spelling error in 'canceling'
++ for adding some 'mkdir -p' to the Makefile's 'install' target
+ 
+ Marco Schlüßler <marco@lordzodiac.de>
+  for fixing handling colors in cDvbSpuPalette::yuv2rgb()
+@@ -1203,6 +1210,7 @@
+  for fixing a possible hangup when ending a replay session while cIndexFile::CatchUp()
+  is waiting
+  for improving resetting CAM connections
++ for fixing handling EPG data for time shifted events
+ 
+ Jürgen Schmitz <j.schmitz@web.de>
+  for reporting a bug in displaying the current channel when switching via the SVDRP
+@@ -1341,6 +1349,8 @@
+  cEvent::FixEpgBugs()
+  for adding a missing cMutexLock to cRemote::HasKeys()
+  for removing an unnecessary #include from osd.c
++ for reporting a problem with with numerical input to switch channels if Up, Down,
++ Channel+ or Channel- is pressed
+ 
+ Chad Flynt <hoochster@sofnet.com>
+  for suggestions and experiments regarding the buffer reserve in cTransfer
+@@ -1417,3 +1427,10 @@
+ Bernhard Stegmaier <bernhard.stegmaier@in.tum.de>
+  for reporting a problem in cEITScanner::Process() with forced EPG scans if EPG
+  scan timeout is set to 0
++
++Klaus ??? <klaus@reel-multimedia.com>
++ for reporting a race condition in cTransfer.
++
++Thomas Günther <tom1@toms-cafe.de>
++ for fixing handling the frame number display if '7' is pressed before the first
++ editing mark, or '9' after the last one
+diff -ruN vdr-1.3.28/HISTORY vdr-1.3.29/HISTORY
+--- vdr-1.3.28/HISTORY	2005-08-07 16:25:07.000000000 +0200
++++ vdr-1.3.29/HISTORY	2005-08-15 16:06:44.000000000 +0200
+@@ -3671,3 +3671,31 @@
+ - Fixed setting system time to avoid time jumps in case of faulty data (thanks
+   to Andreas Böttger).
+ - Fixed a memory leak in the SVDRP command LSTE (thanks to Stefan Huelswitt).
++
++2005-08-15: Version 1.3.29
++
++- Fixed a race condition in cTransfer (thanks to Klaus ??? for reporting this one).
++  In doing so, the 'active' variables used by the actual derived cThread classes
++  have been replaced by the cThread::Running() function.
++  Plugin authors may want to check their derived cThread classes and replace any 'active'
++  variables the same way as, for instance, done in transfer.c.
++- Fixed handling EPG data for time shifted events (thanks to Marco Schlüßler).
++- Increased the default value for 'Min. user inactivity' to 300 minutes (suggested
++  by Helmut Auer).
++- Now storing the channel id in the info.vdr file even if there is no EPG info
++  available (thanks to Andreas Brachold for reporting that there are empty info.vdr
++  files created in that case).
++- Added some 'mkdir -p' to the Makefile's 'install' target (thanks to Wayne Keer).
++- Changed the title of the recording info menu (thanks to Rolf Ahrenberg).
++- Fixed handling the frame number display if '7' is pressed before the first editing
++  mark, or '9' after the last one (thanks to Thomas Günther).
++- Now discarding any previous numerical input to switch channels if Up, Down, Channel+,
++  Channel-, Left or Right is pressed (thanks to Wolfgang Rohdewald for reporting a
++  problem with this).
++- Pressing Ok while entering a channel number now immediately switches to that
++  channel, without waiting for further input.
++- Avoiding unnecessary OSD draw operations caused by the audio track description
++  display in the ST:TNG skin's channel display (thanks to Oliver Endriss for reporting
++  this).
++- Removed the VIDEO_STILLPICTURE_WORKS_WITH_VDR_FRAMES stuff from
++  cDvbDevice::StillPicture(), since apparently the VIDEO_STILLPICTURE call works.
+diff -ruN vdr-1.3.28/MANUAL vdr-1.3.29/MANUAL
+--- vdr-1.3.28/MANUAL	2005-06-18 12:39:02.000000000 +0200
++++ vdr-1.3.29/MANUAL	2005-08-13 15:48:10.000000000 +0200
+@@ -746,7 +746,7 @@
+   Miscellaneous:
+ 
+   Min. event timeout = 30
+-  Min. user inactivity = 120
++  Min. user inactivity = 300
+                          If the command line option '-s' has been set, VDR will
+                          automatically shutdown the computer if the next timer
+                          event is at least MinEventTimeout minutes in the future,
+diff -ruN vdr-1.3.28/Makefile vdr-1.3.29/Makefile
+--- vdr-1.3.28/Makefile	2005-07-31 13:20:20.000000000 +0200
++++ vdr-1.3.29/Makefile	2005-08-14 13:42:20.000000000 +0200
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 1.76 2005/07/31 11:20:20 kls Exp $
++# $Id: Makefile 1.77 2005/08/14 11:42:20 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -183,11 +183,16 @@
+ # Install the files:
+ 
+ install:
++	@mkdir -p $(BINDIR)
+ 	@cp vdr runvdr $(BINDIR)
++	@mkdir -p $(BINDIR)/$(PLUGINLIBDIR)
++	@cp $(PLUGINLIBDIR)/* $(BINDIR)/$(PLUGINLIBDIR)
++	@mkdir -p $(MANDIR)/man1
++	@mkdir -p $(MANDIR)/man5
+ 	@gzip -c vdr.1 > $(MANDIR)/man1/vdr.1.gz
+ 	@gzip -c vdr.5 > $(MANDIR)/man5/vdr.5.gz
+ 	@if [ ! -d $(VIDEODIR) ]; then\
+-            mkdir $(VIDEODIR);\
++            mkdir -p $(VIDEODIR);\
+             cp *.conf $(VIDEODIR);\
+             fi
+ 
+diff -ruN vdr-1.3.28/channels.conf vdr-1.3.29/channels.conf
+--- vdr-1.3.28/channels.conf	2005-08-07 16:35:52.000000000 +0200
++++ vdr-1.3.29/channels.conf	2005-08-15 16:19:02.000000000 +0200
+@@ -8,7 +8,7 @@
+ NDR FS MV;ARD:12109:hC34:S19.2E:27500:2401:2402=deu:2404:0:28224:1:1073:0
+ SR SÜDWEST Ferns.;ARD:11836:hC34:S19.2E:27500:501:502=deu:504:0:28110:1:1101:0
+ WDR Köln;ARD:11836:hC34:S19.2E:27500:601:602=deu:604:0:28111:1:1101:0
+-BR-alpha;ARD:11836:hC34:S19.2E:27500:701:702=deu;703:704:0:28112:1:1101:0
++BR-alpha;ARD:11836:hC34:S19.2E:27500:701:702=deu:704:0:28112:1:1101:0
+ SÜDWEST Ferns. BW;ARD:11836:hC34:S19.2E:27500:801:802=deu:804:0:28113:1:1101:0
+ Phoenix;ARD:11836:hC34:S19.2E:27500:901:902=deu:904:0:28114:1:1101:0
+ ZDF;ZDFvision:11953:hC34:S19.2E:27500:110:120=deu,121=2ch;125=dd:130:0:28006:1:1079:0
+@@ -26,9 +26,9 @@
+ DSF;BetaDigital:12480:vC34:S19.2E:27500:1023:1024=deu:39:0:900:133:33:0
+ HSE24,HSE24;BetaDigital:12480:vC34:S19.2E:27500:1279:1280=deu:37:0:40:133:33:0
+ Bloomberg TV Germany;Bloomberg:12551:vC56:S19.2E:22000:162:99=deu:0:0:12160:1:1108:0
+-EURONEWS;CSAT:11817:vC34:S19.2E:27500:163:92=fra,91=rus,93=eng,94=ita,95=esl,98=por,99=deu:0:0:8004:1:1070:0
++EURONEWS;CSAT:11817:vC34:S19.2E:27500:163:92=fra,93=eng,94=ita,95=esl,91=rus,98=por,99=deu:0:0:8004:1:1070:0
+ rbb Brandenburg;ARD:12109:hC34:S19.2E:27500:601:602=deu:604:0:28205:1:1073:0
+-Sky News;BSkyB:11597:vC56:S19.2E:22000:305+131:306=eng:0:0:28707:1:1026:0
++Sky News:11597:vC56:S19.2E:22000:305+131:306=eng:0:0:28707:1:1026:0
+ Veronica/JETIX;CANALDIGITAAL:12574:hC56:S19.2E:22000:518+8190:92=dut:38:622,100:5020:53:1109:0
+ BVN;CANALDIGITAAL:12574:hC56:S19.2E:22000:515+8190:96=dut:36:0:5025:53:1109:0
+ n-tv;RTL World:12187:hC34:S19.2E:27500:169:73=deu:80:0:12090:1:1089:0
+@@ -46,9 +46,9 @@
+ PREMIERE START,START;PREMIERE:11797:hC34:S19.2E:27500:255:256=deu:32:1702,1801,1722:8:133:2:0
+ PREMIERE 1,PREM 1;PREMIERE:11797:hC34:S19.2E:27500:511:512=deu;515=deu:32:1722,1702,1801:10:133:2:0
+ PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu;1795=deu:32:1801,1722,1702:11:133:2:0
+-PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu,2305=deu:32:1722,1801,1702:43:133:2:0
+-PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu,769=deu:32:1801,1722,1702:9:133:2:0
+-PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu,1281=deu:32:1722,1801,1702:29:133:2:0
++PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu:32:1722,1801,1702:43:133:2:0
++PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu:32:1801,1722,1702:9:133:2:0
++PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu:32:1722,1801,1702:29:133:2:0
+ PREMIERE 6,PREM 6;PREMIERE:11797:hC34:S19.2E:27500:1535:1536=deu:32:1702,1801,1722:41:133:2:0
+ PREMIERE 7,PREM 7;PREMIERE:11797:hC34:S19.2E:27500:1023:1024=deu:32:1801,1722,1702:20:133:2:0
+ DISNEY CHANNEL,DISNEY;PREMIERE:11758:hC34:S19.2E:27500:2559:2560=deu:32:1722,1801,1702:34:133:17:0
+@@ -64,7 +64,7 @@
+ N24;ProSiebenSat.1:12480:vC34:S19.2E:27500:2047:2048=deu:36:0:47:133:33:0
+ LibertyTV FR;LibertyTV.com:12610:vC56:S19.2E:22000:941:943=deu:0:0:12199:1:1112:0
+ :-
+-ProSieben Austria;ProSiebenSat.1:12051:vC34:S19.2E:27500:161:84=deu;85=deu:36:0:20002:1:1082:0
++ProSieben Austria;ProSiebenSat.1:12051:vC34:S19.2E:27500:161:84=deu:36:0:20002:1:1082:0
+ Kabel 1 Schweiz;ProSiebenSat.1:12051:vC34:S19.2E:27500:162:163=deu:165:0:20003:1:1082:0
+ Kabel 1 Austria;ProSiebenSat.1:12051:vC34:S19.2E:27500:166:167=deu:169:0:20004:1:1082:0
+ ProSieben Schweiz;ProSiebenSat.1:12051:vC34:S19.2E:27500:289:290=deu:33:0:20001:1:1082:0
+@@ -79,7 +79,7 @@
+ ASTRA-Mosaic 5;SES ASTRA:12551:vC56:S19.2E:22000:163:164:0:0:3984:1:1108:0
+ Chamber TV;Chambre des Députées:12551:vC56:S19.2E:22000:55:56=ltz:0:0:12180:1:1108:0
+ RTL TELE Letzebuerg:12551:vC56:S19.2E:22000:168:144=eng,146=fra,151=ltz:74:0:3994:1:1108:0
+-Yorin;CANALDIGITAAL:12574:hC56:S19.2E:22000:512+8190:84=dut:33:622,100:5010:53:1109:0
++RTL7.;CANALDIGITAAL:12574:hC56:S19.2E:22000:512+8190:84=dut:33:622,100:5010:53:1109:0
+ MTV2 Pop Channel;MTV Networks:12226:hC34:S19.2E:27500:513+8190:661=deu:577:0:28640:1:1091:0
+ MTV Central;MTV Networks:11739:vC34:S19.2E:27500:3031:3032:3034:0:28653:1:1066:0
+ VIVA;VIVA Fernsehen GmbH & Co. KG:12669:vC56:S19.2E:22000:309:310=deu:311:0:12732:1:1116:0
+@@ -92,6 +92,8 @@
+ ITV2;BSkyB:10758:vC56:S28.2E:22000:2314:2315=eng:2317:960,961:10070:2:2044:0
+ Sci-Fi;BSkyB:12148:hC23:S28.2E:27500:512+8190:640=eng:576:960,961:4905:2:2023:0
+ Paramount;BSkyB:12187:hC23:S28.2E:27500:2313+2304:2317=eng,2318=NAR:2315:960,961:5904:2:2025:0
++Paramount;BSkyB:11526:vC23:S28.2E:27500:2317+2306:2318=eng:2319:960,961:50305:2:2404:0
++Paramount 2;BSkyB:11914:hC23:S28.2E:27500:514+8190:642=eng,662=NAR:578:960,961:4504:2:2011:0
+ Discovery;BSkyB:11875:hC23:S28.2E:27500:2304:2306=eng,2307=NAR:2305:960,961:6201:2:2009:0
+ Sky Movies 1;BSkyB:11836:hC23:S28.2E:27500:518+8190:646=eng,653=NAR;686=eng:582:960,961:4303:2:2007:0
+ Sky Movies 2;BSkyB:11836:hC23:S28.2E:27500:519+8190:647=eng,667=NAR;687=eng:583:960,961:4302:2:2007:0
+diff -ruN vdr-1.3.28/config.c vdr-1.3.29/config.c
+--- vdr-1.3.28/config.c	2005-08-07 11:03:00.000000000 +0200
++++ vdr-1.3.29/config.c	2005-08-13 15:47:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 1.135 2005/08/07 09:03:00 kls Exp $
++ * $Id: config.c 1.136 2005/08/13 13:47:08 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -295,7 +295,7 @@
+   MaxVideoFileSize = MAXVIDEOFILESIZE;
+   SplitEditedFiles = 0;
+   MinEventTimeout = 30;
+-  MinUserInactivity = 120;
++  MinUserInactivity = 300;
+   MultiSpeedMode = 0;
+   ShowReplayMode = 0;
+   ResumeID = 0;
+diff -ruN vdr-1.3.28/config.h vdr-1.3.29/config.h
+--- vdr-1.3.28/config.h	2005-07-30 11:19:25.000000000 +0200
++++ vdr-1.3.29/config.h	2005-08-13 11:43:27.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.222 2005/07/30 09:19:25 kls Exp $
++ * $Id: config.h 1.223 2005/08/13 09:43:27 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -20,8 +20,8 @@
+ #include "i18n.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.3.28"
+-#define VDRVERSNUM   10328  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.3.29"
++#define VDRVERSNUM   10329  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+diff -ruN vdr-1.3.28/cutter.c vdr-1.3.29/cutter.c
+--- vdr-1.3.28/cutter.c	2005-05-15 16:21:08.000000000 +0200
++++ vdr-1.3.29/cutter.c	2005-08-14 12:51:54.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: cutter.c 1.8 2005/05/15 14:21:08 kls Exp $
++ * $Id: cutter.c 1.10 2005/08/14 10:51:54 kls Exp $
+  */
+ 
+ #include "cutter.h"
+@@ -18,7 +18,6 @@
+ class cCuttingThread : public cThread {
+ private:
+   const char *error;
+-  bool active;
+   int fromFile, toFile;
+   cFileName *fromFileName, *toFileName;
+   cIndexFile *fromIndex, *toIndex;
+@@ -35,7 +34,6 @@
+ :cThread("video cutting")
+ {
+   error = NULL;
+-  active = false;
+   fromFile = toFile = -1;
+   fromFileName = toFileName = NULL;
+   fromIndex = toIndex = NULL;
+@@ -53,7 +51,6 @@
+ 
+ cCuttingThread::~cCuttingThread()
+ {
+-  active = false;
+   Cancel(3);
+   delete fromFileName;
+   delete toFileName;
+@@ -67,7 +64,8 @@
+   if (Mark) {
+      fromFile = fromFileName->Open();
+      toFile = toFileName->Open();
+-     active = fromFile >= 0 && toFile >= 0;
++     if (fromFile < 0 || toFile < 0)
++        return;
+      int Index = Mark->position;
+      Mark = fromMarks.Next(Mark);
+      int FileSize = 0;
+@@ -78,7 +76,7 @@
+      uchar buffer[MAXFRAMESIZE];
+      bool LastMark = false;
+      bool cutIn = true;
+-     while (active) {
++     while (Running()) {
+            uchar FileNumber;
+            int FileOffset, Length;
+            uchar PictureType;
+diff -ruN vdr-1.3.28/device.c vdr-1.3.29/device.c
+--- vdr-1.3.28/device.c	2005-06-12 15:39:11.000000000 +0200
++++ vdr-1.3.29/device.c	2005-08-14 12:52:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 1.103 2005/06/12 13:39:11 kls Exp $
++ * $Id: device.c 1.105 2005/08/14 10:52:08 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -156,8 +156,6 @@
+ 
+   SetVideoFormat(Setup.VideoFormat);
+ 
+-  active = false;
+-
+   mute = false;
+   volume = Setup.CurrentVolume;
+ 
+@@ -1126,25 +1124,25 @@
+ 
+ void cDevice::Action(void)
+ {
+-  if (active && OpenDvr()) {
+-     for (; active;) {
+-         // Read data from the DVR device:
+-         uchar *b = NULL;
+-         if (GetTSPacket(b)) {
+-            if (b) {
+-               int Pid = (((uint16_t)b[1] & PID_MASK_HI) << 8) | b[2];
+-               // Distribute the packet to all attached receivers:
+-               Lock();
+-               for (int i = 0; i < MAXRECEIVERS; i++) {
+-                   if (receiver[i] && receiver[i]->WantsPid(Pid))
+-                      receiver[i]->Receive(b, TS_SIZE);
+-                   }
+-               Unlock();
+-               }
+-            }
+-         else
+-            break;
+-         }
++  if (Running() && OpenDvr()) {
++     while (Running()) {
++           // Read data from the DVR device:
++           uchar *b = NULL;
++           if (GetTSPacket(b)) {
++              if (b) {
++                 int Pid = (((uint16_t)b[1] & PID_MASK_HI) << 8) | b[2];
++                 // Distribute the packet to all attached receivers:
++                 Lock();
++                 for (int i = 0; i < MAXRECEIVERS; i++) {
++                     if (receiver[i] && receiver[i]->WantsPid(Pid))
++                        receiver[i]->Receive(b, TS_SIZE);
++                     }
++                 Unlock();
++                 }
++              }
++           else
++              break;
++           }
+      CloseDvr();
+      }
+ }
+@@ -1188,10 +1186,8 @@
+          Receiver->device = this;
+          receiver[i] = Receiver;
+          Unlock();
+-         if (!active) {
+-            active = true;
++         if (!Running())
+             Start();
+-            }
+          return true;
+          }
+       }
+@@ -1218,10 +1214,8 @@
+       else if (receiver[i])
+          receiversLeft = true;
+       }
+-  if (!receiversLeft) {
+-     active = false;
++  if (!receiversLeft)
+      Cancel(3);
+-     }
+ }
+ 
+ void cDevice::DetachAll(int Pid)
+@@ -1246,13 +1240,11 @@
+   delivered = false;
+   ringBuffer = new cRingBufferLinear(Size, TS_SIZE, true, "TS");
+   ringBuffer->SetTimeouts(100, 100);
+-  active = true;
+   Start();
+ }
+ 
+ cTSBuffer::~cTSBuffer()
+ {
+-  active = false;
+   Cancel(3);
+   delete ringBuffer;
+ }
+@@ -1262,20 +1254,20 @@
+   if (ringBuffer) {
+      bool firstRead = true;
+      cPoller Poller(f);
+-     for (; active;) {
+-         if (firstRead || Poller.Poll(100)) {
+-            firstRead = false;
+-            int r = ringBuffer->Read(f);
+-            if (r < 0 && FATALERRNO) {
+-               if (errno == EOVERFLOW)
+-                  esyslog("ERROR: driver buffer overflow on device %d", cardIndex);
+-               else {
+-                  LOG_ERROR;
+-                  break;
+-                  }
+-               }
+-            }
+-         }
++     while (Running()) {
++           if (firstRead || Poller.Poll(100)) {
++              firstRead = false;
++              int r = ringBuffer->Read(f);
++              if (r < 0 && FATALERRNO) {
++                 if (errno == EOVERFLOW)
++                    esyslog("ERROR: driver buffer overflow on device %d", cardIndex);
++                 else {
++                    LOG_ERROR;
++                    break;
++                    }
++                 }
++              }
++           }
+      }
+ }
+ 
+diff -ruN vdr-1.3.28/device.h vdr-1.3.29/device.h
+--- vdr-1.3.28/device.h	2005-07-30 11:31:53.000000000 +0200
++++ vdr-1.3.29/device.h	2005-08-13 13:44:13.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 1.60 2005/07/30 09:31:53 kls Exp $
++ * $Id: device.h 1.61 2005/08/13 11:44:13 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -233,7 +233,6 @@
+ // PID handle facilities
+ 
+ private:
+-  bool active;
+   virtual void Action(void);
+ protected:
+   enum ePidType { ptAudio, ptVideo, ptPcr, ptTeletext, ptDolby, ptOther };
+@@ -518,7 +517,6 @@
+ private:
+   int f;
+   int cardIndex;
+-  bool active;
+   bool delivered;
+   cRingBufferLinear *ringBuffer;
+   virtual void Action(void);
+diff -ruN vdr-1.3.28/dvbdevice.c vdr-1.3.29/dvbdevice.c
+--- vdr-1.3.28/dvbdevice.c	2005-06-19 13:00:43.000000000 +0200
++++ vdr-1.3.29/dvbdevice.c	2005-08-15 16:05:23.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.131 2005/06/19 11:00:43 kls Exp $
++ * $Id: dvbdevice.c 1.134 2005/08/15 14:05:23 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -76,7 +76,6 @@
+   cCiHandler *ciHandler;
+   cChannel channel;
+   const char *diseqcCommands;
+-  bool active;
+   bool useCa;
+   time_t startTime;
+   eTunerStatus tunerStatus;
+@@ -101,7 +100,6 @@
+   frontendType = FrontendType;
+   ciHandler = CiHandler;
+   diseqcCommands = NULL;
+-  active = false;
+   useCa = false;
+   tunerStatus = tsIdle;
+   startTime = time(NULL);
+@@ -113,7 +111,6 @@
+ 
+ cDvbTuner::~cDvbTuner()
+ {
+-  active = false;
+   tunerStatus = tsIdle;
+   newSet.Signal();
+   Cancel(3);
+@@ -294,8 +291,7 @@
+ void cDvbTuner::Action(void)
+ {
+   dvb_frontend_event event;
+-  active = true;
+-  while (active) {
++  while (Running()) {
+         Lock();
+         if (tunerStatus == tsSet) {
+            while (GetFrontendEvent(event))
+@@ -1056,22 +1052,6 @@
+ 
+ void cDvbDevice::StillPicture(const uchar *Data, int Length)
+ {
+-/* Using the VIDEO_STILLPICTURE ioctl call would be the
+-   correct way to display a still frame, but unfortunately this
+-   doesn't work with frames from VDR. So let's do pretty much the
+-   same here as in DVB/driver/dvb.c's play_iframe() - I have absolutely
+-   no idea why it works this way, but doesn't work with VIDEO_STILLPICTURE.
+-   If anybody ever finds out what could be changed so that VIDEO_STILLPICTURE
+-   could be used, please let me know!
+-   kls 2002-03-23
+-   2003-08-30: apparently the driver can't handle PES data, so Oliver Endriss
+-               <o.endriss@gmx.de> has changed this to strip all PES headers
+-               and send pure ES data to the driver. Seems to work just fine!
+-               Let's drop the VIDEO_STILLPICTURE_WORKS_WITH_VDR_FRAMES stuff
+-               once this has proven to work in all cases.
+-*/
+-#define VIDEO_STILLPICTURE_WORKS_WITH_VDR_FRAMES
+-#ifdef VIDEO_STILLPICTURE_WORKS_WITH_VDR_FRAMES
+   if (Data[0] == 0x00 && Data[1] == 0x00 && Data[2] == 0x01 && (Data[3] & 0xF0) == 0xE0) {
+      // PES data
+      char *buf = MALLOC(char, Length);
+@@ -1143,13 +1123,6 @@
+      video_still_picture sp = { (char *)Data, Length };
+      CHECK(ioctl(fd_video, VIDEO_STILLPICTURE, &sp));
+      }
+-#else
+-#define MIN_IFRAME 400000
+-  for (int i = MIN_IFRAME / Length + 1; i > 0; i--) {
+-      safe_write(fd_video, Data, Length);
+-      cCondWait::SleepMs(3); // allows the buffer to be displayed in case the progress display is active
+-      }
+-#endif
+ }
+ 
+ bool cDvbDevice::Poll(cPoller &Poller, int TimeoutMs)
+diff -ruN vdr-1.3.28/dvbplayer.c vdr-1.3.29/dvbplayer.c
+--- vdr-1.3.28/dvbplayer.c	2005-07-30 12:00:24.000000000 +0200
++++ vdr-1.3.29/dvbplayer.c	2005-08-14 12:52:45.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.c 1.36 2005/07/30 10:00:24 kls Exp $
++ * $Id: dvbplayer.c 1.38 2005/08/14 10:52:45 kls Exp $
+  */
+ 
+ #include "dvbplayer.h"
+@@ -79,7 +79,6 @@
+   int wanted;
+   int length;
+   bool hasData;
+-  bool active;
+   cCondWait newSet;
+ protected:
+   void Action(void);
+@@ -98,13 +97,11 @@
+   buffer = NULL;
+   wanted = length = 0;
+   hasData = false;
+-  active = false;
+   Start();
+ }
+ 
+ cNonBlockingFileReader::~cNonBlockingFileReader()
+ {
+-  active = false;
+   newSet.Signal();
+   Cancel(3);
+   free(buffer);
+@@ -147,8 +144,7 @@
+ 
+ void cNonBlockingFileReader::Action(void)
+ {
+-  active = true;
+-  while (active) {
++  while (Running()) {
+         Lock();
+         if (!hasData && f >= 0 && buffer) {
+            int r = safe_read(f, buffer + length, wanted - length);
+@@ -187,8 +183,6 @@
+   cIndexFile *index;
+   int replayFile;
+   bool eof;
+-  bool active;
+-  bool running;
+   bool firstPacket;
+   ePlayModes playMode;
+   ePlayDirs playDir;
+@@ -207,7 +201,7 @@
+ public:
+   cDvbPlayer(const char *FileName);
+   virtual ~cDvbPlayer();
+-  bool Active(void) { return active; }
++  bool Active(void) { return cThread::Running(); }
+   void Pause(void);
+   void Play(void);
+   void Forward(void);
+@@ -233,8 +227,6 @@
+   backTrace = NULL;
+   index = NULL;
+   eof = false;
+-  active = true;
+-  running = false;
+   firstPacket = true;
+   playMode = pmPlay;
+   playDir = pdForward;
+@@ -353,11 +345,8 @@
+      if (replayFile >= 0)
+         Start();
+      }
+-  else if (active) {
+-     running = false;
++  else
+      Cancel(9);
+-     active = false;
+-     }
+ }
+ 
+ void cDvbPlayer::Action(void)
+@@ -374,8 +363,7 @@
+   int Length = 0;
+   bool Sleep = false;
+ 
+-  running = true;
+-  while (running && (NextFile() || readIndex >= 0 || ringBuffer->Available() || !DeviceFlush(100))) {
++  while (Running() && (NextFile() || readIndex >= 0 || ringBuffer->Available() || !DeviceFlush(100))) {
+         if (Sleep) {
+            cCondWait::SleepMs(3); // this keeps the CPU load low
+            Sleep = false;
+@@ -501,7 +489,6 @@
+               Sleep = true;
+            }
+         }
+-  active = running = false;
+ 
+   cNonBlockingFileReader *nbfr = nonBlockingFileReader;
+   nonBlockingFileReader = NULL;
+diff -ruN vdr-1.3.28/eit.c vdr-1.3.29/eit.c
+--- vdr-1.3.28/eit.c	2005-08-07 15:52:29.000000000 +0200
++++ vdr-1.3.29/eit.c	2005-08-13 15:27:34.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 1.109 2005/08/07 13:52:29 kls Exp $
++ * $Id: eit.c 1.110 2005/08/13 13:27:34 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -35,8 +35,6 @@
+   if (!channel)
+      return; // only collect data for known channels
+ 
+-  cEvent *rEvent = NULL;
+-
+   cSchedule *pSchedule = (cSchedule *)Schedules->GetSchedule(channelID);
+   if (!pSchedule) {
+      pSchedule = new cSchedule(channelID);
+@@ -53,6 +51,7 @@
+          continue;
+       Empty = false;
+       cEvent *newEvent = NULL;
++      cEvent *rEvent = NULL;
+       cEvent *pEvent = (cEvent *)pSchedule->GetEvent(SiEitEvent.getEventId(), SiEitEvent.getStartTime());
+       if (!pEvent) {
+          // If we don't have that event yet, we create a new one.
+diff -ruN vdr-1.3.28/i18n.c vdr-1.3.29/i18n.c
+--- vdr-1.3.28/i18n.c	2005-08-06 18:09:44.000000000 +0200
++++ vdr-1.3.29/i18n.c	2005-08-14 14:03:47.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.197 2005/08/06 16:09:44 kls Exp $
++ * $Id: i18n.c 1.198 2005/08/14 12:03:47 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -252,6 +252,27 @@
+     "Salvestused",
+     "Optagelser",
+   },
++  { "Recording info",
++    "Aufzeichnung",
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "Tallenteen tiedot",
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++    "",// TODO
++  },
+   { "Setup",
+     "Einstellungen",
+     "Nastavitve",
+diff -ruN vdr-1.3.28/lirc.c vdr-1.3.29/lirc.c
+--- vdr-1.3.28/lirc.c	2005-07-31 12:18:09.000000000 +0200
++++ vdr-1.3.29/lirc.c	2005-08-15 14:28:10.000000000 +0200
+@@ -6,7 +6,7 @@
+  *
+  * LIRC support added by Carsten Koch <Carsten.Koch@icem.de>  2000-06-16.
+  *
+- * $Id: lirc.c 1.11 2005/07/31 10:18:09 kls Exp $
++ * $Id: lirc.c 1.12 2005/08/15 12:28:10 kls Exp $
+  */
+ 
+ #include "lirc.h"
+@@ -61,48 +61,48 @@
+   bool repeat = false;
+   int timeout = -1;
+ 
+-  for (; f >= 0;) {
++  while (Running() && f >= 0) {
+ 
+-      bool ready = cFile::FileReady(f, timeout);
+-      int ret = ready ? safe_read(f, buf, sizeof(buf)) : -1;
++        bool ready = cFile::FileReady(f, timeout);
++        int ret = ready ? safe_read(f, buf, sizeof(buf)) : -1;
+ 
+-      if (ready && ret <= 0 ) {
+-         esyslog("ERROR: lircd connection lost");
+-         close(f);
+-         f = -1;
+-         break;
+-         }
+-
+-      if (ready && ret > 21) {
+-         int count;
+-         char KeyName[LIRC_KEY_BUF];
+-         sscanf(buf, "%*x %x %29s", &count, KeyName); // '29' in '%29s' is LIRC_KEY_BUF-1!
+-         if (count == 0) {
+-            if (strcmp(KeyName, LastKeyName) == 0 && FirstTime.Elapsed() < KEYPRESSDELAY)
+-               continue; // skip keys coming in too fast
+-            if (repeat)
+-               Put(LastKeyName, false, true);
+-            strcpy(LastKeyName, KeyName);
+-            repeat = false;
+-            FirstTime.Set();
+-            timeout = -1;
+-            }
+-         else {
+-            if (FirstTime.Elapsed() < REPEATDELAY)
+-               continue; // repeat function kicks in after a short delay
+-            repeat = true;
+-            timeout = REPEATDELAY;
+-            }
+-         LastTime.Set();
+-         Put(KeyName, repeat);
+-         }
+-      else if (repeat) { // the last one was a repeat, so let's generate a release
+-         if (LastTime.Elapsed() >= REPEATDELAY) {
+-            Put(LastKeyName, false, true);
+-            repeat = false;
+-            *LastKeyName = 0;
+-            timeout = -1;
+-            }
+-         }
+-      }
++        if (ready && ret <= 0 ) {
++           esyslog("ERROR: lircd connection lost");
++           close(f);
++           f = -1;
++           break;
++           }
++
++        if (ready && ret > 21) {
++           int count;
++           char KeyName[LIRC_KEY_BUF];
++           sscanf(buf, "%*x %x %29s", &count, KeyName); // '29' in '%29s' is LIRC_KEY_BUF-1!
++           if (count == 0) {
++              if (strcmp(KeyName, LastKeyName) == 0 && FirstTime.Elapsed() < KEYPRESSDELAY)
++                 continue; // skip keys coming in too fast
++              if (repeat)
++                 Put(LastKeyName, false, true);
++              strcpy(LastKeyName, KeyName);
++              repeat = false;
++              FirstTime.Set();
++              timeout = -1;
++              }
++           else {
++              if (FirstTime.Elapsed() < REPEATDELAY)
++                 continue; // repeat function kicks in after a short delay
++              repeat = true;
++              timeout = REPEATDELAY;
++              }
++           LastTime.Set();
++           Put(KeyName, repeat);
++           }
++        else if (repeat) { // the last one was a repeat, so let's generate a release
++           if (LastTime.Elapsed() >= REPEATDELAY) {
++              Put(LastKeyName, false, true);
++              repeat = false;
++              *LastKeyName = 0;
++              timeout = -1;
++              }
++           }
++        }
+ }
+diff -ruN vdr-1.3.28/menu.c vdr-1.3.29/menu.c
+--- vdr-1.3.28/menu.c	2005-06-18 12:31:52.000000000 +0200
++++ vdr-1.3.29/menu.c	2005-08-14 17:14:29.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.351 2005/06/18 10:31:52 kls Exp $
++ * $Id: menu.c 1.355 2005/08/14 15:14:29 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -1445,7 +1445,7 @@
+ };
+ 
+ cMenuRecording::cMenuRecording(const cRecording *Recording)
+-:cOsdMenu(tr("Recording"))
++:cOsdMenu(tr("Recording info"))
+ {
+   recording = Recording;
+   if (recording)
+@@ -2789,6 +2789,7 @@
+     case kRight|k_Repeat:
+     case kRight:
+          withInfo = false;
++         number = 0;
+          if (group < 0) {
+             cChannel *channel = Channels.GetByNumber(cDevice::CurrentChannel());
+             if (channel)
+@@ -2824,6 +2825,7 @@
+     case kChanDn:
+          withInfo = true;
+          group = -1;
++         number = 0;
+          Refresh();
+          break;
+     case kNone:
+@@ -2852,6 +2854,8 @@
+                      Refresh();
+                      break;
+                      }
++                  else if (number > 0 && channel)
++                     Channels.SwitchTo(number);
+                   return osEnd;
+     default:      if ((Key & (k_Repeat | k_Release)) == 0) {
+                      cRemote::Put(Key);
+@@ -3596,10 +3600,11 @@
+      int Current, Total;
+      if (GetIndex(Current, Total)) {
+         cMark *m = Forward ? marks.GetNext(Current) : marks.GetPrev(Current);
+-        if (m)
++        if (m) {
+            Goto(m->position, true);
++           displayFrames = true;
++           }
+         }
+-     displayFrames = true;
+      }
+ }
+ 
+diff -ruN vdr-1.3.28/rcu.c vdr-1.3.29/rcu.c
+--- vdr-1.3.28/rcu.c	2005-07-31 12:17:45.000000000 +0200
++++ vdr-1.3.29/rcu.c	2005-08-15 14:30:21.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: rcu.c 1.9 2005/07/31 10:17:45 kls Exp $
++ * $Id: rcu.c 1.10 2005/08/15 12:30:21 kls Exp $
+  */
+ 
+ #include "rcu.h"
+@@ -98,60 +98,59 @@
+   uint64 LastCommand = 0;
+   bool repeat = false;
+ 
+-  //XXX
+-  for (; f >= 0;) {
++  while (Running() && f >= 0) {
+ 
+-      LOCK_THREAD;
++        LOCK_THREAD;
+ 
+-      if (ReceiveByte(REPEATLIMIT) == 'X') {
+-         for (int i = 0; i < 6; i++) {
+-             int b = ReceiveByte();
+-             if (b >= 0) {
+-                buffer.raw[i] = b;
+-                if (i == 5) {
+-                   unsigned short Address = ntohs(buffer.data.address); // the PIC sends bytes in "network order"
+-                   uint64         Command = ntohl(buffer.data.command);
+-                   if (code == 'B' && Address == 0x0000 && Command == 0x00004000)
+-                      // Well, well, if it isn't the "d-box"...
+-                      // This remote control sends the above command before and after
+-                      // each keypress - let's just drop this:
+-                      break;
+-                   Command |= uint64(Address) << 32;
+-                   if (Command != LastCommand) {
+-                      LastCommand = Command;
+-                      repeat = false;
+-                      FirstTime.Set();
+-                      }
+-                   else {
+-                      if (FirstTime.Elapsed() < REPEATDELAY)
+-                         break; // repeat function kicks in after a short delay
+-                      repeat = true;
+-                      }
+-                   Put(Command, repeat);
+-                   receivedCommand = true;
+-                   }
+-                }
+-             else
+-                break;
+-             }
+-         }
+-      else if (repeat) { // the last one was a repeat, so let's generate a release
+-         Put(LastCommand, false, true);
+-         repeat = false;
+-         LastCommand = 0;
+-         }
+-      else {
+-         LastCommand = 0;
+-         if (numberToSend >= 0) {
+-            Number(numberToSend);
+-            numberToSend = -1;
+-            }
+-         }
+-      if (code && time(NULL) - LastCodeRefresh > 60) {
+-         SendCommand(code); // in case the PIC listens to the wrong code
+-         LastCodeRefresh = time(NULL);
+-         }
+-      }
++        if (ReceiveByte(REPEATLIMIT) == 'X') {
++           for (int i = 0; i < 6; i++) {
++               int b = ReceiveByte();
++               if (b >= 0) {
++                  buffer.raw[i] = b;
++                  if (i == 5) {
++                     unsigned short Address = ntohs(buffer.data.address); // the PIC sends bytes in "network order"
++                     uint64         Command = ntohl(buffer.data.command);
++                     if (code == 'B' && Address == 0x0000 && Command == 0x00004000)
++                        // Well, well, if it isn't the "d-box"...
++                        // This remote control sends the above command before and after
++                        // each keypress - let's just drop this:
++                        break;
++                     Command |= uint64(Address) << 32;
++                     if (Command != LastCommand) {
++                        LastCommand = Command;
++                        repeat = false;
++                        FirstTime.Set();
++                        }
++                     else {
++                        if (FirstTime.Elapsed() < REPEATDELAY)
++                           break; // repeat function kicks in after a short delay
++                        repeat = true;
++                        }
++                     Put(Command, repeat);
++                     receivedCommand = true;
++                     }
++                  }
++               else
++                  break;
++               }
++           }
++        else if (repeat) { // the last one was a repeat, so let's generate a release
++           Put(LastCommand, false, true);
++           repeat = false;
++           LastCommand = 0;
++           }
++        else {
++           LastCommand = 0;
++           if (numberToSend >= 0) {
++              Number(numberToSend);
++              numberToSend = -1;
++              }
++           }
++        if (code && time(NULL) - LastCodeRefresh > 60) {
++           SendCommand(code); // in case the PIC listens to the wrong code
++           LastCodeRefresh = time(NULL);
++           }
++        }
+ }
+ 
+ int cRcuRemote::ReceiveByte(int TimeoutMs)
+diff -ruN vdr-1.3.28/recorder.c vdr-1.3.29/recorder.c
+--- vdr-1.3.28/recorder.c	2005-01-16 13:53:17.000000000 +0100
++++ vdr-1.3.29/recorder.c	2005-08-14 12:53:28.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.c 1.13 2005/01/16 12:53:17 kls Exp $
++ * $Id: recorder.c 1.15 2005/08/14 10:53:28 kls Exp $
+  */
+ 
+ #include <stdarg.h>
+@@ -29,7 +29,6 @@
+   uchar pictureType;
+   int fileSize;
+   int recordFile;
+-  bool active;
+   time_t lastDiskSpaceCheck;
+   bool RunningLowOnDiskSpace(void);
+   bool NextFile(void);
+@@ -43,7 +42,6 @@
+ cFileWriter::cFileWriter(const char *FileName, cRemux *Remux)
+ :cThread("file writer")
+ {
+-  active = false;
+   fileName = NULL;
+   remux = Remux;
+   index = NULL;
+@@ -63,7 +61,6 @@
+ 
+ cFileWriter::~cFileWriter()
+ {
+-  active = false;
+   Cancel(3);
+   delete index;
+   delete fileName;
+@@ -96,13 +93,11 @@
+ void cFileWriter::Action(void)
+ {
+   time_t t = time(NULL);
+-  active = true;
+-  while (active) {
++  while (Running()) {
+         int Count;
+         uchar *p = remux->Get(Count, &pictureType);
+         if (p) {
+-           //XXX+ active??? see old version (Busy)
+-           if (!active && pictureType == I_FRAME) // finish the recording before the next 'I' frame
++           if (!Running() && pictureType == I_FRAME) // finish the recording before the next 'I' frame
+               break;
+            if (NextFile()) {
+               if (index && pictureType != NO_PICTURE)
+@@ -124,15 +119,12 @@
+            t = time(NULL);
+            }
+         }
+-  active = false;
+ }
+ 
+ cRecorder::cRecorder(const char *FileName, int Ca, int Priority, int VPid, const int *APids, const int *DPids, const int *SPids)
+ :cReceiver(Ca, Priority, VPid, APids, Setup.UseDolbyDigital ? DPids : NULL, SPids)
+ ,cThread("recording")
+ {
+-  active = false;
+-
+   // Make sure the disk is up and running:
+ 
+   SpinUpDisk(FileName);
+@@ -157,25 +149,22 @@
+      writer->Start();
+      Start();
+      }
+-  else if (active) {
+-     active = false;
++  else
+      Cancel(3);
+-     }
+ }
+ 
+ void cRecorder::Receive(uchar *Data, int Length)
+ {
+-  if (active) {
++  if (Running()) {
+      int p = ringBuffer->Put(Data, Length);
+-     if (p != Length && active)
++     if (p != Length && Running())
+         ringBuffer->ReportOverflow(Length - p);
+      }
+ }
+ 
+ void cRecorder::Action(void)
+ {
+-  active = true;
+-  while (active) {
++  while (Running()) {
+         int r;
+         uchar *b = ringBuffer->Get(r);
+         if (b) {
+diff -ruN vdr-1.3.28/recorder.h vdr-1.3.29/recorder.h
+--- vdr-1.3.28/recorder.h	2005-01-15 17:35:53.000000000 +0100
++++ vdr-1.3.29/recorder.h	2005-08-13 13:31:18.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.h 1.3 2005/01/15 16:35:53 kls Exp $
++ * $Id: recorder.h 1.4 2005/08/13 11:31:18 kls Exp $
+  */
+ 
+ #ifndef __RECORDER_H
+@@ -23,7 +23,6 @@
+   cRingBufferLinear *ringBuffer;
+   cRemux *remux;
+   cFileWriter *writer;
+-  bool active;
+ protected:
+   virtual void Activate(bool On);
+   virtual void Receive(uchar *Data, int Length);
+diff -ruN vdr-1.3.28/recording.c vdr-1.3.29/recording.c
+--- vdr-1.3.28/recording.c	2005-08-06 11:53:21.000000000 +0200
++++ vdr-1.3.29/recording.c	2005-08-13 16:00:48.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 1.110 2005/08/06 09:53:21 kls Exp $
++ * $Id: recording.c 1.111 2005/08/13 14:00:48 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -220,11 +220,11 @@
+ 
+ // --- cRecordingInfo --------------------------------------------------------
+ 
+-cRecordingInfo::cRecordingInfo(const cEvent *Event)
++cRecordingInfo::cRecordingInfo(tChannelID ChannelID, const cEvent *Event)
+ {
++  channelID = ChannelID;
+   if (Event) {
+      event = Event;
+-     channelID = event->ChannelID();
+      ownEvent = NULL;
+      }
+   else
+@@ -424,7 +424,7 @@
+   priority = Timer->Priority();
+   lifetime = Timer->Lifetime();
+   // handle info:
+-  info = new cRecordingInfo(Event);
++  info = new cRecordingInfo(Timer->Channel()->GetChannelID(), Event);
+   // this is a somewhat ugly hack to get the 'summary' information from the
+   // timer into the recording info, but it saves us from having to actually
+   // copy the entire event data:
+diff -ruN vdr-1.3.28/recording.h vdr-1.3.29/recording.h
+--- vdr-1.3.28/recording.h	2005-05-28 11:34:07.000000000 +0200
++++ vdr-1.3.29/recording.h	2005-08-13 16:09:50.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 1.38 2005/05/28 09:34:07 kls Exp $
++ * $Id: recording.h 1.39 2005/08/13 14:09:50 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -40,7 +40,7 @@
+   tChannelID channelID;
+   const cEvent *event;
+   cEvent *ownEvent;
+-  cRecordingInfo(const cEvent *Event = NULL);
++  cRecordingInfo(tChannelID ChannelID = tChannelID::InvalidID, const cEvent *Event = NULL);
+   void SetData(const char *Title, const char *ShortText, const char *Description);
+ public:
+   ~cRecordingInfo();
+diff -ruN vdr-1.3.28/remote.c vdr-1.3.29/remote.c
+--- vdr-1.3.28/remote.c	2005-03-20 14:25:31.000000000 +0100
++++ vdr-1.3.29/remote.c	2005-08-14 12:53:55.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.c 1.42 2005/03/20 13:25:31 kls Exp $
++ * $Id: remote.c 1.44 2005/08/14 10:53:55 kls Exp $
+  */
+ 
+ #include "remote.h"
+@@ -213,7 +213,6 @@
+ :cRemote("KBD")
+ ,cThread("KBD remote control")
+ {
+-  active = false;
+   tcgetattr(STDIN_FILENO, &savedTm);
+   struct termios tm;
+   if (tcgetattr(STDIN_FILENO, &tm) == 0) {
+@@ -230,7 +229,6 @@
+ cKbdRemote::~cKbdRemote()
+ {
+   kbdAvailable = false;
+-  active = false;
+   Cancel(3);
+   tcsetattr(STDIN_FILENO, TCSANOW, &savedTm);
+ }
+@@ -261,12 +259,11 @@
+ void cKbdRemote::Action(void)
+ {
+   cPoller Poller(STDIN_FILENO);
+-  active = true;
+-  while (active) {
++  while (Running()) {
+         if (Poller.Poll(100)) {
+            uint64 Command = 0;
+            uint i = 0;
+-           while (active && i < sizeof(Command)) {
++           while (Running() && i < sizeof(Command)) {
+                  uchar ch;
+                  int r = read(STDIN_FILENO, &ch, 1);
+                  if (r == 1) {
+diff -ruN vdr-1.3.28/remote.h vdr-1.3.29/remote.h
+--- vdr-1.3.28/remote.h	2004-05-28 16:14:02.000000000 +0200
++++ vdr-1.3.29/remote.h	2005-08-13 13:28:10.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.h 1.29 2004/05/28 14:14:02 kls Exp $
++ * $Id: remote.h 1.30 2005/08/13 11:28:10 kls Exp $
+  */
+ 
+ #ifndef __REMOTE_H
+@@ -81,7 +81,6 @@
+ 
+ class cKbdRemote : public cRemote, private cThread {
+ private:
+-  bool active;
+   static bool kbdAvailable;
+   static bool rawMode;
+   struct termios savedTm;
+diff -ruN vdr-1.3.28/sections.c vdr-1.3.29/sections.c
+--- vdr-1.3.28/sections.c	2005-05-29 13:43:17.000000000 +0200
++++ vdr-1.3.29/sections.c	2005-08-14 12:54:39.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sections.c 1.11 2005/05/29 11:43:17 kls Exp $
++ * $Id: sections.c 1.13 2005/08/14 10:54:39 kls Exp $
+  */
+ 
+ #include "sections.h"
+@@ -44,7 +44,6 @@
+ {
+   shp = new cSectionHandlerPrivate;
+   device = Device;
+-  active = false;
+   statusCount = 0;
+   on = false;
+   waitForLock = false;
+@@ -54,7 +53,6 @@
+ 
+ cSectionHandler::~cSectionHandler()
+ {
+-  active = false;
+   Cancel(3);
+   cFilter *fi;
+   while ((fi = filters.First()) != NULL)
+@@ -166,9 +164,8 @@
+ 
+ void cSectionHandler::Action(void)
+ {
+-  active = true;
+   SetPriority(19);
+-  while (active) {
++  while (Running()) {
+ 
+         Lock();
+         if (waitForLock)
+diff -ruN vdr-1.3.28/sections.h vdr-1.3.29/sections.h
+--- vdr-1.3.28/sections.h	2004-08-08 15:44:17.000000000 +0200
++++ vdr-1.3.29/sections.h	2005-08-13 13:23:55.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sections.h 1.4 2004/08/08 13:44:17 kls Exp $
++ * $Id: sections.h 1.5 2005/08/13 11:23:55 kls Exp $
+  */
+ 
+ #ifndef __SECTIONS_H
+@@ -25,7 +25,6 @@
+ private:
+   cSectionHandlerPrivate *shp;
+   cDevice *device;
+-  bool active;
+   int statusCount;
+   bool on, waitForLock;
+   time_t lastIncompleteSection;
+diff -ruN vdr-1.3.28/skinsttng.c vdr-1.3.29/skinsttng.c
+--- vdr-1.3.28/skinsttng.c	2005-05-16 12:44:58.000000000 +0200
++++ vdr-1.3.29/skinsttng.c	2005-08-15 13:14:59.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinsttng.c 1.14 2005/05/16 10:44:58 kls Exp $
++ * $Id: skinsttng.c 1.15 2005/08/15 11:14:59 kls Exp $
+  */
+ 
+ // Star Trek: The Next Generation® is a registered trademark of Paramount Pictures
+@@ -130,6 +130,7 @@
+   bool message;
+   const cEvent *present;
+   int lastSeen;
++  tTrackId lastTrackId;
+   static cBitmap bmTeletext, bmRadio, bmAudio, bmDolbyDigital, bmEncrypted, bmRecording;
+ public:
+   cSkinSTTNGDisplayChannel(bool WithInfo);
+@@ -151,6 +152,7 @@
+ {
+   present = NULL;
+   lastSeen = -1;
++  memset(&lastTrackId, 0, sizeof(lastTrackId));
+   const cFont *font = cFont::GetFont(fontOsd);
+   withInfo = WithInfo;
+   lineHeight = font->Height();
+@@ -298,7 +300,10 @@
+         osd->DrawText(x4 - w - 2, y7 - font->Height(date), date, Theme.Color(clrChannelDate), frameColor, font);
+         cDevice *Device = cDevice::PrimaryDevice();
+         const tTrackId *Track = Device->GetTrack(Device->GetCurrentAudioTrack());
+-        osd->DrawText(x3 + 2, y6, Track ? Track->description : "", Theme.Color(clrChannelName), frameColor, font, x4 - x3 - w - 4);
++        if (!Track && *lastTrackId.description || Track && strcmp(lastTrackId.description, Track->description)) {
++           osd->DrawText(x3 + 2, y6, Track ? Track->description : "", Theme.Color(clrChannelName), frameColor, font, x4 - x3 - w - 4);
++           strn0cpy(lastTrackId.description, Track ? Track->description : "", sizeof(lastTrackId.description));
++           }
+         }
+ 
+      int seen = 0;
+diff -ruN vdr-1.3.28/thread.c vdr-1.3.29/thread.c
+--- vdr-1.3.28/thread.c	2005-05-29 13:40:30.000000000 +0200
++++ vdr-1.3.29/thread.c	2005-08-14 13:15:42.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.c 1.43 2005/05/29 11:40:30 kls Exp $
++ * $Id: thread.c 1.45 2005/08/14 11:15:42 kls Exp $
+  */
+ 
+ #include "thread.h"
+@@ -197,7 +197,7 @@
+ 
+ cThread::cThread(const char *Description)
+ {
+-  running = false;
++  active = running = false;
+   childTid = 0;
+   description = NULL;
+   SetDescription(Description);
+@@ -205,6 +205,7 @@
+ 
+ cThread::~cThread()
+ {
++  Cancel(); // just in case the derived class didn't call it
+   free(description);
+ }
+ 
+@@ -234,20 +235,21 @@
+   if (Thread->description)
+      dsyslog("%s thread ended (pid=%d, tid=%ld)", Thread->description, getpid(), pthread_self());
+   Thread->running = false;
++  Thread->active = false;
+   return NULL;
+ }
+ 
+ bool cThread::Start(void)
+ {
+-  if (!running) {
+-     running = true;
++  if (!active) {
++     active = running = true;
+      if (pthread_create(&childTid, NULL, (void *(*) (void *))&StartThread, (void *)this) == 0) {
+         pthread_detach(childTid); // auto-reap
+         pthread_setschedparam(childTid, SCHED_RR, 0);
+         }
+      else {
+         LOG_ERROR;
+-        running = false;
++        active = running = false;
+         return false;
+         }
+      }
+@@ -256,7 +258,7 @@
+ 
+ bool cThread::Active(void)
+ {
+-  if (running) {
++  if (active) {
+      //
+      // Single UNIX Spec v2 says:
+      //
+@@ -271,7 +273,7 @@
+         if (err != ESRCH)
+            LOG_ERROR;
+         childTid = 0;
+-        running = false;
++        active = running = false;
+         }
+      else
+         return true;
+@@ -281,7 +283,8 @@
+ 
+ void cThread::Cancel(int WaitSeconds)
+ {
+-  if (running) {
++  running = false;
++  if (active) {
+      if (WaitSeconds > 0) {
+         for (time_t t0 = time(NULL) + WaitSeconds; time(NULL) < t0; ) {
+             if (!Active())
+@@ -292,7 +295,7 @@
+         }
+      pthread_cancel(childTid);
+      childTid = 0;
+-     running = false;
++     active = false;
+      }
+ }
+ 
+diff -ruN vdr-1.3.28/thread.h vdr-1.3.29/thread.h
+--- vdr-1.3.28/thread.h	2005-05-29 13:31:24.000000000 +0200
++++ vdr-1.3.29/thread.h	2005-08-14 13:21:48.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.h 1.28 2005/05/29 11:31:24 kls Exp $
++ * $Id: thread.h 1.30 2005/08/14 11:21:48 kls Exp $
+  */
+ 
+ #ifndef __THREAD_H
+@@ -75,6 +75,7 @@
+ class cThread {
+   friend class cThreadLock;
+ private:
++  bool active;
+   bool running;
+   pthread_t childTid;
+   cMutex mutex;
+@@ -86,13 +87,30 @@
+   void Lock(void) { mutex.Lock(); }
+   void Unlock(void) { mutex.Unlock(); }
+   virtual void Action(void) = 0;
++       ///< A derived cThread class must implement the code it wants to
++       ///< execute as a separate thread in this function. If this is
++       ///< a loop, it must check Running() repeatedly to see whether
++       ///< it's time to stop.
++  bool Running(void) { return running; }
++       ///< Returns false if a derived cThread object shall leave its Action()
++       ///< function.
+   void Cancel(int WaitSeconds = 0);
++       ///< Cancels the thread by first setting 'running' to false, so that
++       ///< the Action() loop can finish in an orderly fashion and then waiting
++       ///< up to WaitSeconds seconds for the thread to actually end. If the
++       ///< thread doesn't end by itself, it is killed.
+ public:
+   cThread(const char *Description = NULL);
++       ///< Creates a new thread.
++       ///< If Description is present, a log file entry will be made when
++       ///< the thread starts and stops. The Start() function must be called 
++       ///< to actually start the thread.
+   virtual ~cThread();
+   void SetDescription(const char *Description, ...);
+   bool Start(void);
++       ///< Actually starts the thread.
+   bool Active(void);
++       ///< Checks whether the thread is still alive.
+   static bool EmergencyExit(bool Request = false);
+   };
+ 
+diff -ruN vdr-1.3.28/transfer.c vdr-1.3.29/transfer.c
+--- vdr-1.3.28/transfer.c	2005-02-19 15:38:55.000000000 +0100
++++ vdr-1.3.29/transfer.c	2005-08-14 12:55:03.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: transfer.c 1.28 2005/02/19 14:38:55 kls Exp $
++ * $Id: transfer.c 1.30 2005/08/14 10:55:03 kls Exp $
+  */
+ 
+ #include "transfer.h"
+@@ -21,7 +21,6 @@
+   ringBuffer = new cRingBufferLinear(TRANSFERBUFSIZE, TS_SIZE * 2, true, "Transfer");
+   remux = new cRemux(VPid, APids, Setup.UseDolbyDigital ? DPids : NULL, SPids);
+   needsBufferReserve = Setup.UseDolbyDigital && VPid != 0 && DPids && DPids[0] != 0;
+-  active = false;
+ }
+ 
+ cTransfer::~cTransfer()
+@@ -34,21 +33,17 @@
+ 
+ void cTransfer::Activate(bool On)
+ {
+-  if (On) {
+-     if (!active)
+-        Start();
+-     }
+-  else if (active) {
+-     active = false;
++  if (On)
++     Start();
++  else
+      Cancel(3);
+-     }
+ }
+ 
+ void cTransfer::Receive(uchar *Data, int Length)
+ {
+-  if (IsAttached() && active) {
++  if (IsAttached() && Running()) {
+      int p = ringBuffer->Put(Data, Length);
+-     if (p != Length && active)
++     if (p != Length && Running())
+         ringBuffer->ReportOverflow(Length - p);
+      return;
+      }
+@@ -70,8 +65,7 @@
+   bool GotBufferReserve = false;
+   int RequiredBufferReserve = KILOBYTE(DvbCardWith4MBofSDRAM ? 288 : 576);
+ #endif
+-  active = true;
+-  while (active) {
++  while (Running()) {
+ #ifdef FW_NEEDS_BUFFER_RESERVE_FOR_AC3
+         if (needsBufferReserve && !GotBufferReserve) {
+            //XXX For dolby we've to fill the buffer because the firmware does
+@@ -145,7 +139,6 @@
+               }
+            }
+         }
+-  active = false;
+ }
+ 
+ // --- cTransferControl ------------------------------------------------------
+diff -ruN vdr-1.3.28/transfer.h vdr-1.3.29/transfer.h
+--- vdr-1.3.28/transfer.h	2005-01-15 17:39:39.000000000 +0100
++++ vdr-1.3.29/transfer.h	2005-08-13 12:16:02.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: transfer.h 1.9 2005/01/15 16:39:39 kls Exp $
++ * $Id: transfer.h 1.10 2005/08/13 10:16:02 kls Exp $
+  */
+ 
+ #ifndef __TRANSFER_H
+@@ -21,7 +21,6 @@
+   cRingBufferLinear *ringBuffer;
+   cRemux *remux;
+   bool needsBufferReserve;
+-  bool active;
+ protected:
+   virtual void Activate(bool On);
+   virtual void Receive(uchar *Data, int Length);

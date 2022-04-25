@@ -1,0 +1,2963 @@
+diff -ruN vdr-1.3.24/CONTRIBUTORS vdr-1.3.25/CONTRIBUTORS
+--- vdr-1.3.24/CONTRIBUTORS	2005-05-08 16:09:52.000000000 +0200
++++ vdr-1.3.25/CONTRIBUTORS	2005-05-29 13:44:52.000000000 +0200
+@@ -197,6 +197,8 @@
+  for fixing handling symbolic links in cRecordings::ScanVideoDir()
+  for reporting a memory leak in tComponent
+  for fixing a memory leak in cDvbPlayer
++ for pointing out that recordings with empty episode names were not listed correctly
++ in the LSTR command
+ 
+ Ulrich Rˆder <roeder@efr-net.de>
+  for pointing out that there are channels that have a symbol rate higher than 27500
+@@ -408,6 +410,7 @@
+  change in Daylight Saving Time
+  for suggesting to avoid the external 'find' command to scan the video directory
+  for reporting a problem with inconsistent channel and timer lists
++ for making the "Play" key in live viewing mode resume a previous replay session
+ 
+ Michael Rakowski <mrak@gmx.de>
+  for translating OSD texts to the Polish language
+@@ -563,6 +566,7 @@
+  for reporting a problem with the name of the remote control for which the keys are
+  being learned overwriting the date/time in the 'classic' skin
+  for making cDvbOsd check available OSD memory at runtime
++ for making cEIT::cEIT() drop EPG events that have a zero start time or duration
+ 
+ Reinhard Walter Buchner <rw.buchner@freenet.de>
+  for adding some satellites to 'sources.conf'
+@@ -603,6 +607,8 @@
+  for reporting a problem with newly created timers in case they are not confirmed
+  with "Ok"
+  for reporting an occasional "Broken pipe" error in SVDRP connections
++ for reporting that some cable channels don't mark short channel names according
++ to the standard
+ 
+ Jaakko Hyv‰tti <jaakko@hyvatti.iki.fi>
+  for translating OSD texts to the Finnish language
+@@ -642,6 +648,7 @@
+  for fixing detecting the /dev/videoN devices for GRAB in case there are others
+  before the DVB devices
+  for fixing a possible NULL pointer access in cEITScanner::Process()
++ for pointing out that 'vdr --version' failed on an UTF-8 system
+ 
+ Guy Roussin <guy.roussin@teledetection.fr>
+  for suggesting not to display channel group delimiters without text
+@@ -768,6 +775,8 @@
+  Digital audio after switching to a channel that has DD and selecting the DD audio
+  track
+  for reporting a bug in timeout handling in cRwLock::Lock()
++ for pointing out that the SVDRP command DELR deleted recordings that are currently
++ being written to by a timer
+ 
+ Malcolm Caldwell <malcolm.caldwell@ntu.edu.au>
+  for modifying LOF handling to allow for C-band reception
+@@ -786,6 +795,7 @@
+  for adding some checks when canceling a thread and removing the usleep() in
+  cThread::Start()
+  for removing the LOCK_THREAD from the LIRC thread
++ for making the Makefile patch friendlier
+ 
+ Thomas Koch <tom@harhar.net>
+  for his support in keeping the Premiere World channels up to date in 'channels.conf'
+@@ -869,6 +879,7 @@
+ Rolf Ahrenberg <rahrenbe@cc.hut.fi>
+  for translating OSD texts to the Finnish language
+  for fixing internationalization of the text for "Setup/DVB/Audio language(s)"
++ for making pressing the Power button not stop Transfer Mode or replay immediately
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -941,7 +952,7 @@
+  for fixing a possible freeze in pause mode in case a device's PlayPesPacket()
+  function permanently returns 0
+  for fixing a typo in detecting UTF-8
+- for fixing handling fragments of less than 3 byte in cPesAssembler
++ for fixing handling fragments of less than 4 byte in cPesAssembler
+  for some rearrangements in cDvbPlayer::Action() to avoid lockups on NPTL systems
+ 
+ Richard Robson <richard_robson@beeb.net>
+@@ -1061,6 +1072,7 @@
+  for pointing out a missing call to cStatus::MsgOsdtatusMessage(NULL) in
+  cSkins::Message()
+  for reporting a problem in handling Transfer Mode for radio channels
++ for reporting a problem with messages when a cOsdObject uses the raw OSD
+ 
+ Thomas Bergwinkl <Thomas.Bergwinkl@t-online.de>
+  for fixing the validity check for channel IDs, because some providers use TIDs
+@@ -1169,6 +1181,11 @@
+  for fixing a bug in libsi's SubtitlingDescriptor::getLength()
+  for removing scaling coordinates in letterbox mode from cDvbSpu
+  for fixing a wrong inheritance in libsi's SubtitlingDescriptor::Subtitling
++ for adding cPlayer::DeviceSetVideoDisplayFormat()
++ for making the setup not being saved in case of a fatal error, to keep the volume
++ level from being set to a wrong value
++ for fixing a possible hangup when ending a replay session while cIndexFile::CatchUp()
++ is waiting
+ 
+ J¸rgen Schmitz <j.schmitz@web.de>
+  for reporting a bug in displaying the current channel when switching via the SVDRP
+@@ -1331,3 +1348,22 @@
+ 
+ Wolfgang Fritz <wolfgang.fritz@gmx.net>
+  for making recordings avoid zero sized video data files
++
++Michael Reinelt <reinelt@eunet.at>
++ for reporting a problem with the EPG scan on systems that don't use DiSEqC
++
++Johannes Stezenbach <js@linuxtv.org>
++ for pointing out that the byte swap for big endian systems in cDvbOsd::Flush()
++ is wrong
++
++Paavo Hartikainen <pahartik@sci.fi>
++ for verifying that the byte swap for big endian systems in cDvbOsd::Flush() was
++ wrong
++
++Georg Acher <acher@baycom.de>
++ for making tChannelID::operator==() inline for better performance
++ for introducing cListBase::count for better performance
++ for a patch that was used to implement hash tables to speed up cSchedule::GetEvent()
++ for avoiding unnecessary calls to getLength() in libsi/si.c, and avoiding the
++ '& 0xff' in CRC32::crc32() of libsi/util.c
++ for suggesting to reduce the priority of the section handler threads
+diff -ruN vdr-1.3.24/HISTORY vdr-1.3.25/HISTORY
+--- vdr-1.3.24/HISTORY	2005-05-08 16:10:04.000000000 +0200
++++ vdr-1.3.25/HISTORY	2005-05-29 13:44:26.000000000 +0200
+@@ -3487,7 +3487,7 @@
+ - Fixed handling transparent areas in cDvbSpuBitmap (thanks to Marco Schl¸ﬂler).
+ - Now also considering the "EPG linger time" when saving the EPG data to file or
+   listing it via LSTE (thanks to Roman Krenick˝).
+-- Fixed handling fragments of less than 3 byte in cPesAssembler (thanks to
++- Fixed handling fragments of less than 4 byte in cPesAssembler (thanks to
+   Reinhard Nissl).
+ - Fixed a bug in libsi's SubtitlingDescriptor::getLength() (thanks to Marco
+   Schl¸ﬂler).
+@@ -3512,3 +3512,68 @@
+   (thanks to Reinhard Nissl).
+ - Fixed a wrong inheritance in libsi's SubtitlingDescriptor::Subtitling (thanks to
+   Marco Schl¸ﬂler).
++
++2005-05-29: Version 1.3.25
++
++- Updated the Estonian OSD texts (thanks to Arthur Konovalov).
++- Some cable providers don't mark short channel names according to the standard,
++  but rather go their own way and use "name>short name". VDR now splits at this
++  character for cable channels (thanks to Gerhard Steiner for reporting this one).
++- Added a check for Setup.DiSEqC in cDvbDevice::ProvidesTransponder(), otherwise
++  the EPG scan didn't work on systems that don't use DiSEqC (thanks to Michael
++  Reinelt for reporting this one).
++- Made the Makefile patch friendlier (thanks to Ludwig Nussel).
++- Made cOsd::isOpen an integer counter to avoid problems with messages when a
++  cOsdObject uses the raw OSD (thanks to Andreas Regel for reporting this one).
++- Updated the Danish OSD texts (thanks to Mogens Elneff).
++- The file 'summary.vdr' has been replaced with 'info.vdr' and now contains the
++  information about a recording, in the same format as the events are stored in
++  'epg.data' (see man vdr(5) for details). Existing summary files can be converted
++  to the new format by running the Perl script 'summary2info.pl', as in
++
++  summary2info.pl /video
++
++  (the parameter given has to be the video directory). If there is no 'info.vdr'
++  file for a recording, an attempt is made to read a 'summary.vdr'.
++- The "Summary" button in the "Recordings" menu has been renamed to "Info", and
++  the page it brings up now shows the recording's information, much like the EPG
++  event page. Therefore it now no longer uses the skin's SetText() function, but
++  rather the SetRecording() function. Skin plugins may need to adjust that function
++  accordingly (see skinsttng.c, for instance).
++- The SVDRP command LSTR now lists the recording information in the same tagged
++  format as the LSTE command lists the EPG data.
++- The audio track menu now contains track descriptions when replaying (provided
++  such descriptions were available in the EPG data when the recording was made,
++  and are stored in the info.vdr file).
++- Avoiding extra blanks at the end of names of instant recordings.
++- Removed converting byte order on big endian systems from cDvbOsd::Flush(),
++  which, according to Johannes Stezenbach and Paavo Hartikainen, is wrong.
++- Added cPlayer::DeviceSetVideoDisplayFormat() (thanks to Marco Schl¸ﬂler).
++- No longer saving the setup in case of a fatal error, to keep the volume level
++  from being set to a wrong value (thanks to Marco Schl¸ﬂler).
++- Fixed a possible hangup when ending a replay session while cIndexFile::CatchUp()
++  is waiting (thanks to Marco Schl¸ﬂler).
++- The SVDRP command DELR no longer deletes recordings that are currently being
++  written to by a timer (thanks to Sascha Volkenandt for pointing out this one).
++- Pressing the "Play" key in live viewing mode now resumes a previous replay
++  session (thanks to Mirko Dˆlle).
++- Now dropping EPG events that have a zero start time or duration (thanks to
++  Oliver Endriss).
++- No longer stopping Transfer Mode or replay immediately when the Power button
++  is pressed (thanks to Rolf Ahrenberg).
++- Moved the NPTL and UTF-8 checks after the version and help output (thanks to
++  Andreas Kool for pointing out that 'vdr --version' failed on an UTF-8 system).
++- Made tChannelID::operator==() inline for better performance (thanks to Georg
++  Acher).
++- Introduced cListBase::count for better performance (thanks to Georg Acher).
++- cEvent no longer stores the channelID directly, but rather has a pointer to
++  the schedule it is in.
++- Now using hash tables to speed up cSchedule::GetEvent() (partially based on
++  a patch from Georg Acher).
++- Avoiding unnecessary calls to getLength() in libsi/si.c, and avoiding the
++  '& 0xff' in CRC32::crc32() of libsi/util.c (thanks to Georg Acher).
++- Speeded up deleting duplicate channels.
++- Fixed listing recordings with empty episode names in the LSTR command (thanks
++  to Stefan Huelswitt for pointing this out).
++- Added cThread::SetPriority() and using it in cSectionHandler::Action() to
++  reduce the priority of the section handler threads (as suggested by Georg Acher).
+diff -ruN vdr-1.3.24/MANUAL vdr-1.3.25/MANUAL
+--- vdr-1.3.24/MANUAL	2005-03-19 16:38:43.000000000 +0100
++++ vdr-1.3.25/MANUAL	2005-05-15 16:54:40.000000000 +0200
+@@ -23,7 +23,7 @@
+   Red     -           Record       Edit       Edit       ABC/abc       Play/Commands(2)  Jump             -
+   Green   -           Audio        New        New        Ins/Ovr       Rewind            Skip -60s        -
+   Yellow  -           Pause live   Delete     Delete     Delete        Delete            Skip +60s        -
+-  Blue    -           Stop/Resume  Mark       On/Off(1)  -             Summary           Stop             -
++  Blue    -           Stop/Resume  Mark       On/Off(1)  -             Info              Stop             -
+   0..9    Ch select   -            Sort(3)    Day(4)     Numeric inp.  Exec cmd(2)       Editing          -
+ 
+   In a numerical input field (like the response to a CAM enquiry) the keys 0..9
+diff -ruN vdr-1.3.24/Make.config.template vdr-1.3.25/Make.config.template
+--- vdr-1.3.24/Make.config.template	2003-08-09 13:03:25.000000000 +0200
++++ vdr-1.3.25/Make.config.template	2005-05-14 12:32:33.000000000 +0200
+@@ -6,7 +6,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Make.config.template 1.3 2003/08/09 11:03:25 kls Exp $
++# $Id: Make.config.template 1.4 2005/05/14 10:32:33 kls Exp $
+ 
+ ### The C compiler and options:
+ 
+@@ -14,7 +14,7 @@
+ CFLAGS   = -O2
+ 
+ CXX      = g++
+-CXXFLAGS = -g -O2 -Wall -Woverloaded-virtual
++CXXFLAGS = -fPIC -g -O2 -Wall -Woverloaded-virtual
+ 
+ ### The directory environment:
+ 
+diff -ruN vdr-1.3.24/Makefile vdr-1.3.25/Makefile
+--- vdr-1.3.24/Makefile	2005-02-13 11:13:45.000000000 +0100
++++ vdr-1.3.25/Makefile	2005-05-14 12:32:13.000000000 +0200
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 1.74 2005/02/13 10:13:45 kls Exp $
++# $Id: Makefile 1.75 2005/05/14 10:32:13 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -12,12 +12,14 @@
+ CFLAGS   ?= -O2
+ 
+ CXX      ?= g++
+-CXXFLAGS ?= -g -O2 -Wall -Woverloaded-virtual
++CXXFLAGS ?= -fPIC -g -O2 -Wall -Woverloaded-virtual
+ 
+ DVBDIR   = ../DVB
+ LSIDIR   = ./libsi
+ MANDIR   = /usr/local/man
+ BINDIR   = /usr/local/bin
++LIBS     = -ljpeg -lpthread -ldl
++INCLUDES =
+ 
+ PLUGINDIR= ./PLUGINS
+ PLUGINLIBDIR= $(PLUGINDIR)/lib
+@@ -29,7 +31,7 @@
+ 
+ -include Make.config
+ 
+-INCLUDES = -I$(DVBDIR)/include
++INCLUDES += -I$(DVBDIR)/include
+ 
+ SILIB    = $(LSIDIR)/libsi.a
+ 
+@@ -106,7 +108,7 @@
+ # The main program:
+ 
+ vdr: $(OBJS) $(SILIB)
+-	$(CXX) $(CXXFLAGS) -rdynamic $(OBJS) $(NCURSESLIB) -ljpeg -lpthread -ldl $(LIBDIRS) $(SILIB) -o vdr
++	$(CXX) $(CXXFLAGS) -rdynamic $(OBJS) $(NCURSESLIB) $(LIBS) $(LIBDIRS) $(SILIB) -o vdr
+ 
+ # The font files:
+ 
+diff -ruN vdr-1.3.24/PLUGINS/src/skincurses/HISTORY vdr-1.3.25/PLUGINS/src/skincurses/HISTORY
+--- vdr-1.3.24/PLUGINS/src/skincurses/HISTORY	2005-01-02 16:11:44.000000000 +0100
++++ vdr-1.3.25/PLUGINS/src/skincurses/HISTORY	2005-05-16 12:41:07.000000000 +0200
+@@ -13,3 +13,7 @@
+ 
+ - Made several functions threadsafe.
+ - New audio track display.
++
++2005-05-16: Version 0.0.4
++
++- New "recording info" display.
+diff -ruN vdr-1.3.24/PLUGINS/src/skincurses/skincurses.c vdr-1.3.25/PLUGINS/src/skincurses/skincurses.c
+--- vdr-1.3.24/PLUGINS/src/skincurses/skincurses.c	2005-01-09 12:56:26.000000000 +0100
++++ vdr-1.3.25/PLUGINS/src/skincurses/skincurses.c	2005-05-16 12:45:12.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: skincurses.c 1.5 2005/01/09 11:56:26 kls Exp $
++ * $Id: skincurses.c 1.6 2005/05/16 10:45:12 kls Exp $
+  */
+ 
+ #include <ncurses.h>
+@@ -11,7 +11,7 @@
+ #include <vdr/plugin.h>
+ #include <vdr/skins.h>
+ 
+-static const char *VERSION        = "0.0.3";
++static const char *VERSION        = "0.0.4";
+ static const char *DESCRIPTION    = "A text only skin";
+ static const char *MAINMENUENTRY  = NULL;
+ 
+@@ -407,7 +407,30 @@
+ 
+ void cSkinCursesDisplayMenu::SetRecording(const cRecording *Recording)
+ {
+-  SetText(Recording->Summary(), false); //TODO
++  if (!Recording)
++     return;
++  const cRecordingInfo *Info = Recording->Info();
++  int y = 2;
++  cTextScroller ts;
++  char t[32];
++  snprintf(t, sizeof(t), "%s  %s", *DateString(Recording->start), *TimeString(Recording->start));
++  ts.Set(osd, 0, y, OsdWidth, OsdHeight - y - 2, t, &Font, clrYellow, clrBackground);
++  y += ts.Height();
++  y += 1;
++  const char *Title = Info->Title();
++  if (isempty(Title))
++     Title = Recording->Name();
++  ts.Set(osd, 0, y, OsdWidth, OsdHeight - y - 2, Title, &Font, clrCyan, clrBackground);
++  y += ts.Height();
++  if (!isempty(Info->ShortText())) {
++     ts.Set(osd, 0, y, OsdWidth, OsdHeight - y - 2, Info->ShortText(), &Font, clrYellow, clrBackground);
++     y += ts.Height();
++     }
++  y += 1;
++  if (!isempty(Info->Description())) {
++     textScroller.Set(osd, 0, y, OsdWidth - 2, OsdHeight - y - 2, Info->Description(), &Font, clrCyan, clrBackground);
++     SetScrollbar();
++     }
+ }
+ 
+ void cSkinCursesDisplayMenu::SetText(const char *Text, bool FixedFont)
+diff -ruN vdr-1.3.24/channels.c vdr-1.3.25/channels.c
+--- vdr-1.3.24/channels.c	2005-05-07 15:14:32.000000000 +0200
++++ vdr-1.3.25/channels.c	2005-05-29 12:32:38.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 1.38 2005/05/07 13:14:32 kls Exp $
++ * $Id: channels.c 1.42 2005/05/29 10:32:38 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -124,11 +124,6 @@
+ 
+ const tChannelID tChannelID::InvalidID;
+ 
+-bool tChannelID::operator== (const tChannelID &arg) const
+-{
+-  return source == arg.source && nid == arg.nid && tid == arg.tid && sid == arg.sid && rid == arg.rid;
+-}
+-
+ tChannelID tChannelID::FromString(const char *s)
+ {
+   char *sourcebuf = NULL;
+@@ -146,7 +141,7 @@
+   return tChannelID::InvalidID;
+ }
+ 
+-cString tChannelID::ToString(void)
++cString tChannelID::ToString(void) const
+ {
+   char buffer[256];
+   snprintf(buffer, sizeof(buffer), rid ? "%s-%d-%d-%d-%d" : "%s-%d-%d-%d", *cSource::ToString(source), nid, tid, sid, rid);
+@@ -263,11 +258,6 @@
+   return tf;
+ }
+ 
+-tChannelID cChannel::GetChannelID(void) const
+-{
+-  return tChannelID(source, nid, (nid || tid) ? tid : Transponder(), sid, rid);
+-}
+-
+ int cChannel::Modification(int Mask)
+ {
+   int Result = modification & Mask;
+@@ -814,6 +804,22 @@
+   return fprintf(f, "%s", *ToText()) > 0;
+ }
+ 
++// -- cChannelSorter ---------------------------------------------------------
++
++class cChannelSorter : public cListObject {
++public:
++  cChannel *channel;
++  tChannelID channelID;
++  cChannelSorter(cChannel *Channel) {
++    channel = Channel;
++    channelID = channel->GetChannelID();
++    }
++  virtual int Compare(const cListObject &ListObject) const {
++    cChannelSorter *cs = (cChannelSorter *)&ListObject;
++    return memcmp(&channelID, &cs->channelID, sizeof(channelID));
++    }
++  };
++
+ // -- cChannels --------------------------------------------------------------
+ 
+ cChannels Channels;
+@@ -826,22 +832,21 @@
+ 
+ void cChannels::DeleteDuplicateChannels(void)
+ {
++  cList<cChannelSorter> ChannelSorter;
+   for (cChannel *channel = First(); channel; channel = Next(channel)) {
+-      if (!channel->GroupSep()) {
+-         tChannelID ChannelID = channel->GetChannelID();
+-         cChannel *other = Next(channel);
+-         while (other) {
+-               cChannel *d = NULL;
+-               if (!other->GroupSep() && other->GetChannelID() == ChannelID)
+-                  d = other;
+-               other = Next(other);
+-               if (d) {
+-                  dsyslog("deleting duplicate channel %s", *d->ToText());
+-                  Del(d);
+-                  }
+-               }
+-         }
++      if (!channel->GroupSep())
++         ChannelSorter.Add(new cChannelSorter(channel));
+       }
++  ChannelSorter.Sort();
++  cChannelSorter *cs = ChannelSorter.First();
++  while (cs) {
++        cChannelSorter *next = ChannelSorter.Next(cs);
++        if (next && cs->channelID == next->channelID) {
++           dsyslog("deleting duplicate channel %s", *next->channel->ToText());
++           Del(next->channel);
++           }
++        cs = next;
++        }
+ }
+ 
+ bool cChannels::Load(const char *FileName, bool AllowComments, bool MustExist)
+diff -ruN vdr-1.3.24/channels.conf vdr-1.3.25/channels.conf
+--- vdr-1.3.24/channels.conf	2005-05-08 16:25:36.000000000 +0200
++++ vdr-1.3.25/channels.conf	2005-05-29 16:22:12.000000000 +0200
+@@ -26,14 +26,14 @@
+ DSF;BetaDigital:12480:vC34:S19.2E:27500:1023:1024=deu:0:0:900:133:33:0
+ HSE24,HSE24;BetaDigital:12480:vC34:S19.2E:27500:1279:1280=deu:37:0:40:133:33:0
+ Bloomberg TV Germany;Bloomberg:12551:vC56:S19.2E:22000:162:99=deu:0:0:12160:1:1108:0
+-EURONEWS;CSAT:11817:vC34:S19.2E:27500:163:92=fra,93=eng,94=ita,95=esl,91=rus,98=por,99=deu:0:0:8004:1:1070:0
++EURONEWS;CSAT:11817:vC34:S19.2E:27500:163:92=fra,91=rus,93=eng,94=ita,95=esl,98=por,99=deu:0:0:8004:1:1070:0
+ rbb Brandenburg;ARD:12109:hC34:S19.2E:27500:601:602=deu:604:0:28205:1:1073:0
+ Sky News;BSkyB:11597:vC56:S19.2E:22000:305+131:306=eng:0:0:28707:1:1026:0
+ Veronica/JETIX;CANAL+:12574:hC56:S19.2E:22000:518+8190:92=dut:38:622,100:5020:53:1109:0
+ BVN;CANAL+:12574:hC56:S19.2E:22000:515+8190:96=dut:36:0:5025:53:1109:0
+ n-tv;RTL World:12187:hC34:S19.2E:27500:169:73=deu:80:0:12090:1:1089:0
+ Al Jazeera;CANALSATELLITE:11567:vC56:S19.2E:22000:55:56=ara:0:0:9021:1:1024:0
+-TW1 - 28Feb05;ORF:12692:hC56:S19.2E:22000:166:167=deu:168:0:13013:1:1117:0
++TW1;ORF:12662:hC56:S19.2E:22000:1010:1011=deu:1013:0:13101:1:1115:0
+ Eurosport;ZDFvision:11953:hC34:S19.2E:27500:410:420=deu:430:0:28009:1:1079:0
+ EinsExtra;ARD:12109:hC34:S19.2E:27500:101:102=deu:0:0:28201:1:1073:0
+ EinsFestival;ARD:12109:hC34:S19.2E:27500:201:202=deu:0:0:28202:1:1073:0
+@@ -45,10 +45,10 @@
+ :Premiere World
+ PREMIERE START,START;PREMIERE:11797:hC34:S19.2E:27500:255:256=deu:32:1702,1801,1722:8:133:2:0
+ PREMIERE 1,PREM 1;PREMIERE:11797:hC34:S19.2E:27500:511:512=deu,513=deu;515=deu:32:1722,1801,1702:10:133:2:0
+-PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu,1793=deu;1795=deu:32:1722,1801,1702:11:133:2:0
++PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu;1795=deu:32:1722,1801,1702:11:133:2:0
+ PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu,2305=deu:32:1722,1801,1702:43:133:2:0
+-PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu,769=deu:32:1801,1722,1702:9:133:2:0
+-PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu,1281=deu:32:1801,1722,1702:29:133:2:0
++PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu:32:1801,1722,1702:9:133:2:0
++PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu:32:1801,1722,1702:29:133:2:0
+ PREMIERE 6,PREM 6;PREMIERE:11797:hC34:S19.2E:27500:1535:1536=deu:32:1702,1722,1801:41:133:2:0
+ PREMIERE 7,PREM 7;PREMIERE:11797:hC34:S19.2E:27500:1023:1024=deu:32:1722,1702,1801:20:133:2:0
+ DISNEY CHANNEL,DISNEY;PREMIERE:11758:hC34:S19.2E:27500:2559:2560=deu:32:1722,1801,1702:34:133:17:0
+@@ -58,7 +58,7 @@
+ BEATE-UHSE.TV,B-UHSE;PREMIERE:12070:hC34:S19.2E:27500:1023:1024=deu:32:1702,1801,1722:21:133:1:0
+ DIREKT EROTIK,EROTIK;PREMIERE:12031:hC34:S19.2E:27500:1279:0:0:1722,1801,1702:513:133:4:0
+ :Sportsworld
+-Konferenz:11719:hC34:S19.2E:27500:255:256=deu,257=deu:32:1702,1801,1722:17:133:3:0
++F1-Portal:11719:hC34:S19.2E:27500:255:256=deu,257=deu:32:1702,1801,1722:17:133:3:0
+ PREMIERE SPORT 2,SPORT 2;PREMIERE:12031:hC34:S19.2E:27500:3839:3840=deu,3841=deu:32:1722,1702,1801:27:133:4:0
+ :Beta Digital
+ N24;ProSiebenSat.1:12480:vC34:S19.2E:27500:2047:2048=deu:36:0:47:133:33:0
+@@ -72,14 +72,14 @@
+ LCP;CSAT:12207:vC34:S19.2E:27500:2047+8191:0:0:0:8506:1:1090:0
+ ESCALES;ABSAT:12285:vC34:S19.2E:27500:165:100:41:500,100:17025:1:1094:0
+ Best of Shopping;CSAT:12324:vC34:S19.2E:27500:160:80=fra:0:0:8612:1:1096:0
+-ASTRA-Mosaic;ASTRA:12551:vC56:S19.2E:22000:175:176=fra:0:0:3988:1:1108:0
+-ASTRA-Mosaic 2;ASTRA:12551:vC56:S19.2E:22000:179:120=fra:0:0:3987:1:1108:0
+-ASTRA-Mosaic 3;ASTRA:12551:vC56:S19.2E:22000:182:169=fra:0:0:3986:1:1108:0
+-ASTRA-Mosaic 4;ASTRA:12551:vC56:S19.2E:22000:185:170=fra:0:0:3985:1:1108:0
+-ASTRA-Mosaic 5;ASTRA:12551:vC56:S19.2E:22000:163:164:0:0:3984:1:1108:0
++ASTRA-Mosaic;SES ASTRA:12551:vC56:S19.2E:22000:175:176=fra:0:0:3988:1:1108:0
++ASTRA-Mosaic 2;SES ASTRA:12551:vC56:S19.2E:22000:179:120=fra:0:0:3987:1:1108:0
++ASTRA-Mosaic 3;SES ASTRA:12551:vC56:S19.2E:22000:182:169=fra:0:0:3986:1:1108:0
++ASTRA-Mosaic 4;SES ASTRA:12551:vC56:S19.2E:22000:185:170=fra:0:0:3985:1:1108:0
++ASTRA-Mosaic 5;SES ASTRA:12551:vC56:S19.2E:22000:163:164:0:0:3984:1:1108:0
+ Chamber TV;Chambre des DÈputÈes:12551:vC56:S19.2E:22000:55:56=ltz:0:0:12180:1:1108:0
+ RTL TELE Letzebuerg:12551:vC56:S19.2E:22000:168:144=eng,146=fra,151=ltz:74:0:3994:1:1108:0
+-Yorin;CANAL+:12574:hC56:S19.2E:22000:512+8190:84=dut:33:622,602,100:5010:53:1109:0
++Yorin;CANAL+:12574:hC56:S19.2E:22000:512+8190:84=dut:33:622,100:5010:53:1109:0
+ MTV2 Pop Channel;MTV Networks:12226:hC34:S19.2E:27500:513+8190:661=deu:577:0:28640:1:1091:0
+ MTV Central;MTV Networks:11739:vC34:S19.2E:27500:3031:3032:3034:0:28653:1:1066:0
+ Via 1 - Schˆner Reisen:12148:h:S19.2E:27500:511:512:0:0:44:0:0:0
+@@ -88,9 +88,9 @@
+ QVC Deutschland;QVC:12551:vC56:S19.2E:22000:165:166:167:0:12100:1:1108:0
+ TELE 5;BetaDigital:12480:vC34:S19.2E:27500:1535:1536=deu:38:0:51:133:33:0
+ :@201 Sky
+-Sky One;BSkyB:12226:hC23:S28.2E:27500:2305+2304:2306=eng:2307:960,961:4705:2:2027:0
+-Sky Mix;BSkyB:12226:hC23:S28.2E:27500:2311+2304:2312=eng,2313=NAR:2314:960,961:5104:2:2027:0
+-ITV2;BSkyB:10906:vC56:S28.2E:22000:2350:2351=eng:2353:960,961:10240:2:2054:0
++Sky One;BSkyB:12226:hC23:S28.2E:27500:515+8190:643=eng:579:960,961:4705:2:2027:0
++Sky Mix;BSkyB:12226:hC23:S28.2E:27500:514+8190:642=eng,662=NAR:578:960,961:5104:2:2027:0
++ITV2;BSkyB:10906:vC56:S28.2E:22000:2350:2351=eng,2374=UND:2353:960,961:10240:2:2054:0
+ Sci-Fi;BSkyB:12148:hC23:S28.2E:27500:512+8190:640=eng:576:960,961:4905:2:2023:0
+ Paramount;BSkyB:12187:hC23:S28.2E:27500:2313+2304:2317=eng,2318=NAR:2315:960,961:5904:2:2025:0
+ Discovery;BSkyB:11875:hC23:S28.2E:27500:2304:2306=eng,2307=NAR:2305:960,961:6201:2:2009:0
+@@ -113,7 +113,7 @@
+ S1T;BSkyB:12285:vC23:S28.2E:27500:513+8190:641=eng,661=NAR:577:960,961:4409:2:2030:0
+ CNN;BSkyB:12051:vC23:S28.2E:27500:2313:2315=eng:2314:0:7140:2:2018:0
+ BBC PARL'MNT:12129:vC23:S28.2E:27500:2304:2306=eng,2307=eng:2305:0:7300:2:2022:0
+-BTL TV;T-Systems/MTI:11200:vC56:S13.0E:27500:413:414=ita:0:0:4733:318:13400:0
++Bethel TV;T-Systems/MTI:11200:vC56:S13.0E:27500:413:414=ita:0:0:4733:318:13400:0
+ Euro1080;EURO1080:12168:vC34:S19.2E:27500:308:256:0:FF:21100:1:1088:0
+ Astra HD:12441:vC34:S19.2E:27500:133+80:134=eng:0:FF:29700:0:0:0
+ eng-WRN-multi;WRN:12597:vC34:S13.0E:27500:0:2132:0:0:8230:318:9400:0
+diff -ruN vdr-1.3.24/channels.h vdr-1.3.25/channels.h
+--- vdr-1.3.24/channels.h	2005-05-07 15:07:09.000000000 +0200
++++ vdr-1.3.25/channels.h	2005-05-28 15:57:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.h 1.28 2005/05/07 13:07:09 kls Exp $
++ * $Id: channels.h 1.32 2005/05/28 13:57:08 kls Exp $
+  */
+ 
+ #ifndef __CHANNELS_H
+@@ -65,12 +65,12 @@
+ public:
+   tChannelID(void) { source = nid = tid = sid = rid = 0; }
+   tChannelID(int Source, int Nid, int Tid, int Sid, int Rid = 0) { source = Source; nid = Nid; tid = Tid; sid = Sid; rid = Rid; }
+-  bool operator== (const tChannelID &arg) const;
+-  bool Valid(void) { return (nid || tid) && sid; } // rid is optional and source may be 0//XXX source may not be 0???
++  bool operator== (const tChannelID &arg) const { return source == arg.source && nid == arg.nid && tid == arg.tid && sid == arg.sid && rid == arg.rid; }
++  bool Valid(void) const { return (nid || tid) && sid; } // rid is optional and source may be 0//XXX source may not be 0???
+   tChannelID &ClrRid(void) { rid = 0; return *this; }
+   tChannelID &ClrPolarization(void);
+   static tChannelID FromString(const char *s);
+-  cString ToString(void);
++  cString ToString(void) const;
+   static const tChannelID InvalidID;
+   };
+ 
+@@ -176,10 +176,10 @@
+   int Transmission(void) const { return transmission; }
+   int Guard(void) const { return guard; }
+   int Hierarchy(void) const { return hierarchy; }
+-  bool IsCable(void) const { return (source & cSource::st_Mask) == cSource::stCable; }
+-  bool IsSat(void) const { return (source & cSource::st_Mask) == cSource::stSat; }
+-  bool IsTerr(void) const { return (source & cSource::st_Mask) == cSource::stTerr; }
+-  tChannelID GetChannelID(void) const;
++  bool IsCable(void) const { return cSource::IsCable(source); }
++  bool IsSat(void) const { return cSource::IsSat(source); }
++  bool IsTerr(void) const { return cSource::IsTerr(source); }
++  tChannelID GetChannelID(void) const { return tChannelID(source, nid, (nid || tid) ? tid : Transponder(), sid, rid); }
+   int Modification(int Mask = CHANNELMOD_ALL);
+   bool SetSatTransponderData(int Source, int Frequency, char Polarization, int Srate, int CoderateH);
+   bool SetCableTransponderData(int Source, int Frequency, int Modulation, int Srate, int CoderateH);
+diff -ruN vdr-1.3.24/config.h vdr-1.3.25/config.h
+--- vdr-1.3.24/config.h	2005-05-05 13:04:18.000000000 +0200
++++ vdr-1.3.25/config.h	2005-05-14 11:18:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.217 2005/05/05 11:04:18 kls Exp $
++ * $Id: config.h 1.218 2005/05/14 09:18:08 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -20,8 +20,8 @@
+ #include "i18n.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.3.24"
+-#define VDRVERSNUM   10324  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.3.25"
++#define VDRVERSNUM   10325  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+diff -ruN vdr-1.3.24/cutter.c vdr-1.3.25/cutter.c
+--- vdr-1.3.24/cutter.c	2004-06-13 18:04:08.000000000 +0200
++++ vdr-1.3.25/cutter.c	2005-05-15 16:21:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: cutter.c 1.7 2004/06/13 16:04:08 kls Exp $
++ * $Id: cutter.c 1.8 2005/05/15 14:21:08 kls Exp $
+  */
+ 
+ #include "cutter.h"
+@@ -204,7 +204,7 @@
+         free(s);
+         // XXX
+         editedVersionName = strdup(evn);
+-        Recording.WriteSummary();
++        Recording.WriteInfo();
+         Recordings.AddByName(editedVersionName);
+         cuttingThread = new cCuttingThread(FileName, editedVersionName);
+         return true;
+diff -ruN vdr-1.3.24/dvbdevice.c vdr-1.3.25/dvbdevice.c
+--- vdr-1.3.24/dvbdevice.c	2005-03-20 11:10:38.000000000 +0100
++++ vdr-1.3.25/dvbdevice.c	2005-05-16 17:23:43.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.127 2005/03/20 10:10:38 kls Exp $
++ * $Id: dvbdevice.c 1.129 2005/05/16 15:23:43 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -741,7 +741,7 @@
+ 
+ bool cDvbDevice::ProvidesTransponder(const cChannel *Channel) const
+ {
+-  return ProvidesSource(Channel->Source()) && ((Channel->Source() & cSource::st_Mask) != cSource::stSat || Diseqcs.Get(Channel->Source(), Channel->Frequency(), Channel->Polarization()));
++  return ProvidesSource(Channel->Source()) && (!cSource::IsSat(Channel->Source()) || !Setup.DiSEqC || Diseqcs.Get(Channel->Source(), Channel->Frequency(), Channel->Polarization()));
+ }
+ 
+ bool cDvbDevice::ProvidesChannel(const cChannel *Channel, int Priority, bool *NeedsDetachReceivers) const
+diff -ruN vdr-1.3.24/dvbosd.c vdr-1.3.25/dvbosd.c
+--- vdr-1.3.24/dvbosd.c	2005-02-12 16:36:31.000000000 +0100
++++ vdr-1.3.25/dvbosd.c	2005-05-22 12:57:45.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbosd.c 1.26 2005/02/12 15:36:31 kls Exp $
++ * $Id: dvbosd.c 1.27 2005/05/22 10:57:45 kls Exp $
+  */
+ 
+ #include "dvbosd.h"
+@@ -151,10 +151,6 @@
+             for (int i = 0; i < NumColors; i++) {
+                 // convert AARRGGBB to AABBGGRR (the driver expects the colors the wrong way):
+                 colors[i] = (Colors[i] & 0xFF000000) | ((Colors[i] & 0x0000FF) << 16) | (Colors[i] & 0x00FF00) | ((Colors[i] & 0xFF0000) >> 16);
+-#if __BYTE_ORDER == __BIG_ENDIAN
+-                // actually the driver itself should access the bytes according to the current endianness!
+-                colors[i] = ((colors[i] & 0xFF) << 24) | ((colors[i] & 0xFF00) << 8) | ((colors[i] & 0xFF0000) >> 8) | ((colors[i] & 0xFF000000) >> 24);
+-#endif
+                 }
+             Colors = colors;
+             //TODO end of stuff that should be fixed in the driver
+diff -ruN vdr-1.3.24/dvbplayer.c vdr-1.3.25/dvbplayer.c
+--- vdr-1.3.24/dvbplayer.c	2005-05-08 16:52:49.000000000 +0200
++++ vdr-1.3.25/dvbplayer.c	2005-05-22 13:26:51.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.c 1.33 2005/05/08 14:52:49 kls Exp $
++ * $Id: dvbplayer.c 1.34 2005/05/22 11:26:51 kls Exp $
+  */
+ 
+ #include "dvbplayer.h"
+@@ -355,7 +355,7 @@
+      }
+   else if (active) {
+      running = false;
+-     Cancel(3);
++     Cancel(9);
+      active = false;
+      }
+ }
+diff -ruN vdr-1.3.24/eit.c vdr-1.3.25/eit.c
+--- vdr-1.3.24/eit.c	2005-03-20 13:33:51.000000000 +0100
++++ vdr-1.3.25/eit.c	2005-05-28 13:35:55.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 1.103 2005/03/20 12:33:51 kls Exp $
++ * $Id: eit.c 1.107 2005/05/28 11:35:55 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -48,12 +48,16 @@
+ 
+   SI::EIT::Event SiEitEvent;
+   for (SI::Loop::Iterator it; eventLoop.getNext(SiEitEvent, it); ) {
++      // Drop bogus events.
++      if (SiEitEvent.getStartTime() == 0 || SiEitEvent.getDuration() == 0)
++         continue;
+       Empty = false;
++      cEvent *newEvent = NULL;
+       cEvent *pEvent = (cEvent *)pSchedule->GetEvent(SiEitEvent.getEventId(), SiEitEvent.getStartTime());
+       if (!pEvent) {
+          // If we don't have that event yet, we create a new one.
+          // Otherwise we copy the information into the existing event anyway, because the data might have changed.
+-         pEvent = pSchedule->AddEvent(new cEvent(channelID, SiEitEvent.getEventId()));
++         pEvent = newEvent = new cEvent(SiEitEvent.getEventId());
+          if (!pEvent)
+             continue;
+          }
+@@ -91,8 +95,7 @@
+       SI::ExtendedEventDescriptors *ExtendedEventDescriptors = NULL;
+       SI::ShortEventDescriptor *ShortEventDescriptor = NULL;
+       cLinkChannels *LinkChannels = NULL;
+-      int NumComponents = 0;
+-      SI::ComponentDescriptor *ComponentDescriptors[MAXCOMPONENTS];
++      cComponents *Components = NULL;
+       for (SI::Loop::Iterator it2; (d = SiEitEvent.eventDescriptors.getNext(it2)); ) {
+           switch (d->getDescriptorTag()) {
+             case SI::ExtendedEventDescriptorTag: {
+@@ -193,12 +196,10 @@
+                  uchar Stream = cd->getStreamContent();
+                  uchar Type = cd->getComponentType();
+                  if (1 <= Stream && Stream <= 2 && Type != 0) {
+-                    if (NumComponents < MAXCOMPONENTS) {
+-                       ComponentDescriptors[NumComponents++] = cd;
+-                       d = NULL; // so that it is not deleted
+-                       }
+-                    else
+-                       dsyslog("more than %d component descriptors!", MAXCOMPONENTS);
++                    if (!Components)
++                       Components = new cComponents;
++                    char buffer[256];
++                    Components->SetComponent(Components->NumComponents(), cd->getStreamContent(), cd->getComponentType(), I18nNormalizeLanguageCode(cd->languageCode), cd->description.getText(buffer, sizeof(buffer)));
+                     }
+                  }
+                  break;
+@@ -221,18 +222,10 @@
+       delete ExtendedEventDescriptors;
+       delete ShortEventDescriptor;
+ 
+-      if (NumComponents > 0) {
+-         cComponents *Components = new cComponents(NumComponents);
+-         for (int i = 0; i < NumComponents; i++) {
+-             char buffer[256];
+-             SI::ComponentDescriptor *cd = ComponentDescriptors[i];
+-             Components->SetComponent(i, cd->getStreamContent(), cd->getComponentType(), I18nNormalizeLanguageCode(cd->languageCode), cd->description.getText(buffer, sizeof(buffer)));
+-             delete cd;
+-             }
+-         pEvent->SetComponents(Components);
+-         }
+-      else
+-         pEvent->SetComponents(NULL);
++      if (newEvent)
++         pSchedule->AddEvent(newEvent);
++
++      pEvent->SetComponents(Components);
+ 
+       pEvent->FixEpgBugs();
+       if (LinkChannels)
+diff -ruN vdr-1.3.24/epg.c vdr-1.3.25/epg.c
+--- vdr-1.3.24/epg.c	2005-05-05 15:53:19.000000000 +0200
++++ vdr-1.3.25/epg.c	2005-05-29 12:19:48.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 1.29 2005/05/05 13:53:19 kls Exp $
++ * $Id: epg.c 1.34 2005/05/29 10:19:48 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -40,11 +40,10 @@
+ 
+ // --- cComponents -----------------------------------------------------------
+ 
+-cComponents::cComponents(int NumComponents)
++cComponents::cComponents(void)
+ {
+-  numComponents = NumComponents;
+-  components = MALLOC(tComponent, numComponents);
+-  memset(components, 0, sizeof(tComponent) * numComponents);
++  numComponents = 0;
++  components = NULL;
+ }
+ 
+ cComponents::~cComponents(void)
+@@ -54,31 +53,37 @@
+   free(components);
+ }
+ 
+-bool cComponents::SetComponent(int Index, const char *s)
++void cComponents::Realloc(int Index)
+ {
+-  if (Index < numComponents)
+-     return components[Index].FromString(s);
+-  return false;
++  if (Index >= numComponents) {
++     int n = numComponents;
++     numComponents = Index + 1;
++     components = (tComponent *)realloc(components, numComponents * sizeof(tComponent));
++     memset(&components[n], 0, sizeof(tComponent) * (numComponents - n));
++     }
+ }
+ 
+-bool cComponents::SetComponent(int Index, uchar Stream, uchar Type, const char *Language, const char *Description)
++void cComponents::SetComponent(int Index, const char *s)
+ {
+-  if (Index < numComponents) {
+-     tComponent *p = &components[Index];
+-     p->stream = Stream;
+-     p->type = Type;
+-     strn0cpy(p->language, Language, sizeof(p->language));
+-     p->description = strcpyrealloc(p->description, !isempty(Description) ? Description : NULL);
+-     return true;
+-     }
+-  return false;
++  Realloc(Index);
++  components[Index].FromString(s);
++}
++
++void cComponents::SetComponent(int Index, uchar Stream, uchar Type, const char *Language, const char *Description)
++{
++  Realloc(Index);
++  tComponent *p = &components[Index];
++  p->stream = Stream;
++  p->type = Type;
++  strn0cpy(p->language, Language, sizeof(p->language));
++  p->description = strcpyrealloc(p->description, !isempty(Description) ? Description : NULL);
+ }
+ 
+ // --- cEvent ----------------------------------------------------------------
+ 
+-cEvent::cEvent(tChannelID ChannelID, u_int16_t EventID)
++cEvent::cEvent(u_int16_t EventID)
+ {
+-  channelID = ChannelID;
++  schedule = NULL;
+   eventID = EventID;
+   tableID = 0;
+   version = 0xFF; // actual version numbers are 0..31
+@@ -107,9 +112,20 @@
+   return startTime - e->startTime;
+ }
+ 
++tChannelID cEvent::ChannelID(void) const
++{
++  return schedule ? schedule->ChannelID() : tChannelID();
++}
++
+ void cEvent::SetEventID(u_int16_t EventID)
+ {
+-  eventID = EventID;
++  if (eventID != EventID) {
++     if (schedule)
++        schedule->UnhashEvent(this);
++     eventID = EventID;
++     if (schedule)
++        schedule->HashEvent(this);
++     }
+ }
+ 
+ void cEvent::SetTableID(uchar TableID)
+@@ -153,7 +169,13 @@
+ 
+ void cEvent::SetStartTime(time_t StartTime)
+ {
+-  startTime = StartTime;
++  if (startTime != StartTime) {
++     if (schedule)
++        schedule->UnhashEvent(this);
++     startTime = StartTime;
++     if (schedule)
++        schedule->HashEvent(this);
++     }
+ }
+ 
+ void cEvent::SetDuration(int Duration)
+@@ -187,30 +209,17 @@
+ 
+ cString cEvent::GetDateString(void) const
+ {
+-  char buf[32];
+-  struct tm tm_r;
+-  tm *tm = localtime_r(&startTime, &tm_r);
+-  char *p = stpcpy(buf, WeekDayName(tm->tm_wday));
+-  *p++ = ' ';
+-  strftime(p, sizeof(buf) - (p - buf), "%d.%m.%Y", tm);
+-  return buf;
++  return DateString(startTime);
+ }
+ 
+ cString cEvent::GetTimeString(void) const
+ {
+-  char buf[25];
+-  struct tm tm_r;
+-  strftime(buf, sizeof(buf), "%R", localtime_r(&startTime, &tm_r));
+-  return buf;
++  return TimeString(startTime);
+ }
+ 
+ cString cEvent::GetEndTimeString(void) const
+ {
+-  char buf[25];
+-  time_t EndTime = startTime + duration;
+-  struct tm tm_r;
+-  strftime(buf, sizeof(buf), "%R", localtime_r(&EndTime, &tm_r));
+-  return buf;
++  return TimeString(startTime + duration);
+ }
+ 
+ cString cEvent::GetVpsString(void) const
+@@ -221,10 +230,11 @@
+   return buf;
+ }
+ 
+-void cEvent::Dump(FILE *f, const char *Prefix) const
++void cEvent::Dump(FILE *f, const char *Prefix, bool InfoOnly) const
+ {
+-  if (startTime + duration + Setup.EPGLinger * 60 >= time(NULL)) {
+-     fprintf(f, "%sE %u %ld %d %X\n", Prefix, eventID, startTime, duration, tableID);
++  if (InfoOnly || startTime + duration + Setup.EPGLinger * 60 >= time(NULL)) {
++     if (!InfoOnly)
++        fprintf(f, "%sE %u %ld %d %X\n", Prefix, eventID, startTime, duration, tableID);
+      if (!isempty(title))
+         fprintf(f, "%sT %s\n", Prefix, title);
+      if (!isempty(shortText))
+@@ -240,18 +250,40 @@
+             fprintf(f, "%sX %s\n", Prefix, *p->ToString());
+             }
+         }
+-     if (vps)
++     if (!InfoOnly && vps)
+         fprintf(f, "%sV %ld\n", Prefix, vps);
+-     fprintf(f, "%se\n", Prefix);
++     if (!InfoOnly)
++        fprintf(f, "%se\n", Prefix);
+      }
+ }
+ 
++bool cEvent::Parse(char *s)
++{
++  char *t = skipspace(s + 1);
++  switch (*s) {
++    case 'T': SetTitle(t);
++              break;
++    case 'S': SetShortText(t);
++              break;
++    case 'D': strreplace(t, '|', '\n');
++              SetDescription(t);
++              break;
++    case 'X': if (!components)
++                 components = new cComponents;
++              components->SetComponent(components->NumComponents(), t);
++              break;
++    case 'V': SetVps(atoi(t));
++              break;
++    default:  esyslog("ERROR: unexpected tag while reading EPG data: %s", s);
++              return false;
++    }
++  return true;
++}
++
+ bool cEvent::Read(FILE *f, cSchedule *Schedule)
+ {
+   if (Schedule) {
+      cEvent *Event = NULL;
+-     int NumComponents = 0;
+-     char *ComponentStrings[MAXCOMPONENTS];
+      char *s;
+      cReadLine ReadLine;
+      while ((s = ReadLine.Read(f)) != NULL) {
+@@ -265,53 +297,25 @@
+                           int n = sscanf(t, "%u %ld %d %X", &EventID, &StartTime, &Duration, &TableID);
+                           if (n == 3 || n == 4) {
+                              Event = (cEvent *)Schedule->GetEvent(EventID, StartTime);
++                             cEvent *newEvent = NULL;
+                              if (!Event)
+-                                Event = Schedule->AddEvent(new cEvent(Schedule->ChannelID(), EventID));
++                                Event = newEvent = new cEvent(EventID);
+                              if (Event) {
+                                 Event->SetTableID(TableID);
+                                 Event->SetStartTime(StartTime);
+                                 Event->SetDuration(Duration);
++                                if (newEvent)
++                                   Schedule->AddEvent(newEvent);
+                                 }
+                              }
+-                          NumComponents = 0;
+-                          }
+-                       break;
+-             case 'T': if (Event)
+-                          Event->SetTitle(t);
+-                       break;
+-             case 'S': if (Event)
+-                          Event->SetShortText(t);
+-                       break;
+-             case 'D': if (Event) {
+-                          strreplace(t, '|', '\n');
+-                          Event->SetDescription(t);
+-                          }
+-                       break;
+-             case 'X': if (Event) {
+-                          if (NumComponents < MAXCOMPONENTS)
+-                             ComponentStrings[NumComponents++] = strdup(t);
+-                          else
+-                             dsyslog("more than %d component descriptors!", MAXCOMPONENTS);
+                           }
+                        break;
+-             case 'V': if (Event)
+-                          Event->SetVps(atoi(t));
+-                       break;
+-             case 'e': if (Event && NumComponents > 0) {
+-                          cComponents *Components = new cComponents(NumComponents);
+-                          for (int i = 0; i < NumComponents; i++) {
+-                              if (!Components->SetComponent(i, ComponentStrings[i]))
+-                                 esyslog("ERROR: faulty component string in EPG data: '%s'", ComponentStrings[i]);
+-                              free(ComponentStrings[i]);
+-                              }
+-                          Event->SetComponents(Components);
+-                          }
+-                       Event = NULL;
++             case 'e': Event = NULL;
+                        break;
+              case 'c': // to keep things simple we react on 'c' here
+                        return true;
+-             default:  esyslog("ERROR: unexpected tag while reading EPG data: %s", s);
+-                       return false;
++             default:  if (Event && !Event->Parse(s))
++                          return false;
+              }
+            }
+      esyslog("ERROR: unexpected end of file while reading EPG data");
+@@ -649,9 +653,34 @@
+ cEvent *cSchedule::AddEvent(cEvent *Event)
+ {
+   events.Add(Event);
++  Event->schedule = this;
++  HashEvent(Event);
+   return Event;
+ }
+ 
++void cSchedule::DelEvent(cEvent *Event)
++{
++  if (Event->schedule == this) {
++     UnhashEvent(Event);
++     events.Del(Event);
++     Event->schedule = NULL;
++     }
++}
++
++void cSchedule::HashEvent(cEvent *Event)
++{
++  eventsHashID.Add(Event, Event->EventID());
++  if (Event->StartTime() > 0) // 'StartTime < 0' is apparently used with NVOD channels
++     eventsHashStartTime.Add(Event, Event->StartTime());
++}
++
++void cSchedule::UnhashEvent(cEvent *Event)
++{
++  eventsHashID.Del(Event, Event->EventID());
++  if (Event->StartTime() > 0) // 'StartTime < 0' is apparently used with NVOD channels
++     eventsHashStartTime.Del(Event, Event->StartTime());
++}
++
+ const cEvent *cSchedule::GetPresentEvent(bool CheckRunningStatus) const
+ {
+   const cEvent *pe = NULL;
+@@ -680,13 +709,9 @@
+ {
+   // Returns either the event info with the given EventID or, if that one can't
+   // be found, the one with the given StartTime (or NULL if neither can be found)
+-  cEvent *pt = NULL;
+-  for (cEvent *pe = events.First(); pe; pe = events.Next(pe)) {
+-      if (pe->EventID() == EventID)
+-         return pe;
+-      if (StartTime > 0 && pe->StartTime() == StartTime) // 'StartTime < 0' is apparently used with NVOD channels
+-         pt = pe;
+-      }
++  cEvent *pt = eventsHashID.Get(EventID);
++  if (!pt && StartTime > 0) // 'StartTime < 0' is apparently used with NVOD channels
++     pt = eventsHashStartTime.Get(StartTime);
+   return pt;
+ }
+ 
+@@ -753,7 +778,7 @@
+       if (!Event)
+          break;
+       if (!Event->HasTimer() && Event->EndTime() + Setup.EPGLinger * 60 + 3600 < Time) { // adding one hour for safety
+-         events.Del(Event);
++         DelEvent(Event);
+          a--;
+          }
+       }
+diff -ruN vdr-1.3.24/epg.h vdr-1.3.25/epg.h
+--- vdr-1.3.24/epg.h	2005-03-20 13:32:36.000000000 +0100
++++ vdr-1.3.25/epg.h	2005-05-28 13:32:36.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.h 1.21 2005/03/20 12:32:36 kls Exp $
++ * $Id: epg.h 1.25 2005/05/28 11:32:36 kls Exp $
+  */
+ 
+ #ifndef __EPG_H
+@@ -18,7 +18,6 @@
+ #include "tools.h"
+ 
+ #define MAXEPGBUGFIXLEVEL 3
+-#define MAXCOMPONENTS 32
+ 
+ enum eDumpMode { dmAll, dmPresent, dmFollowing, dmAtTime };
+ 
+@@ -35,20 +34,22 @@
+ private:
+   int numComponents;
+   tComponent *components;
++  void Realloc(int Index);
+ public:
+-  cComponents(int NumComponents);
++  cComponents(void);
+   ~cComponents(void);
+   int NumComponents(void) const { return numComponents; }
+-  bool SetComponent(int Index, const char *s);
+-  bool SetComponent(int Index, uchar Stream, uchar Type, const char *Language, const char *Description);
++  void SetComponent(int Index, const char *s);
++  void SetComponent(int Index, uchar Stream, uchar Type, const char *Language, const char *Description);
+   tComponent *Component(int Index) const { return (Index < numComponents) ? &components[Index] : NULL; }
+   };
+ 
+ class cSchedule;
+ 
+ class cEvent : public cListObject {
++  friend class cSchedule;
+ private:
+-  tChannelID channelID;    // Channel ID of program for this event
++  cSchedule *schedule;     // The Schedule this event belongs to
+   u_int16_t eventID;       // Event ID of this event
+   uchar tableID;           // Table ID this event came from
+   uchar version;           // Version number of section this event came from
+@@ -56,16 +57,16 @@
+   char *title;             // Title of this event
+   char *shortText;         // Short description of this event (typically the episode name in case of a series)
+   char *description;       // Description of this event
+-  cComponents *components; // The stream components of this event (separated by '\n')
++  cComponents *components; // The stream components of this event
+   time_t startTime;        // Start time of this event
+   int duration;            // Duration of this event in seconds
+   time_t vps;              // Video Programming Service timestamp (VPS, aka "Programme Identification Label", PIL)
+   time_t seen;             // When this event was last seen in the data stream
+ public:
+-  cEvent(tChannelID ChannelID, u_int16_t EventID);
++  cEvent(u_int16_t EventID);
+   ~cEvent();
+   virtual int Compare(const cListObject &ListObject) const;
+-  tChannelID ChannelID(void) const { return channelID; }
++  tChannelID ChannelID(void) const;
+   u_int16_t EventID(void) const { return eventID; }
+   uchar TableID(void) const { return tableID; }
+   uchar Version(void) const { return version; }
+@@ -98,7 +99,8 @@
+   void SetDuration(int Duration);
+   void SetVps(time_t Vps);
+   void SetSeen(void);
+-  void Dump(FILE *f, const char *Prefix = "") const;
++  void Dump(FILE *f, const char *Prefix = "", bool InfoOnly = false) const;
++  bool Parse(char *s);
+   static bool Read(FILE *f, cSchedule *Schedule);
+   void FixEpgBugs(void);
+   };
+@@ -109,6 +111,8 @@
+ private:
+   tChannelID channelID;
+   cList<cEvent> events;
++  cHash<cEvent> eventsHashID;
++  cHash<cEvent> eventsHashStartTime;
+   bool hasRunning;
+   time_t modified;
+   time_t presentSeen;
+@@ -127,6 +131,9 @@
+   void Cleanup(time_t Time);
+   void Cleanup(void);
+   cEvent *AddEvent(cEvent *Event);
++  void DelEvent(cEvent *Event);
++  void cSchedule::HashEvent(cEvent *Event);
++  void cSchedule::UnhashEvent(cEvent *Event);
+   const cList<cEvent> *Events(void) const { return &events; }
+   const cEvent *GetPresentEvent(bool CheckRunningStatus = false) const;
+   const cEvent *GetFollowingEvent(bool CheckRunningStatus = false) const;
+diff -ruN vdr-1.3.24/i18n.c vdr-1.3.25/i18n.c
+--- vdr-1.3.24/i18n.c	2005-05-05 15:12:54.000000000 +0200
++++ vdr-1.3.25/i18n.c	2005-05-15 16:37:59.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.188 2005/05/05 13:12:54 kls Exp $
++ * $Id: i18n.c 1.191 2005/05/15 14:37:59 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -399,6 +399,27 @@
+     "Kokkuvıte",
+     "Omtale",
+   },
++  { "Info",
++    "Info",
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++  },
+   { "Schedule - %s",
+     "Programm - %s",
+     "Program - %s",
+@@ -3112,7 +3133,7 @@
+     "",//TODO
+     "»ÿ‡ﬁ⁄ﬁÌ⁄‡–››ﬁ’ ÿ◊ﬁ—‡–÷’›ÿ’",
+     "",//TODO
+-    "",//TODO
++    "Video kuvamise formaat",
+     "Video display format",
+   },
+   { "pan&scan",
+@@ -3343,7 +3364,7 @@
+     "",//TODO
+     "ø‡’‘ﬂﬁÁÿ‚–’‹Î’ Ô◊Î⁄ÿ (◊“„⁄)",
+     "",//TODO
+-    "",//TODO
++    "Audio keeled",
+     "Audio sprog (ant.)",
+   },
+   { "Setup.DVB$Audio language",  // note the singular
+@@ -3364,7 +3385,7 @@
+     "",//TODO
+     "≤Î—‡–›",
+     "",//TODO
+-    "",//TODO
++    "Audio keel",
+     "Audio sprog",
+   },
+   { "Setup.LNB$SLOF (MHz)",
+@@ -4039,7 +4060,7 @@
+     "Fase 1: Detectant el tipus de receptor",
+     "»–” 1: æﬂ‡’‘’€’›ÿ’ ‚ÿﬂ– ⁄ﬁ‘– ﬂ„€Ï‚–",
+     "Faza 1: detektiranje kÙda daljinskog upravljaËa.",
+-    "Aste 1: Koodeerimiss¸steemi tuvastamine",
++    "Aste 1: Kodeerimiss¸steemi tuvastamine",
+     "Fase 1: Detekterer fjernbetjenings-kodetype",
+   },
+   { "Press any key on the RC unit",
+@@ -4081,7 +4102,7 @@
+     "Codi detectat!",
+     "æ—›–‡„÷’› ⁄ﬁ‘ ﬂ„€Ï‚–!",
+     "KÙd daljinskog upravljaËa je prepoznat!",
+-    "Koodeerimiss¸steem tuvastatud!",
++    "Kodeerimiss¸steem tuvastatud!",
+     "Fjernbetjenings-kodetype fundet!",
+   },
+   { "Do not press any key...",
+@@ -5049,7 +5070,7 @@
+     " Aturar la reproducciÛ",
+     " ø‡’⁄‡–‚ÿ‚Ï “ﬁ·ﬂ‡ﬁÿ◊“’‘’›ÿ’",
+     " Prekini reprodukciju",
+-    " Lıpeta kordus",
++    " Lıpeta taasesitamine",
+     " Stop afspilning",
+   },
+   { " Stop recording ", // note the leading and trailing blanks!
+@@ -5259,8 +5280,8 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
+-    "",// TODO
++    "EPG skaneerimine k‰ivitatud",
++    "Starter EPG skanning",
+   },
+   { "This plugin has no setup parameters!",
+     "Dieses Plugin hat keine Setup-Parameter!",
+diff -ruN vdr-1.3.24/libsi/Makefile vdr-1.3.25/libsi/Makefile
+--- vdr-1.3.24/libsi/Makefile	2005-05-05 13:01:46.000000000 +0200
++++ vdr-1.3.25/libsi/Makefile	2005-05-29 13:47:12.000000000 +0200
+@@ -1,12 +1,12 @@
+ #
+ # Makefile for a libsi
+ #
+-# $Id: Makefile 1.4 2005/05/05 11:01:46 kls Exp $
++# $Id: Makefile 1.5 2005/05/29 11:47:12 kls Exp $
+ 
+ ### The C++ compiler and options:
+ 
+ CXX      ?= g++
+-CXXFLAGS ?= -O2 -g -Wall -Woverloaded-virtual
++CXXFLAGS ?= -fPIC -O2 -g -Wall -Woverloaded-virtual
+ AR = ar
+ ARFLAGS = ru
+ RANLIB = ranlib
+diff -ruN vdr-1.3.24/libsi/si.c vdr-1.3.25/libsi/si.c
+--- vdr-1.3.24/libsi/si.c	2004-10-16 17:12:57.000000000 +0200
++++ vdr-1.3.25/libsi/si.c	2005-05-28 16:11:16.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.c 1.13 2004/10/16 15:12:57 kls Exp $
++ *   $Id: si.c 1.14 2005/05/28 14:11:16 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -114,9 +114,10 @@
+ 
+ Descriptor *DescriptorLoop::getNext(Iterator &it, DescriptorTag tag, bool returnUnimplemetedDescriptor) {
+    Descriptor *d=0;
+-   if (isValid() && it.i<getLength()) {
++   int len;
++   if (isValid() && it.i<(len=getLength())) {
+       const unsigned char *p=data.getData(it.i);
+-      const unsigned char *end=p+getLength()-it.i;
++      const unsigned char *end=p+len-it.i;
+       while (p < end) {
+          if (Descriptor::getDescriptorTag(p) == tag) {
+             d=createDescriptor(it.i, returnUnimplemetedDescriptor);
+@@ -132,9 +133,10 @@
+ 
+ Descriptor *DescriptorLoop::getNext(Iterator &it, DescriptorTag *tags, int arrayLength, bool returnUnimplementedDescriptor) {
+    Descriptor *d=0;
+-   if (isValid() && it.i<getLength()) {
++   int len;
++   if (isValid() && it.i<(len=getLength())) {
+       const unsigned char *p=data.getData(it.i);
+-      const unsigned char *end=p+getLength()-it.i;
++      const unsigned char *end=p+len-it.i;
+       while (p < end) {
+          for (int u=0; u<arrayLength;u++)
+             if (Descriptor::getDescriptorTag(p) == tags[u]) {
+@@ -211,15 +213,17 @@
+ }
+ 
+ char *String::getText() {
+-   if (getLength() < 0 || getLength() >4095)
++   int len=getLength();
++   if (len < 0 || len > 4095)
+       return strdup("text error"); // caller will delete it!
+-   char *data=new char(getLength()+1);
+-   decodeText(data, getLength()+1);
++   char *data=new char(len+1);
++   decodeText(data, len+1);
+    return data;
+ }
+ 
+ char *String::getText(char *buffer, int size) {
+-   if (getLength() < 0 || getLength() >= size) {
++   int len=getLength();
++   if (len < 0 || len >= size) {
+       strncpy(buffer, "text error", size);
+       buffer[size-1] = 0;
+       return buffer;
+@@ -230,7 +234,8 @@
+ 
+ //taken from VDR, Copyright Klaus Schmidinger <kls@cadsoft.de>
+ char *String::getText(char *buffer, char *shortVersion, int sizeBuffer, int sizeShortVersion) {
+-   if (getLength() < 0 || getLength() >= sizeBuffer) {
++   int len=getLength();
++   if (len < 0 || len >= sizeBuffer) {
+       strncpy(buffer, "text error", sizeBuffer);
+       buffer[sizeBuffer-1] = 0;
+       *shortVersion = 0;
+@@ -254,7 +259,8 @@
+    if (*from == 0x10)
+       from += 3; // skips code table info
+ 
+-   for (int i = 0; i < getLength(); i++) {
++   int len=getLength();
++   for (int i = 0; i < len; i++) {
+       if (*from == 0)
+          break;
+       if (    ((' ' <= *from) && (*from <= '~'))
+@@ -281,9 +287,8 @@
+    if (*from == 0x10)
+       from += 3; // skips code table info
+ 
+-   for (int i = 0; i < getLength(); i++) {
+-      if (*from == 0)
+-         break;
++   int len=getLength();
++   for (int i = 0; i < len; i++) {
+       if (    ((' ' <= *from) && (*from <= '~'))
+            || (*from == '\n')
+            || (0xA0 <= *from)
+@@ -299,6 +304,8 @@
+          IsShortName++;
+       else if (*from == 0x87)
+          IsShortName--;
++      else if (*from == 0)
++         break;
+       from++;
+       if (to - buffer >= sizeBuffer - 1 || toShort - shortVersion >= sizeShortVersion - 1)
+          break;
+diff -ruN vdr-1.3.24/libsi/util.c vdr-1.3.25/libsi/util.c
+--- vdr-1.3.24/libsi/util.c	2004-10-16 11:58:41.000000000 +0200
++++ vdr-1.3.25/libsi/util.c	2005-05-28 16:15:29.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: util.c 1.4 2004/10/16 09:58:41 kls Exp $
++ *   $Id: util.c 1.5 2005/05/28 14:15:29 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -263,9 +263,10 @@
+ u_int32_t CRC32::crc32 (const char *d, int len, u_int32_t crc)
+ {
+    register int i;
++   const unsigned char *u=(unsigned char*)d; // Saves '& 0xff'
+ 
+    for (i=0; i<len; i++)
+-      crc = (crc << 8) ^ crc_table[((crc >> 24) ^ *d++) & 0xff];
++      crc = (crc << 8) ^ crc_table[((crc >> 24) ^ *u++)];
+ 
+    return crc;
+ }
+diff -ruN vdr-1.3.24/menu.c vdr-1.3.25/menu.c
+--- vdr-1.3.24/menu.c	2005-03-20 16:14:51.000000000 +0100
++++ vdr-1.3.25/menu.c	2005-05-16 15:59:03.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.348 2005/03/20 15:14:51 kls Exp $
++ * $Id: menu.c 1.349 2005/05/16 13:59:03 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -872,7 +872,6 @@
+   cTimer *ti = CurrentTimer();
+   if (ti && !isempty(ti->Summary()))
+      return AddSubMenu(new cMenuText(tr("Summary"), ti->Summary()));
+-     //XXX cSkin::SetRecording()???
+   return Edit(); // convenience for people not using the Summary feature ;-)
+ }
+ 
+@@ -1297,8 +1296,12 @@
+ 
+   if (state == osUnknown) {
+      switch (Key) {
+-       case kOk:  return Execute();
+-       default:   break;
++       case kRed:
++       case kGreen:
++       case kYellow:
++       case kBlue:   return osContinue;
++       case kOk:     return Execute();
++       default:      break;
+        }
+      }
+   return state;
+@@ -1430,6 +1433,63 @@
+   return NULL;
+ }
+ 
++// --- cMenuRecording --------------------------------------------------------
++
++class cMenuRecording : public cOsdMenu {
++private:
++  const cRecording *recording;
++public:
++  cMenuRecording(const cRecording *Recording);
++  virtual void Display(void);
++  virtual eOSState ProcessKey(eKeys Key);
++};
++
++cMenuRecording::cMenuRecording(const cRecording *Recording)
++:cOsdMenu(tr("Recording"))
++{
++  recording = Recording;
++  if (recording)
++     SetHelp(tr("Play"), tr("Rewind"));
++}
++
++void cMenuRecording::Display(void)
++{
++  cOsdMenu::Display();
++  DisplayMenu()->SetRecording(recording);
++  cStatus::MsgOsdTextItem(recording->Info()->Description());
++}
++
++eOSState cMenuRecording::ProcessKey(eKeys Key)
++{
++  switch (Key) {
++    case kUp|k_Repeat:
++    case kUp:
++    case kDown|k_Repeat:
++    case kDown:
++    case kLeft|k_Repeat:
++    case kLeft:
++    case kRight|k_Repeat:
++    case kRight:
++                  DisplayMenu()->Scroll(NORMALKEY(Key) == kUp || NORMALKEY(Key) == kLeft, NORMALKEY(Key) == kLeft || NORMALKEY(Key) == kRight);
++                  cStatus::MsgOsdTextItem(NULL, NORMALKEY(Key) == kUp);
++                  return osContinue;
++    default: break;
++    }
++
++  eOSState state = cOsdMenu::ProcessKey(Key);
++
++  if (state == osUnknown) {
++     switch (Key) {
++       case kRed:    Key = kOk; // will play the recording, even if recording commands are defined
++       case kGreen:  cRemote::Put(Key, true);
++                     // continue with osBack to close the info menu and process the key
++       case kOk:     return osBack;
++       default: break;
++       }
++     }
++  return state;
++}
++
+ // --- cMenuRecordingItem ----------------------------------------------------
+ 
+ class cMenuRecordingItem : public cOsdItem {
+@@ -1530,7 +1590,7 @@
+      else {
+         NewHelpKeys = 2;
+         cRecording *recording = GetRecording(ri);
+-        if (recording && recording->Summary())
++        if (recording && recording->Info()->Title())
+            NewHelpKeys = 3;
+         }
+      }
+@@ -1539,7 +1599,7 @@
+        case 0: SetHelp(NULL); break;
+        case 1: SetHelp(tr("Open")); break;
+        case 2:
+-       case 3: SetHelp(RecordingCommands.Count() ? tr("Commands") : tr("Play"), tr("Rewind"), tr("Delete"), NewHelpKeys == 3 ? tr("Summary") : NULL);
++       case 3: SetHelp(RecordingCommands.Count() ? tr("Commands") : tr("Play"), tr("Rewind"), tr("Delete"), NewHelpKeys == 3 ? tr("Info") : NULL);
+        }
+      helpKeys = NewHelpKeys;
+      }
+@@ -1644,15 +1704,15 @@
+   return osContinue;
+ }
+ 
+-eOSState cMenuRecordings::Summary(void)
++eOSState cMenuRecordings::Info(void)
+ {
+   if (HasSubMenu() || Count() == 0)
+      return osContinue;
+   cMenuRecordingItem *ri = (cMenuRecordingItem *)Get(Current());
+   if (ri && !ri->IsDirectory()) {
+      cRecording *recording = GetRecording(ri);
+-     if (recording && recording->Summary() && *recording->Summary())
+-        return AddSubMenu(new cMenuText(tr("Summary"), recording->Summary()));
++     if (recording && recording->Info()->Title())
++        return AddSubMenu(new cMenuRecording(recording));
+      }
+   return osContinue;
+ }
+@@ -1689,7 +1749,7 @@
+        case kRed:    return (helpKeys > 1 && RecordingCommands.Count()) ? Commands() : Play();
+        case kGreen:  return Rewind();
+        case kYellow: return Delete();
+-       case kBlue:   return Summary();
++       case kBlue:   return Info();
+        case k1...k9: return Commands(Key);
+        default: break;
+        }
+@@ -2568,36 +2628,43 @@
+ 
+ // --- SetTrackDescriptions --------------------------------------------------
+ 
+-static void SetTrackDescriptions(void)
++static void SetTrackDescriptions(bool Live)
+ {
+   cDevice::PrimaryDevice()->ClrAvailableTracks(true);
+-  cChannel *Channel = Channels.GetByNumber(cDevice::CurrentChannel());
+-  if (Channel) {
+-     cSchedulesLock SchedulesLock;
+-     const cSchedules *Schedules = cSchedules::Schedules(SchedulesLock);
+-     if (Schedules) {
+-        const cSchedule *Schedule = Schedules->GetSchedule(Channel->GetChannelID());
+-        if (Schedule) {
+-           const cEvent *Present = Schedule->GetPresentEvent(true);
+-           if (Present) {
+-              const cComponents *Components = Present->Components();
+-              if (Components) {
+-                 int indexAudio = 0;
+-                 int indexDolby = 0;
+-                 for (int i = 0; i < Components->NumComponents(); i++) {
+-                     const tComponent *p = Components->Component(i);
+-                     if (p->stream == 2) {
+-                        if (p->type == 0x05)
+-                           cDevice::PrimaryDevice()->SetAvailableTrack(ttDolby, indexDolby++, 0, NULL, p->description);
+-                        else
+-                           cDevice::PrimaryDevice()->SetAvailableTrack(ttAudio, indexAudio++, 0, NULL, p->description);
+-                        }
+-                     }
+-                 }
++  const cComponents *Components = NULL;
++  cSchedulesLock SchedulesLock;
++  if (Live) {
++     cChannel *Channel = Channels.GetByNumber(cDevice::CurrentChannel());
++     if (Channel) {
++        const cSchedules *Schedules = cSchedules::Schedules(SchedulesLock);
++        if (Schedules) {
++           const cSchedule *Schedule = Schedules->GetSchedule(Channel->GetChannelID());
++           if (Schedule) {
++              const cEvent *Present = Schedule->GetPresentEvent(true);
++              if (Present)
++                 Components = Present->Components();
+               }
+            }
+         }
+      }
++  else if (cReplayControl::LastReplayed()) {
++     cRecording *Recording = Recordings.GetByName(cReplayControl::LastReplayed());
++     if (Recording)
++        Components = Recording->Info()->Components();
++     }
++  if (Components) {
++     int indexAudio = 0;
++     int indexDolby = 0;
++     for (int i = 0; i < Components->NumComponents(); i++) {
++         const tComponent *p = Components->Component(i);
++         if (p->stream == 2) {
++            if (p->type == 0x05)
++               cDevice::PrimaryDevice()->SetAvailableTrack(ttDolby, indexDolby++, 0, NULL, p->description);
++            else
++               cDevice::PrimaryDevice()->SetAvailableTrack(ttAudio, indexAudio++, 0, NULL, p->description);
++            }
++         }
++     }
+ }
+ 
+ // --- cDisplayChannel -------------------------------------------------------
+@@ -2657,7 +2724,7 @@
+            const cEvent *Present = Schedule->GetPresentEvent(true);
+            const cEvent *Following = Schedule->GetFollowingEvent(true);
+            if (Present != lastPresent || Following != lastFollowing) {
+-              SetTrackDescriptions();
++              SetTrackDescriptions(true);
+               displayChannel->SetEvents(Present, Following);
+               cStatus::MsgOsdProgramme(Present ? Present->StartTime() : 0, Present ? Present->Title() : NULL, Present ? Present->ShortText() : NULL, Following ? Following->StartTime() : 0, Following ? Following->Title() : NULL, Following ? Following->ShortText() : NULL);
+               lastPresent = Present;
+@@ -2877,9 +2944,7 @@
+ :cOsdObject(true)
+ {
+   cDevice::PrimaryDevice()->EnsureAudioTrack();
+-  // Get the actual audio track descriptions from the EPG if we're not replaying:
+-  if (!cDevice::PrimaryDevice()->Replaying() || cTransferControl::ReceiverDevice())
+-     SetTrackDescriptions();
++  SetTrackDescriptions(!cDevice::PrimaryDevice()->Replaying() || cTransferControl::ReceiverDevice());
+   currentDisplayTracks = this;
+   numTracks = track = 0;
+   audioChannel = cDevice::PrimaryDevice()->GetAudioChannel();
+@@ -2994,6 +3059,11 @@
+ 
+ cRecordControl::cRecordControl(cDevice *Device, cTimer *Timer, bool Pause)
+ {
++  // We're going to manipulate an event here, so we need to prevent
++  // others from modifying any EPG data:
++  cSchedulesLock SchedulesLock;
++  cSchedules::Schedules(SchedulesLock);
++
+   event = NULL;
+   instantId = NULL;
+   fileName = NULL;
+@@ -3011,16 +3081,9 @@
+   timer->SetRecording(true);
+   event = timer->Event();
+ 
+-  const char *Title = NULL;
+-  const char *Subtitle = NULL;
+-  const char *Summary = NULL;
+-  if (event || GetEvent()) {
+-     Title = event->Title();
+-     Subtitle = event->ShortText();
+-     Summary = event->Description();
+-     dsyslog("Title: '%s' Subtitle: '%s'", Title, Subtitle);
+-     }
+-  cRecording Recording(timer, Title, Subtitle, Summary);
++  if (event || GetEvent())
++     dsyslog("Title: '%s' Subtitle: '%s'", event->Title(), event->ShortText());
++  cRecording Recording(timer, event);
+   fileName = strdup(Recording.FileName());
+ 
+   // crude attempt to avoid duplicate recordings:
+@@ -3047,7 +3110,7 @@
+      const cChannel *ch = timer->Channel();
+      recorder = new cRecorder(fileName, ch->Ca(), timer->Priority(), ch->Vpid(), ch->Apids(), ch->Dpids(), ch->Spids());
+      if (device->AttachReceiver(recorder)) {
+-        Recording.WriteSummary();
++        Recording.WriteInfo();
+         cStatus::MsgRecording(device, Recording.Name());
+         if (!Timer && !cReplayControl::LastReplayed()) // an instant recording, maybe from cRecordControls::PauseLiveVideo()
+            cReplayControl::SetRecording(fileName, Recording.Name());
+diff -ruN vdr-1.3.24/menu.h vdr-1.3.25/menu.h
+--- vdr-1.3.24/menu.h	2005-03-20 11:57:29.000000000 +0100
++++ vdr-1.3.25/menu.h	2005-05-15 16:34:54.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 1.69 2005/03/20 10:57:29 kls Exp $
++ * $Id: menu.h 1.70 2005/05/15 14:34:54 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -133,7 +133,7 @@
+   eOSState Play(void);
+   eOSState Rewind(void);
+   eOSState Delete(void);
+-  eOSState Summary(void);
++  eOSState Info(void);
+   eOSState Commands(eKeys Key = kNone);
+ public:
+   cMenuRecordings(const char *Base = NULL, int Level = 0, bool OpenSubMenus = false);
+diff -ruN vdr-1.3.24/osd.c vdr-1.3.25/osd.c
+--- vdr-1.3.24/osd.c	2004-12-19 13:27:38.000000000 +0100
++++ vdr-1.3.25/osd.c	2005-05-14 13:16:30.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 1.59 2004/12/19 12:27:38 kls Exp $
++ * $Id: osd.c 1.60 2005/05/14 11:16:30 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -574,7 +574,7 @@
+ 
+ // --- cOsd ------------------------------------------------------------------
+ 
+-bool cOsd::isOpen = false;
++int cOsd::isOpen = 0;
+ 
+ cOsd::cOsd(int Left, int Top)
+ {
+@@ -585,7 +585,7 @@
+   left = Left;
+   top = Top;
+   width = height = 0;
+-  isOpen = true;
++  isOpen++;
+ }
+ 
+ cOsd::~cOsd()
+@@ -593,7 +593,7 @@
+   for (int i = 0; i < numBitmaps; i++)
+       delete bitmaps[i];
+   delete savedRegion;
+-  isOpen = false;
++  isOpen--;
+ }
+ 
+ cBitmap *cOsd::GetBitmap(int Area)
+diff -ruN vdr-1.3.24/osd.h vdr-1.3.25/osd.h
+--- vdr-1.3.24/osd.h	2004-10-16 12:33:44.000000000 +0200
++++ vdr-1.3.25/osd.h	2005-05-14 13:15:55.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.h 1.47 2004/10/16 10:33:44 kls Exp $
++ * $Id: osd.h 1.48 2005/05/14 11:15:55 kls Exp $
+  */
+ 
+ #ifndef __OSD_H
+@@ -210,7 +210,7 @@
+ class cOsd {
+   friend class cOsdProvider;
+ private:
+-  static bool isOpen;
++  static int isOpen;
+   cBitmap *savedRegion;
+   cBitmap *bitmaps[MAXOSDAREAS];
+   int numBitmaps;
+@@ -235,7 +235,7 @@
+ public:
+   virtual ~cOsd();
+        ///< Shuts down the OSD.
+-  static bool IsOpen(void) { return isOpen; }
++  static int IsOpen(void) { return isOpen; }
+   int Left(void) { return left; }
+   int Top(void) { return top; }
+   int Width(void) { return width; }
+diff -ruN vdr-1.3.24/player.h vdr-1.3.25/player.h
+--- vdr-1.3.24/player.h	2005-02-12 15:45:29.000000000 +0100
++++ vdr-1.3.25/player.h	2005-05-22 13:07:42.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: player.h 1.16 2005/02/12 14:45:29 kls Exp $
++ * $Id: player.h 1.17 2005/05/22 11:07:42 kls Exp $
+  */
+ 
+ #ifndef __PLAYER_H
+@@ -29,6 +29,7 @@
+   void DevicePlay(void) { if (device) device->Play(); }
+   void DeviceFreeze(void) { if (device) device->Freeze(); }
+   void DeviceMute(void) { if (device) device->Mute(); }
++  void DeviceSetVideoDisplayFormat(eVideoDisplayFormat VideoDisplayFormat) { if (device) device->SetVideoDisplayFormat(VideoDisplayFormat); }
+   void DeviceStillPicture(const uchar *Data, int Length) { if (device) device->StillPicture(Data, Length); }
+   void Detach(void);
+   virtual void Activate(bool On) {}
+diff -ruN vdr-1.3.24/recording.c vdr-1.3.25/recording.c
+--- vdr-1.3.24/recording.c	2005-05-07 17:25:15.000000000 +0200
++++ vdr-1.3.25/recording.c	2005-05-29 13:16:57.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 1.98 2005/05/07 15:25:15 kls Exp $
++ * $Id: recording.c 1.107 2005/05/29 11:16:57 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -23,6 +23,8 @@
+ #include "tools.h"
+ #include "videodir.h"
+ 
++#define SUMMARYFALLBACK
++
+ #define RECEXT       ".rec"
+ #define DELEXT       ".del"
+ /* This was the original code, which works fine in a Linux only environment.
+@@ -45,7 +47,10 @@
+ // end of implementation for brain dead systems
+ 
+ #define RESUMEFILESUFFIX  "/resume%s%s.vdr"
++#ifdef SUMMARYFALLBACK
+ #define SUMMARYFILESUFFIX "/summary.vdr"
++#endif
++#define INFOFILESUFFIX    "/info.vdr"
+ #define MARKSFILESUFFIX   "/marks.vdr"
+ 
+ #define MINDISKSPACE 1024 // MB
+@@ -213,6 +218,68 @@
+      }
+ }
+ 
++// --- cRecordingInfo --------------------------------------------------------
++
++cRecordingInfo::cRecordingInfo(const cEvent *Event)
++{
++  if (Event) {
++     event = Event;
++     channelID = event->ChannelID();
++     ownEvent = NULL;
++     }
++  else
++     event = ownEvent = new cEvent(0);
++}
++
++cRecordingInfo::~cRecordingInfo()
++{
++  delete ownEvent;
++}
++
++void cRecordingInfo::SetData(const char *Title, const char *ShortText, const char *Description)
++{
++  if (!isempty(Title))
++     ((cEvent *)event)->SetTitle(Title);
++  if (!isempty(ShortText))
++     ((cEvent *)event)->SetShortText(ShortText);
++  if (!isempty(Description))
++     ((cEvent *)event)->SetDescription(Description);
++}
++
++bool cRecordingInfo::Read(FILE *f)
++{
++  if (ownEvent) {
++     cReadLine ReadLine;
++     char *s;
++     while ((s = ReadLine.Read(f)) != NULL) {
++           char *t = skipspace(s + 1);
++           switch (*s) {
++             case 'C': {
++                         char *p = strchr(t, ' ');
++                         if (p)
++                            *p = 0; // strips optional channel name
++                         if (*t)
++                            channelID = tChannelID::FromString(t);
++                       }
++                       break;
++             default: if (!ownEvent->Parse(s))
++                         return false;
++                      break;
++             }
++           }
++     return true;
++     }
++  return false;
++}
++
++bool cRecordingInfo::Write(FILE *f, const char *Prefix) const
++{
++  if (channelID.Valid())
++     fprintf(f, "%sC %s\n", Prefix, *channelID.ToString());
++  event->Dump(f, Prefix, true);
++  return true;
++}
++
+ // --- cRecording ------------------------------------------------------------
+ 
+ #define RESUME_NOT_INITIALIZED (-2)
+@@ -308,7 +375,7 @@
+   return s;
+ }
+ 
+-cRecording::cRecording(cTimer *Timer, const char *Title, const char *Subtitle, const char *Summary)
++cRecording::cRecording(cTimer *Timer, const cEvent *Event)
+ {
+   resume = RESUME_NOT_INITIALIZED;
+   titleBuffer = NULL;
+@@ -316,7 +383,8 @@
+   fileName = NULL;
+   name = NULL;
+   // set up the actual name:
+-  const char *OriginalSubtitle = Subtitle;
++  const char *Title = Event ? Event->Title() : NULL;
++  const char *Subtitle = Event ? Event->ShortText() : NULL;
+   char SubtitleBuffer[MAX_SUBTITLE_LENGTH];
+   if (isempty(Title))
+      Title = Timer->Channel()->Name();
+@@ -333,6 +401,14 @@
+      name = strdup(Timer->File());
+      name = strreplace(name, TIMERMACRO_TITLE, Title);
+      name = strreplace(name, TIMERMACRO_EPISODE, Subtitle);
++     // avoid blanks at the end:
++     int l = strlen(name);
++     while (l-- > 2) {
++           if (name[l] == ' ' && name[l - 1] != '~')
++              name[l] = 0;
++           else
++              break;
++           }
+      if (Timer->IsSingleEvent()) {
+         Timer->SetFile(name); // this was an instant recording, so let's set the actual data
+         Timers.SetModified();
+@@ -347,17 +423,13 @@
+   start = Timer->StartTime();
+   priority = Timer->Priority();
+   lifetime = Timer->Lifetime();
+-  // handle summary:
+-  summary = !isempty(Timer->Summary()) ? strdup(Timer->Summary()) : NULL;
+-  if (!summary) {
+-     Subtitle = OriginalSubtitle;
+-     if (isempty(Subtitle))
+-        Subtitle = "";
+-     if (isempty(Summary))
+-        Summary = "";
+-     if (*Subtitle || *Summary)
+-        asprintf(&summary, "%s\n\n%s%s%s", Title, Subtitle, (*Subtitle && *Summary) ? "\n\n" : "", Summary);
+-     }
++  // handle info:
++  info = new cRecordingInfo(Event);
++  // this is a somewhat ugly hack to get the 'summary' information from the
++  // timer into the recording info, but it saves us from having to actually
++  // copy the entire event data:
++  if (!isempty(Timer->Summary()))
++     info->SetData(isempty(info->Title()) ? Timer->File() : NULL, NULL, Timer->Summary());
+ }
+ 
+ cRecording::cRecording(const char *FileName)
+@@ -370,7 +442,7 @@
+   char *p = strrchr(FileName, '/');
+ 
+   name = NULL;
+-  summary = NULL;
++  info = new cRecordingInfo;
+   if (p) {
+      time_t now = time(NULL);
+      struct tm tm_r;
+@@ -386,39 +458,57 @@
+         name[p - FileName] = 0;
+         name = ExchangeChars(name, false);
+         }
+-     // read an optional summary file:
+-     char *SummaryFileName = NULL;
+-     asprintf(&SummaryFileName, "%s%s", fileName, SUMMARYFILESUFFIX);
+-     int f = open(SummaryFileName, O_RDONLY);
+-     if (f >= 0) {
+-        struct stat buf;
+-        if (fstat(f, &buf) == 0) {
+-           int size = buf.st_size;
+-           summary = MALLOC(char, size + 1); // +1 for terminating 0
+-           if (summary) {
+-              int rbytes = safe_read(f, summary, size);
+-              if (rbytes >= 0) {
+-                 summary[rbytes] = 0;
+-                 if (rbytes != size)
+-                    esyslog("%s: expected %d bytes but read %d", SummaryFileName, size, rbytes);
+-                 }
+-              else {
+-                 LOG_ERROR_STR(SummaryFileName);
+-                 free(summary);
+-                 summary = NULL;
++     // read an optional info file:
++     char *InfoFileName = NULL;
++     asprintf(&InfoFileName, "%s%s", fileName, INFOFILESUFFIX);
++     FILE *f = fopen(InfoFileName, "r");
++     if (f) {
++        info->Read(f);
++        fclose(f);
++        }
++     else if (errno != ENOENT)
++        LOG_ERROR_STR(InfoFileName);
++     free(InfoFileName);
++#ifdef SUMMARYFALLBACK
++     // fall back to the old 'summary.vdr' if there was no 'info.vdr':
++     if (isempty(info->Title())) {
++        char *SummaryFileName = NULL;
++        asprintf(&SummaryFileName, "%s%s", fileName, SUMMARYFILESUFFIX);
++        FILE *f = fopen(SummaryFileName, "r");
++        if (f) {
++           int line = 0;
++           char *data[3] = { NULL };
++           cReadLine ReadLine;
++           char *s;
++           while ((s = ReadLine.Read(f)) != NULL && line < 3) {
++                 if (*s) {
++                    if (data[line]) {
++                       int len = strlen(s);
++                       len += strlen(data[line]) + 1;
++                       data[line] = (char *)realloc(data[line], len + 1);
++                       strcat(data[line], "\n");
++                       strcat(data[line], s);
++                       }
++                    else
++                       data[line] = strdup(s);
++                    }
++                 else
++                    line++;
+                  }
+-
++           fclose(f);
++           if (line == 1) {
++              data[2] = data[1];
++              data[1] = NULL;
+               }
+-           else
+-              esyslog("can't allocate %d byte of memory for summary file '%s'", size + 1, SummaryFileName);
+-           close(f);
++           info->SetData(data[0], data[1], data[2]);
++           for (int i = 0; i < 3; i ++)
++               free(data[i]);
+            }
+-        else
++        else if (errno != ENOENT)
+            LOG_ERROR_STR(SummaryFileName);
++        free(SummaryFileName);
+         }
+-     else if (errno != ENOENT)
+-        LOG_ERROR_STR(SummaryFileName);
+-     free(SummaryFileName);
++#endif
+      }
+ }
+ 
+@@ -428,7 +518,7 @@
+   free(sortBuffer);
+   free(fileName);
+   free(name);
+-  free(summary);
++  delete info;
+ }
+ 
+ char *cRecording::StripEpisodeName(char *s)
+@@ -513,7 +603,8 @@
+                             Delimiter,
+                             s);
+      // let's not display a trailing '~':
+-     stripspace(titleBuffer);
++     if (!NewIndicator)
++        stripspace(titleBuffer);
+      s = &titleBuffer[strlen(titleBuffer) - 1];
+      if (*s == '~')
+         *s = 0;
+@@ -568,21 +659,18 @@
+   return *s == '%';
+ }
+ 
+-bool cRecording::WriteSummary(void)
++bool cRecording::WriteInfo(void)
+ {
+-  if (summary) {
+-     char *SummaryFileName = NULL;
+-     asprintf(&SummaryFileName, "%s%s", fileName, SUMMARYFILESUFFIX);
+-     FILE *f = fopen(SummaryFileName, "w");
+-     if (f) {
+-        if (fputs(summary, f) < 0)
+-           LOG_ERROR_STR(SummaryFileName);
+-        fclose(f);
+-        }
+-     else
+-        LOG_ERROR_STR(SummaryFileName);
+-     free(SummaryFileName);
++  char *InfoFileName = NULL;
++  asprintf(&InfoFileName, "%s%s", fileName, INFOFILESUFFIX);
++  FILE *f = fopen(InfoFileName, "w");
++  if (f) {
++     info->Write(f);
++     fclose(f);
+      }
++  else
++     LOG_ERROR_STR(InfoFileName);
++  free(InfoFileName);
+   return true;
+ }
+ 
+@@ -956,7 +1044,7 @@
+             LOG_ERROR_STR(fileName);
+          if (Index < last - (i ? 2 * INDEXSAFETYLIMIT : 0) || Index > 10 * INDEXSAFETYLIMIT) // keep off the end in case of "Pause live video"
+             break;
+-         sleep(1);
++         cCondWait::SleepMs(1000);
+          }
+      }
+   return index != NULL;
+diff -ruN vdr-1.3.24/recording.h vdr-1.3.25/recording.h
+--- vdr-1.3.24/recording.h	2005-01-16 16:11:31.000000000 +0100
++++ vdr-1.3.25/recording.h	2005-05-28 11:34:07.000000000 +0200
+@@ -4,14 +4,16 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 1.34 2005/01/16 15:11:31 kls Exp $
++ * $Id: recording.h 1.38 2005/05/28 09:34:07 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+ #define __RECORDING_H
+ 
+ #include <time.h>
++#include "channels.h"
+ #include "config.h"
++#include "epg.h"
+ #include "thread.h"
+ #include "timers.h"
+ #include "tools.h"
+@@ -32,6 +34,24 @@
+   void Delete(void);
+   };
+ 
++class cRecordingInfo {
++  friend class cRecording;
++private:
++  tChannelID channelID;
++  const cEvent *event;
++  cEvent *ownEvent;
++  cRecordingInfo(const cEvent *Event = NULL);
++  void SetData(const char *Title, const char *ShortText, const char *Description);
++public:
++  ~cRecordingInfo();
++  const char *Title(void) const { return event->Title(); }
++  const char *ShortText(void) const { return event->ShortText(); }
++  const char *Description(void) const { return event->Description(); }
++  const cComponents *Components(void) const { return event->Components(); }
++  bool Read(FILE *f);
++  bool Write(FILE *f, const char *Prefix = "") const;
++  };
++
+ class cRecording : public cListObject {
+ private:
+   mutable int resume;
+@@ -39,7 +59,7 @@
+   mutable char *sortBuffer;
+   mutable char *fileName;
+   mutable char *name;
+-  char *summary;
++  cRecordingInfo *info;
+   static char *StripEpisodeName(char *s);
+   char *SortName(void) const;
+   int GetResume(void) const;
+@@ -47,19 +67,19 @@
+   time_t start;
+   int priority;
+   int lifetime;
+-  cRecording(cTimer *Timer, const char *Title, const char *Subtitle, const char *Summary);
++  cRecording(cTimer *Timer, const cEvent *Event);
+   cRecording(const char *FileName);
+   ~cRecording();
+   virtual int Compare(const cListObject &ListObject) const;
+   const char *Name(void) const { return name; }
+   const char *FileName(void) const;
+   const char *Title(char Delimiter = ' ', bool NewIndicator = false, int Level = -1) const;
+-  const char *Summary(void) const { return summary; }
++  const cRecordingInfo *Info(void) const { return info; }
+   const char *PrefixFileName(char Prefix);
+   int HierarchyLevels(void) const;
+   bool IsNew(void) const { return GetResume() <= 0; }
+   bool IsEdited(void) const;
+-  bool WriteSummary(void);
++  bool WriteInfo(void);
+   bool Delete(void);
+        // Changes the file name so that it will no longer be visible in the "Recordings" menu
+        // Returns false in case of error
+diff -ruN vdr-1.3.24/sdt.c vdr-1.3.25/sdt.c
+--- vdr-1.3.24/sdt.c	2004-10-31 13:10:20.000000000 +0100
++++ vdr-1.3.25/sdt.c	2005-05-14 11:39:46.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sdt.c 1.13 2004/10/31 12:10:20 kls Exp $
++ * $Id: sdt.c 1.14 2005/05/14 09:39:46 kls Exp $
+  */
+ 
+ #include "sdt.h"
+@@ -62,6 +62,15 @@
+                         sd->serviceName.getText(NameBuf, ShortNameBuf, sizeof(NameBuf), sizeof(ShortNameBuf));
+                         char *pn = compactspace(NameBuf);
+                         char *ps = compactspace(ShortNameBuf);
++                        if (!*ps && cSource::IsCable(Source())) {
++                           // Some cable providers don't mark short channel names according to the
++                           // standard, but rather go their own way and use "name>short name":
++                           char *p = strchr(pn, '>');
++                           if (p && p > pn) {
++                              *p++ = 0;
++                              strcpy(ShortNameBuf, p);
++                              }
++                           }
+                         sd->providerName.getText(ProviderNameBuf, sizeof(ProviderNameBuf));
+                         char *pp = compactspace(ProviderNameBuf);
+                         if (channel) {
+diff -ruN vdr-1.3.24/sections.c vdr-1.3.25/sections.c
+--- vdr-1.3.24/sections.c	2004-10-24 13:05:12.000000000 +0200
++++ vdr-1.3.25/sections.c	2005-05-29 13:43:17.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sections.c 1.10 2004/10/24 11:05:12 kls Exp $
++ * $Id: sections.c 1.11 2005/05/29 11:43:17 kls Exp $
+  */
+ 
+ #include "sections.h"
+@@ -167,6 +167,7 @@
+ void cSectionHandler::Action(void)
+ {
+   active = true;
++  SetPriority(19);
+   while (active) {
+ 
+         Lock();
+diff -ruN vdr-1.3.24/skinclassic.c vdr-1.3.25/skinclassic.c
+--- vdr-1.3.24/skinclassic.c	2005-01-09 12:56:29.000000000 +0100
++++ vdr-1.3.25/skinclassic.c	2005-05-16 12:45:07.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinclassic.c 1.11 2005/01/09 11:56:29 kls Exp $
++ * $Id: skinclassic.c 1.12 2005/05/16 10:45:07 kls Exp $
+  */
+ 
+ #include "skinclassic.h"
+@@ -326,7 +326,33 @@
+ 
+ void cSkinClassicDisplayMenu::SetRecording(const cRecording *Recording)
+ {
+-  SetText(Recording->Summary(), false); //TODO
++  if (!Recording)
++     return;
++  const cRecordingInfo *Info = Recording->Info();
++  const cFont *font = cFont::GetFont(fontOsd);
++  int xl = x0 + 10;
++  int y = y2;
++  cTextScroller ts;
++  char t[32];
++  snprintf(t, sizeof(t), "%s  %s", *DateString(Recording->start), *TimeString(Recording->start));
++  ts.Set(osd, xl, y, x1 - xl, y3 - y, t, font, Theme.Color(clrMenuEventTime), Theme.Color(clrBackground));
++  y += ts.Height();
++  y += font->Height();
++  const char *Title = Info->Title();
++  if (isempty(Title))
++     Title = Recording->Name();
++  ts.Set(osd, xl, y, x1 - xl, y3 - y, Title, font, Theme.Color(clrMenuEventTitle), Theme.Color(clrBackground));
++  y += ts.Height();
++  if (!isempty(Info->ShortText())) {
++     const cFont *font = cFont::GetFont(fontSml);
++     ts.Set(osd, xl, y, x1 - xl, y3 - y, Info->ShortText(), font, Theme.Color(clrMenuEventShortText), Theme.Color(clrBackground));
++     y += ts.Height();
++     }
++  y += font->Height();
++  if (!isempty(Info->Description())) {
++     textScroller.Set(osd, xl, y, x1 - xl - 2 * ScrollWidth, y3 - y, Info->Description(), font, Theme.Color(clrMenuEventDescription), Theme.Color(clrBackground));
++     SetScrollbar();
++     }
+ }
+ 
+ void cSkinClassicDisplayMenu::SetText(const char *Text, bool FixedFont)
+diff -ruN vdr-1.3.24/skins.h vdr-1.3.25/skins.h
+--- vdr-1.3.24/skins.h	2005-02-27 15:37:37.000000000 +0100
++++ vdr-1.3.25/skins.h	2005-05-15 16:41:41.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skins.h 1.7 2005/02/27 14:37:37 kls Exp $
++ * $Id: skins.h 1.8 2005/05/15 14:41:41 kls Exp $
+  */
+ 
+ #ifndef __SKINS_H
+@@ -150,7 +150,7 @@
+        ///< that text if necessary.
+   virtual void SetRecording(const cRecording *Recording) = 0;
+        ///< Sets the Recording that shall be displayed, using the entire central area
+-       ///< of the menu. The Recording's 'summary' shall be displayed using a
++       ///< of the menu. The Recording's 'description' shall be displayed using a
+        ///< cTextScroller, and the Scroll() function will be called to drive scrolling
+        ///< that text if necessary.
+   virtual void SetText(const char *Text, bool FixedFont) = 0;
+diff -ruN vdr-1.3.24/skinsttng.c vdr-1.3.25/skinsttng.c
+--- vdr-1.3.24/skinsttng.c	2005-02-27 15:45:19.000000000 +0100
++++ vdr-1.3.25/skinsttng.c	2005-05-16 12:44:58.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinsttng.c 1.13 2005/02/27 14:45:19 kls Exp $
++ * $Id: skinsttng.c 1.14 2005/05/16 10:44:58 kls Exp $
+  */
+ 
+ // Star Trek: The Next GenerationÆ is a registered trademark of Paramount Pictures
+@@ -576,7 +576,39 @@
+ 
+ void cSkinSTTNGDisplayMenu::SetRecording(const cRecording *Recording)
+ {
+-  SetText(Recording->Summary(), false); //XXX
++  if (!Recording)
++     return;
++  const cRecordingInfo *Info = Recording->Info();
++  const cFont *font = cFont::GetFont(fontOsd);
++  int xl = x3 + 5;
++  int y = y3;
++  cTextScroller ts;
++  char t[32];
++  snprintf(t, sizeof(t), "%s  %s", *DateString(Recording->start), *TimeString(Recording->start));
++  ts.Set(osd, xl, y, x4 - xl, y4 - y, t, font, Theme.Color(clrMenuEventTime), Theme.Color(clrBackground));
++  y += ts.Height();
++  y += font->Height();
++  const char *Title = Info->Title();
++  if (isempty(Title))
++     Title = Recording->Name();
++  ts.Set(osd, xl, y, x4 - xl, y4 - y, Title, font, Theme.Color(clrMenuEventTitle), Theme.Color(clrBackground));
++  y += ts.Height();
++  if (!isempty(Info->ShortText())) {
++     const cFont *font = cFont::GetFont(fontSml);
++     ts.Set(osd, xl, y, x4 - xl, y4 - y, Info->ShortText(), font, Theme.Color(clrMenuEventShortText), Theme.Color(clrBackground));
++     y += ts.Height();
++     }
++  y += font->Height();
++  if (!isempty(Info->Description())) {
++     int yt = y;
++     int yb = y4 - Roundness;
++     textScroller.Set(osd, xl, yt, x4 - xl, yb - yt, Info->Description(), font, Theme.Color(clrMenuEventDescription), Theme.Color(clrBackground));
++     yb = yt + textScroller.Height();
++     osd->DrawEllipse  (x1, yt - Roundness, x2, yt,             frameColor, -3);
++     osd->DrawRectangle(x1, yt,             x2, yb,             frameColor);
++     osd->DrawEllipse  (x1, yb,             x2, yb + Roundness, frameColor, -2);
++     SetScrollbar();
++     }
+ }
+ 
+ void cSkinSTTNGDisplayMenu::SetText(const char *Text, bool FixedFont)
+diff -ruN vdr-1.3.24/sources.h vdr-1.3.25/sources.h
+--- vdr-1.3.24/sources.h	2004-12-26 12:59:21.000000000 +0100
++++ vdr-1.3.25/sources.h	2005-05-14 11:30:41.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sources.h 1.3 2004/12/26 11:59:21 kls Exp $
++ * $Id: sources.h 1.4 2005/05/14 09:30:41 kls Exp $
+  */
+ 
+ #ifndef __SOURCES_H
+@@ -35,6 +35,9 @@
+   static cString ToString(int Code);
+   static int FromString(const char *s);
+   static int FromData(eSourceType SourceType, int Position = 0, bool East = false);
++  static bool IsCable(int Code) { return (Code & st_Mask) == stCable; }
++  static bool IsSat(int Code) { return (Code & st_Mask) == stSat; }
++  static bool IsTerr(int Code) { return (Code & st_Mask) == stTerr; }
+   };
+ 
+ class cSources : public cConfig<cSource> {
+diff -ruN vdr-1.3.24/summary2info.pl vdr-1.3.25/summary2info.pl
+--- vdr-1.3.24/summary2info.pl	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.3.25/summary2info.pl	2005-05-22 12:37:47.000000000 +0200
+@@ -0,0 +1,47 @@
++#!/usr/bin/perl
++
++# Convert 'summary.vdr' files to 'info.vdr'
++#
++# Converts all 'summary.vdr' files in the video directory to the
++# 'info.vdr' format as used from VDR version 1.3.25 upward.
++#
++# Usage: summary2info.pl /video
++#
++# See the main source file 'vdr.c' for copyright information and
++# how to reach the author.
++#
++# $Id: summary2info.pl 1.2 2005/05/22 10:37:47 kls Exp $
++
++$VideoDir = $ARGV[0] || die "please provide the name of the video directory\n";
++
++@SummaryFiles = `find "$VideoDir" -name summary.vdr`;
++
++for $SummaryFile (@SummaryFiles) {
++    chomp($SummaryFile);
++    print STDERR "converting $SummaryFile...";
++    open(F, $SummaryFile) || die "$SummaryFile: $!\n";
++    $line = 0;
++    @data = ();
++    while (<F>) {
++          chomp;
++          if ($_) {
++             $data[$line] .= '|' if ($data[$line]);
++             $data[$line] .= $_;
++             }
++          else {
++             $line++;
++             }
++          }
++    close(F);
++    if ($line == 1) {
++       $data[2] = $data[1];
++       $data[1] = "";
++       }
++    ($InfoFile = $SummaryFile) =~ s/summary\.vdr$/info.vdr/;
++    open(F, ">$InfoFile") || die "$InfoFile: $!\n";
++    print F "T $data[0]\n" if ($data[0]);
++    print F "S $data[1]\n" if ($data[1]);
++    print F "D $data[2]\n" if ($data[2]);
++    close(F);
++    print STDERR "done.\n";
++    }
+diff -ruN vdr-1.3.24/svdrp.c vdr-1.3.25/svdrp.c
+--- vdr-1.3.24/svdrp.c	2005-05-06 15:47:39.000000000 +0200
++++ vdr-1.3.25/svdrp.c	2005-05-26 11:59:09.000000000 +0200
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 1.70 2005/05/06 13:47:39 kls Exp $
++ * $Id: svdrp.c 1.72 2005/05/26 09:59:09 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -31,6 +31,7 @@
+ #include "device.h"
+ #include "eitscan.h"
+ #include "keys.h"
++#include "menu.h"
+ #include "remote.h"
+ #include "timers.h"
+ #include "tools.h"
+@@ -214,7 +215,7 @@
+   "    events at the given time (which must be in time_t form).",
+   "LSTR [ <number> ]\n"
+   "    List recordings. Without option, all recordings are listed. Otherwise\n"
+-  "    the summary for the given recording is listed.",
++  "    the information for the given recording is listed.",
+   "LSTT [ <number> ]\n"
+   "    List timers. Without option, all timers are listed. Otherwise\n"
+   "    only the given timer is listed.",
+@@ -281,7 +282,7 @@
+ /* SVDRP Reply Codes:
+ 
+  214 Help message
+- 215 EPG data record
++ 215 EPG or recording data record
+  220 VDR service ready
+  221 VDR service closing transmission channel
+  250 Requested VDR action okay, completed
+@@ -505,12 +506,17 @@
+      if (isnumber(Option)) {
+         cRecording *recording = Recordings.Get(strtol(Option, NULL, 10) - 1);
+         if (recording) {
+-           if (recording->Delete()) {
+-              Reply(250, "Recording \"%s\" deleted", Option);
+-              ::Recordings.Load(); // must make sure the global recordings list is updated
++           cRecordControl *rc = cRecordControls::GetRecordControl(recording->FileName());
++           if (!rc) {
++              if (recording->Delete()) {
++                 Reply(250, "Recording \"%s\" deleted", Option);
++                 ::Recordings.Load(); // must make sure the global recordings list is updated
++                 }
++              else
++                 Reply(554, "Error while deleting recording!");
+               }
+            else
+-              Reply(554, "Error while deleting recording!");
++              Reply(550, "Recording \"%s\" is in use by timer %d", Option, rc->Timer()->Index() + 1);
+            }
+         else
+            Reply(550, "Recording \"%s\" not found%s", Option, Recordings.Count() ? "" : " (use LSTR before deleting)");
+@@ -800,13 +806,15 @@
+      if (isnumber(Option)) {
+         cRecording *recording = Recordings.Get(strtol(Option, NULL, 10) - 1);
+         if (recording) {
+-           if (recording->Summary()) {
+-              char *summary = strdup(recording->Summary());
+-              Reply(250, "%s", strreplace(summary,'\n','|'));
+-              free(summary);
++           FILE *f = fdopen(file, "w");
++           if (f) {
++              recording->Info()->Write(f, "215-");
++              fflush(f);
++              Reply(215, "End of recording information");
++              // don't 'fclose(f)' here!
+               }
+            else
+-              Reply(550, "No summary available");
++              Reply(451, "Can't open file connection");
+            }
+         else
+            Reply(550, "Recording \"%s\" not found", Option);
+diff -ruN vdr-1.3.24/thread.c vdr-1.3.25/thread.c
+--- vdr-1.3.24/thread.c	2005-05-06 16:39:15.000000000 +0200
++++ vdr-1.3.25/thread.c	2005-05-29 13:40:30.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.c 1.42 2005/05/06 14:39:15 kls Exp $
++ * $Id: thread.c 1.43 2005/05/29 11:40:30 kls Exp $
+  */
+ 
+ #include "thread.h"
+@@ -208,6 +208,12 @@
+   free(description);
+ }
+ 
++void cThread::SetPriority(int Priority)
++{
++  if (setpriority(PRIO_PROCESS, 0, Priority) < 0)
++     LOG_ERROR;
++}
++
+ void cThread::SetDescription(const char *Description, ...)
+ {
+   free(description);
+diff -ruN vdr-1.3.24/thread.h vdr-1.3.25/thread.h
+--- vdr-1.3.24/thread.h	2005-01-14 15:02:14.000000000 +0100
++++ vdr-1.3.25/thread.h	2005-05-29 13:31:24.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.h 1.27 2005/01/14 14:02:14 kls Exp $
++ * $Id: thread.h 1.28 2005/05/29 11:31:24 kls Exp $
+  */
+ 
+ #ifndef __THREAD_H
+@@ -82,6 +82,7 @@
+   static bool emergencyExitRequested;
+   static void *StartThread(cThread *Thread);
+ protected:
++  void SetPriority(int Priority);
+   void Lock(void) { mutex.Lock(); }
+   void Unlock(void) { mutex.Unlock(); }
+   virtual void Action(void) = 0;
+diff -ruN vdr-1.3.24/tools.c vdr-1.3.25/tools.c
+--- vdr-1.3.24/tools.c	2005-03-20 15:44:33.000000000 +0100
++++ vdr-1.3.25/tools.c	2005-05-29 12:18:26.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 1.91 2005/03/20 14:44:33 kls Exp $
++ * $Id: tools.c 1.95 2005/05/29 10:18:26 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -571,6 +571,25 @@
+   return "???";
+ }
+ 
++cString DateString(time_t t)
++{
++  char buf[32];
++  struct tm tm_r;
++  tm *tm = localtime_r(&t, &tm_r);
++  char *p = stpcpy(buf, WeekDayName(tm->tm_wday));
++  *p++ = ' ';
++  strftime(p, sizeof(buf) - (p - buf), "%d.%m.%Y", tm);
++  return buf;
++}
++
++cString TimeString(time_t t)
++{
++  char buf[25];
++  struct tm tm_r;
++  strftime(buf, sizeof(buf), "%R", localtime_r(&t, &tm_r));
++  return buf;
++}
++
+ // --- cReadLine -------------------------------------------------------------
+ 
+ char *cReadLine::Read(FILE *f)
+@@ -913,6 +932,7 @@
+ cListBase::cListBase(void)
+ { 
+   objects = lastObject = NULL;
++  count = 0;
+ }
+ 
+ cListBase::~cListBase()
+@@ -933,6 +953,7 @@
+         objects = Object;
+      lastObject = Object;
+      }
++  count++;
+ }
+ 
+ void cListBase::Ins(cListObject *Object, cListObject *Before)
+@@ -948,6 +969,7 @@
+         lastObject = Object;
+      objects = Object;
+      }
++  count++;
+ }
+ 
+ void cListBase::Del(cListObject *Object, bool DeleteObject)
+@@ -959,6 +981,7 @@
+   Object->Unlink();
+   if (DeleteObject)
+      delete Object;
++  count--;
+ }
+ 
+ void cListBase::Move(int From, int To)
+@@ -998,6 +1021,7 @@
+         objects = object;
+         }
+   objects = lastObject = NULL;
++  count = 0;
+ }
+ 
+ cListObject *cListBase::Get(int Index) const
+@@ -1010,18 +1034,6 @@
+   return object;
+ }
+ 
+-int cListBase::Count(void) const
+-{
+-  int n = 0;
+-  cListObject *object = objects;
+-
+-  while (object) {
+-        n++;
+-        object = object->Next();
+-        }
+-  return n;
+-}
+-
+ static int CompareListObjects(const void *a, const void *b)
+ {
+   const cListObject *la = *(const cListObject **)a;
+@@ -1043,7 +1055,60 @@
+   objects = lastObject = NULL;
+   for (i = 0; i < n; i++) {
+       a[i]->Unlink();
++      count--;
+       Add(a[i]);
+       }
+ }
+ 
++// --- cHashBase -------------------------------------------------------------
++
++cHashBase::cHashBase(int Size)
++{
++  size = Size;
++  hashTable = (cList<cHashObject>**)calloc(size, sizeof(cList<cHashObject>*));
++}
++
++cHashBase::~cHashBase(void)
++{
++  for (int i = 0; i < size; i++)
++      delete hashTable[i];
++  free(hashTable);
++}
++
++void cHashBase::Add(cListObject *Object, unsigned int Id)
++{
++  unsigned int hash = hashfn(Id);
++  if (!hashTable[hash])
++     hashTable[hash] = new cList<cHashObject>;
++  hashTable[hash]->Add(new cHashObject(Object, Id));
++}
++
++void cHashBase::Del(cListObject *Object, unsigned int Id)
++{
++  cList<cHashObject> *list = hashTable[hashfn(Id)];
++  if (list) {
++     for (cHashObject *hob = list->First(); hob; hob = list->Next(hob)) {
++         if (hob->object == Object) {
++            list->Del(hob);
++            break;
++            }
++         }
++     }
++}
++
++cListObject *cHashBase::Get(unsigned int Id) const
++{
++  cList<cHashObject> *list = hashTable[hashfn(Id)];
++  if (list) {
++     for (cHashObject *hob = list->First(); hob; hob = list->Next(hob)) {
++         if (hob->id == Id)
++            return hob->object;
++         }
++     }
++  return NULL;
++}
++
++cList<cHashObject> *cHashBase::GetList(unsigned int Id) const
++{
++  return hashTable[hashfn(Id)];
++}
+diff -ruN vdr-1.3.24/tools.h vdr-1.3.25/tools.h
+--- vdr-1.3.24/tools.h	2005-03-20 15:44:24.000000000 +0100
++++ vdr-1.3.25/tools.h	2005-05-29 12:24:54.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 1.68 2005/03/20 14:44:24 kls Exp $
++ * $Id: tools.h 1.72 2005/05/29 10:24:54 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -102,6 +102,8 @@
+ cString WeekDayName(time_t t);
+ cString DayDateTime(time_t t = 0);
+ cString TimeToString(time_t t);
++cString DateString(time_t t);
++cString TimeString(time_t t);
+ 
+ class cTimeMs {
+ private:
+@@ -211,6 +213,7 @@
+ protected:
+   cListObject *objects, *lastObject;
+   cListBase(void);
++  int count;
+ public:
+   virtual ~cListBase();
+   void Add(cListObject *Object, cListObject *After = NULL);
+@@ -220,7 +223,7 @@
+   void Move(cListObject *From, cListObject *To);
+   virtual void Clear(void);
+   cListObject *Get(int Index) const;
+-  int Count(void) const;
++  int Count(void) const { return count; }
+   void Sort(void);
+   };
+ 
+@@ -233,4 +236,36 @@
+   T *Next(const T *object) const { return (T *)object->cListObject::Next(); } // avoid ambiguities in case of a "list of lists"
+   };
+ 
++class cHashObject : public cListObject {
++  friend class cHashBase;
++private:
++  unsigned int id;
++  cListObject *object;
++public:
++  cHashObject(cListObject *Object, unsigned int Id) { object = Object; id = Id; }
++  };
++
++class cHashBase {
++private:
++  cList<cHashObject> **hashTable;
++  int size;
++  unsigned int hashfn(unsigned int Id) const { return Id % size; }
++protected:
++  cHashBase(int Size);
++public:
++  virtual ~cHashBase();
++  void Add(cListObject *Object, unsigned int Id);
++  void Del(cListObject *Object, unsigned int Id);
++  cListObject *Get(unsigned int Id) const;
++  cList<cHashObject> *GetList(unsigned int Id) const;
++  };
++
++#define HASHSIZE 512
++
++template<class T> class cHash : public cHashBase {
++public:
++  cHash(int Size = HASHSIZE) : cHashBase(Size) {}
++  T *Get(unsigned int Id) const { return (T *)cHashBase::Get(Id); }
++};
++
+ #endif //__TOOLS_H
+diff -ruN vdr-1.3.24/vdr.5 vdr-1.3.25/vdr.5
+--- vdr-1.3.24/vdr.5	2005-05-07 12:40:23.000000000 +0200
++++ vdr-1.3.25/vdr.5	2005-05-16 16:16:48.000000000 +0200
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 1.36 2005/05/07 10:40:23 kls Exp $
++.\" $Id: vdr.5 1.37 2005/05/16 14:16:48 kls Exp $
+ .\"
+ .TH vdr 5 "19 Mar 2005" "1.3.23" "Video Disk Recorder Files"
+ .SH NAME
+@@ -578,11 +578,13 @@
+ and fast forward/back functions.
+ See the definition of the \fBcIndexFile\fR class for details about the
+ actual contents of this file.
+-.SS SUMMARY
+-The file \fIsummary.vdr\fR (if present in a recording directory) contains
++.SS INFO
++The file \fIinfo.vdr\fR (if present in a recording directory) contains
+ a description of the recording, derived from the EPG data at recording time
+ (if such data was available) or the \fBSummary\fR field of the corresponding
+-timer. This is a plain ASCII file and can contain arbitrary text.
++timer. This is a plain ASCII file and contains tagged lines like the \fBEPG DATA\fR
++file (see the description of the \fIepg.data\fR file). Note that the tags
++c, E, e and V will not appear in an \fIinfo.vdr\fR file.
+ .SS RESUME
+ The file \fIresume.vdr\fR (if present in a recording directory) contains
+ the position within the recording where the last replay session left off.
+diff -ruN vdr-1.3.24/vdr.c vdr-1.3.25/vdr.c
+--- vdr-1.3.24/vdr.c	2005-03-20 11:58:59.000000000 +0100
++++ vdr-1.3.25/vdr.c	2005-05-26 12:45:29.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.203 2005/03/20 10:58:59 kls Exp $
++ * $Id: vdr.c 1.207 2005/05/26 10:45:29 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -87,25 +87,6 @@
+ 
+ int main(int argc, char *argv[])
+ {
+-#ifdef _CS_GNU_LIBPTHREAD_VERSION
+-  // Check for NPTL and exit if present - VDR apparently doesn't run well with NPTL:
+-  char LibPthreadVersion[128];
+-  if (confstr(_CS_GNU_LIBPTHREAD_VERSION, LibPthreadVersion, sizeof(LibPthreadVersion)) > 0) {
+-     if (strstr(LibPthreadVersion, "NPTL")) {
+-        fprintf(stderr, "vdr: please turn off NPTL by setting 'export LD_ASSUME_KERNEL=2.4.1' before starting VDR\n");
+-        return 2;
+-        }
+-     }
+-#endif
+-
+-  // Check for UTF-8 and exit if present - asprintf() will fail if it encounters 8 bit ASCII codes
+-  char *LangEnv;
+-  if ((LangEnv = getenv("LANG"))     != NULL && strcasestr(LangEnv, "utf") ||
+-      (LangEnv = getenv("LC_CTYPE")) != NULL && strcasestr(LangEnv, "utf")) {
+-     fprintf(stderr, "vdr: please turn off UTF-8 before starting VDR\n");
+-     return 2;
+-     }
+-
+   // Save terminal settings:
+ 
+   struct termios savedTm;
+@@ -321,6 +302,25 @@
+      return 0;
+      }
+ 
++#ifdef _CS_GNU_LIBPTHREAD_VERSION
++  // Check for NPTL and exit if present - VDR apparently doesn't run well with NPTL:
++  char LibPthreadVersion[128];
++  if (confstr(_CS_GNU_LIBPTHREAD_VERSION, LibPthreadVersion, sizeof(LibPthreadVersion)) > 0) {
++     if (strstr(LibPthreadVersion, "NPTL")) {
++        fprintf(stderr, "vdr: please turn off NPTL by setting 'export LD_ASSUME_KERNEL=2.4.1' before starting VDR\n");
++        return 2;
++        }
++     }
++#endif
++
++  // Check for UTF-8 and exit if present - asprintf() will fail if it encounters 8 bit ASCII codes
++  char *LangEnv;
++  if ((LangEnv = getenv("LANG"))     != NULL && strcasestr(LangEnv, "utf") ||
++      (LangEnv = getenv("LC_CTYPE")) != NULL && strcasestr(LangEnv, "utf")) {
++     fprintf(stderr, "vdr: please turn off UTF-8 before starting VDR\n");
++     return 2;
++     }
++
+   // Log file:
+ 
+   if (SysLogLevel > 0)
+@@ -744,7 +744,6 @@
+           // Power off:
+           case kPower: isyslog("Power button pressed");
+                        DELETENULL(Menu);
+-                       cControl::Shutdown();
+                        Temp = NULL;
+                        if (!Shutdown) {
+                           Skins.Message(mtError, tr("Can't shutdown - option '-s' not given!"));
+@@ -846,6 +845,14 @@
+                   break;
+              // Viewing Control:
+              case kOk:   LastChannel = -1; break; // forces channel display
++             // Instant resume of the last viewed recording:
++             case kPlay:
++                  if (cReplayControl::LastReplayed()) {
++                     cControl::Shutdown();
++                     Temp = NULL;
++                     cControl::Launch(new cReplayControl);
++                     }
++                  break;
+              // Key macros:
+              case kRed:
+              case kGreen:
+@@ -898,6 +905,7 @@
+                     if (WatchdogTimeout > 0)
+                        signal(SIGALRM, SIG_IGN);
+                     if (Interface->Confirm(tr("Press any key to cancel shutdown"), UserShutdown ? 5 : SHUTDOWNWAIT, true)) {
++                       cControl::Shutdown();
+                        int Channel = timer ? timer->Channel()->Number() : 0;
+                        const char *File = timer ? timer->File() : "";
+                        Delta = Next - time(NULL); // compensates for Confirm() timeout
+@@ -940,9 +948,11 @@
+   Remotes.Clear();
+   Audios.Clear();
+   Skins.Clear();
+-  Setup.CurrentChannel = cDevice::CurrentChannel();
+-  Setup.CurrentVolume  = cDevice::CurrentVolume();
+-  Setup.Save();
++  if (ExitCode != 2) {
++     Setup.CurrentChannel = cDevice::CurrentChannel();
++     Setup.CurrentVolume  = cDevice::CurrentVolume();
++     Setup.Save();
++     }
+   cDevice::Shutdown();
+   PluginManager.Shutdown();
+   ReportEpgBugFixStats();

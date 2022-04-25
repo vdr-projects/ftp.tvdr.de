@@ -1,0 +1,2923 @@
+diff -ruN vdr-1.7.0/CONTRIBUTORS vdr-1.7.1/CONTRIBUTORS
+--- vdr-1.7.0/CONTRIBUTORS	2008-04-13 15:30:55.000000000 +0200
++++ vdr-1.7.1/CONTRIBUTORS	2008-09-06 16:49:19.000000000 +0200
+@@ -1054,6 +1054,7 @@
+  for fixing displaying the free disk space when entering the recordings menu where
+  the last replayed recording was in a subdirectory, and pressing Back
+  for setting the thread name, so that it can be seen in 'top -H'
++ for replacing the Finnish language code "smi" with "suo"
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1180,6 +1181,8 @@
+  early stage of channel switching
+  for fixing displaying transponder data when it is modified
+  for fixing handling the counter in detection of pre 1.3.19 PS data
++ for adapting the tuning code to the new DVBFE_SET_DELSYS API
++ for reporting the missing description of the 'S' channel parameter in vdr.5
+ 
+ Richard Robson <richard_robson@beeb.net>
+  for reporting freezing replay if a timer starts while in Transfer Mode from the
+@@ -1328,6 +1331,8 @@
+ 
+ Michael Pennewiß <M.Pennewiss@ARD-Digital.de>
+  for pointing out that an empty EPG event means there is currently no running event
++ for advance information about the use of the standard component descriptor for AC3
++ (stream=4) on the German ARD channels
+ 
+ Marcus Mönnig <minibbjd@gmx.de>
+  for adding some 3-letter language codes
+@@ -1581,6 +1586,7 @@
+  for making housekeeping wait for a while after a replay has ended
+  for fixing error handling in cCuttingThread::Action()
+  for suppressing the automatic shutdown if the remote control is currently disabled
++ for fixing a problem with calling isyslog() from within the SignalHandler()
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -1898,6 +1904,7 @@
+  for fixing cTimer::operator=() in case a cTimer variable is assigned to itself
+  for making the list of tracks given in cStatus::SetAudioTrack() NULL terminated
+  for fixing handling kLeft in the calls to cStatus::MsgOsdTextItem()
++ for fixing a possible integer overflow in GetAbsTime()
+ 
+ Philip Prindeville <philipp_subx@redfish-solutions.com>
+  for updates to 'sources.conf'
+@@ -2119,6 +2126,7 @@
+  for making the non-breaking space symbol be rendered as a blank
+  for fixing a signed character used as index in cBase64Encoder::NextLine()
+  for fixing formatting the name section in the VDR man pages
++ for reporting unneeded include files <linux/dvb/dmx.h> und <time.h> in remux.h
+ 
+ Helge Lenz <h.lenz@gmx.de>
+  for reporting a bug in setting the 'Delta' parameter when calling the shutdown
+@@ -2355,3 +2363,15 @@
+ 
+ Nan Feng <nfgx@21cn.com>
+  for translating OSD texts to the Chinese language
++
++Edgar Toernig <froese@gmx.de>
++ for suggesting to not call FcFini() to avoid problems with older (broken) versions
++ of fontconfig
++
++Michael Nork <mnork0@gmx.net>
++ for suggesting to remove the compile time option VFAT to allow users of precompiled
++ binary distributions to have full control over whether or not to use the --vfat
++ option at runtime
++
++Winfried Köhler <w_koehl@gmx.de>
++ for fixing wrong value for TableIdBAT in libsi/si.h
+diff -ruN vdr-1.7.0/HISTORY vdr-1.7.1/HISTORY
+--- vdr-1.7.0/HISTORY	2008-04-13 15:35:09.000000000 +0200
++++ vdr-1.7.1/HISTORY	2008-09-06 16:48:51.000000000 +0200
+@@ -5761,3 +5761,73 @@
+   Andreas Mair).
+ - Increased the time between checking the CAM status to 500ms to avoid problems
+   with some CAMs (reported by Arthur Konovalov).
++
++2008-09-06: Version 1.7.1
++
++- Adapted the tuning code to the new DVBFE_SET_DELSYS API (thanks to Reinhard Nissl).
++  VDR now uses the driver from http://jusst.de/hg/multiproto_plus.
++- Updated the Italian OSD texts (thanks to Diego Pierotto).
++- Removed obsolete $(NCURSESLIB) from the Makefile.
++- Implemented handling the standard component descriptor for AC3 (stream=4), as it
++  will soon be used by the German ARD channels (thanks to Michael Pennewiß for
++  advance information about this change). The previously used "Premiere pseudo
++  standard" (stream=2, type=5) still works, but has apparently been wrongfully used
++  by broadcasters from the beginning.
++- Added missing description of the 'S' channel parameter to vdr.5 (reported by
++  Reinhard Nissl).
++- The SVDRP signon message now indicates the character encoding in use, as in
++  "220 video SVDRP VideoDiskRecorder 1.7.1; Fri May  2 16:17:10 2008; ISO-8859-1".
++  This may be useful for instance for external tools that provide EPG data, so that
++  they can correctly encode the strings.
++- No longer calling FcFini() to avoid problems with older (broken) versions of
++  fontconfig (suggested by Edgar Toernig).
++- Removed the compile time option VFAT to allow users of precompiled binary
++  distributions to have full control over whether or not to use the --vfat option
++  at runtime (suggested by Michael Nork).
++- First step towards switching to TS (Transport Stream) as recording format:
++  + The new function cDevice::PlayTs() is used to play TS packets.
++  + The new functions cDevice::PlayTsVideo() and cDevice::PlayTsAudio()
++    are used to play video and audio TS packets, respectively.
++  + The new function cAudio::PlayTs() is used to play audio TS packets.
++  + The new class cPatPmtGenerator is used to generate a PAT/PMT pair that precedes
++    the TS data in Transfer Mode.
++  + The new class cPatPmtParser is used by cDevice to parse the PAT/PMT data in a
++    TS in order to find out which streams it contains.
++  + The new class cTsToPes is used to convert TS packets to a PES packet.
++  + cTransfer no longer uses cRemux, and doesn't run a separate thread any more.
++    It just generates a PAT/PMT and sends all received TS packets to the primary
++    device's PlayTs().
++  + Live subtitle display no longer uses a ring buffer and separate thread.
++  + cPesAssembler has been removed. Old VDR recordings only contain complete PES
++    packets.
++  + Since a TS needs to have a PAT/PMT, which requires the video stream type to
++    be explicitly given, the format of the VPID field in the channels.conf file
++    and the SVDRP commands NEWC/MODC/LSTC has been extended. The video stream type
++    now follows the VPID and optional PPID, separated by an '=' sign.
++- Updated the sources.conf file (thanks to Oleg Roitburd).
++- Fixed a possible integer overflow in GetAbsTime() (thanks to Alexander Rieger).
++- Fixed a problem with calling isyslog() from within the SignalHandler() (thanks
++  to Udo Richter).
++- Replaced the Finnish language code "smi" with "suo" (thanks to Rolf Ahrenberg).
++- Fixed wrong value for TableIdBAT in libsi/si.h (thanks to Winfried Köhler).
++- Errors in config files no longer keep VDR from starting.
++- Removed unneeded include files <linux/dvb/dmx.h> und <time.h> from remux.h
++  (reported by Tobias Grimm).
++
++2008-09-06: Version 1.6.0-2
++
++- Updated the Italian OSD texts (thanks to Diego Pierotto).
++- The SVDRP signon message now indicates the character encoding in use, as in
++  "220 video SVDRP VideoDiskRecorder 1.7.1; Fri May  2 16:17:10 2008; ISO-8859-1".
++  This may be useful for instance for external tools that provide EPG data, so that
++  they can correctly encode the strings.
++- No longer calling FcFini() to avoid problems with older (broken) versions of
++  fontconfig (suggested by Edgar Toernig).
++- Updated the sources.conf file (thanks to Oleg Roitburd).
++- Fixed a possible integer overflow in GetAbsTime() (thanks to Alexander Rieger).
++- Fixed a problem with calling isyslog() from within the SignalHandler() (thanks
++  to Udo Richter).
++- Replaced the Finnish language code "smi" with "suo" (thanks to Rolf Ahrenberg).
++- Fixed wrong value for TableIdBAT in libsi/si.h (thanks to Winfried Köhler).
++- Removed unneeded include files <linux/dvb/dmx.h> und <time.h> from remux.h
++  (reported by Tobias Grimm).
+diff -ruN vdr-1.7.0/INSTALL vdr-1.7.1/INSTALL
+--- vdr-1.7.0/INSTALL	2008-03-22 12:09:04.000000000 +0100
++++ vdr-1.7.1/INSTALL	2008-05-03 12:13:25.000000000 +0200
+@@ -1,7 +1,7 @@
+ Installation of the Video Disk Recorder
+ ---------------------------------------
+ 
+-Version 1.6
++Version 1.7
+ -----------
+ 
+ Compiling and running the program:
+@@ -57,13 +57,8 @@
+ the defaults of which can be set via the RCU_DEVICE and LIRC_DEVICE macros,
+ respectively.
+ 
+-If your video directory will be on a VFAT partition, add the compile
+-time switch
+-
+-  VFAT=1
+-
+-to the 'make' command. Alternatively, you can call VDR with the command
+-line option '--vfat'.
++If your video directory will be on a VFAT partition, you can call VDR with
++the command line option '--vfat'.
+ 
+ When running, the 'vdr' program writes status information into the
+ system log file, which is usually /var/log/messages (or /var/log/user.log,
+diff -ruN vdr-1.7.0/Makefile vdr-1.7.1/Makefile
+--- vdr-1.7.0/Makefile	2008-02-29 22:43:03.000000000 +0100
++++ vdr-1.7.1/Makefile	2008-05-03 12:13:43.000000000 +0200
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 2.0 2008/02/29 21:43:03 kls Exp $
++# $Id: Makefile 2.2 2008/05/03 10:13:43 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -70,11 +70,6 @@
+ VDRVERSION = $(shell sed -ne '/define VDRVERSION/s/^.*"\(.*\)".*$$/\1/p' config.h)
+ APIVERSION = $(shell sed -ne '/define APIVERSION/s/^.*"\(.*\)".*$$/\1/p' config.h)
+ 
+-ifdef VFAT
+-# for people who want their video directory on a VFAT partition
+-DEFINES += -DVFAT
+-endif
+-
+ all: vdr i18n
+ 
+ # Implicit rules:
+@@ -94,7 +89,7 @@
+ # The main program:
+ 
+ vdr: $(OBJS) $(SILIB)
+-	$(CXX) $(CXXFLAGS) -rdynamic $(OBJS) $(NCURSESLIB) $(LIBS) $(LIBDIRS) $(SILIB) -o vdr
++	$(CXX) $(CXXFLAGS) -rdynamic $(OBJS) $(LIBS) $(LIBDIRS) $(SILIB) -o vdr
+ 
+ # The libsi library:
+ 
+diff -ruN vdr-1.7.0/PLUGINS/src/hello/HISTORY vdr-1.7.1/PLUGINS/src/hello/HISTORY
+--- vdr-1.7.0/PLUGINS/src/hello/HISTORY	2008-03-18 18:18:35.000000000 +0100
++++ vdr-1.7.1/PLUGINS/src/hello/HISTORY	2008-09-06 17:09:04.000000000 +0200
+@@ -62,3 +62,7 @@
+ 2008-03-18: Version 0.2.2
+ 
+ - Updated the Croatian language texts (thanks to Adrian Caval).
++
++2008-009-06 Version 0.2.3
++
++- Updated the Turkish language texts (thanks to Oktay Yolgeçen).
+diff -ruN vdr-1.7.0/PLUGINS/src/hello/hello.c vdr-1.7.1/PLUGINS/src/hello/hello.c
+--- vdr-1.7.0/PLUGINS/src/hello/hello.c	2008-03-18 18:13:25.000000000 +0100
++++ vdr-1.7.1/PLUGINS/src/hello/hello.c	2008-09-06 17:07:12.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: hello.c 2.0 2008/03/18 17:13:25 kls Exp $
++ * $Id: hello.c 2.1 2008/09/06 15:07:12 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -12,7 +12,7 @@
+ #include <vdr/interface.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "0.2.2";
++static const char *VERSION        = "0.2.3";
+ static const char *DESCRIPTION    = trNOOP("A friendly greeting");
+ static const char *MAINMENUENTRY  = trNOOP("Hello");
+ 
+diff -ruN vdr-1.7.0/PLUGINS/src/hello/po/tr_TR.po vdr-1.7.1/PLUGINS/src/hello/po/tr_TR.po
+--- vdr-1.7.0/PLUGINS/src/hello/po/tr_TR.po	2008-04-13 16:17:00.000000000 +0200
++++ vdr-1.7.1/PLUGINS/src/hello/po/tr_TR.po	2008-09-06 17:13:05.000000000 +0200
+@@ -8,7 +8,7 @@
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+-"PO-Revision-Date: 2007-08-11 12:34+0200\n"
++"PO-Revision-Date: 2008-05-12 22:34:4800\n"
+ "Last-Translator: Oktay Yolgeçen <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish\n"
+ "MIME-Version: 1.0\n"
+@@ -16,19 +16,19 @@
+ "Content-Transfer-Encoding: 8bit\n"
+ 
+ msgid "A friendly greeting"
+-msgstr ""
++msgstr "Dostça selam"
+ 
+ msgid "Hello"
+-msgstr ""
++msgstr "Merhaba"
+ 
+ msgid "Greeting time (s)"
+-msgstr ""
++msgstr "Selam vakiti (s)"
+ 
+ msgid "Use alternate greeting"
+-msgstr ""
++msgstr "Alternatif selam kullan"
+ 
+ msgid "Howdy folks!"
+-msgstr ""
++msgstr "Selam dostlar!"
+ 
+ msgid "Hello world!"
+-msgstr ""
++msgstr "Merhaba dünya!"
+diff -ruN vdr-1.7.0/audio.c vdr-1.7.1/audio.c
+--- vdr-1.7.0/audio.c	2006-05-28 17:03:24.000000000 +0200
++++ vdr-1.7.1/audio.c	2008-07-06 13:42:58.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: audio.c 2.0 2006/05/28 15:03:24 kls Exp $
++ * $Id: audio.c 2.1 2008/07/06 11:42:58 kls Exp $
+  */
+ 
+ #include "audio.h"
+@@ -32,6 +32,12 @@
+       audio->Play(Data, Length, Id);
+ }
+ 
++void cAudios::PlayTsAudio(const uchar *Data, int Length)
++{
++  for (cAudio *audio = First(); audio; audio = Next(audio))
++      audio->PlayTs(Data, Length);
++}
++
+ void cAudios::MuteAudio(bool On)
+ {
+   for (cAudio *audio = First(); audio; audio = Next(audio))
+@@ -80,6 +86,29 @@
+         }
+      else {
+         esyslog("ERROR: can't open pipe to audio command '%s'", command);
++        free(command);
++        command = NULL;
++        }
++     }
++}
++
++void cExternalAudio::PlayTs(const uchar *Data, int Length)
++{
++  if (command && !mute) {
++     if (pipe || pipe.Open(command, "w")) {
++        int written = 0;
++        while (Length > 0) {
++              int w = fwrite(Data + written, 1, Length, pipe);
++              if (w < 0) {
++                 LOG_ERROR;
++                 break;
++                 }
++              Length -= w;
++              written += w;
++              }
++        }
++     else {
++        esyslog("ERROR: can't open pipe to audio command '%s'", command);
+         free(command);
+         command = NULL;
+         }
+diff -ruN vdr-1.7.0/audio.h vdr-1.7.1/audio.h
+--- vdr-1.7.0/audio.h	2005-02-12 13:20:19.000000000 +0100
++++ vdr-1.7.1/audio.h	2008-07-06 13:39:21.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: audio.h 2.0 2005/02/12 12:20:19 kls Exp $
++ * $Id: audio.h 2.1 2008/07/06 11:39:21 kls Exp $
+  */
+ 
+ #ifndef __AUDIO_H
+@@ -24,6 +24,11 @@
+        ///< be copied and processed in a separate thread. The Data is always a
+        ///< complete PES audio packet. Id indicates the type of audio data this
+        ///< packet holds.
++  virtual void PlayTs(const uchar *Data, int Length) = 0;
++       ///< Plays the given block of audio Data. Must return as soon as possible.
++       ///< If the entire block of data can't be processed immediately, it must
++       ///< be copied and processed in a separate thread. The Data is always a
++       ///< complete TS audio packet.
+   virtual void Mute(bool On) = 0;
+        ///< Immediately sets the audio device to be silent (On==true) or to
+        ///< normal replay (On==false).
+@@ -34,6 +39,7 @@
+ class cAudios : public cList<cAudio> {
+ public:
+   void PlayAudio(const uchar *Data, int Length, uchar Id);
++  void PlayTsAudio(const uchar *Data, int Length);
+   void MuteAudio(bool On);
+   void ClearAudio(void);
+   };
+@@ -49,6 +55,7 @@
+   cExternalAudio(const char *Command);
+   virtual ~cExternalAudio();
+   virtual void Play(const uchar *Data, int Length, uchar Id);
++  virtual void PlayTs(const uchar *Data, int Length);
+   virtual void Mute(bool On);
+   virtual void Clear(void);
+   };
+diff -ruN vdr-1.7.0/channels.c vdr-1.7.1/channels.c
+--- vdr-1.7.0/channels.c	2008-04-12 15:49:12.000000000 +0200
++++ vdr-1.7.1/channels.c	2008-07-06 14:59:41.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 2.2 2008/04/12 13:49:12 kls Exp $
++ * $Id: channels.c 2.3 2008/07/06 12:59:41 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -505,10 +505,10 @@
+   return q - s;
+ }
+ 
+-void cChannel::SetPids(int Vpid, int Ppid, int *Apids, char ALangs[][MAXLANGCODE2], int *Dpids, char DLangs[][MAXLANGCODE2], int *Spids, char SLangs[][MAXLANGCODE2], int Tpid)
++void cChannel::SetPids(int Vpid, int Ppid, int Vtype, int *Apids, char ALangs[][MAXLANGCODE2], int *Dpids, char DLangs[][MAXLANGCODE2], int *Spids, char SLangs[][MAXLANGCODE2], int Tpid)
+ {
+   int mod = CHANNELMOD_NONE;
+-  if (vpid != Vpid || ppid != Ppid || tpid != Tpid)
++  if (vpid != Vpid || ppid != Ppid || vtype != Vtype || tpid != Tpid)
+      mod |= CHANNELMOD_PIDS;
+   int m = IntArraysDiffer(apids, Apids, alangs, ALangs) | IntArraysDiffer(dpids, Dpids, dlangs, DLangs) | IntArraysDiffer(spids, Spids, slangs, SLangs);
+   if (m & STRDIFF)
+@@ -542,9 +542,10 @@
+      q = NewSpidsBuf;
+      q += IntArrayToString(q, Spids, 10, SLangs);
+      *q = 0;
+-     dsyslog("changing pids of channel %d from %d+%d:%s:%s:%d to %d+%d:%s:%s:%d", Number(), vpid, ppid, OldApidsBuf, OldSpidsBuf, tpid, Vpid, Ppid, NewApidsBuf, NewSpidsBuf, Tpid);
++     dsyslog("changing pids of channel %d from %d+%d=%d:%s:%s:%d to %d+%d=%d:%s:%s:%d", Number(), vpid, ppid, vtype, OldApidsBuf, OldSpidsBuf, tpid, Vpid, Ppid, Vtype, NewApidsBuf, NewSpidsBuf, Tpid);
+      vpid = Vpid;
+      ppid = Ppid;
++     vtype = Vtype;
+      for (int i = 0; i < MAXAPIDS; i++) {
+          apids[i] = Apids[i];
+          strn0cpy(alangs[i], ALangs[i], MAXLANGCODE2);
+@@ -752,6 +753,8 @@
+      q += snprintf(q, sizeof(vpidbuf), "%d", Channel->vpid);
+      if (Channel->ppid && Channel->ppid != Channel->vpid)
+         q += snprintf(q, sizeof(vpidbuf) - (q - vpidbuf), "+%d", Channel->ppid);
++     if (Channel->vtype)
++        q += snprintf(q, sizeof(vpidbuf) - (q - vpidbuf), "=%d", Channel->vtype);
+      *q = 0;
+      const int BufferSize = (MAXAPIDS + MAXDPIDS) * (5 + 1 + MAXLANGCODE2) + 10; // 5 digits plus delimiting ',' or ';' plus optional '=cod+cod', +10: paranoia
+      char apidbuf[BufferSize];
+@@ -813,22 +816,27 @@
+            tpid = 0;
+            }
+         vpid = ppid = 0;
++        vtype = 2; // default is MPEG-2
+         apids[0] = 0;
+         dpids[0] = 0;
+         ok = false;
+         if (parambuf && sourcebuf && vpidbuf && apidbuf) {
+            ok = StringToParameters(parambuf) && (source = cSource::FromString(sourcebuf)) >= 0;
+ 
+-           char *p = strchr(vpidbuf, '+');
+-           if (p)
++           char *p;
++           if ((p = strchr(vpidbuf, '=')) != NULL) {
++              *p++ = 0;
++              if (sscanf(p, "%d", &vtype) != 1)
++                 return false;
++              }
++           if ((p = strchr(vpidbuf, '+')) != NULL) {
+               *p++ = 0;
+-           if (sscanf(vpidbuf, "%d", &vpid) != 1)
+-              return false;
+-           if (p) {
+               if (sscanf(p, "%d", &ppid) != 1)
+                  return false;
+               }
+-           else
++           if (sscanf(vpidbuf, "%d", &vpid) != 1)
++              return false;
++           if (!ppid)
+               ppid = vpid;
+ 
+            char *dpidbuf = strchr(apidbuf, ';');
+diff -ruN vdr-1.7.0/channels.h vdr-1.7.1/channels.h
+--- vdr-1.7.0/channels.h	2008-04-12 15:46:50.000000000 +0200
++++ vdr-1.7.1/channels.h	2008-07-06 13:49:37.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.h 2.2 2008/04/12 13:46:50 kls Exp $
++ * $Id: channels.h 2.3 2008/07/06 11:49:37 kls Exp $
+  */
+ 
+ #ifndef __CHANNELS_H
+@@ -124,6 +124,7 @@
+   int srate;
+   int vpid;
+   int ppid;
++  int vtype;
+   int apids[MAXAPIDS + 1]; // list is zero-terminated
+   char alangs[MAXAPIDS][MAXLANGCODE2];
+   int dpids[MAXDPIDS + 1]; // list is zero-terminated
+@@ -178,6 +179,7 @@
+   int Srate(void) const { return srate; }
+   int Vpid(void) const { return vpid; }
+   int Ppid(void) const { return ppid; }
++  int Vtype(void) const { return vtype; }
+   const int *Apids(void) const { return apids; }
+   const int *Dpids(void) const { return dpids; }
+   const int *Spids(void) const { return spids; }
+@@ -225,7 +227,7 @@
+   void SetId(int Nid, int Tid, int Sid, int Rid = 0);
+   void SetName(const char *Name, const char *ShortName, const char *Provider);
+   void SetPortalName(const char *PortalName);
+-  void SetPids(int Vpid, int Ppid, int *Apids, char ALangs[][MAXLANGCODE2], int *Dpids, char DLangs[][MAXLANGCODE2], int *Spids, char SLangs[][MAXLANGCODE2], int Tpid);
++  void SetPids(int Vpid, int Ppid, int Vtype, int *Apids, char ALangs[][MAXLANGCODE2], int *Dpids, char DLangs[][MAXLANGCODE2], int *Spids, char SLangs[][MAXLANGCODE2], int Tpid);
+   void SetCaIds(const int *CaIds); // list must be zero-terminated
+   void SetCaDescriptors(int Level);
+   void SetLinkChannels(cLinkChannels *LinkChannels);
+diff -ruN vdr-1.7.0/config.h vdr-1.7.1/config.h
+--- vdr-1.7.0/config.h	2008-04-12 15:02:10.000000000 +0200
++++ vdr-1.7.1/config.h	2008-09-06 16:06:56.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.1 2008/04/12 13:02:10 kls Exp $
++ * $Id: config.h 2.3 2008/09/06 14:06:56 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,8 +22,8 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.0"
+-#define VDRVERSNUM   10700  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.1"
++#define VDRVERSNUM   10701  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+@@ -122,7 +122,6 @@
+                       esyslog("ERROR: error in %s, line %d", fileName, line);
+                       delete l;
+                       result = false;
+-                      break;
+                       }
+                    }
+                 }
+diff -ruN vdr-1.7.0/device.c vdr-1.7.1/device.c
+--- vdr-1.7.0/device.c	2008-04-12 16:12:14.000000000 +0200
++++ vdr-1.7.1/device.c	2008-07-06 15:22:21.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.2 2008/04/12 14:12:14 kls Exp $
++ * $Id: device.c 2.3 2008/07/06 13:22:21 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -21,16 +21,9 @@
+ 
+ // --- cLiveSubtitle ---------------------------------------------------------
+ 
+-#define LIVESUBTITLEBUFSIZE  KILOBYTE(100)
+-
+-class cLiveSubtitle : public cReceiver, public cThread {
+-private:
+-  cRingBufferLinear *ringBuffer;
+-  cRemux *remux;
++class cLiveSubtitle : public cReceiver {
+ protected:
+-  virtual void Activate(bool On);
+   virtual void Receive(uchar *Data, int Length);
+-  virtual void Action(void);
+ public:
+   cLiveSubtitle(int SPid);
+   virtual ~cLiveSubtitle();
+@@ -38,170 +31,17 @@
+ 
+ cLiveSubtitle::cLiveSubtitle(int SPid)
+ :cReceiver(tChannelID(), -1, SPid)
+-,cThread("live subtitle")
+ {
+-  ringBuffer = new cRingBufferLinear(LIVESUBTITLEBUFSIZE, TS_SIZE * 2, true, "Live Subtitle");
+-  int NoPids = 0;
+-  int SPids[] = { SPid, 0 };
+-  remux = new cRemux(0, &NoPids, &NoPids, SPids);
+ }
+ 
+ cLiveSubtitle::~cLiveSubtitle()
+ {
+   cReceiver::Detach();
+-  delete remux;
+-  delete ringBuffer;
+-}
+-
+-void cLiveSubtitle::Activate(bool On)
+-{
+-  if (On)
+-     Start();
+-  else
+-     Cancel(3);
+ }
+ 
+ void cLiveSubtitle::Receive(uchar *Data, int Length)
+ {
+-  if (Running()) {
+-     int p = ringBuffer->Put(Data, Length);
+-     if (p != Length && Running())
+-        ringBuffer->ReportOverflow(Length - p);
+-     }
+-}
+-
+-void cLiveSubtitle::Action(void)
+-{
+-  while (Running()) {
+-        int Count;
+-        uchar *b = ringBuffer->Get(Count);
+-        if (b) {
+-           Count = remux->Put(b, Count);
+-           if (Count)
+-              ringBuffer->Del(Count);
+-           }
+-        b = remux->Get(Count);
+-        if (b) {
+-           Count = cDevice::PrimaryDevice()->PlaySubtitle(b, Count);
+-           remux->Del(Count);
+-           }
+-        }
+-}
+-
+-// --- cPesAssembler ---------------------------------------------------------
+-
+-class cPesAssembler {
+-private:
+-  uchar *data;
+-  uint32_t tag;
+-  int length;
+-  int size;
+-  bool Realloc(int Size);
+-public:
+-  cPesAssembler(void);
+-  ~cPesAssembler();
+-  int ExpectedLength(void) { return PacketSize(data); }
+-  static int PacketSize(const uchar *data);
+-  int Length(void) { return length; }
+-  const uchar *Data(void) { return data; } // only valid if Length() >= 4
+-  void Reset(void);
+-  void Put(uchar c);
+-  void Put(const uchar *Data, int Length);
+-  bool IsPes(void);
+-  };
+-
+-cPesAssembler::cPesAssembler(void)
+-{
+-  data = NULL;
+-  size = 0;
+-  Reset();
+-}
+-
+-cPesAssembler::~cPesAssembler()
+-{
+-  free(data);
+-}
+-
+-void cPesAssembler::Reset(void)
+-{
+-  tag = 0xFFFFFFFF;
+-  length = 0;
+-}
+-
+-bool cPesAssembler::Realloc(int Size)
+-{
+-  if (Size > size) {
+-     size = max(Size, 2048);
+-     data = (uchar *)realloc(data, size);
+-     if (!data) {
+-        esyslog("ERROR: can't allocate memory for PES assembler");
+-        length = 0;
+-        size = 0;
+-        return false;
+-        }
+-     }
+-  return true;
+-}
+-
+-void cPesAssembler::Put(uchar c)
+-{
+-  if (length < 4) {
+-     tag = (tag << 8) | c;
+-     if ((tag & 0xFFFFFF00) == 0x00000100) {
+-        if (Realloc(4)) {
+-           *(uint32_t *)data = htonl(tag);
+-           length = 4;
+-           }
+-        }
+-     else if (length < 3)
+-        length++;
+-     }
+-  else if (Realloc(length + 1))
+-     data[length++] = c;
+-}
+-
+-void cPesAssembler::Put(const uchar *Data, int Length)
+-{
+-  while (length < 4 && Length > 0) {
+-        Put(*Data++);
+-        Length--;
+-        }
+-  if (Length && Realloc(length + Length)) {
+-     memcpy(data + length, Data, Length);
+-     length += Length;
+-     }
+-}
+-
+-int cPesAssembler::PacketSize(const uchar *data)
+-{
+-  // we need atleast 6 bytes of data here !!!
+-  switch (data[3]) {
+-    default:
+-    case 0x00 ... 0xB8: // video stream start codes
+-    case 0xB9: // Program end
+-    case 0xBC: // Programm stream map
+-    case 0xF0 ... 0xFF: // reserved
+-         return 6;
+-
+-    case 0xBA: // Pack header
+-         if ((data[4] & 0xC0) == 0x40) // MPEG2
+-            return 14;
+-         // to be absolutely correct we would have to add the stuffing bytes
+-         // as well, but at this point we only may have 6 bytes of data avail-
+-         // able. So it's up to the higher level to resync...
+-         //return 14 + (data[13] & 0x07); // add stuffing bytes
+-         else // MPEG1
+-            return 12;
+-
+-    case 0xBB: // System header
+-    case 0xBD: // Private stream1
+-    case 0xBE: // Padding stream
+-    case 0xBF: // Private stream2 (navigation data)
+-    case 0xC0 ... 0xCF: // all the rest (the real packets)
+-    case 0xD0 ... 0xDF:
+-    case 0xE0 ... 0xEF:
+-         return 6 + data[4] * 256 + data[5];
+-    }
++  cDevice::PrimaryDevice()->PlayTs(Data, Length);
+ }
+ 
+ // --- cDevice ---------------------------------------------------------------
+@@ -241,7 +81,6 @@
+   startScrambleDetection = 0;
+ 
+   player = NULL;
+-  pesAssembler = new cPesAssembler;
+   ClrAvailableTracks();
+   currentAudioTrack = ttNone;
+   currentAudioTrackMissingCount = 0;
+@@ -265,7 +104,6 @@
+   DetachAllReceivers();
+   delete liveSubtitle;
+   delete dvbSubtitleConverter;
+-  delete pesAssembler;
+ }
+ 
+ bool cDevice::WaitForAllDevicesReady(int Timeout)
+@@ -1195,7 +1033,6 @@
+         Detach(player);
+      DELETENULL(liveSubtitle);
+      DELETENULL(dvbSubtitleConverter);
+-     pesAssembler->Reset();
+      player = Player;
+      if (!Transferring())
+         ClrAvailableTracks(false, true);
+@@ -1256,7 +1093,7 @@
+ {
+   if (!dvbSubtitleConverter)
+      dvbSubtitleConverter = new cDvbSubtitleConverter;
+-  return dvbSubtitleConverter->Convert(Data, Length);
++  return dvbSubtitleConverter->ConvertFragments(Data, Length);
+ }
+ 
+ int cDevice::PlayPesPacket(const uchar *Data, int Length, bool VideoOnly)
+@@ -1360,42 +1197,16 @@
+ int cDevice::PlayPes(const uchar *Data, int Length, bool VideoOnly)
+ {
+   if (!Data) {
+-     pesAssembler->Reset();
+      if (dvbSubtitleConverter)
+         dvbSubtitleConverter->Reset();
+      return 0;
+      }
+-  int Result = 0;
+-  if (pesAssembler->Length()) {
+-     // Make sure we have a complete PES header:
+-     while (pesAssembler->Length() < 6 && Length > 0) {
+-           pesAssembler->Put(*Data++);
+-           Length--;
+-           Result++;
+-           }
+-     if (pesAssembler->Length() < 6)
+-        return Result; // Still no complete PES header - wait for more
+-     int l = pesAssembler->ExpectedLength();
+-     int Rest = min(l - pesAssembler->Length(), Length);
+-     pesAssembler->Put(Data, Rest);
+-     Data += Rest;
+-     Length -= Rest;
+-     Result += Rest;
+-     if (pesAssembler->Length() < l)
+-        return Result; // Still no complete PES packet - wait for more
+-     // Now pesAssembler contains one complete PES packet.
+-     int w = PlayPesPacket(pesAssembler->Data(), pesAssembler->Length(), VideoOnly);
+-     if (w > 0)
+-        pesAssembler->Reset();
+-     return Result > 0 ? Result : w < 0 ? w : 0;
+-     }
+   int i = 0;
+   while (i <= Length - 6) {
+         if (Data[i] == 0x00 && Data[i + 1] == 0x00 && Data[i + 2] == 0x01) {
+-           int l = cPesAssembler::PacketSize(&Data[i]);
++           int l = PesLength(Data + i);
+            if (i + l > Length) {
+-              // Store incomplete PES packet for later completion:
+-              pesAssembler->Put(Data + i, Length - i);
++              esyslog("ERROR: incomplete PES packet!");
+               return Length;
+               }
+            int w = PlayPesPacket(Data + i, l, VideoOnly);
+@@ -1408,10 +1219,91 @@
+            i++;
+         }
+   if (i < Length)
+-     pesAssembler->Put(Data + i, Length - i);
++     esyslog("ERROR: leftover PES data!");
+   return Length;
+ }
+ 
++int cDevice::PlayTsVideo(const uchar *Data, int Length)
++{
++  // Video PES has no explicit length, so we can only determine the end of
++  // a PES packet when the next TS packet that starts a payload comes in:
++  if (TsPayloadStart(Data)) {
++     if (const uchar *p = tsToPesVideo.GetPes(Length)) {
++        int w = PlayVideo(p, Length);
++        if (w > 0)
++           tsToPesVideo.Reset();
++        else
++           return w;
++        }
++     }
++  tsToPesVideo.PutTs(Data, Length);
++  return Length;
++}
++
++int cDevice::PlayTsAudio(const uchar *Data, int Length)
++{
++  bool PayloadStart = TsPayloadStart(Data);
++  for (int Pass = 0; Pass < 2; Pass++) {
++      if (Pass == 0 && !PayloadStart) // if no new payload is started, we can always put the packet into the converter
++         tsToPesAudio.PutTs(Data, Length);
++      if (const uchar *p = tsToPesAudio.GetPes(Length)) {
++         int w = PlayAudio(p, Length, 0);
++         if (w > 0)
++            tsToPesAudio.Reset();
++         else if (PayloadStart)
++            return w; // must get out the old packet before starting a new one
++         }
++      if (Pass == 0 && PayloadStart)
++         tsToPesAudio.PutTs(Data, Length);
++      }
++  return Length;
++}
++
++int cDevice::PlayTsSubtitle(const uchar *Data, int Length)
++{
++  if (!dvbSubtitleConverter)
++     dvbSubtitleConverter = new cDvbSubtitleConverter;
++  tsToPesSubtitle.PutTs(Data, Length);
++  if (const uchar *p = tsToPesSubtitle.GetPes(Length)) {
++     dvbSubtitleConverter->Convert(p, Length);
++     tsToPesSubtitle.Reset();
++     }
++  return Length;
++}
++
++//TODO detect and report continuity errors?
++int cDevice::PlayTs(const uchar *Data, int Length, bool VideoOnly)
++{
++  if (Length == TS_SIZE) {
++     if (!TsHasPayload(Data))
++        return Length; // silently ignore TS packets w/o payload
++     int PayloadOffset = TsPayloadOffset(Data);
++     if (PayloadOffset < Length) {
++        int Pid = TsPid(Data);
++        if (Pid == 0)
++           patPmtParser.ParsePat(Data + PayloadOffset, Length - PayloadOffset);
++        else if (Pid == patPmtParser.PmtPid())
++           patPmtParser.ParsePmt(Data + PayloadOffset, Length - PayloadOffset);
++        else if (Pid == patPmtParser.Vpid())
++           return PlayTsVideo(Data, Length);
++        else if (Pid == availableTracks[currentAudioTrack].id) {
++           if (!VideoOnly || HasIBPTrickSpeed()) {
++              int w = PlayTsAudio(Data, Length);
++              if (w > 0)
++                 Audios.PlayTsAudio(Data, Length);
++              return w;
++              }
++           }
++        else if (Pid == availableTracks[currentSubtitleTrack].id) {
++           if (!VideoOnly || HasIBPTrickSpeed())
++              return PlayTsSubtitle(Data, Length);
++           }
++        return Length;
++        }
++     }
++  return -1;
++}
++
+ int cDevice::Priority(void) const
+ {
+   int priority = IsPrimaryDevice() ? Setup.PrimaryLimit - 1 : DEFAULTPRIORITY;
+@@ -1448,7 +1340,7 @@
+            uchar *b = NULL;
+            if (GetTSPacket(b)) {
+               if (b) {
+-                 int Pid = (((uint16_t)b[1] & PID_MASK_HI) << 8) | b[2];
++                 int Pid = TsPid(b);
+                  // Check whether the TS packets are scrambled:
+                  bool DetachReceivers = false;
+                  bool DescramblingOk = false;
+diff -ruN vdr-1.7.0/device.h vdr-1.7.1/device.h
+--- vdr-1.7.0/device.h	2008-04-12 13:11:23.000000000 +0200
++++ vdr-1.7.1/device.h	2008-07-06 13:25:42.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 2.1 2008/04/12 11:11:23 kls Exp $
++ * $Id: device.h 2.2 2008/07/06 11:25:42 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -17,6 +17,7 @@
+ #include "filter.h"
+ #include "nit.h"
+ #include "pat.h"
++#include "remux.h"
+ #include "ringbuffer.h"
+ #include "sdt.h"
+ #include "sections.h"
+@@ -30,10 +31,6 @@
+ #define MAXVOLUME         255
+ #define VOLUMEDELTA         5 // used to increase/decrease the volume
+ 
+-#define TS_SIZE          188
+-#define TS_SYNC_BYTE     0x47
+-#define PID_MASK_HI      0x1F
+-
+ enum eSetChannelResult { scrOk, scrNotAvailable, scrNoTransfer, scrFailed };
+ 
+ enum ePlayMode { pmNone,           // audio/video from decoder
+@@ -89,7 +86,6 @@
+ 
+ class cPlayer;
+ class cReceiver;
+-class cPesAssembler;
+ class cLiveSubtitle;
+ 
+ /// The cDevice class is the base from which actual devices can be derived.
+@@ -477,7 +473,10 @@
+ 
+ private:
+   cPlayer *player;
+-  cPesAssembler *pesAssembler;
++  cPatPmtParser patPmtParser;
++  cTsToPes tsToPesVideo;
++  cTsToPes tsToPesAudio;
++  cTsToPes tsToPesSubtitle;
+ protected:
+   virtual bool CanReplay(void) const;
+        ///< Returns true if this device can currently start a replay session.
+@@ -511,6 +510,33 @@
+        ///< If VideoOnly is true, only the video will be displayed,
+        ///< which is necessary for trick modes like 'fast forward'.
+        ///< Data must point to one single, complete PES packet.
++  virtual int PlayTsVideo(const uchar *Data, int Length);
++       ///< Plays the given data block as video.
++       ///< Data points to exactly one complete TS packet of the given Length
++       ///< (which is always TS_SIZE).
++       ///< PlayTsVideo() shall process the packet either as a whole (returning
++       ///< a positive number, which needs not necessarily be Length) or not at all
++       ///< (returning 0 or -1 and setting 'errno' to EAGAIN).
++       ///< The default implementation collects all incoming TS payload belonging
++       ///< to one PES packet and calls PlayVideo() with the resulting packet.
++  virtual int PlayTsAudio(const uchar *Data, int Length);
++       ///< Plays the given data block as audio.
++       ///< Data points to exactly one complete TS packet of the given Length
++       ///< (which is always TS_SIZE).
++       ///< PlayTsAudio() shall process the packet either as a whole (returning
++       ///< a positive number, which needs not necessarily be Length) or not at all
++       ///< (returning 0 or -1 and setting 'errno' to EAGAIN).
++       ///< The default implementation collects all incoming TS payload belonging
++       ///< to one PES packet and calls PlayAudio() with the resulting packet.
++  virtual int PlayTsSubtitle(const uchar *Data, int Length);
++       ///< Plays the given data block as a subtitle.
++       ///< Data points to exactly one complete TS packet of the given Length
++       ///< (which is always TS_SIZE).
++       ///< PlayTsSubtitle() shall process the packet either as a whole (returning
++       ///< a positive number, which needs not necessarily be Length) or not at all
++       ///< (returning 0 or -1 and setting 'errno' to EAGAIN).
++       ///< The default implementation collects all incoming TS payload belonging
++       ///< to one PES packet and displays the resulting subtitle via the OSD.
+ public:
+   virtual int64_t GetSTC(void);
+        ///< Gets the current System Time Counter, which can be used to
+@@ -565,6 +591,21 @@
+        ///< to a complete packet with data from the next call to PlayPes().
+        ///< That way any functions called from within PlayPes() will be
+        ///< guaranteed to always receive complete PES packets.
++  virtual int PlayTs(const uchar *Data, int Length, bool VideoOnly = false);
++       ///< Plays the given TS packet.
++       ///< If VideoOnly is true, only the video will be displayed,
++       ///< which is necessary for trick modes like 'fast forward'.
++       ///< Data points to a single TS packet, Length is always TS_SIZE (the total
++       ///< size of a single TS packet).
++       ///< A derived device can reimplement this function to handle the
++       ///< TS packets itself. Any packets the derived function can't handle
++       ///< must be sent to the base class function. This applies especially
++       ///< to the PAT/PMT packets.
++       ///< Returns -1 in case of error, otherwise the number of actually
++       ///< processed bytes is returned, which may be less than Length.
++       ///< PlayTs() shall process the packet either as a whole (returning
++       ///< a positive number, which needs not necessarily be Length) or not at all
++       ///< (returning 0 or -1 and setting 'errno' to EAGAIN).
+   bool Replaying(void) const;
+        ///< Returns true if we are currently replaying.
+   bool Transferring(void) const;
+diff -ruN vdr-1.7.0/dvbdevice.c vdr-1.7.1/dvbdevice.c
+--- vdr-1.7.0/dvbdevice.c	2008-04-13 16:15:35.000000000 +0200
++++ vdr-1.7.1/dvbdevice.c	2008-07-06 15:58:56.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.2 2008/04/13 14:15:35 kls Exp $
++ * $Id: dvbdevice.c 2.4 2008/07/06 13:58:56 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -266,10 +266,6 @@
+ 
+      tuneTimeout = DVBS_TUNE_TIMEOUT;
+      lockTimeout = DVBS_LOCK_TIMEOUT;
+-
+-     dvbfe_info feinfo;
+-     feinfo.delivery = Frontend.delivery;
+-     CHECK(ioctl(fd_frontend, DVBFE_GET_INFO, &feinfo)); //switch system
+      }
+   else if (frontendType & DVBFE_DELSYS_DVBC) {
+      Frontend.delivery = DVBFE_DELSYS_DVBC;
+@@ -281,10 +277,6 @@
+ 
+      tuneTimeout = DVBC_TUNE_TIMEOUT;
+      lockTimeout = DVBC_LOCK_TIMEOUT;
+-
+-     dvbfe_info feinfo;
+-     feinfo.delivery = Frontend.delivery;
+-     CHECK(ioctl(fd_frontend, DVBFE_GET_INFO, &feinfo)); //switch system
+      }
+   else if (frontendType & DVBFE_DELSYS_DVBT) {
+      Frontend.delivery = DVBFE_DELSYS_DVBT;
+@@ -302,15 +294,12 @@
+ 
+      tuneTimeout = DVBT_TUNE_TIMEOUT;
+      lockTimeout = DVBT_LOCK_TIMEOUT;
+-
+-     dvbfe_info feinfo;
+-     feinfo.delivery = Frontend.delivery;
+-     CHECK(ioctl(fd_frontend, DVBFE_GET_INFO, &feinfo)); //switch system
+      }
+   else {
+      esyslog("ERROR: attempt to set channel with unknown DVB frontend type");
+      return false;
+      }
++  CHECK(ioctl(fd_frontend, DVBFE_SET_DELSYS, &Frontend.delivery));
+   if (ioctl(fd_frontend, DVBFE_SET_PARAMS, &Frontend) < 0) {
+      esyslog("ERROR: frontend %d: %m", cardIndex);
+      return false;
+@@ -1247,6 +1236,18 @@
+   return WriteAllOrNothing(fd_audio, Data, Length, 1000, 10);
+ }
+ 
++int cDvbDevice::PlayTsVideo(const uchar *Data, int Length)
++{
++  Length = TsGetPayload(&Data);
++  return PlayVideo(Data, Length);
++}
++
++int cDvbDevice::PlayTsAudio(const uchar *Data, int Length)
++{
++  Length = TsGetPayload(&Data);
++  return PlayAudio(Data, Length, 0);
++}
++
+ bool cDvbDevice::OpenDvr(void)
+ {
+   CloseDvr();
+diff -ruN vdr-1.7.0/dvbdevice.h vdr-1.7.1/dvbdevice.h
+--- vdr-1.7.0/dvbdevice.h	2008-04-12 13:20:48.000000000 +0200
++++ vdr-1.7.1/dvbdevice.h	2008-06-01 11:48:04.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 2.1 2008/04/12 11:20:48 kls Exp $
++ * $Id: dvbdevice.h 2.2 2008/06/01 09:48:04 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -138,6 +138,8 @@
+   virtual bool SetPlayMode(ePlayMode PlayMode);
+   virtual int PlayVideo(const uchar *Data, int Length);
+   virtual int PlayAudio(const uchar *Data, int Length, uchar Id);
++  virtual int PlayTsVideo(const uchar *Data, int Length);
++  virtual int PlayTsAudio(const uchar *Data, int Length);
+ public:
+   virtual int64_t GetSTC(void);
+   virtual void TrickSpeed(int Speed);
+diff -ruN vdr-1.7.0/dvbsubtitle.c vdr-1.7.1/dvbsubtitle.c
+--- vdr-1.7.0/dvbsubtitle.c	2007-11-25 14:33:08.000000000 +0100
++++ vdr-1.7.1/dvbsubtitle.c	2008-05-25 16:36:24.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original author: Marco Schlüßler <marco@lordzodiac.de>
+  * With some input from the "subtitle plugin" by Pekka Virtanen <pekka.virtanen@sci.fi>
+  *
+- * $Id: dvbsubtitle.c 2.0 2007/11/25 13:33:08 kls Exp $
++ * $Id: dvbsubtitle.c 2.1 2008/05/25 14:36:24 kls Exp $
+  */
+ 
+ #include "dvbsubtitle.h"
+@@ -580,12 +580,12 @@
+ unsigned char *cDvbSubtitleAssembler::Get(int &Length)
+ {
+   if (length > pos + 5) {
+-      Length = (data[pos + 4] << 8) + data[pos + 5] + 6;
+-      if (length >= pos + Length) {
+-         unsigned char *result = data + pos;
+-         pos += Length;
+-         return result;
+-         }
++     Length = (data[pos + 4] << 8) + data[pos + 5] + 6;
++     if (length >= pos + Length) {
++        unsigned char *result = data + pos;
++        pos += Length;
++        return result;
++        }
+      }
+   return NULL;
+ }
+@@ -684,10 +684,10 @@
+   Unlock();
+ }
+ 
+-int cDvbSubtitleConverter::Convert(const uchar *Data, int Length)
++int cDvbSubtitleConverter::ConvertFragments(const uchar *Data, int Length)
+ {
+   if (Data && Length > 8) {
+-     int PayloadOffset = Data[8] + 9;
++     int PayloadOffset = PesPayloadOffset(Data);
+      int SubstreamHeaderLength = 4;
+      bool ResetSubtitleAssembler = Data[PayloadOffset + 3] == 0x00;
+ 
+@@ -699,15 +699,9 @@
+         }
+ 
+      if (Length > PayloadOffset + SubstreamHeaderLength) {
+-        int64_t pts = 0;
+-        if ((Data[7] & 0x80) && Data[8] >= 5) {
+-           pts  = (((int64_t)Data[ 9]) & 0x0E) << 29;
+-           pts |= ( (int64_t)Data[10])         << 22;
+-           pts |= (((int64_t)Data[11]) & 0xFE) << 14;
+-           pts |= ( (int64_t)Data[12])         <<  7;
+-           pts |= (((int64_t)Data[13]) & 0xFE) >>  1;
++        int64_t pts = PesGetPts(Data);
++        if (pts)
+            dbgconverter("Converter PTS: %lld\n", pts);
+-           }
+         const uchar *data = Data + PayloadOffset + SubstreamHeaderLength; // skip substream header
+         int length = Length - PayloadOffset - SubstreamHeaderLength; // skip substream header
+         if (ResetSubtitleAssembler)
+@@ -728,6 +722,40 @@
+                     }
+                  else
+                     break;
++                 }
++           }
++        }
++     return Length;
++     }
++  return 0;
++}
++
++int cDvbSubtitleConverter::Convert(const uchar *Data, int Length)
++{
++  if (Data && Length > 8) {
++     int PayloadOffset = PesPayloadOffset(Data);
++     if (Length > PayloadOffset) {
++        int64_t pts = PesGetPts(Data);
++        if (pts)
++           dbgconverter("Converter PTS: %lld\n", pts);
++        const uchar *data = Data + PayloadOffset;
++        int length = Length - PayloadOffset;
++        if (length > 3) {
++           if (data[0] == 0x20 && data[1] == 0x00 && data[2] == 0x0F) {
++              data += 2;
++              length -= 2;
++              }
++           const uchar *b = data;
++           while (length > 0) {
++                 if (b[0] == 0x0F) {
++                    int n = ExtractSegment(b, length, pts);
++                    if (n < 0)
++                       break;
++                    b += n;
++                    length -= n;
++                    }
++                 else
++                    break;
+                  }
+            }
+         }
+diff -ruN vdr-1.7.0/dvbsubtitle.h vdr-1.7.1/dvbsubtitle.h
+--- vdr-1.7.0/dvbsubtitle.h	2007-10-14 16:02:46.000000000 +0200
++++ vdr-1.7.1/dvbsubtitle.h	2008-05-25 16:36:52.000000000 +0200
+@@ -6,7 +6,7 @@
+  *
+  * Original author: Marco Schlüßler <marco@lordzodiac.de>
+  *
+- * $Id: dvbsubtitle.h 2.0 2007/10/14 14:02:46 kls Exp $
++ * $Id: dvbsubtitle.h 2.1 2008/05/25 14:36:52 kls Exp $
+  */
+ 
+ #ifndef __DVBSUBTITLE_H
+@@ -17,7 +17,7 @@
+ #include "tools.h"
+ 
+ class cDvbSubtitlePage;
+-class cDvbSubtitleAssembler;
++class cDvbSubtitleAssembler; // for legacy PES recordings
+ class cDvbSubtitleBitmaps;
+ 
+ class cDvbSubtitleConverter : public cThread {
+@@ -36,6 +36,7 @@
+   virtual ~cDvbSubtitleConverter();
+   void Action(void);
+   void Reset(void);
++  int ConvertFragments(const uchar *Data, int Length); // for legacy PES recordings
+   int Convert(const uchar *Data, int Length);
+   static void SetupChanged(void);
+   };
+diff -ruN vdr-1.7.0/eit.c vdr-1.7.1/eit.c
+--- vdr-1.7.0/eit.c	2008-04-13 13:27:06.000000000 +0200
++++ vdr-1.7.1/eit.c	2008-05-01 17:33:27.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 2.1 2008/04/13 11:27:06 kls Exp $
++ * $Id: eit.c 2.2 2008/05/01 15:33:27 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -219,7 +219,7 @@
+                  SI::ComponentDescriptor *cd = (SI::ComponentDescriptor *)d;
+                  uchar Stream = cd->getStreamContent();
+                  uchar Type = cd->getComponentType();
+-                 if (1 <= Stream && Stream <= 3 && Type != 0) { // 1=video, 2=audio, 3=subtitles
++                 if (1 <= Stream && Stream <= 4 && Type != 0) { // 1=video, 2=audio, 3=subtitles, 4=AC3
+                     if (!Components)
+                        Components = new cComponents;
+                     char buffer[Utf8BufSize(256)];
+diff -ruN vdr-1.7.0/epg.c vdr-1.7.1/epg.c
+--- vdr-1.7.0/epg.c	2008-02-16 17:09:12.000000000 +0100
++++ vdr-1.7.1/epg.c	2008-05-01 16:53:55.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 2.0 2008/02/16 16:09:12 kls Exp $
++ * $Id: epg.c 2.1 2008/05/01 14:53:55 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -88,8 +88,10 @@
+ tComponent *cComponents::GetComponent(int Index, uchar Stream, uchar Type)
+ {
+   for (int i = 0; i < numComponents; i++) {
+-      // In case of an audio stream the 'type' check actually just distinguishes between "normal" and "Dolby Digital":
+-      if (components[i].stream == Stream && (Stream != 2 || (components[i].type < 5) == (Type < 5))) {
++      if (components[i].stream == Stream && (
++          Type == 0 || // don't care about the actual Type
++          Stream == 2 && (components[i].type < 5) == (Type < 5) // fallback "Dolby" component according to the "Premiere pseudo standard"
++         )) {
+          if (!Index--)
+             return &components[i];
+          }
+diff -ruN vdr-1.7.0/font.c vdr-1.7.1/font.c
+--- vdr-1.7.0/font.c	2008-03-01 11:19:41.000000000 +0100
++++ vdr-1.7.1/font.c	2008-05-02 18:16:51.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: font.c 2.0 2008/03/01 10:19:41 kls Exp $
++ * $Id: font.c 2.1 2008/05/02 16:16:51 kls Exp $
+  */
+ 
+ #include "font.h"
+@@ -395,7 +395,7 @@
+      FcFontSetDestroy(fontset);
+      FcPatternDestroy(pat);
+      FcObjectSetDestroy(os);
+-     FcFini();
++     //FcFini(); // older versions of fontconfig are broken - and FcInit() can be called more than once
+      FontNames->Sort();
+      }
+   return FontNames->Size() > 0;
+@@ -431,7 +431,7 @@
+         esyslog("ERROR: no usable font found for '%s'", FontName);
+      FcPatternDestroy(pat);
+      free(fn);
+-     FcFini();
++     //FcFini(); // older versions of fontconfig are broken - and FcInit() can be called more than once
+      }
+   return FontFileName;
+ }
+diff -ruN vdr-1.7.0/i18n.c vdr-1.7.1/i18n.c
+--- vdr-1.7.0/i18n.c	2008-01-19 13:07:11.000000000 +0100
++++ vdr-1.7.1/i18n.c	2008-09-06 14:24:43.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 2.0 2008/01/19 12:07:11 kls Exp $
++ * $Id: i18n.c 2.1 2008/09/06 12:24:43 kls Exp $
+  *
+  *
+  */
+@@ -45,7 +45,7 @@
+   "por",
+   "fra,fre",
+   "nor",
+-  "fin,smi",
++  "fin,suo",
+   "pol",
+   "esl,spa",
+   "ell,gre",
+diff -ruN vdr-1.7.0/libsi/si.h vdr-1.7.1/libsi/si.h
+--- vdr-1.7.0/libsi/si.h	2007-04-22 15:32:09.000000000 +0200
++++ vdr-1.7.1/libsi/si.h	2008-09-06 14:44:06.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.h 2.0 2007/04/22 13:32:09 kls Exp $
++ *   $Id: si.h 2.1 2008/09/06 12:44:06 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -28,7 +28,7 @@
+                TableIdNIT_other  = 0x41, //network information section, other network
+                TableIdSDT = 0x42, //service description section
+                TableIdSDT_other  = 0x46,
+-               TableIdBAT = 0x46, //bouquet association section
++               TableIdBAT = 0x4A, //bouquet association section
+                TableIdEIT_presentFollowing = 0x4E, //event information section
+                TableIdEIT_presentFollowing_other = 0x4F,
+                //range from 0x50 to 0x5F
+diff -ruN vdr-1.7.0/libsi/util.h vdr-1.7.1/libsi/util.h
+--- vdr-1.7.0/libsi/util.h	2006-02-25 11:13:28.000000000 +0100
++++ vdr-1.7.1/libsi/util.h	2008-05-22 12:49:08.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: util.h 2.0 2006/02/25 10:13:28 kls Exp $
++ *   $Id: util.h 2.1 2008/05/22 10:49:08 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -148,9 +148,9 @@
+    CRC32(const char *d, int len, u_int32_t CRCvalue=0xFFFFFFFF);
+    bool isValid() { return crc32(data, length, value) == 0; }
+    static bool isValid(const char *d, int len, u_int32_t CRCvalue=0xFFFFFFFF) { return crc32(d, len, CRCvalue) == 0; }
++   static u_int32_t crc32(const char *d, int len, u_int32_t CRCvalue);
+ protected:
+    static u_int32_t crc_table[256];
+-   static u_int32_t crc32 (const char *d, int len, u_int32_t CRCvalue);
+ 
+    const char *data;
+    int length;
+diff -ruN vdr-1.7.0/menu.c vdr-1.7.1/menu.c
+--- vdr-1.7.0/menu.c	2008-04-12 13:37:17.000000000 +0200
++++ vdr-1.7.1/menu.c	2008-05-01 16:37:24.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 2.1 2008/04/12 11:37:17 kls Exp $
++ * $Id: menu.c 2.2 2008/05/01 14:37:24 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -3147,6 +3147,8 @@
+                    break;
+            case 3: cDevice::PrimaryDevice()->SetAvailableTrack(ttSubtitle, indexSubtitle++, 0, LiveChannel ? NULL : p->language, p->description);
+                    break;
++           case 4: cDevice::PrimaryDevice()->SetAvailableTrack(ttDolby, indexDolby++, 0, LiveChannel ? NULL : p->language, p->description);
++                   break;
+            }
+          }
+      }
+diff -ruN vdr-1.7.0/pat.c vdr-1.7.1/pat.c
+--- vdr-1.7.0/pat.c	2008-04-12 15:34:50.000000000 +0200
++++ vdr-1.7.1/pat.c	2008-07-06 16:01:32.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.c 2.1 2008/04/12 13:34:50 kls Exp $
++ * $Id: pat.c 2.2 2008/07/06 14:01:32 kls Exp $
+  */
+ 
+ #include "pat.h"
+@@ -328,7 +328,8 @@
+         // Scan the stream-specific loop:
+         SI::PMT::Stream stream;
+         int Vpid = 0;
+-        int Ppid = pmt.getPCRPid();
++        int Ppid = 0;
++        int Vtype = 0;
+         int Apids[MAXAPIDS + 1] = { 0 }; // these lists are zero-terminated
+         int Dpids[MAXDPIDS + 1] = { 0 };
+         int Spids[MAXSPIDS + 1] = { 0 };
+@@ -343,8 +344,10 @@
+             switch (stream.getStreamType()) {
+               case 1: // STREAMTYPE_11172_VIDEO
+               case 2: // STREAMTYPE_13818_VIDEO
+-//TODO        case 0x1B: // MPEG4
++              case 0x1B: // MPEG4
+                       Vpid = stream.getPid();
++                      Ppid = pmt.getPCRPid();
++                      Vtype = stream.getStreamType();
+                       break;
+               case 3: // STREAMTYPE_11172_AUDIO
+               case 4: // STREAMTYPE_13818_AUDIO
+@@ -440,7 +443,7 @@
+                 }
+             }
+         if (Setup.UpdateChannels >= 2) {
+-           Channel->SetPids(Vpid, Vpid ? Ppid : 0, Apids, ALangs, Dpids, DLangs, Spids, SLangs, Tpid);
++           Channel->SetPids(Vpid, Ppid, Vtype, Apids, ALangs, Dpids, DLangs, Spids, SLangs, Tpid);
+            Channel->SetCaIds(CaDescriptors->CaIds());
+            }
+         Channel->SetCaDescriptors(CaDescriptorHandler.AddCaDescriptors(CaDescriptors));
+diff -ruN vdr-1.7.0/player.h vdr-1.7.1/player.h
+--- vdr-1.7.0/player.h	2008-02-16 14:50:11.000000000 +0100
++++ vdr-1.7.1/player.h	2008-08-15 16:07:48.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: player.h 2.0 2008/02/16 13:50:11 kls Exp $
++ * $Id: player.h 2.1 2008/08/15 14:07:48 kls Exp $
+  */
+ 
+ #ifndef __PLAYER_H
+@@ -42,6 +42,10 @@
+        // Sends the given PES Data to the device and returns the number of
+        // bytes that have actually been accepted by the device (or a
+        // negative value in case of an error).
++  int PlayTs(const uchar *Data, int Length, bool VideoOnly = false) { return device ? device->PlayTs(Data, Length, VideoOnly) : -1; }
++       // Sends the given TS packet to the device and returns a positive number
++       // if the packet has been accepted by the device, or a negative value in
++       // case of an error.
+ public:
+   cPlayer(ePlayMode PlayMode = pmAudioVideo);
+   virtual ~cPlayer();
+diff -ruN vdr-1.7.0/po/it_IT.po vdr-1.7.1/po/it_IT.po
+--- vdr-1.7.0/po/it_IT.po	2008-04-13 16:16:58.000000000 +0200
++++ vdr-1.7.1/po/it_IT.po	2008-09-06 17:13:03.000000000 +0200
+@@ -12,9 +12,9 @@
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-04-12 14:19+0200\n"
+-"PO-Revision-Date: 2008-03-08 21:06+0100\n"
++"PO-Revision-Date: 2008-08-25 02:36+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+-"Language-Team:  Italian\n"
++"Language-Team: Italian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+@@ -236,7 +236,7 @@
+ msgstr "Disco"
+ 
+ msgid "free"
+-msgstr "liberi"
++msgstr "disponibili"
+ 
+ msgid "Free To Air"
+ msgstr "in chiaro"
+@@ -377,7 +377,7 @@
+ msgstr "VPS"
+ 
+ msgid "Lifetime"
+-msgstr "Durata"
++msgstr "Scadenza"
+ 
+ msgid "File"
+ msgstr "Nome"
+@@ -419,20 +419,20 @@
+ msgstr "Prossimi programmi"
+ 
+ msgid "Button$Next"
+-msgstr "Prossimo"
++msgstr "Prossimi"
+ 
+ msgid "Button$Now"
+ msgstr "Adesso"
+ 
+ msgid "Button$Schedule"
+-msgstr "Programma"
++msgstr "Programmi"
+ 
+ msgid "Can't switch channel!"
+ msgstr "Impossibile cambiare canale!"
+ 
+ #, c-format
+ msgid "Schedule - %s"
+-msgstr "Programma - %s"
++msgstr "Programmi - %s"
+ 
+ #, c-format
+ msgid "This event - %s"
+@@ -515,7 +515,7 @@
+ msgstr "Altezza OSD"
+ 
+ msgid "Setup.OSD$Message time (s)"
+-msgstr "Tempo del messaggio (s)"
++msgstr "Durata del messaggio (s)"
+ 
+ msgid "Setup.OSD$Use small font"
+ msgstr "Utilizza caratteri piccoli"
+@@ -587,7 +587,7 @@
+ msgstr "Mostra vecchi dati EPG (min)"
+ 
+ msgid "Setup.EPG$Set system time"
+-msgstr "Imposta orario automatico"
++msgstr "Imposta orario di sistema"
+ 
+ msgid "Setup.EPG$Use time from transponder"
+ msgstr "Utilizza orario da transponder"
+@@ -637,13 +637,13 @@
+ msgstr "Formato video"
+ 
+ msgid "Setup.DVB$Video display format"
+-msgstr "Formato di visualizz. video"
++msgstr "Formato visualizzazione video"
+ 
+ msgid "Setup.DVB$Use Dolby Digital"
+ msgstr "Dolby Digital"
+ 
+ msgid "Setup.DVB$Update channels"
+-msgstr "Aggiorna i canali"
++msgstr "Aggiornamento canali"
+ 
+ msgid "Setup.DVB$Audio languages"
+ msgstr "Lingue audio"
+@@ -730,13 +730,13 @@
+ msgstr "Priorità predefinita"
+ 
+ msgid "Setup.Recording$Default lifetime (d)"
+-msgstr "Durata predefinita (gg)"
++msgstr "Scadenza predefinita (gg)"
+ 
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Priorità di pausa"
+ 
+ msgid "Setup.Recording$Pause lifetime (d)"
+-msgstr "Durata pausa (gg)"
++msgstr "Scadenza pausa (gg)"
+ 
+ msgid "Setup.Recording$Use episode name"
+ msgstr "Utilizza nome episodio"
+@@ -754,7 +754,7 @@
+ msgstr "Nome reg. immediata"
+ 
+ msgid "Setup.Recording$Instant rec. time (min)"
+-msgstr "Tempo reg. immediata (min)"
++msgstr "Durata reg. immediata (min)"
+ 
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Dim. massima file video (MB)"
+@@ -917,7 +917,7 @@
+ msgstr "Plugin"
+ 
+ msgid "Up/Dn for new location - OK to move"
+-msgstr "Su/Giù per nuova posizione - OK per muovere"
++msgstr "Su/Giù per nuova posizione - OK per spostare"
+ 
+ msgid "Channel locked (recording)!"
+ msgstr "Canale bloccato (in registrazione)!"
+@@ -936,7 +936,7 @@
+ 
+ #, c-format
+ msgid "Recording in %ld minutes, shut down anyway?"
+-msgstr "Registrazione fra %ld minuti - spegnere comunque?"
++msgstr "Registrazione tra %ld minuti - spegnere comunque?"
+ 
+ msgid "shut down anyway?"
+ msgstr "spegnere comunque?"
+diff -ruN vdr-1.7.0/recording.c vdr-1.7.1/recording.c
+--- vdr-1.7.0/recording.c	2008-02-24 11:28:53.000000000 +0100
++++ vdr-1.7.1/recording.c	2008-06-12 23:46:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.0 2008/02/24 10:28:53 kls Exp $
++ * $Id: recording.c 2.3 2008/06/12 21:46:08 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -31,8 +31,8 @@
+ /* This was the original code, which works fine in a Linux only environment.
+    Unfortunately, because of Windows and its brain dead file system, we have
+    to use a more complicated approach, in order to allow users who have enabled
+-   the VFAT compile time option to see their recordings even if they forget to
+-   enable VFAT when compiling a new version of VDR... Gee, do I hate Windows.
++   the --vfat command line option to see their recordings even if they forget to
++   enable --vfat when restarting VDR... Gee, do I hate Windows.
+    (kls 2002-07-27)
+ #define DATAFORMAT   "%4d-%02d-%02d.%02d:%02d.%02d.%02d" RECEXT
+ #define NAMEFORMAT   "%s/%s/" DATAFORMAT
+@@ -297,7 +297,9 @@
+      for (int i = 0; i < MAXDPIDS; i++) {
+          const char *s = Channel->Dlang(i);
+          if (*s) {
+-            tComponent *Component = Components->GetComponent(i, 2, 5);
++            tComponent *Component = Components->GetComponent(i, 4, 0); // AC3 component according to the DVB standard
++            if (!Component)
++               Component = Components->GetComponent(i, 2, 5); // fallback "Dolby" component according to the "Premiere pseudo standard"
+             if (!Component)
+                Components->SetComponent(Components->NumComponents(), 2, 5, s, NULL);
+             else if (strlen(s) > strlen(Component->language))
+@@ -1483,8 +1485,8 @@
+                  return SetOffset(Number + 1); // file exists and has non zero size, let's try next suffix
+               else {
+                  // zero size file, remove it
+-                 dsyslog ("cFileName::SetOffset: removing zero-sized file %s", fileName);
+-                 unlink (fileName);
++                 dsyslog("cFileName::SetOffset: removing zero-sized file %s", fileName);
++                 unlink(fileName);
+                  }
+               }
+            else
+diff -ruN vdr-1.7.0/remux.c vdr-1.7.1/remux.c
+--- vdr-1.7.0/remux.c	2007-11-25 14:56:03.000000000 +0100
++++ vdr-1.7.1/remux.c	2008-08-15 16:49:34.000000000 +0200
+@@ -11,15 +11,24 @@
+  * The cRepacker family's code was originally written by Reinhard Nissl <rnissl@gmx.de>,
+  * and adapted to the VDR coding style by Klaus.Schmidinger@cadsoft.de.
+  *
+- * $Id: remux.c 2.0 2007/11/25 13:56:03 kls Exp $
++ * $Id: remux.c 2.1 2008/08/15 14:49:34 kls Exp $
+  */
+ 
+ #include "remux.h"
+ #include <stdlib.h>
+ #include "channels.h"
++#include "device.h"
++#include "libsi/si.h"
++#include "libsi/section.h"
++#include "libsi/descriptor.h"
+ #include "shutdown.h"
+ #include "tools.h"
+ 
++// Set this to 'true' for debug output:
++static bool DebugPatPmt = false;
++
++#define dbgpatpmt(a...) if (DebugPatPmt) fprintf(stderr, a)
++
+ ePesHeader AnalyzePesHeader(const uchar *Data, int Count, int &PesPayloadOffset, bool *ContinuationHeader)
+ {
+   if (Count < 7)
+@@ -1413,7 +1422,6 @@
+ //pts_dts flags
+ #define PTS_ONLY         0x80
+ 
+-#define TS_SIZE        188
+ #define PID_MASK_HI    0x1F
+ #define CONT_CNT_MASK  0x0F
+ 
+@@ -2007,8 +2015,6 @@
+   return -1;
+ }
+ 
+-#define TS_SYNC_BYTE 0x47
+-
+ int cRemux::Put(const uchar *Data, int Count)
+ {
+   int used = 0;
+@@ -2182,3 +2188,466 @@
+   else
+      dsyslog("SetBrokenLink: no video packet in frame");
+ }
++
++// --- cPatPmtGenerator ------------------------------------------------------
++
++cPatPmtGenerator::cPatPmtGenerator(void)
++{
++  numPmtPackets = 0;
++  patCounter = pmtCounter = 0;
++  patVersion = pmtVersion = 0;
++  esInfoLength = NULL;
++  GeneratePat();
++}
++
++void cPatPmtGenerator::IncCounter(int &Counter, uchar *TsPacket)
++{
++  TsPacket[3] = (TsPacket[3] & 0xF0) | Counter;
++  if (++Counter > 0x0F)
++     Counter = 0x00;
++}
++
++void cPatPmtGenerator::IncVersion(int &Version)
++{
++  if (++Version > 0x1F)
++     Version = 0x00;
++}
++
++void cPatPmtGenerator::IncEsInfoLength(int Length)
++{
++  if (esInfoLength) {
++     Length += ((*esInfoLength & 0x0F) << 8) | *(esInfoLength + 1);
++     *esInfoLength = 0xF0 | (Length >> 8);
++     *(esInfoLength + 1) = Length;
++     }
++}
++
++int cPatPmtGenerator::MakeStream(uchar *Target, uchar Type, int Pid)
++{
++  int i = 0;
++  Target[i++] = Type; // stream type
++  Target[i++] = 0xE0 | (Pid >> 8); // dummy (3), pid hi (5)
++  Target[i++] = Pid; // pid lo
++  esInfoLength = &Target[i];
++  Target[i++] = 0xF0; // dummy (4), ES info length hi
++  Target[i++] = 0x00; // ES info length lo
++  return i;
++}
++
++int cPatPmtGenerator::MakeAC3Descriptor(uchar *Target)
++{
++  int i = 0;
++  Target[i++] = SI::AC3DescriptorTag;
++  Target[i++] = 0x01; // length
++  Target[i++] = 0x00;
++  IncEsInfoLength(i);
++  return i;
++}
++
++int cPatPmtGenerator::MakeSubtitlingDescriptor(uchar *Target, const char *Language)
++{
++  int i = 0;
++  Target[i++] = SI::SubtitlingDescriptorTag;
++  Target[i++] = 0x08; // length
++  Target[i++] = *Language++;
++  Target[i++] = *Language++;
++  Target[i++] = *Language++;
++  Target[i++] = 0x00; // subtitling type
++  Target[i++] = 0x00; // composition page id hi
++  Target[i++] = 0x01; // composition page id lo
++  Target[i++] = 0x00; // ancillary page id hi
++  Target[i++] = 0x01; // ancillary page id lo
++  IncEsInfoLength(i);
++  return i;
++}
++
++int cPatPmtGenerator::MakeLanguageDescriptor(uchar *Target, const char *Language)
++{
++  int i = 0;
++  Target[i++] = SI::ISO639LanguageDescriptorTag;
++  Target[i++] = 0x04; // length
++  Target[i++] = *Language++;
++  Target[i++] = *Language++;
++  Target[i++] = *Language++;
++  Target[i++] = 0x01; // audio type
++  IncEsInfoLength(i);
++  return i;
++}
++
++int cPatPmtGenerator::MakeCRC(uchar *Target, const uchar *Data, int Length)
++{
++  int crc = SI::CRC32::crc32((const char *)Data, Length, 0xFFFFFFFF);
++  int i = 0;
++  Target[i++] = crc >> 24;
++  Target[i++] = crc >> 16;
++  Target[i++] = crc >> 8;
++  Target[i++] = crc;
++  return i;
++}
++
++#define P_TSID    0x8008 // pseudo TS ID
++#define P_PNR     0x0084 // pseudo Program Number
++#define P_PMT_PID 0x0084 // pseudo PMT pid
++
++void cPatPmtGenerator::GeneratePat(void)
++{
++  memset(pat, 0xFF, sizeof(pat));
++  uchar *p = pat;
++  int i = 0;
++  p[i++] = 0x47; // TS indicator
++  p[i++] = 0x40; // flags (3), pid hi (5)
++  p[i++] = 0x00; // pid lo
++  p[i++] = 0x10; // flags (4), continuity counter (4)
++  int PayloadStart = i;
++  p[i++] = 0x00; // table id
++  p[i++] = 0xB0; // section syntax indicator (1), dummy (3), section length hi (4)
++  int SectionLength = i;
++  p[i++] = 0x00; // section length lo (filled in later)
++  p[i++] = P_TSID >> 8;   // TS id hi
++  p[i++] = P_TSID & 0xFF; // TS id lo
++  p[i++] = 0xC1 | (patVersion << 1); // dummy (2), version number (5), current/next indicator (1)
++  p[i++] = 0x00; // section number
++  p[i++] = 0x00; // last section number
++  p[i++] = P_PNR >> 8;   // program number hi
++  p[i++] = P_PNR & 0xFF; // program number lo
++  p[i++] = 0xE0 | (P_PMT_PID >> 8); // dummy (3), PMT pid hi (5)
++  p[i++] = P_PMT_PID & 0xFF; // PMT pid lo
++  pat[SectionLength] = i - SectionLength - 1 + 4; // -2 = SectionLength storage, +4 = length of CRC
++  MakeCRC(pat + i, pat + PayloadStart, i - PayloadStart);
++  IncVersion(patVersion);
++}
++
++void cPatPmtGenerator::GeneratePmt(tChannelID ChannelID)
++{
++  // generate the complete PMT section:
++  uchar buf[MAX_SECTION_SIZE];
++  memset(buf, 0xFF, sizeof(buf));
++  numPmtPackets = 0;
++  cChannel *Channel = Channels.GetByChannelID(ChannelID);
++  if (Channel) {
++     int Vpid = Channel->Vpid();
++     uchar *p = buf;
++     int i = 0;
++     p[i++] = 0x02; // table id
++     int SectionLength = i;
++     p[i++] = 0xB0; // section syntax indicator (1), dummy (3), section length hi (4)
++     p[i++] = 0x00; // section length lo (filled in later)
++     p[i++] = P_PNR >> 8;   // program number hi
++     p[i++] = P_PNR & 0xFF; // program number lo
++     p[i++] = 0xC1 | (pmtVersion << 1); // dummy (2), version number (5), current/next indicator (1)
++     p[i++] = 0x00; // section number
++     p[i++] = 0x00; // last section number
++     p[i++] = 0xE0 | (Vpid >> 8); // dummy (3), PCR pid hi (5)
++     p[i++] = Vpid; // PCR pid lo
++     p[i++] = 0xF0; // dummy (4), program info length hi (4)
++     p[i++] = 0x00; // program info length lo
++
++     if (Vpid)
++        i += MakeStream(buf + i, Channel->Vtype(), Vpid);
++     for (int n = 0; Channel->Apid(n); n++) {
++         i += MakeStream(buf + i, 0x04, Channel->Apid(n));
++         const char *Alang = Channel->Alang(n);
++         i += MakeLanguageDescriptor(buf + i, Alang);
++         if (Alang[3] == '+')
++            i += MakeLanguageDescriptor(buf + i, Alang + 3);
++         }
++     for (int n = 0; Channel->Dpid(n); n++) {
++         i += MakeStream(buf + i, 0x06, Channel->Dpid(n));
++         i += MakeAC3Descriptor(buf + i);
++         i += MakeLanguageDescriptor(buf + i, Channel->Dlang(n));
++         }
++     for (int n = 0; Channel->Spid(n); n++) {
++         i += MakeStream(buf + i, 0x06, Channel->Spid(n));
++         i += MakeSubtitlingDescriptor(buf + i, Channel->Slang(n));
++         }
++
++     int sl = i - SectionLength - 2 + 4; // -2 = SectionLength storage, +4 = length of CRC
++     buf[SectionLength] |= (sl >> 8) & 0x0F;
++     buf[SectionLength + 1] = sl;
++     MakeCRC(buf + i, buf, i);
++     // split the PMT section into several TS packets:
++     uchar *q = buf;
++     while (i > 0) {
++           uchar *p = pmt[numPmtPackets++];
++           int j = 0;
++           p[j++] = 0x47; // TS indicator
++           p[j++] = 0x40 | (P_PNR >> 8); // flags (3), pid hi (5)
++           p[j++] = P_PNR & 0xFF; // pid lo
++           p[j++] = 0x10; // flags (4), continuity counter (4)
++           int l = TS_SIZE - j;
++           memcpy(p + j, q, l);
++           q += l;
++           i -= l;
++           }
++     IncVersion(pmtVersion);
++     }
++  else
++     esyslog("ERROR: can't find channel %s", *ChannelID.ToString());
++}
++
++uchar *cPatPmtGenerator::GetPat(void)
++{
++  IncCounter(patCounter, pat);
++  return pat;
++}
++
++uchar *cPatPmtGenerator::GetPmt(int &Index)
++{
++  if (Index < numPmtPackets) {
++     IncCounter(patCounter, pmt[Index]);
++     return pmt[Index++];
++     }
++  return NULL;
++}
++
++// --- cPatPmtParser ---------------------------------------------------------
++
++cPatPmtParser::cPatPmtParser(void)
++{
++  pmtSize = 0;
++  pmtPid = -1;
++  vpid = vtype = 0;
++}
++
++void cPatPmtParser::ParsePat(const uchar *Data, int Length)
++{
++  // The PAT is always assumed to fit into a single TS packet
++  SI::PAT Pat(Data, false);
++  if (Pat.CheckCRCAndParse()) {
++     dbgpatpmt("PAT: TSid = %d, c/n = %d, v = %d, s = %d, ls = %d\n", Pat.getTransportStreamId(), Pat.getCurrentNextIndicator(), Pat.getVersionNumber(), Pat.getSectionNumber(), Pat.getLastSectionNumber());
++     SI::PAT::Association assoc;
++     for (SI::Loop::Iterator it; Pat.associationLoop.getNext(assoc, it); ) {
++         dbgpatpmt("     isNITPid = %d\n", assoc.isNITPid());
++         if (!assoc.isNITPid()) {
++            pmtPid = assoc.getPid();
++            dbgpatpmt("     service id = %d, pid = %d\n", assoc.getServiceId(), assoc.getPid());
++            }
++         }
++     }
++  else
++     esyslog("ERROR: can't parse PAT");
++}
++
++void cPatPmtParser::ParsePmt(const uchar *Data, int Length)
++{
++  // The PMT may extend over several TS packets, so we need to assemble them
++  if (pmtSize == 0) {
++     // this is the first packet
++     if (SectionLength(Data, Length) > Length) {
++        if (Length <= int(sizeof(pmt))) {
++           memcpy(pmt, Data, Length);
++           pmtSize = Length;
++           }
++        else
++           esyslog("ERROR: PMT packet length too big (%d byte)!", Length);
++        return;
++        }
++     // the packet contains the entire PMT section, so we run into the actual parsing
++     }
++  else {
++     // this is a following packet, so we add it to the pmt storage
++     if (Length <= int(sizeof(pmt)) - pmtSize) {
++        memcpy(pmt + pmtSize, Data, Length);
++        pmtSize += Length;
++        }
++     else {
++        esyslog("ERROR: PMT section length too big (%d byte)!", pmtSize + Length);
++        pmtSize = 0;
++        }
++     if (SectionLength(pmt, pmtSize) > pmtSize)
++        return; // more packets to come
++     // the PMT section is now complete, so we run into the actual parsing
++     Data = pmt;
++     }
++  SI::PMT Pmt(Data, false);
++  if (Pmt.CheckCRCAndParse()) {
++     dbgpatpmt("PMT: sid = %d, c/n = %d, v = %d, s = %d, ls = %d\n", Pmt.getServiceId(), Pmt.getCurrentNextIndicator(), Pmt.getVersionNumber(), Pmt.getSectionNumber(), Pmt.getLastSectionNumber());
++     dbgpatpmt("     pcr = %d\n", Pmt.getPCRPid());
++     cDevice::PrimaryDevice()->ClrAvailableTracks(false, true);
++     int NumApids = 0;
++     int NumDpids = 0;
++     int NumSpids = 0;
++     SI::PMT::Stream stream;
++     for (SI::Loop::Iterator it; Pmt.streamLoop.getNext(stream, it); ) {
++         dbgpatpmt("     stream type = %02X, pid = %d", stream.getStreamType(), stream.getPid());
++         switch (stream.getStreamType()) {
++           case 0x02: // STREAMTYPE_13818_VIDEO
++           case 0x1B: // MPEG4
++                      vpid = stream.getPid();
++                      vtype = stream.getStreamType();
++                      break;
++           case 0x04: // STREAMTYPE_13818_AUDIO
++                      {
++                      if (NumApids < MAXAPIDS) {
++                         char ALangs[MAXLANGCODE2] = "";
++                         SI::Descriptor *d;
++                         for (SI::Loop::Iterator it; (d = stream.streamDescriptors.getNext(it)); ) {
++                             switch (d->getDescriptorTag()) {
++                               case SI::ISO639LanguageDescriptorTag: {
++                                    SI::ISO639LanguageDescriptor *ld = (SI::ISO639LanguageDescriptor *)d;
++                                    SI::ISO639LanguageDescriptor::Language l;
++                                    char *s = ALangs;
++                                    int n = 0;
++                                    for (SI::Loop::Iterator it; ld->languageLoop.getNext(l, it); ) {
++                                        if (*ld->languageCode != '-') { // some use "---" to indicate "none"
++                                           dbgpatpmt(" '%s'", l.languageCode);
++                                           if (n > 0)
++                                              *s++ = '+';
++                                           strn0cpy(s, I18nNormalizeLanguageCode(l.languageCode), MAXLANGCODE1);
++                                           s += strlen(s);
++                                           if (n++ > 1)
++                                              break;
++                                           }
++                                        }
++                                    }
++                                    break;
++                               default: ;
++                               }
++                             delete d;
++                             }
++                         cDevice::PrimaryDevice()->SetAvailableTrack(ttAudio, NumApids, stream.getPid(), ALangs);
++                         NumApids++;
++                         }
++                      }
++                      break;
++           case 0x06: // STREAMTYPE_13818_PES_PRIVATE
++                      {
++                      int dpid = 0;
++                      char lang[MAXLANGCODE1] = "";
++                      SI::Descriptor *d;
++                      for (SI::Loop::Iterator it; (d = stream.streamDescriptors.getNext(it)); ) {
++                          switch (d->getDescriptorTag()) {
++                            case SI::AC3DescriptorTag:
++                                 dbgpatpmt(" AC3");
++                                 dpid = stream.getPid();
++                                 break;
++                            case SI::SubtitlingDescriptorTag:
++                                 dbgpatpmt(" subtitling");
++                                 if (NumSpids < MAXSPIDS) {
++                                    SI::SubtitlingDescriptor *sd = (SI::SubtitlingDescriptor *)d;
++                                    SI::SubtitlingDescriptor::Subtitling sub;
++                                    char SLangs[MAXLANGCODE2] = "";
++                                    char *s = SLangs;
++                                    int n = 0;
++                                    for (SI::Loop::Iterator it; sd->subtitlingLoop.getNext(sub, it); ) {
++                                        if (sub.languageCode[0]) {
++                                           dbgpatpmt(" '%s'", sub.languageCode);
++                                           if (n > 0)
++                                              *s++ = '+';
++                                           strn0cpy(s, I18nNormalizeLanguageCode(sub.languageCode), MAXLANGCODE1);
++                                           s += strlen(s);
++                                           if (n++ > 1)
++                                              break;
++                                           }
++                                        }
++                                    cDevice::PrimaryDevice()->SetAvailableTrack(ttSubtitle, NumSpids, stream.getPid(), SLangs);
++                                    NumSpids++;
++                                    }
++                                 break;
++                            case SI::ISO639LanguageDescriptorTag: {
++                                 SI::ISO639LanguageDescriptor *ld = (SI::ISO639LanguageDescriptor *)d;
++                                 dbgpatpmt(" '%s'", ld->languageCode);
++                                 strn0cpy(lang, I18nNormalizeLanguageCode(ld->languageCode), MAXLANGCODE1);
++                                 }
++                                 break;
++                            default: ;
++                            }
++                          delete d;
++                          }
++                      if (dpid) {
++                         if (NumDpids < MAXDPIDS) {
++                            cDevice::PrimaryDevice()->SetAvailableTrack(ttDolby, NumDpids, dpid, lang);
++                            NumDpids++;
++                            }
++                         }
++                      }
++                      break;
++           }
++         dbgpatpmt("\n");
++         cDevice::PrimaryDevice()->EnsureAudioTrack(true);
++         cDevice::PrimaryDevice()->EnsureSubtitleTrack();
++         }
++     }
++  else
++     esyslog("ERROR: can't parse PMT");
++  pmtSize = 0;
++}
++
++// --- cTsToPes --------------------------------------------------------------
++
++cTsToPes::cTsToPes(void)
++{
++  data = NULL;
++  size = length = 0;
++  synced = false;
++}
++
++cTsToPes::~cTsToPes()
++{
++  free(data);
++}
++
++void cTsToPes::PutTs(const uchar *Data, int Length)
++{
++  if (TsPayloadStart(Data))
++     Reset();
++  else if (!size)
++     return; // skip everything before the first payload start
++  Length = TsGetPayload(&Data);
++  if (length + Length > size) {
++     size = max(KILOBYTE(2), length + Length);
++     data = (uchar *)realloc(data, size);
++     }
++  memcpy(data + length, Data, Length);
++  length += Length;
++}
++
++const uchar *cTsToPes::GetPes(int &Length)
++{
++  if (PesLongEnough(length)) {
++     Length = PesLength(data);
++     if (Length <= length) {
++        Length = length; // in case the PES packet has no explicit length, as is the case for video PES
++        return data;
++        }
++     }
++  return NULL;
++}
++
++void cTsToPes::Reset(void)
++{
++  length = 0;
++}
++
++// --- Some helper functions for debugging -----------------------------------
++
++void BlockDump(const char *Name, const u_char *Data, int Length)
++{
++  printf("--- %s\n", Name);
++  for (int i = 0; i < Length; i++) {
++      if (i && (i % 16) == 0)
++         printf("\n");
++      printf(" %02X", Data[i]);
++      }
++  printf("\n");
++}
++
++void TsDump(const char *Name, const u_char *Data, int Length)
++{
++  printf("%s: %04X", Name, Length);
++  int n = min(Length, 20);
++  for (int i = 0; i < n; i++)
++      printf(" %02X", Data[i]);
++  if (n < Length) {
++     printf(" ...");
++     n = max(n, Length - 10);
++     for (n = max(n, Length - 10); n < Length; n++)
++         printf(" %02X", Data[n]);
++     }
++  printf("\n");
++}
++
++void PesDump(const char *Name, const u_char *Data, int Length)
++{
++  TsDump(Name, Data, Length);
++}
+diff -ruN vdr-1.7.0/remux.h vdr-1.7.1/remux.h
+--- vdr-1.7.0/remux.h	2007-09-02 12:19:06.000000000 +0200
++++ vdr-1.7.1/remux.h	2008-09-06 16:48:28.000000000 +0200
+@@ -4,14 +4,13 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 2.0 2007/09/02 10:19:06 kls Exp $
++ * $Id: remux.h 2.2 2008/09/06 14:48:28 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+ #define __REMUX_H
+ 
+-#include <time.h> //XXX FIXME: DVB/linux/dvb/dmx.h should include <time.h> itself!!!
+-#include <linux/dvb/dmx.h>
++#include "channels.h"
+ #include "ringbuffer.h"
+ #include "tools.h"
+ 
+@@ -81,4 +80,192 @@
+   static int ScanVideoPacket(const uchar *Data, int Count, int Offset, uchar &PictureType);
+   };
+ 
++// Some TS handling tools.
++// The following functions all take a pointer to one complete TS packet.
++
++#define TS_SYNC_BYTE          0x47
++#define TS_SIZE               188
++#define TS_ADAPT_FIELD_EXISTS 0x20
++#define TS_PAYLOAD_EXISTS     0x10
++#define TS_CONT_CNT_MASK      0x0F
++#define TS_PAYLOAD_START      0x40
++#define TS_ERROR              0x80
++#define TS_PID_MASK_HI        0x1F
++
++inline int TsHasPayload(const uchar *p)
++{
++  return p[3] & TS_PAYLOAD_EXISTS;
++}
++
++inline int TsPayloadStart(const uchar *p)
++{
++  return p[1] & TS_PAYLOAD_START;
++}
++
++inline int TsError(const uchar *p)
++{
++  return p[1] & TS_ERROR;
++}
++
++inline int TsPid(const uchar *p)
++{
++  return (p[1] & TS_PID_MASK_HI) * 256 + p[2];
++}
++
++inline int TsPayloadOffset(const uchar *p)
++{
++  return (p[3] & TS_ADAPT_FIELD_EXISTS) ? p[4] + 5 : 4;
++}
++
++inline int TsGetPayload(const uchar **p)
++{
++  int o = TsPayloadOffset(*p);
++  *p += o;
++  return TS_SIZE - o;
++}
++
++inline int TsContinuityCounter(const uchar *p)
++{
++  return p[3] & TS_CONT_CNT_MASK;
++}
++
++// Some PES handling tools:
++// The following functions that take a pointer to PES data all assume that
++// there is enough data so that PesLongEnough() returns true.
++
++inline bool PesLongEnough(int Length)
++{
++  return Length >= 6;
++}
++
++inline int PesLength(const uchar *p)
++{
++  return 6 + p[4] * 256 + p[5];
++}
++
++inline int PesPayloadOffset(const uchar *p)
++{
++  return 9 + p[8];
++}
++
++inline int64_t PesGetPts(const uchar *p)
++{
++  if ((p[7] & 0x80) && p[8] >= 5) {
++     return ((((int64_t)p[ 9]) & 0x0E) << 29) |
++            (( (int64_t)p[10])         << 22) |
++            ((((int64_t)p[11]) & 0xFE) << 14) |
++            (( (int64_t)p[12])         <<  7) |
++            ((((int64_t)p[13]) & 0xFE) >>  1);
++     }
++  return 0;
++}
++
++// PAT/PMT Generator:
++
++#define MAX_SECTION_SIZE 4096 // maximum size of an SI section
++#define MAX_PMT_TS  (MAX_SECTION_SIZE / TS_SIZE + 1)
++
++class cPatPmtGenerator {
++private:
++  uchar pat[TS_SIZE]; // the PAT always fits into a single TS packet
++  uchar pmt[MAX_PMT_TS][TS_SIZE]; // the PMT may well extend over several TS packets
++  int numPmtPackets;
++  int patCounter;
++  int pmtCounter;
++  int patVersion;
++  int pmtVersion;
++  uchar *esInfoLength;
++  void IncCounter(int &Counter, uchar *TsPacket);
++  void IncVersion(int &Version);
++  void IncEsInfoLength(int Length);
++protected:
++  int MakeStream(uchar *Target, uchar Type, int Pid);
++  int MakeAC3Descriptor(uchar *Target);
++  int MakeSubtitlingDescriptor(uchar *Target, const char *Language);
++  int MakeLanguageDescriptor(uchar *Target, const char *Language);
++  int MakeCRC(uchar *Target, const uchar *Data, int Length);
++public:
++  cPatPmtGenerator(void);
++  void GeneratePat(void);
++       ///< Generates a PAT section for later use with GetPat().
++       ///< This function is called by default from the constructor.
++  void GeneratePmt(tChannelID ChannelID);
++       ///< Generates a PMT section for the given ChannelId, for later use
++       ///< with GetPmt().
++  uchar *GetPat(void);
++       ///< Returns a pointer to the PAT section, which consist of exactly
++       ///< one TS packet.
++  uchar *GetPmt(int &Index);
++       ///< Returns a pointer to the Index'th TS packet of the PMT section.
++       ///< Index must be initialized to 0 and will be incremented by each
++       ///< call to GetPmt(). Returns NULL is all packets of the PMT section
++       ///< have been fetched..
++  };
++
++// PAT/PMT Parser:
++
++class cPatPmtParser {
++private:
++  uchar pmt[MAX_SECTION_SIZE];
++  int pmtSize;
++  int pmtPid;
++  int vpid;
++  int vtype;
++protected:
++  int SectionLength(const uchar *Data, int Length) { return (Length >= 3) ? ((int(Data[1]) & 0x0F) << 8)| Data[2] : 0; }
++public:
++  cPatPmtParser(void);
++  void ParsePat(const uchar *Data, int Length);
++       ///< Parses the given PAT Data, which is the payload of a single TS packet
++       ///< from the PAT stream. The PAT may consist only of a single TS packet.
++  void ParsePmt(const uchar *Data, int Length);
++       ///< Parses the given PMT Data, which is the payload of a single TS packet
++       ///< from the PMT stream. The PMT may consist of several TS packets, which
++       ///< are delivered to the parser through several subsequent calls to
++       ///< ParsePmt(). The whole PMT data will be processed once the last packet
++       ///< has been received.
++  int PmtPid(void) { return pmtPid; }
++       ///< Returns the PMT pid as defined by the current PAT.
++       ///< If no PAT has been received yet, -1 will be returned.
++  int Vpid(void) { return vpid; }
++       ///< Returns the video pid as defined by the current PMT.
++  int Vtype(void) { return vtype; }
++  };
++
++// TS to PES converter:
++// Puts together the payload of several TS packets that form one PES
++// packet.
++
++class cTsToPes {
++private:
++  uchar *data;
++  int size;
++  int length;
++  bool synced;
++public:
++  cTsToPes(void);
++  ~cTsToPes();
++  void PutTs(const uchar *Data, int Length);
++       ///< Puts the payload data of the single TS packet at Data into the converter.
++       ///< Length is always 188.
++       ///< If the given TS packet starts a new PES payload packet, the converter
++       ///< will be automatically reset. Any packets before the first one that starts
++       ///< a new PES payload packet will be ignored.
++  const uchar *GetPes(int &Length);
++       ///< Gets a pointer to the complete PES packet, or NULL if the packet
++       ///< is not complete yet. If the packet is complete, Length will contain
++       ///< the total packet length. The returned pointer is only valid until
++       ///< the next call to PutTs() or Reset(), or until this object is destroyed.
++  void Reset(void);
++       ///< Resets the converter. This needs to be called after a PES packet has
++       ///< been fetched by a call to GetPes(), and before the next call to
++       ///< PutTs().
++  };
++
++// Some helper functions for debugging:
++
++void BlockDump(const char *Name, const u_char *Data, int Length);
++void TsDump(const char *Name, const u_char *Data, int Length);
++void PesDump(const char *Name, const u_char *Data, int Length);
++
+ #endif // __REMUX_H
+diff -ruN vdr-1.7.0/sources.conf vdr-1.7.1/sources.conf
+--- vdr-1.7.0/sources.conf	2007-02-17 17:15:13.000000000 +0100
++++ vdr-1.7.1/sources.conf	2008-08-16 12:02:27.000000000 +0200
+@@ -19,29 +19,34 @@
+ 
+ # Europe
+ 
+-S5E     Sirius 2/3
++S3E     Telecom 2C
++S4E     Eurobird 4
++S5E     Sirius 4
+ S7E     Eutelsat W3A
++S9E     Eurobird 9
+ S10E    Eutelsat W1
+-S13E    Hotbird 1-3/6/7A
++S13E    Hotbird 6/7A/8
+ S16E    Eutelsat W2
+-S19.2E  Astra 1B/C/E/F/G/H/2C
++S19.2E  Astra F/G/H/KR/L
+ S21.0E  Afristar 1
+ S21.6E  Eutelsat W6
+-S23.5E  Astra 1D 3A
+-S26E    Arabsat 2D/2C/3A
++S23.5E  Astra 1E/3A
++S25.5E  Eurobird 2
++S26E    Badr 3/4/6
+ S28.2E  Astra 2D/A/B
+-S28.5E  Eurobird 1 & Astra 2A/B/D
++S28.5E  Eurobird 1 & Astra 2A/B/C/D
+ S30.5E  Arabsat 2B
++S31.5E  Astra 1D/5A
+ S33E    Eurobird 3 & Intelsat 802
+ S36E    Eutelsat W4 & Sesat
+ S38E    Paksat 1
+ S39E    Hellas Sat 2
+ S40E    Express AM1
+-S42E    Turksat 1C/2A
++S42E    Turksat 2A/3A
+ S45E    Intelsat 12
+ S49E    Yamal 202
+ S53E    Express AM 22
+-S55E    Insat 3E & Intelsat 702
++S55E    Insat 3E 
+ S56E    Bonum 1
+ S57E    NSS 703
+ S60E    Intelsat 904
+@@ -54,10 +59,10 @@
+ 
+ # Asia
+ 
+-S74E    Insat 3C & Edusat
+-S75E    LMI 1
++S74E    Insat 3C/4CR & Edusat
++S75E    ABS 1
+ S76.5E  Telstar 10
+-S78.5E  Thaicom 2/3
++S78.5E  Thaicom 2/5
+ S80E    Express AM2
+ S83E    Insat 2E/3B/4A
+ S85.2E  Intelsat 709
+@@ -65,14 +70,17 @@
+ S88E    ST 1
+ S90E    Yamal 201
+ S91.5E  Measat 1
+-S93.5E  Insat 3A
++S92.2E  Chinasat 9
++S93.5E  Insat 3A/4B
+ S95E    NSS 6
+-S96.5E  Express AM 11
++S96.5E  Express AM 33
++S98.5E  Protostar 1
+ S100.5E Asiasat 2
+ S103E   Express A2
++S105E   Asiastar
+ S105.5E Asiasat 3S
+ S107.7E Cakrawarta 1
+-S108E   Telkom 1 & AAP 1
++S108E   Telkom 1 & NSS 11
+ S110E   N-Sat 110 & BSAT 1A/2A
+ S110.5E Sinosat 1
+ S113E   Palapa C2 & Koreasat 2
+@@ -81,38 +89,38 @@
+ S120E   Thaicom 1A
+ S122.2E Asiasat 4
+ S124E   JCSAT 4a
++S125E   Sinosat 3
+ S128E   JCSAT 3
+-S132E   N-Star A
++S132E   Vinasat 1 & JCSAT5a
+ S134E   Apstar 6
+-S136E   N-Star B
+ S138E   Telstar 18
+ S140E   Express AM 3
+ S144E   Superbird C
+ S146E   Agila 2
+ S148E   Measat 2
+ S150E   JCSAT R
+-S152E   Optus B3
++S152E   Optus D2
+ S154E   JCSAT 2A
+ S156E   Optus C1
+ S158E   Superbird A
+-S160E   Optus B1
++S160E   Optus D1
+ S162E   Superbird B2
+-S164E   Optus A3
++S164E   Optus B3
+ S166E   Intelsat 8
+ S169E   Intelsat 2
+-S172E   AMC 23
++S172E   GE 23
+ S180E   Intelsat 701
+ S177W   NSS 5
+ 
+ # Atlantic
+ 
+-S1W     Thor 2/3 & Intelsat 10-02
+-S4W     Amos 1/2
++S1W     Thor 3/5 & Intelsat 10-02
++S4W     Amos 1/2/3
+ S5W     Atlantic Bird 3
+-S7W     Nilesat 101 & 102
++S7W     Nilesat 101/102 & Atlantic Bird 4
+ S8W     Telecom 2D & Atlantic Bird 2
+ S11W    Express A3
+-S12.5W  Atlantic Bird 2
++S12.5W  Atlantic Bird 1
+ S14W    Express A4
+ S15W    Telstar 12
+ S18W    Intelsat 901
+@@ -123,9 +131,9 @@
+ S30W    Hispasat 1C/1D
+ S31.5W  Intelsat 801
+ S34.5W  Intelsat 903
+-S37.5W  Telstar 11 & AMC 12
++S37.5W  NSS 10
+ S40.5W  NSS 806
+-S43W    Intelsat 3R/6B
++S43W    Intelsat 3R/11
+ S45W    Intelsat 1R
+ S50W    Intelsat 705
+ S53W    Intelsat 707
+@@ -137,47 +145,45 @@
+ 
+ S61.5W  Echostar 3 & Rainbow 1
+ S63W    Estrelo de Sul 1
+-S65W    Brasilsat B2
+-S70W    Brasilsat B1
++S65W    Star One C1
++S70W    Star One C2
+ S72W    Nahuel 1 & AMC 6
+-S72.5W  DirecTV 1
+-S74W    SBS 6
+-S77W    Echostar 4
++S72.5W  DirecTV 1R & Echostar 6
++S74W    Horizons 2
++S77W    Echostar 4 & Galaxy 4R
+ S79W    AMC5
+-S79.5W  Nimiq 3
+ S82W    Nimiq 2
+ S83W    AMC 9
+-S84W    Brasilsat B3
+-S85W    AMC 2
++S84W    Brasilsat B3/4
++S85W    AMC 16
+ S85.1W  XM 3
+ S87W    AMC3
+ S89W    Galaxy 28
+-S91W    Galaxy 11 & Nimiq 1
+-S91.5W  DirecTV 2
+-S92W    Brasilsat B4
++S91W    Galaxy 11/17 & Nimiq 1
++S92W    Brasilsat B2
+ S93W    Galaxy 26
+ S95W    Galaxy 3C
+ S97W    Galaxy 25
+-S99W    Galaxy 4R
+-S99.2W  Spaceway 2
+-S101W   DirecTV 1R/4S/8 & AMC4
++S99W    Galaxy 16
++S99.2W  Spaceway 2 & DirecTV 11
++S101W   DirecTV 4S/8 & AMC 2/4
+ S103W   AMC1
+-S105W   AMC15
++S105W   AMC15/18
+ S107.3W Anik F1/F1R
+-S110W   DirecTV 5 & Echostar 6/8/10
++S110W   DirecTV 5 & Echostar 8/10
+ S111.1W Anik F2
+-S113W   Solidaridad 2
+-S119W   Echostar 7 & DirecTV 7S
++S113W   SatMex 6
++S116.8W SatMex 5
++S119W   Anik F3 & Echostar 7 & DirecTV 7S
+ S121W   Echostar 9 & Galaxy 23
+-S123W   Galaxy 10R
++S123W   Galaxy 18
+ S125W   Galaxy 14
+ S127W   Galaxy 13/Horizons 1
+ S129W   Echostar 5 & Galaxy 27
+ S131W   AMC 11
+-S133W   Galaxy15/1R
++S133W   Galaxy15
+ S135W   AMC 10
+ S137W   AMC 7
+-S138.5W Echostar 10
+ S139W   AMC 8
+ S148W   Echostar 1/2
+ 
+diff -ruN vdr-1.7.0/svdrp.c vdr-1.7.1/svdrp.c
+--- vdr-1.7.0/svdrp.c	2008-02-17 14:36:01.000000000 +0100
++++ vdr-1.7.1/svdrp.c	2008-05-02 16:15:38.000000000 +0200
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 2.0 2008/02/17 13:36:01 kls Exp $
++ * $Id: svdrp.c 2.1 2008/05/02 14:15:38 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -1606,7 +1606,7 @@
+         char buffer[BUFSIZ];
+         gethostname(buffer, sizeof(buffer));
+         time_t now = time(NULL);
+-        Reply(220, "%s SVDRP VideoDiskRecorder %s; %s", buffer, VDRVERSION, *TimeToString(now));
++        Reply(220, "%s SVDRP VideoDiskRecorder %s; %s; %s", buffer, VDRVERSION, *TimeToString(now), cCharSetConv::SystemCharacterTable() ? cCharSetConv::SystemCharacterTable() : "UTF-8");
+         }
+      if (NewConnection)
+         lastActivity = time(NULL);
+diff -ruN vdr-1.7.0/thread.c vdr-1.7.1/thread.c
+--- vdr-1.7.0/thread.c	2008-04-13 13:53:56.000000000 +0200
++++ vdr-1.7.1/thread.c	2008-09-06 11:39:43.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.c 2.1 2008/04/13 11:53:56 kls Exp $
++ * $Id: thread.c 2.2 2008/09/06 09:39:43 kls Exp $
+  */
+ 
+ #include "thread.h"
+@@ -25,11 +25,12 @@
+ {
+   struct timeval now;
+   if (gettimeofday(&now, NULL) == 0) {           // get current time
+-     now.tv_usec += MillisecondsFromNow * 1000;  // add the timeout
+-     while (now.tv_usec >= 1000000) {            // take care of an overflow
+-           now.tv_sec++;
+-           now.tv_usec -= 1000000;
+-           }
++     now.tv_sec  += MillisecondsFromNow / 1000;  // add full seconds
++     now.tv_usec += (MillisecondsFromNow % 1000) * 1000;  // add microseconds
++     if (now.tv_usec >= 1000000) {               // take care of an overflow
++        now.tv_sec++;
++        now.tv_usec -= 1000000;
++        }
+      Abstime->tv_sec = now.tv_sec;          // seconds
+      Abstime->tv_nsec = now.tv_usec * 1000; // nano seconds
+      return true;
+diff -ruN vdr-1.7.0/tools.h vdr-1.7.1/tools.h
+--- vdr-1.7.0/tools.h	2008-02-17 14:41:27.000000000 +0100
++++ vdr-1.7.1/tools.h	2008-05-22 12:26:57.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 2.0 2008/02/17 13:41:27 kls Exp $
++ * $Id: tools.h 2.1 2008/05/22 10:26:57 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -136,7 +136,7 @@
+      ///< If ToCode is NULL, "UTF-8" is used.
+   ~cCharSetConv();
+   const char *Convert(const char *From, char *To = NULL, size_t ToLength = 0);
+-     ///< Converts the given Text from FromCode to ToCode (as set in the cosntructor).
++     ///< Converts the given Text from FromCode to ToCode (as set in the constructor).
+      ///< If To is given, it is used to copy at most ToLength bytes of the result
+      ///< (including the terminating 0) into that buffer. If To is not given,
+      ///< the result is copied into a dynamically allocated buffer and is valid as
+diff -ruN vdr-1.7.0/transfer.c vdr-1.7.1/transfer.c
+--- vdr-1.7.0/transfer.c	2007-01-05 11:45:28.000000000 +0100
++++ vdr-1.7.1/transfer.c	2008-08-15 16:32:12.000000000 +0200
+@@ -4,109 +4,52 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: transfer.c 2.0 2007/01/05 10:45:28 kls Exp $
++ * $Id: transfer.c 2.1 2008/08/15 14:32:12 kls Exp $
+  */
+ 
+ #include "transfer.h"
+ 
+-#define TRANSFERBUFSIZE  MEGABYTE(2)
+-#define POLLTIMEOUTS_BEFORE_DEVICECLEAR 6
+-
+ // --- cTransfer -------------------------------------------------------------
+ 
+ cTransfer::cTransfer(tChannelID ChannelID, int VPid, const int *APids, const int *DPids, const int *SPids)
+ :cReceiver(ChannelID, -1, VPid, APids, Setup.UseDolbyDigital ? DPids : NULL, SPids)
+-,cThread("transfer")
+ {
+-  ringBuffer = new cRingBufferLinear(TRANSFERBUFSIZE, TS_SIZE * 2, true, "Transfer");
+-  remux = new cRemux(VPid, APids, Setup.UseDolbyDigital ? DPids : NULL, SPids);
++  patPmtGenerator.GeneratePmt(ChannelID);
+ }
+ 
+ cTransfer::~cTransfer()
+ {
+   cReceiver::Detach();
+   cPlayer::Detach();
+-  delete remux;
+-  delete ringBuffer;
+ }
+ 
+ void cTransfer::Activate(bool On)
+ {
+-  if (On)
+-     Start();
+-  else {
+-     Cancel(3);
+-     cPlayer::Detach();
++  if (On) {
++     PlayTs(patPmtGenerator.GetPat(), TS_SIZE);
++     int Index = 0;
++     while (uchar *pmt = patPmtGenerator.GetPmt(Index))
++           PlayTs(pmt, TS_SIZE);
+      }
+ }
+ 
+ void cTransfer::Receive(uchar *Data, int Length)
+ {
+-  if (cPlayer::IsAttached() && Running()) {
+-     int p = ringBuffer->Put(Data, Length);
+-     if (p != Length && Running())
+-        ringBuffer->ReportOverflow(Length - p);
++  if (cPlayer::IsAttached()) {
++     // Transfer Mode means "live tv", so there's no point in doing any additional
++     // buffering here. The TS packets *must* get through here! However, every
++     // now and then there may be conditions where the packet just can't be
++     // handled when offered the first time, so that's why we try several times:
++     for (int i = 0; i < 100; i++) {
++         if (PlayTs(Data, Length) > 0)
++            return;
++         fprintf(stderr, "-");//XXX just for testing - remove when stable
++         cCondWait::SleepMs(10);
++         }
++     esyslog("ERROR: TS packet not accepted in Transfer Mode");
+      }
+ }
+ 
+-void cTransfer::Action(void)
+-{
+-  int PollTimeouts = 0;
+-  uchar *p = NULL;
+-  int Result = 0;
+-  while (Running()) {
+-        int Count;
+-        uchar *b = ringBuffer->Get(Count);
+-        if (b) {
+-           if (ringBuffer->Available() > TRANSFERBUFSIZE * 9 / 10) {
+-              // If the buffer runs full, we have no chance of ever catching up
+-              // since the data comes in at the same rate as it goes out (it's "live").
+-              // So let's clear the buffer instead of suffering from permanent
+-              // overflows.
+-              dsyslog("clearing transfer buffer to avoid overflows");
+-              DeviceClear();
+-              ringBuffer->Clear();
+-              remux->Clear();
+-              PlayPes(NULL, 0);
+-              p = NULL;
+-              continue;
+-              }
+-           Count = remux->Put(b, Count);
+-           if (Count)
+-              ringBuffer->Del(Count);
+-           }
+-        if (!p)
+-           p = remux->Get(Result);
+-        if (p) {
+-           cPoller Poller;
+-           if (DevicePoll(Poller, 100)) {
+-              PollTimeouts = 0;
+-              int w = PlayPes(p, Result);
+-              if (w > 0) {
+-                 p += w;
+-                 Result -= w;
+-                 remux->Del(w);
+-                 if (Result <= 0)
+-                    p = NULL;
+-                 }
+-              else if (w < 0 && FATALERRNO)
+-                 LOG_ERROR;
+-              }
+-           else {
+-              PollTimeouts++;
+-              if (PollTimeouts == POLLTIMEOUTS_BEFORE_DEVICECLEAR) {
+-                 dsyslog("clearing device because of consecutive poll timeouts");
+-                 DeviceClear();
+-                 ringBuffer->Clear();
+-                 remux->Clear();
+-                 PlayPes(NULL, 0);
+-                 p = NULL;
+-                 }
+-              }
+-           }
+-        }
+-}
+-
+ // --- cTransferControl ------------------------------------------------------
+ 
+ cDevice *cTransferControl::receiverDevice = NULL;
+diff -ruN vdr-1.7.0/transfer.h vdr-1.7.1/transfer.h
+--- vdr-1.7.0/transfer.h	2007-01-05 11:45:45.000000000 +0100
++++ vdr-1.7.1/transfer.h	2008-05-25 14:44:49.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: transfer.h 2.0 2007/01/05 10:45:45 kls Exp $
++ * $Id: transfer.h 2.1 2008/05/25 12:44:49 kls Exp $
+  */
+ 
+ #ifndef __TRANSFER_H
+@@ -13,17 +13,13 @@
+ #include "player.h"
+ #include "receiver.h"
+ #include "remux.h"
+-#include "ringbuffer.h"
+-#include "thread.h"
+ 
+-class cTransfer : public cReceiver, public cPlayer, public cThread {
++class cTransfer : public cReceiver, public cPlayer {
+ private:
+-  cRingBufferLinear *ringBuffer;
+-  cRemux *remux;
++  cPatPmtGenerator patPmtGenerator;
+ protected:
+   virtual void Activate(bool On);
+   virtual void Receive(uchar *Data, int Length);
+-  virtual void Action(void);
+ public:
+   cTransfer(tChannelID ChannelID, int VPid, const int *APids, const int *DPids, const int *SPids);
+   virtual ~cTransfer();
+diff -ruN vdr-1.7.0/vdr.5 vdr-1.7.1/vdr.5
+--- vdr-1.7.0/vdr.5	2008-04-12 12:46:32.000000000 +0200
++++ vdr-1.7.1/vdr.5	2008-07-06 15:00:19.000000000 +0200
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 2.1 2008/04/12 10:46:32 kls Exp $
++.\" $Id: vdr.5 2.4 2008/07/06 13:00:19 kls Exp $
+ .\"
+ .TH vdr 5 "10 Feb 2008" "1.6" "Video Disk Recorder Files"
+ .SH NAME
+@@ -95,6 +95,7 @@
+ \fBO\fR@rollOff (0, 20, 25, 35)
+ \fBP\fR@Priority (0, 1)
+ \fBR\fR@Right circular polarization
++\fBS\fR@delivery System (0, 1)
+ \fBT\fR@Transmission mode (2, 4, 8)
+ \fBV\fR@Vertical polarization
+ \fBY\fR@hierarchY (0, 1)
+@@ -125,7 +126,13 @@
+ The video PID (set to '0' for radio channels).
+ If this channel uses a separate PCR PID, it follows the VPID, separated by a
+ plus sign, as in
++
+ .B ...:164+17:...
++
++If this channel has a video mode other than 0, the mode
++follows the pids, separated by an '=' sign, as in
++
++.B ...:164+17=27:...
+ .TP
+ .B APID
+ The audio PID (either one number, or several, separated by commas).
+@@ -652,7 +659,7 @@
+ <title>        @is the title of the event
+ <short text>   @is the short text of the event (typically the name of the episode etc.)
+ <description>  @is the description of the event (any '|' characters will be interpreted as newlines)
+-<stream>       @is the stream content (1 = video, 2 = audio, 3 = subtitles)
++<stream>       @is the stream content (1 = video, 2 = audio, 3 = subtitles, 4 = AC3)
+ <type>         @is the stream type according to ETSI EN 300 468
+ <language>     @is the three letter language code (optionally two codes, separated by '+')
+ <descr>        @is the description of this stream component
+diff -ruN vdr-1.7.0/vdr.c vdr-1.7.1/vdr.c
+--- vdr-1.7.0/vdr.c	2008-03-14 14:22:39.000000000 +0100
++++ vdr-1.7.1/vdr.c	2008-09-06 16:08:44.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 2.0 2008/03/14 13:22:39 kls Exp $
++ * $Id: vdr.c 2.3 2008/09/06 14:08:44 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -141,7 +141,6 @@
+ 
+ static void SignalHandler(int signum)
+ {
+-  isyslog("caught signal %d", signum);
+   switch (signum) {
+     case SIGPIPE:
+          break;
+@@ -210,9 +209,6 @@
+ #elif defined(REMOTE_RCU)
+   RcuDevice = RCU_DEVICE;
+ #endif
+-#if defined(VFAT)
+-  VfatFileSystem = true;
+-#endif
+ #if defined(VDR_USER)
+   VdrUser = VDR_USER;
+ #endif
+@@ -563,17 +559,15 @@
+   cThemes::SetThemesDirectory(AddDirectory(ConfigDirectory, "themes"));
+ 
+   Setup.Load(AddDirectory(ConfigDirectory, "setup.conf"));
+-  if (!(Sources.Load(AddDirectory(ConfigDirectory, "sources.conf"), true, true) &&
+-        Diseqcs.Load(AddDirectory(ConfigDirectory, "diseqc.conf"), true, Setup.DiSEqC) &&
+-        Channels.Load(AddDirectory(ConfigDirectory, "channels.conf"), false, true) &&
+-        Timers.Load(AddDirectory(ConfigDirectory, "timers.conf")) &&
+-        Commands.Load(AddDirectory(ConfigDirectory, "commands.conf"), true) &&
+-        RecordingCommands.Load(AddDirectory(ConfigDirectory, "reccmds.conf"), true) &&
+-        SVDRPhosts.Load(AddDirectory(ConfigDirectory, "svdrphosts.conf"), true) &&
+-        Keys.Load(AddDirectory(ConfigDirectory, "remote.conf")) &&
+-        KeyMacros.Load(AddDirectory(ConfigDirectory, "keymacros.conf"), true)
+-        ))
+-     EXIT(2);
++  Sources.Load(AddDirectory(ConfigDirectory, "sources.conf"), true, true);
++  Diseqcs.Load(AddDirectory(ConfigDirectory, "diseqc.conf"), true, Setup.DiSEqC);
++  Channels.Load(AddDirectory(ConfigDirectory, "channels.conf"), false, true);
++  Timers.Load(AddDirectory(ConfigDirectory, "timers.conf"));
++  Commands.Load(AddDirectory(ConfigDirectory, "commands.conf"), true);
++  RecordingCommands.Load(AddDirectory(ConfigDirectory, "reccmds.conf"), true);
++  SVDRPhosts.Load(AddDirectory(ConfigDirectory, "svdrphosts.conf"), true);
++  Keys.Load(AddDirectory(ConfigDirectory, "remote.conf"));
++  KeyMacros.Load(AddDirectory(ConfigDirectory, "keymacros.conf"), true);
+ 
+   if (!*cFont::GetFontFileName(Setup.FontOsd)) {
+      const char *msg = "no fonts available - OSD will not show any text!";
+@@ -1288,9 +1282,11 @@
+   ReportEpgBugFixStats();
+   if (WatchdogTimeout > 0)
+      dsyslog("max. latency time %d seconds", MaxLatencyTime);
+-  isyslog("exiting, exit code %d", ShutdownHandler.GetExitCode());
++  if (LastSignal)
++     isyslog("caught signal %d", LastSignal);
+   if (ShutdownHandler.EmergencyExitRequested())
+      esyslog("emergency exit!");
++  isyslog("exiting, exit code %d", ShutdownHandler.GetExitCode());
+   if (SysLogLevel > 0)
+      closelog();
+   if (HasStdin)

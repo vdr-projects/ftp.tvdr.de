@@ -1,0 +1,4927 @@
+diff -ruN vdr-1.7.11/CONTRIBUTORS vdr-1.7.12/CONTRIBUTORS
+--- vdr-1.7.11/CONTRIBUTORS	2010-01-06 12:41:14.000000000 +0100
++++ vdr-1.7.12/CONTRIBUTORS	2010-01-17 16:18:28.000000000 +0100
+@@ -1090,6 +1090,7 @@
+  in some syslog calls
+  for a patch that was used to implement handling the "component descriptor" ("genre")
+  for a patch that was used to implement handling the "parental rating descriptor"
++ suggesting to add plain text error messages to log entries from cOsd::SetAreas()
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1562,6 +1563,8 @@
+  recorded
+  for suggesting to add a table of the used trick speed values to the description of
+  cDevice::TrickSpeed()
++ for renaming 'runvdr' to 'runvdr.template' and no longer copying it to the BINDIR
++ in 'make install'
+ 
+ Maynard Cedric <maynard.cedric@wanadoo.fr>
+  for reporting a problem in handling the color button texts in cMenuEditStrItem
+@@ -2494,6 +2497,7 @@
+  for removing the workaround for short channel names of "Kabel Deutschland"
+  for some fixes to dvbspu.[hc]
+  for fixing a busy loop when moving editing marks
++ for making cPalette::ClosestColor() treat fully transparent colors as "equal"
+ 
+ Timo Helkio <timolavi@mbnet.fi>
+  for reporting a hangup when replaying a TS recording with subtitles activated
+@@ -2526,6 +2530,8 @@
+ 
+ Manuel Reimer <Manuel.Reimer@gmx.de>
+  for fixing saving terminal settings when running in background
++ for making the SVDRP port open only for the local host if svdrphosts.conf
++ contains only the address of the local host
+ 
+ Rene van den Braken <rene@vandenbraken.name>
+  for reporting a bug in writing the PCR pid into the PMT in
+@@ -2539,7 +2545,11 @@
+ 
+ Matthieu Castet <castet.matthieu@free.fr>
+  for improving SPU handling on devices with limited OSD capabilities
++ for making cPalette::ClosestColor() treat fully transparent colors as "equal"
+ 
+ Francesco Saverio Schiavarelli <fschiava@libero.it>
+-  for reporting a problem with channels that have some encrypted components that
+-  VDR doesn't use
++ for reporting a problem with channels that have some encrypted components that
++ VDR doesn't use
++
++Matti Lehtim‰ki <matti.lehtimaki@gmail.com>
++ for implementing the setup option "Miscellaneous/Channels wrap"
+diff -ruN vdr-1.7.11/HISTORY vdr-1.7.12/HISTORY
+--- vdr-1.7.11/HISTORY	2010-01-06 12:40:54.000000000 +0100
++++ vdr-1.7.12/HISTORY	2010-01-31 13:47:02.000000000 +0100
+@@ -6275,3 +6275,36 @@
+   the others on the same adapter.
+ - Fixed plugin arguments corruption with glibc 2.11 on x86_64 (thanks to
+   Anssi Hannula).
++
++2010-01-31: Version 1.7.12
++
++- Changed the EVCONTENTMASK_* macros to enums and changed "mask" to "group".
++- Updated the Estonian OSD texts (thanks to Arthur Konovalov).
++- The "Edit timer" menu can now set the folder for the recording from a list of
++  folders stored in "folders.conf".
++- Updated the Italian OSD texts (thanks to Diego Pierotto).
++- If svdrphosts.conf contains only the address of the local host, the SVDRP port
++  is opened only for the local host (thanks to Manuel Reimer).
++- Renamed 'runvdr' to 'runvdr.template' and no longer copying it to the BINDIR
++  in 'make install' (thanks to Martin Dauskardt).
++- Added plain text error messages to log entries from cOsd::SetAreas() (suggested
++  by Rolf Ahrenberg).
++- cPalette::ClosestColor() now treats fully transparent colors as "equal"; improved
++  cDvbSpuBitmap::getMinBpp() (thanks to Matthieu Castet and Johann Friedrichs).
++- The new setup option "Miscellaneous/Channels wrap" controls whether the current
++  channel wraps around the beginning or end of the channel list when zapping (thanks
++  to Matti Lehtim‰ki).
++- Fixed determining the frame duration on channels where the PTS deltas jitter by
++  +/-1 around 1800.
++- The PCR pid in generated PMTs is now set to the channel's PCR pid again.
++- Fixed determining the frame duration on channels where the PTS deltas jitter by
++  +/-1 around 3600.
++- The PCR pid is now recorded for channels where this is different from the video
++  PID. To facilitate this, the interfaces of cTransfer, cTransferControl, cRecorder
++  and cReceiver have been modified, so that the PIDs are no longer given in separate
++  parameters, but rather the whole channel is handed down for processing. The old
++  constructor of cReceiver is still available, but it is recommended to plugin authors
++  that they switch to the new interface as soon as possible.
++  When replaying such a recording, the PCR packets are sent to PlayTsVideo()
++- The files "commands.conf" and "reccmd.conf" can now contain nested lists of
++  commands. See vdr.5 for information about the new file format.
+diff -ruN vdr-1.7.11/INSTALL vdr-1.7.12/INSTALL
+--- vdr-1.7.11/INSTALL	2009-10-18 16:13:00.000000000 +0200
++++ vdr-1.7.12/INSTALL	2010-01-17 13:32:05.000000000 +0100
+@@ -121,8 +121,12 @@
+ do this by setting the environment variable VDR_CHARSET_OVERRIDE to something
+ like ISO-8859-9.
+ 
+-Automatic restart in case of hangups:
+--------------------------------------
++Start script with automatic restart in case of hangups:
++-------------------------------------------------------
++
++The VDR source directory contains a 'runvdr.template'. Just copy it as 'runvdr'
++into your /usr/bin or /usr/local/bin directory and adjust it to your particular
++requirements. (See the comments inside the script for more information.)
+ 
+ If you run VDR using the 'runvdr' shell script it will use the built-in
+ watchdog timer to restart the program in case something happens that
+@@ -131,9 +135,6 @@
+ VDR will go into 'daemon' mode and the initial program call will return
+ immediately! 'runvdr' needs to be started as user 'root'. Use the '-u'
+ option to run the actual 'vdr' program under a different user id.
+-Note that the 'runvdr' script needs to be adjusted to your particular
+-requirements before you can actually use it. See the comments inside
+-the script for more information.
+ 
+ Setting the system time:
+ ------------------------
+diff -ruN vdr-1.7.11/MANUAL vdr-1.7.12/MANUAL
+--- vdr-1.7.11/MANUAL	2009-11-22 15:28:15.000000000 +0100
++++ vdr-1.7.12/MANUAL	2010-01-17 16:13:40.000000000 +0100
+@@ -474,6 +474,23 @@
+   A timer can also be programmed by pressing the "Red" key on the "Schedule",
+   "Now", "Next" or "Event" menus.
+ 
++  The "Red" key in the "Edit timer" menu opens a list of folders, which can be
++  used to define the file name in which the recording will be stored.
++
++* Managing folders
++
++  The "Select folder" menu, which can be accessed by pressing the "Red" key in
++  the "Edit timer" menu, offers a list of folders that can be used for storing
++  a recording. In this menu, the "Green" key allows you to define a new folder
++  within the current one; if the "Sub folder" option is set to "yes", this will
++  be a folder that contains other folders (indicated by "..." following the
++  folder name in the list). The "Yellow" key deletes the current folder (note
++  that this will merely delete the folder definition stored in 'folders.conf'
++  and has no effect on existing timers or recordings). The "Blue" key can be
++  used to edit an existing folder definition. The "Red" key selects the current
++  folder, or enters a sub folder. Once a folder has been selected, the entire
++  path of the timer's file name will be replaced with the selected folder.
++
+ * Parameters in the "Setup" menu
+ 
+   Select "Setup" from the "VDR" menu to enter the setup menu. From there you can
+@@ -860,6 +877,11 @@
+                          VDR was stopped will be used. The valid range is from
+                          0 (silent) to 255 (loudest).
+ 
++  Channels wrap = no     During zapping with the "Up" and "Down" keys (or the
++                         "Channel+" and "Channel-" keys) the current channel will
++                         wrap around the beginning or end of the channel list if
++                         this parameter is set to 'yes'.
++
+   Emergency exit = yes   If, for some reason, a recording fails because the video
+                          data stream is broken, or the CAM doesn't decrypt etc.,
+                          VDR automatically exits in order to allow the surrounding
+diff -ruN vdr-1.7.11/Makefile vdr-1.7.12/Makefile
+--- vdr-1.7.11/Makefile	2009-12-29 12:20:50.000000000 +0100
++++ vdr-1.7.12/Makefile	2010-01-17 13:32:18.000000000 +0100
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 2.5 2009/12/29 11:20:50 kls Exp $
++# $Id: Makefile 2.6 2010/01/17 12:32:18 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -164,7 +164,7 @@
+ 
+ install-bin: vdr
+ 	@mkdir -p $(DESTDIR)$(BINDIR)
+-	@cp --remove-destination vdr runvdr svdrpsend.pl $(DESTDIR)$(BINDIR)
++	@cp --remove-destination vdr svdrpsend.pl $(DESTDIR)$(BINDIR)
+ 
+ # Configuration files:
+ 
+diff -ruN vdr-1.7.11/PLUGINS/src/dvbsddevice/HISTORY vdr-1.7.12/PLUGINS/src/dvbsddevice/HISTORY
+--- vdr-1.7.11/PLUGINS/src/dvbsddevice/HISTORY	2010-01-04 15:16:11.000000000 +0100
++++ vdr-1.7.12/PLUGINS/src/dvbsddevice/HISTORY	2010-01-30 12:03:08.000000000 +0100
+@@ -10,3 +10,8 @@
+ - Calling the MakePrimaryDevice() function of the base class to allow
+   the cDevice to stop displaying subtitles.
+ - Added support for DVB cards with multiple fontends.
++
++2010-01-30: Version 0.0.3
++
++- The PCR pid is now recorded for channels where this is different from the
++  video PID.
+diff -ruN vdr-1.7.11/PLUGINS/src/dvbsddevice/dvbsddevice.c vdr-1.7.12/PLUGINS/src/dvbsddevice/dvbsddevice.c
+--- vdr-1.7.11/PLUGINS/src/dvbsddevice/dvbsddevice.c	2010-01-01 16:01:01.000000000 +0100
++++ vdr-1.7.12/PLUGINS/src/dvbsddevice/dvbsddevice.c	2010-01-30 11:05:42.000000000 +0100
+@@ -3,13 +3,13 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsddevice.c 1.2 2010/01/01 15:01:01 kls Exp $
++ * $Id: dvbsddevice.c 1.3 2010/01/30 10:05:42 kls Exp $
+  */
+ 
+ #include <vdr/plugin.h>
+ #include "dvbsdffdevice.h"
+ 
+-static const char *VERSION        = "0.0.2";
++static const char *VERSION        = "0.0.3";
+ static const char *DESCRIPTION    = "SD Full Featured DVB device";
+ 
+ class cPluginDvbsddevice : public cPlugin {
+diff -ruN vdr-1.7.11/PLUGINS/src/dvbsddevice/dvbsdffdevice.c vdr-1.7.12/PLUGINS/src/dvbsddevice/dvbsdffdevice.c
+--- vdr-1.7.11/PLUGINS/src/dvbsddevice/dvbsdffdevice.c	2010-01-04 13:56:56.000000000 +0100
++++ vdr-1.7.12/PLUGINS/src/dvbsddevice/dvbsdffdevice.c	2010-01-30 11:05:23.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsdffdevice.c 2.25 2010/01/04 12:56:56 kls Exp $
++ * $Id: dvbsdffdevice.c 2.26 2010/01/30 10:05:23 kls Exp $
+  */
+ 
+ #include "dvbsdffdevice.h"
+@@ -434,7 +434,7 @@
+      CHECK(ioctl(fd_audio, AUDIO_SET_AV_SYNC, true));
+      }
+   else if (StartTransferMode)
+-     cControl::Launch(new cTransferControl(this, Channel->GetChannelID(), vpid, Channel->Apids(), Channel->Dpids(), Channel->Spids()));
++     cControl::Launch(new cTransferControl(this, Channel));
+ 
+   return true;
+ }
+diff -ruN vdr-1.7.11/config.c vdr-1.7.12/config.c
+--- vdr-1.7.11/config.c	2009-12-05 16:30:30.000000000 +0100
++++ vdr-1.7.12/config.c	2010-01-31 13:36:36.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 2.6 2009/12/05 15:30:30 kls Exp $
++ * $Id: config.c 2.10 2010/01/31 12:36:36 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -22,71 +22,6 @@
+ 
+ #define ChkDoublePlausibility(Variable, Default) { if (Variable < 0.00001) Variable = Default; }
+ 
+-// --- cCommand --------------------------------------------------------------
+-
+-char *cCommand::result = NULL;
+-
+-cCommand::cCommand(void)
+-{
+-  title = command = NULL;
+-  confirm = false;
+-}
+-
+-cCommand::~cCommand()
+-{
+-  free(title);
+-  free(command);
+-}
+-
+-bool cCommand::Parse(const char *s)
+-{
+-  const char *p = strchr(s, ':');
+-  if (p) {
+-     int l = p - s;
+-     if (l > 0) {
+-        title = MALLOC(char, l + 1);
+-        stripspace(strn0cpy(title, s, l + 1));
+-        if (!isempty(title)) {
+-           int l = strlen(title);
+-           if (l > 1 && title[l - 1] == '?') {
+-              confirm = true;
+-              title[l - 1] = 0;
+-              }
+-           command = stripspace(strdup(skipspace(p + 1)));
+-           return !isempty(command);
+-           }
+-        }
+-     }
+-  return false;
+-}
+-
+-const char *cCommand::Execute(const char *Parameters)
+-{
+-  free(result);
+-  result = NULL;
+-  cString cmdbuf;
+-  if (Parameters)
+-     cmdbuf = cString::sprintf("%s %s", command, Parameters);
+-  const char *cmd = *cmdbuf ? *cmdbuf : command;
+-  dsyslog("executing command '%s'", cmd);
+-  cPipe p;
+-  if (p.Open(cmd, "r")) {
+-     int l = 0;
+-     int c;
+-     while ((c = fgetc(p)) != EOF) {
+-           if (l % 20 == 0)
+-              result = (char *)realloc(result, l + 21);
+-           result[l++] = char(c);
+-           }
+-     if (result)
+-        result[l] = 0;
+-     p.Close();
+-     }
+-  else
+-     esyslog("ERROR: can't open pipe for command '%s'", cmd);
+-  return result;
+-}
+-
+ // --- cSVDRPhost ------------------------------------------------------------
+ 
+ cSVDRPhost::cSVDRPhost(void)
+@@ -118,20 +53,180 @@
+   return result != 0 && (mask != 0 || addr.s_addr == 0);
+ }
+ 
++bool cSVDRPhost::IsLocalhost(void)
++{
++  return addr.s_addr == htonl(INADDR_LOOPBACK);
++}
++
+ bool cSVDRPhost::Accepts(in_addr_t Address)
+ {
+   return (Address & mask) == (addr.s_addr & mask);
+ }
+ 
+-// --- cCommands -------------------------------------------------------------
++// --- cNestedItem -----------------------------------------------------------
++
++cNestedItem::cNestedItem(const char *Text, bool WithSubItems)
++{
++  text = strdup(Text ? Text : "");
++  subItems = WithSubItems ? new cList<cNestedItem> : NULL;
++}
++
++cNestedItem::~cNestedItem()
++{
++  delete subItems;
++  free(text);
++}
++
++int cNestedItem::Compare(const cListObject &ListObject) const
++{
++  return strcasecmp(text, ((cNestedItem *)&ListObject)->text);
++}
++
++void cNestedItem::AddSubItem(cNestedItem *Item)
++{
++  if (!subItems)
++     subItems = new cList<cNestedItem>;
++  if (Item)
++     subItems->Add(Item);
++}
++
++void cNestedItem::SetText(const char *Text)
++{
++  free(text);
++  text = strdup(Text ? Text : "");
++}
++
++void cNestedItem::SetSubItems(bool On)
++{
++  if (On && !subItems)
++     subItems = new cList<cNestedItem>;
++  else if (!On && subItems) {
++     delete subItems;
++     subItems = NULL;
++     }
++}
++
++// --- cNestedItemList -------------------------------------------------------
+ 
+-cCommands Commands;
+-cCommands RecordingCommands;
++cNestedItemList::cNestedItemList(void)
++{
++  fileName = NULL;
++}
++
++cNestedItemList::~cNestedItemList()
++{
++  free(fileName);
++}
++
++bool cNestedItemList::Parse(FILE *f, cList<cNestedItem> *List, int &Line)
++{
++  char *s;
++  cReadLine ReadLine;
++  while ((s = ReadLine.Read(f)) != NULL) {
++        Line++;
++        char *p = strchr(s, '#');
++        if (p)
++           *p = 0;
++        s = skipspace(stripspace(s));
++        if (!isempty(s)) {
++           p = s + strlen(s) - 1;
++           if (*p == '{') {
++              *p = 0;
++              stripspace(s);
++              cNestedItem *Item = new cNestedItem(s, true);
++              List->Add(Item);
++              if (!Parse(f, Item->SubItems(), Line))
++                 return false;
++              }
++           else if (*s == '}')
++              break;
++           else
++              List->Add(new cNestedItem(s));
++           }
++        }
++  return true;
++}
++
++bool cNestedItemList::Write(FILE *f, cList<cNestedItem> *List, int Indent)
++{
++  for (cNestedItem *Item = List->First(); Item; Item = List->Next(Item)) {
++      if (Item->SubItems()) {
++         fprintf(f, "%*s%s {\n", Indent, "", Item->Text());
++         Write(f, Item->SubItems(), Indent + 2);
++         fprintf(f, "%*s}\n", Indent + 2, "");
++         }
++      else
++         fprintf(f, "%*s%s\n", Indent, "", Item->Text());
++      }
++  return true;
++}
++
++void cNestedItemList::Clear(void)
++{
++  free(fileName);
++  fileName = NULL;
++  cList<cNestedItem>::Clear();
++}
++
++bool cNestedItemList::Load(const char *FileName)
++{
++  cList<cNestedItem>::Clear();
++  if (FileName) {
++     free(fileName);
++     fileName = strdup(FileName);
++     }
++  bool result = false;
++  if (fileName && access(fileName, F_OK) == 0) {
++     isyslog("loading %s", fileName);
++     FILE *f = fopen(fileName, "r");
++     if (f) {
++        int Line = 0;
++        result = Parse(f, this, Line);
++        fclose(f);
++        }
++     else {
++        LOG_ERROR_STR(fileName);
++        result = false;
++        }
++     }
++  return result;
++}
++
++bool cNestedItemList::Save(void)
++{
++  bool result = true;
++  cSafeFile f(fileName);
++  if (f.Open()) {
++     result = Write(f, this);
++     if (!f.Close())
++        result = false;
++     }
++  else
++     result = false;
++  return result;
++}
++
++// --- Folders and Commands --------------------------------------------------
++
++cNestedItemList Folders;
++cNestedItemList Commands;
++cNestedItemList RecordingCommands;
+ 
+ // --- cSVDRPhosts -----------------------------------------------------------
+ 
+ cSVDRPhosts SVDRPhosts;
+ 
++bool cSVDRPhosts::LocalhostOnly(void)
++{
++  cSVDRPhost *h = First();
++  while (h) {
++        if (!h->IsLocalhost())
++           return false;
++        h = (cSVDRPhost *)h->Next();
++        }
++  return true;
++}
++
+ bool cSVDRPhosts::Acceptable(in_addr_t Address)
+ {
+   cSVDRPhost *h = First();
+@@ -299,6 +394,7 @@
+   CurrentDolby = 0;
+   InitialChannel = 0;
+   InitialVolume = -1;
++  ChannelsWrap = 0;
+   EmergencyExit = 1;
+ }
+ 
+@@ -486,6 +582,7 @@
+   else if (!strcasecmp(Name, "CurrentDolby"))        CurrentDolby       = atoi(Value);
+   else if (!strcasecmp(Name, "InitialChannel"))      InitialChannel     = atoi(Value);
+   else if (!strcasecmp(Name, "InitialVolume"))       InitialVolume      = atoi(Value);
++  else if (!strcasecmp(Name, "ChannelsWrap"))        ChannelsWrap       = atoi(Value);
+   else if (!strcasecmp(Name, "EmergencyExit"))       EmergencyExit      = atoi(Value);
+   else
+      return false;
+@@ -578,6 +675,7 @@
+   Store("CurrentDolby",       CurrentDolby);
+   Store("InitialChannel",     InitialChannel);
+   Store("InitialVolume",      InitialVolume);
++  Store("ChannelsWrap",       ChannelsWrap);
+   Store("EmergencyExit",      EmergencyExit);
+ 
+   Sort();
+diff -ruN vdr-1.7.11/config.h vdr-1.7.12/config.h
+--- vdr-1.7.11/config.h	2009-11-22 20:55:04.000000000 +0100
++++ vdr-1.7.12/config.h	2010-01-31 12:14:02.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.16 2009/11/22 19:55:04 kls Exp $
++ * $Id: config.h 2.21 2010/01/31 11:14:02 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.11"
+-#define VDRVERSNUM   10711  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.12"
++#define VDRVERSNUM   10712  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.11"
+-#define APIVERSNUM   10711  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.12"
++#define APIVERSNUM   10712  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+@@ -48,21 +48,6 @@
+ #define MaxSkinName 16
+ #define MaxThemeName 16
+ 
+-class cCommand : public cListObject {
+-private:
+-  char *title;
+-  char *command;
+-  bool confirm;
+-  static char *result;
+-public:
+-  cCommand(void);
+-  virtual ~cCommand();
+-  bool Parse(const char *s);
+-  const char *Title(void) { return title; }
+-  bool Confirm(void) { return confirm; }
+-  const char *Execute(const char *Parameters = NULL);
+-  };
+-
+ typedef uint32_t in_addr_t; //XXX from /usr/include/netinet/in.h (apparently this is not defined on systems with glibc < 2.2)
+ 
+ class cSVDRPhost : public cListObject {
+@@ -72,6 +57,7 @@
+ public:
+   cSVDRPhost(void);
+   bool Parse(const char *s);
++  bool IsLocalhost(void);
+   bool Accepts(in_addr_t Address);
+   };
+ 
+@@ -158,15 +144,43 @@
+   }
+   };
+ 
+-class cCommands : public cConfig<cCommand> {};
++class cNestedItem : public cListObject {
++private:
++  char *text;
++  cList<cNestedItem> *subItems;
++public:
++  cNestedItem(const char *Text, bool WithSubItems = false);
++  virtual ~cNestedItem();
++  virtual int Compare(const cListObject &ListObject) const;
++  const char *Text(void) const { return text; }
++  cList<cNestedItem> *SubItems(void) { return subItems; }
++  void AddSubItem(cNestedItem *Item);
++  void SetText(const char *Text);
++  void SetSubItems(bool On);
++  };
++
++class cNestedItemList : public cList<cNestedItem> {
++private:
++  char *fileName;
++  bool Parse(FILE *f, cList<cNestedItem> *List, int &Line);
++  bool Write(FILE *f, cList<cNestedItem> *List, int Indent = 0);
++public:
++  cNestedItemList(void);
++  virtual ~cNestedItemList();
++  void Clear(void);
++  bool Load(const char *FileName);
++  bool Save(void);
++  };
+ 
+ class cSVDRPhosts : public cConfig<cSVDRPhost> {
+ public:
++  bool LocalhostOnly(void);
+   bool Acceptable(in_addr_t Address);
+   };
+ 
+-extern cCommands Commands;
+-extern cCommands RecordingCommands;
++extern cNestedItemList Folders;
++extern cNestedItemList Commands;
++extern cNestedItemList RecordingCommands;
+ extern cSVDRPhosts SVDRPhosts;
+ 
+ class cSetupLine : public cListObject {
+@@ -272,6 +286,7 @@
+   int CurrentDolby;
+   int InitialChannel;
+   int InitialVolume;
++  int ChannelsWrap;
+   int EmergencyExit;
+   int __EndData__;
+   cSetup(void);
+diff -ruN vdr-1.7.11/device.c vdr-1.7.12/device.c
+--- vdr-1.7.11/device.c	2010-01-01 16:40:35.000000000 +0100
++++ vdr-1.7.12/device.c	2010-01-30 12:06:51.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.31 2010/01/01 15:40:35 kls Exp $
++ * $Id: device.c 2.32 2010/01/30 11:06:51 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -30,8 +30,8 @@
+   };
+ 
+ cLiveSubtitle::cLiveSubtitle(int SPid)
+-:cReceiver(tChannelID(), -1, SPid)
+ {
++  AddPid(SPid);
+ }
+ 
+ cLiveSubtitle::~cLiveSubtitle()
+@@ -676,7 +676,7 @@
+      if (Device && CanReplay()) {
+         cStatus::MsgChannelSwitch(this, 0); // only report status if we are actually going to switch the channel
+         if (Device->SetChannel(Channel, false) == scrOk) // calling SetChannel() directly, not SwitchChannel()!
+-           cControl::Launch(new cTransferControl(Device, Channel->GetChannelID(), Channel->Vpid(), Channel->Apids(), Channel->Dpids(), Channel->Spids()));
++           cControl::Launch(new cTransferControl(Device, Channel));
+         else
+            Result = scrNoTransfer;
+         }
+@@ -1364,10 +1364,10 @@
+               esyslog("ERROR: skipped %d bytes to sync on start of TS packet", Skipped);
+               return Played + Skipped;
+               }
++           int Pid = TsPid(Data);
+            if (TsHasPayload(Data)) { // silently ignore TS packets w/o payload
+               int PayloadOffset = TsPayloadOffset(Data);
+               if (PayloadOffset < TS_SIZE) {
+-                 int Pid = TsPid(Data);
+                  if (Pid == 0)
+                     patPmtParser.ParsePat(Data, TS_SIZE);
+                  else if (Pid == patPmtParser.PmtPid())
+@@ -1396,6 +1396,13 @@
+                     }
+                  }
+               }
++           else if (Pid == patPmtParser.Ppid()) {
++              int w = PlayTsVideo(Data, TS_SIZE);
++              if (w < 0)
++                 return Played ? Played : w;
++              if (w == 0)
++                 break;
++              }
+            Played += TS_SIZE;
+            Length -= TS_SIZE;
+            Data += TS_SIZE;
+diff -ruN vdr-1.7.11/dvbspu.c vdr-1.7.12/dvbspu.c
+--- vdr-1.7.11/dvbspu.c	2009-12-26 16:51:15.000000000 +0100
++++ vdr-1.7.12/dvbspu.c	2010-01-17 14:43:27.000000000 +0100
+@@ -8,7 +8,7 @@
+  *
+  * parts of this file are derived from the OMS program.
+  *
+- * $Id: dvbspu.c 2.7 2009/12/26 15:51:15 kls Exp $
++ * $Id: dvbspu.c 2.8 2010/01/17 13:43:27 kls Exp $
+  */
+ 
+ #include "dvbspu.h"
+@@ -347,7 +347,7 @@
+                 col++;
+         }
+     }
+-    return col > 2 ? 4 : 2;
++    return col > 2 ? 2 : 1;
+ }
+ 
+ int cDvbSpuDecoder::CalcAreaBpp(cBitmap *fgbmp, cBitmap *bgbmp)
+diff -ruN vdr-1.7.11/eit.c vdr-1.7.12/eit.c
+--- vdr-1.7.11/eit.c	2010-01-03 16:35:21.000000000 +0100
++++ vdr-1.7.12/eit.c	2010-01-08 16:17:09.000000000 +0100
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 2.10 2010/01/03 15:35:21 kls Exp $
++ * $Id: eit.c 2.11 2010/01/08 15:17:09 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -157,9 +157,9 @@
+                  SI::ContentDescriptor *cd = (SI::ContentDescriptor *)d;
+                  SI::ContentDescriptor::Nibble Nibble;
+                  int NumContents = 0;
+-                 uchar Contents[MAXEVCONTENTS] = { 0 };
++                 uchar Contents[MaxEventContents] = { 0 };
+                  for (SI::Loop::Iterator it3; cd->nibbleLoop.getNext(Nibble, it3); ) {
+-                     if (NumContents < MAXEVCONTENTS) {
++                     if (NumContents < MaxEventContents) {
+                         Contents[NumContents] = ((Nibble.getContentNibbleLevel1() & 0xF) << 4) | (Nibble.getContentNibbleLevel2() & 0xF);
+                         NumContents++;
+                         }
+diff -ruN vdr-1.7.11/epg.c vdr-1.7.12/epg.c
+--- vdr-1.7.11/epg.c	2010-01-03 15:10:20.000000000 +0100
++++ vdr-1.7.12/epg.c	2010-01-08 16:20:28.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 2.4 2010/01/03 14:10:20 kls Exp $
++ * $Id: epg.c 2.5 2010/01/08 15:20:28 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -190,7 +190,7 @@
+ 
+ void cEvent::SetContents(uchar *Contents)
+ {
+-  for (int i = 0; i < MAXEVCONTENTS; i++)
++  for (int i = 0; i < MaxEventContents; i++)
+       contents[i] = Contents[i];
+ }
+ 
+@@ -250,7 +250,7 @@
+ const char *cEvent::ContentToString(uchar Content)
+ {
+   switch (Content & 0xF0) {
+-    case EVCONTENTMASK_MOVIEDRAMA:
++    case ecgMovieDrama:
+          switch (Content & 0x0F) {
+            default:
+            case 0x00: return tr("Content$Movie/Drama");
+@@ -264,7 +264,7 @@
+            case 0x08: return tr("Content$Adult Movie/Drama");
+            }
+          break;
+-    case EVCONTENTMASK_NEWSCURRENTAFFAIRS:
++    case ecgNewsCurrentAffairs:
+          switch (Content & 0x0F) {
+            default:
+            case 0x00: return tr("Content$News/Current Affairs");
+@@ -274,7 +274,7 @@
+            case 0x04: return tr("Content$Discussion/Inverview/Debate");
+            }
+          break;
+-    case EVCONTENTMASK_SHOW:
++    case ecgShow:
+          switch (Content & 0x0F) {
+            default:
+            case 0x00: return tr("Content$Show/Game Show");
+@@ -283,7 +283,7 @@
+            case 0x03: return tr("Content$Talk Show");
+            }
+          break;
+-    case EVCONTENTMASK_SPORTS:
++    case ecgSports:
+          switch (Content & 0x0F) {
+            default:
+            case 0x00: return tr("Content$Sports");
+@@ -300,7 +300,7 @@
+            case 0x0B: return tr("Content$Martial Sports");
+            }
+          break;
+-    case EVCONTENTMASK_CHILDRENYOUTH:
++    case ecgChildrenYouth:
+          switch (Content & 0x0F) {
+            default:
+            case 0x00: return tr("Content$Children's/Youth Programme");
+@@ -311,7 +311,7 @@
+            case 0x05: return tr("Content$Cartoons/Puppets");
+            }
+          break;
+-    case EVCONTENTMASK_MUSICBALLETDANCE:
++    case ecgMusicBalletDance:
+          switch (Content & 0x0F) {
+            default:
+            case 0x00: return tr("Content$Music/Ballet/Dance");
+@@ -323,7 +323,7 @@
+            case 0x06: return tr("Content$Ballet");
+            }
+          break;
+-    case EVCONTENTMASK_ARTSCULTURE:
++    case ecgArtsCulture:
+          switch (Content & 0x0F) {
+            default:
+            case 0x00: return tr("Content$Arts/Culture");
+@@ -340,7 +340,7 @@
+            case 0x0B: return tr("Content$Fashion");
+            }
+          break;
+-    case EVCONTENTMASK_SOCIALPOLITICALECONOMICS:
++    case ecgSocialPoliticalEconomics:
+          switch (Content & 0x0F) {
+            default:
+            case 0x00: return tr("Content$Social/Political/Economics");
+@@ -349,7 +349,7 @@
+            case 0x03: return tr("Content$Remarkable People");
+            }
+          break;
+-    case EVCONTENTMASK_EDUCATIONALSCIENCE:
++    case ecgEducationalScience:
+          switch (Content & 0x0F) {
+            default:
+            case 0x00: return tr("Content$Education/Science/Factual");
+@@ -362,7 +362,7 @@
+            case 0x07: return tr("Content$Languages");
+            }
+          break;
+-    case EVCONTENTMASK_LEISUREHOBBIES:
++    case ecgLeisureHobbies:
+          switch (Content & 0x0F) {
+            default:
+            case 0x00: return tr("Content$Leisure/Hobbies");
+@@ -375,7 +375,7 @@
+            case 0x07: return tr("Content$Gardening");
+            }
+          break;
+-    case EVCONTENTMASK_SPECIAL:
++    case ecgSpecial:
+          switch (Content & 0x0F) {
+            case 0x00: return tr("Content$Original Language");
+            case 0x01: return tr("Content$Black & White");
+@@ -468,7 +468,7 @@
+               break;
+     case 'G': {
+                 memset(contents, 0, sizeof(contents));
+-                for (int i = 0; i < MAXEVCONTENTS; i++) {
++                for (int i = 0; i < MaxEventContents; i++) {
+                     char *tail = NULL;
+                     int c = strtol(t, &tail, 16);
+                     if (0x00 < c && c <= 0xFF) {
+diff -ruN vdr-1.7.11/epg.h vdr-1.7.12/epg.h
+--- vdr-1.7.11/epg.h	2010-01-03 15:39:14.000000000 +0100
++++ vdr-1.7.12/epg.h	2010-01-08 16:20:34.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.h 2.3 2010/01/03 14:39:14 kls Exp $
++ * $Id: epg.h 2.4 2010/01/08 15:20:34 kls Exp $
+  */
+ 
+ #ifndef __EPG_H
+@@ -19,19 +19,22 @@
+ 
+ #define MAXEPGBUGFIXLEVEL 3
+ 
+-#define MAXEVCONTENTS                          4
+-#define EVCONTENTMASK_MOVIEDRAMA               0x10
+-#define EVCONTENTMASK_NEWSCURRENTAFFAIRS       0x20
+-#define EVCONTENTMASK_SHOW                     0x30
+-#define EVCONTENTMASK_SPORTS                   0x40
+-#define EVCONTENTMASK_CHILDRENYOUTH            0x50
+-#define EVCONTENTMASK_MUSICBALLETDANCE         0x60
+-#define EVCONTENTMASK_ARTSCULTURE              0x70
+-#define EVCONTENTMASK_SOCIALPOLITICALECONOMICS 0x80
+-#define EVCONTENTMASK_EDUCATIONALSCIENCE       0x90
+-#define EVCONTENTMASK_LEISUREHOBBIES           0xA0
+-#define EVCONTENTMASK_SPECIAL                  0xB0
+-#define EVCONTENTMASK_USERDEFINED              0xF0
++enum { MaxEventContents = 4 };
++
++enum eEventContentGroup {
++  ecgMovieDrama               = 0x10,
++  ecgNewsCurrentAffairs       = 0x20,
++  ecgShow                     = 0x30,
++  ecgSports                   = 0x40,
++  ecgChildrenYouth            = 0x50,
++  ecgMusicBalletDance         = 0x60,
++  ecgArtsCulture              = 0x70,
++  ecgSocialPoliticalEconomics = 0x80,
++  ecgEducationalScience       = 0x90,
++  ecgLeisureHobbies           = 0xA0,
++  ecgSpecial                  = 0xB0,
++  ecgUserDefined              = 0xF0
++  };
+ 
+ enum eDumpMode { dmAll, dmPresent, dmFollowing, dmAtTime };
+ 
+@@ -78,7 +81,7 @@
+   char *shortText;         // Short description of this event (typically the episode name in case of a series)
+   char *description;       // Description of this event
+   cComponents *components; // The stream components of this event
+-  uchar contents[MAXEVCONTENTS]; // Contents of this event
++  uchar contents[MaxEventContents]; // Contents of this event
+   time_t startTime;        // Start time of this event
+   int duration;            // Duration of this event in seconds
+   time_t vps;              // Video Programming Service timestamp (VPS, aka "Programme Identification Label", PIL)
+@@ -97,7 +100,7 @@
+   const char *ShortText(void) const { return shortText; }
+   const char *Description(void) const { return description; }
+   const cComponents *Components(void) const { return components; }
+-  uchar Contents(int i = 0) const { return (0 <= i && i < MAXEVCONTENTS) ? contents[i] : 0; }
++  uchar Contents(int i = 0) const { return (0 <= i && i < MaxEventContents) ? contents[i] : 0; }
+   int ParentalRating(void) const { return parentalRating; }
+   time_t StartTime(void) const { return startTime; }
+   time_t EndTime(void) const { return startTime + duration; }
+diff -ruN vdr-1.7.11/menu.c vdr-1.7.12/menu.c
+--- vdr-1.7.11/menu.c	2009-12-06 12:29:05.000000000 +0100
++++ vdr-1.7.12/menu.c	2010-01-31 13:43:24.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 2.10 2009/12/06 11:29:05 kls Exp $
++ * $Id: menu.c 2.14 2010/01/31 12:43:24 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -623,11 +623,276 @@
+   return state;
+ }
+ 
++// --- cMenuFolderItem -------------------------------------------------------
++
++class cMenuFolderItem : public cOsdItem {
++private:
++  cNestedItem *folder;
++public:
++  cMenuFolderItem(cNestedItem *Folder);
++  cNestedItem *Folder(void) { return folder; }
++  };
++
++cMenuFolderItem::cMenuFolderItem(cNestedItem *Folder)
++:cOsdItem(Folder->Text())
++{
++  folder = Folder;
++  if (folder->SubItems())
++     SetText(cString::sprintf("%s...", folder->Text()));
++}
++
++// --- cMenuEditFolder -------------------------------------------------------
++
++class cMenuEditFolder : public cOsdMenu {
++private:
++  cList<cNestedItem> *list;
++  cNestedItem *folder;
++  char name[PATH_MAX];
++  int subFolder;
++  eOSState Confirm(void);
++public:
++  cMenuEditFolder(const char *Dir, cList<cNestedItem> *List, cNestedItem *Folder = NULL);
++  cString GetFolder(void);
++  virtual eOSState ProcessKey(eKeys Key);
++  };
++
++cMenuEditFolder::cMenuEditFolder(const char *Dir, cList<cNestedItem> *List, cNestedItem *Folder)
++:cOsdMenu(Folder ? tr("Edit folder") : tr("New folder"), 12)
++{
++  list = List;
++  folder = Folder;
++  if (folder) {
++     strn0cpy(name, folder->Text(), sizeof(name));
++     subFolder = folder->SubItems() != NULL;
++     }
++  else {
++     *name = 0;
++     subFolder = 0;
++     cRemote::Put(kRight, true); // go right into string editing mode
++     }
++  if (!isempty(Dir)) {
++     cOsdItem *DirItem = new cOsdItem(Dir);
++     DirItem->SetSelectable(false);
++     Add(DirItem);
++     }
++  Add(new cMenuEditStrItem( tr("Name"), name, sizeof(name)));
++  Add(new cMenuEditBoolItem(tr("Sub folder"), &subFolder));
++}
++
++cString cMenuEditFolder::GetFolder(void)
++{
++  return folder ? folder->Text() : "";
++}
++
++eOSState cMenuEditFolder::Confirm(void)
++{
++  if (!folder || strcmp(folder->Text(), name) != 0) {
++     // each name may occur only once in a folder list
++     for (cNestedItem *Folder = list->First(); Folder; Folder = list->Next(Folder)) {
++         if (strcmp(Folder->Text(), name) == 0) {
++            Skins.Message(mtError, tr("Folder name already exists!"));
++            return osContinue;
++            }
++         }
++     char *p = strpbrk(name, "\\{}#~"); // FOLDERDELIMCHAR
++     if (p) {
++        Skins.Message(mtError, cString::sprintf(tr("Folder name must not contain '%c'!"), *p));
++        return osContinue;
++        }
++     }
++  if (folder) {
++     folder->SetText(name);
++     folder->SetSubItems(subFolder);
++     }
++  else
++     list->Add(folder = new cNestedItem(name, subFolder));
++  return osEnd;
++}
++
++eOSState cMenuEditFolder::ProcessKey(eKeys Key)
++{
++  eOSState state = cOsdMenu::ProcessKey(Key);
++
++  if (state == osUnknown) {
++     switch (Key) {
++       case kOk:     return Confirm();
++       case kRed:
++       case kGreen:
++       case kYellow:
++       case kBlue:   return osContinue;
++       default: break;
++       }
++     }
++  return state;
++}
++
++// --- cMenuFolder -----------------------------------------------------------
++
++cMenuFolder::cMenuFolder(const char *Title, cNestedItemList *NestedItemList, const char *Path)
++:cOsdMenu(Title)
++{
++  list = nestedItemList = NestedItemList;
++  firstFolder = NULL;
++  editing = false;
++  Set();
++  SetHelpKeys();
++  DescendPath(Path);
++}
++
++cMenuFolder::cMenuFolder(const char *Title, cList<cNestedItem> *List, cNestedItemList *NestedItemList, const char *Dir, const char *Path)
++:cOsdMenu(Title)
++{
++  list = List;
++  nestedItemList = NestedItemList;
++  dir = Dir;
++  firstFolder = NULL;
++  editing = false;
++  Set();
++  SetHelpKeys();
++  DescendPath(Path);
++}
++
++void cMenuFolder::SetHelpKeys(void)
++{
++  SetHelp(firstFolder ? tr("Button$Select") : NULL, tr("Button$New"), firstFolder ? tr("Button$Delete") : NULL, firstFolder ? tr("Button$Edit") : NULL);
++}
++
++void cMenuFolder::Set(const char *CurrentFolder)
++{
++  firstFolder = NULL;
++  Clear();
++  if (!isempty(dir)) {
++     cOsdItem *DirItem = new cOsdItem(dir);
++     DirItem->SetSelectable(false);
++     Add(DirItem);
++     }
++  list->Sort();
++  for (cNestedItem *Folder = list->First(); Folder; Folder = list->Next(Folder)) {
++      cOsdItem *FolderItem = new cMenuFolderItem(Folder);
++      Add(FolderItem, CurrentFolder ? strcmp(Folder->Text(), CurrentFolder) == 0 : false);
++      if (!firstFolder)
++         firstFolder = FolderItem;
++      }
++}
++
++void cMenuFolder::DescendPath(const char *Path)
++{
++  if (Path) {
++     const char *p = strchr(Path, FOLDERDELIMCHAR);
++     if (p) {
++        for (cMenuFolderItem *Folder = (cMenuFolderItem *)firstFolder; Folder; Folder = (cMenuFolderItem *)Next(Folder)) {
++            if (strncmp(Folder->Folder()->Text(), Path, p - Path) == 0) {
++               SetCurrent(Folder);
++               if (Folder->Folder()->SubItems())
++                  AddSubMenu(new cMenuFolder(Title(), Folder->Folder()->SubItems(), nestedItemList, !isempty(dir) ? *cString::sprintf("%s%c%s", *dir, FOLDERDELIMCHAR, Folder->Folder()->Text()) : Folder->Folder()->Text(), p + 1));
++               break;
++               }
++            }
++        }
++    }
++}
++
++eOSState cMenuFolder::Select(void)
++{
++  if (firstFolder) {
++     cMenuFolderItem *Folder = (cMenuFolderItem *)Get(Current());
++     if (Folder) {
++        if (Folder->Folder()->SubItems())
++           return AddSubMenu(new cMenuFolder(Title(), Folder->Folder()->SubItems(), nestedItemList, !isempty(dir) ? *cString::sprintf("%s%c%s", *dir, FOLDERDELIMCHAR, Folder->Folder()->Text()) : Folder->Folder()->Text()));
++        else
++           return osEnd;
++        }
++     }
++  return osContinue;
++}
++
++eOSState cMenuFolder::New(void)
++{
++  editing = true;
++  return AddSubMenu(new cMenuEditFolder(dir, list));
++}
++
++eOSState cMenuFolder::Delete(void)
++{
++  if (!HasSubMenu() && firstFolder) {
++     cMenuFolderItem *Folder = (cMenuFolderItem *)Get(Current());
++     if (Folder && Interface->Confirm(Folder->Folder()->SubItems() ? tr("Delete folder and all sub folders?") : tr("Delete folder?"))) {
++        list->Del(Folder->Folder());
++        Del(Folder->Index());
++        firstFolder = Get(isempty(dir) ? 0 : 1);
++        Display();
++        SetHelpKeys();
++        nestedItemList->Save();
++        }
++     }
++  return osContinue;
++}
++
++eOSState cMenuFolder::Edit(void)
++{
++  if (!HasSubMenu() && firstFolder) {
++     cMenuFolderItem *Folder = (cMenuFolderItem *)Get(Current());
++     if (Folder) {
++        editing = true;
++        return AddSubMenu(new cMenuEditFolder(dir, list, Folder->Folder()));
++        }
++     }
++  return osContinue;
++}
++
++eOSState cMenuFolder::SetFolder(void)
++{
++  cMenuEditFolder *mef = (cMenuEditFolder *)SubMenu();
++  if (mef) {
++     Set(mef->GetFolder());
++     SetHelpKeys();
++     Display();
++     nestedItemList->Save();
++     }
++  return CloseSubMenu();
++}
++
++cString cMenuFolder::GetFolder(void)
++{
++  if (firstFolder) {
++     cMenuFolderItem *Folder = (cMenuFolderItem *)Get(Current());
++     if (Folder) {
++        cMenuFolder *mf = (cMenuFolder *)SubMenu();
++        if (mf)
++           return cString::sprintf("%s%c%s", Folder->Folder()->Text(), FOLDERDELIMCHAR, *mf->GetFolder());
++        return Folder->Folder()->Text();
++        }
++     }
++  return "";
++}
++
++eOSState cMenuFolder::ProcessKey(eKeys Key)
++{
++  if (!HasSubMenu())
++     editing = false;
++  eOSState state = cOsdMenu::ProcessKey(Key);
++
++  if (state == osUnknown) {
++     switch (Key) {
++       case kOk:
++       case kRed:    return Select();
++       case kGreen:  return New();
++       case kYellow: return Delete();
++       case kBlue:   return Edit();
++       default:      state = osContinue;
++       }
++     }
++  else if (state == osEnd && HasSubMenu() && editing)
++     state = SetFolder();
++  return state;
++}
++
+ // --- cMenuEditTimer --------------------------------------------------------
+ 
+ cMenuEditTimer::cMenuEditTimer(cTimer *Timer, bool New)
+ :cOsdMenu(tr("Edit timer"), 12)
+ {
++  file = NULL;
+   firstday = NULL;
+   timer = Timer;
+   addIfConfirmed = New;
+@@ -644,9 +909,10 @@
+      Add(new cMenuEditBitItem( tr("VPS"),          &data.flags, tfVps));
+      Add(new cMenuEditIntItem( tr("Priority"),     &data.priority, 0, MAXPRIORITY));
+      Add(new cMenuEditIntItem( tr("Lifetime"),     &data.lifetime, 0, MAXLIFETIME));
+-     Add(new cMenuEditStrItem( tr("File"),          data.file, sizeof(data.file)));
++     Add(file = new cMenuEditStrItem( tr("File"),   data.file, sizeof(data.file)));
+      SetFirstDayItem();
+      }
++  SetHelpKeys();
+   Timers.IncBeingEdited();
+ }
+ 
+@@ -657,6 +923,11 @@
+   Timers.DecBeingEdited();
+ }
+ 
++void cMenuEditTimer::SetHelpKeys(void)
++{
++  SetHelp(tr("Button$Folder"));
++}
++
+ void cMenuEditTimer::SetFirstDayItem(void)
+ {
+   if (!firstday && !data.IsSingleEvent()) {
+@@ -670,6 +941,26 @@
+      }
+ }
+ 
++eOSState cMenuEditTimer::SetFolder(void)
++{
++  cMenuFolder *mf = (cMenuFolder *)SubMenu();
++  if (mf) {
++     cString Folder = mf->GetFolder();
++     char *p = strrchr(data.file, FOLDERDELIMCHAR);
++     if (p)
++        p++;
++     else
++        p = data.file;
++     if (!isempty(*Folder))
++        strn0cpy(data.file, cString::sprintf("%s%c%s", *Folder, FOLDERDELIMCHAR, p), sizeof(data.file));
++     else if (p != data.file)
++        memmove(data.file, p, strlen(p) + 1);
++     SetCurrent(file);
++     Display();
++     }
++  return CloseSubMenu();
++}
++
+ eOSState cMenuEditTimer::ProcessKey(eKeys Key)
+ {
+   eOSState state = cOsdMenu::ProcessKey(Key);
+@@ -699,13 +990,15 @@
+                           }
+                      }
+                      return osBack;
+-       case kRed:
++       case kRed:    return AddSubMenu(new cMenuFolder(tr("Select folder"), &Folders, data.file));
+        case kGreen:
+        case kYellow:
+        case kBlue:   return osContinue;
+        default: break;
+        }
+      }
++  else if (state == osEnd && HasSubMenu())
++     state = SetFolder();
+   if (Key != kNone)
+      SetFirstDayItem();
+   return state;
+@@ -1490,44 +1783,100 @@
+ 
+ class cMenuCommands : public cOsdMenu {
+ private:
+-  cCommands *commands;
+-  char *parameters;
++  cList<cNestedItem> *commands;
++  cString parameters;
++  cString title;
++  cString command;
++  bool confirm;
++  char *result;
++  bool Parse(const char *s);
+   eOSState Execute(void);
+ public:
+-  cMenuCommands(const char *Title, cCommands *Commands, const char *Parameters = NULL);
++  cMenuCommands(const char *Title, cList<cNestedItem> *Commands, const char *Parameters = NULL);
+   virtual ~cMenuCommands();
+   virtual eOSState ProcessKey(eKeys Key);
+   };
+ 
+-cMenuCommands::cMenuCommands(const char *Title, cCommands *Commands, const char *Parameters)
++cMenuCommands::cMenuCommands(const char *Title, cList<cNestedItem> *Commands, const char *Parameters)
+ :cOsdMenu(Title)
+ {
++  result = NULL;
+   SetHasHotkeys();
+   commands = Commands;
+-  parameters = Parameters ? strdup(Parameters) : NULL;
+-  for (cCommand *command = commands->First(); command; command = commands->Next(command))
+-      Add(new cOsdItem(hk(command->Title())));
++  parameters = Parameters;
++  for (cNestedItem *Command = commands->First(); Command; Command = commands->Next(Command)) {
++      const char *s = Command->Text();
++      if (Command->SubItems())
++         Add(new cOsdItem(hk(cString::sprintf("%s...", s))));
++      else if (Parse(s))
++         Add(new cOsdItem(hk(title)));
++      }
+ }
+ 
+ cMenuCommands::~cMenuCommands()
+ {
+-  free(parameters);
++  free(result);
++}
++
++bool cMenuCommands::Parse(const char *s)
++{
++  const char *p = strchr(s, ':');
++  if (p) {
++     int l = p - s;
++     if (l > 0) {
++        char t[l + 1];
++        stripspace(strn0cpy(t, s, l + 1));
++        l = strlen(t);
++        if (l > 1 && t[l - 1] == '?') {
++           t[l - 1] = 0;
++           confirm = true;
++           }
++        else
++           confirm = false;
++        title = t;
++        command = skipspace(p + 1);
++        return true;
++        }
++     }
++  return false;
+ }
+ 
+ eOSState cMenuCommands::Execute(void)
+ {
+-  cCommand *command = commands->Get(Current());
+-  if (command) {
+-     bool confirmed = true;
+-     if (command->Confirm())
+-        confirmed = Interface->Confirm(cString::sprintf("%s?", command->Title()));
+-     if (confirmed) {
+-        Skins.Message(mtStatus, cString::sprintf("%s...", command->Title()));
+-        const char *Result = command->Execute(parameters);
+-        Skins.Message(mtStatus, NULL);
+-        if (Result)
+-           return AddSubMenu(new cMenuText(command->Title(), Result, fontFix));
+-        return osEnd;
++  cNestedItem *Command = commands->Get(Current());
++  if (Command) {
++     if (Command->SubItems())
++        return AddSubMenu(new cMenuCommands(Title(), Command->SubItems(), parameters));
++     if (Parse(Command->Text())) {
++        if (!confirm || Interface->Confirm(cString::sprintf("%s?", *title))) {
++           Skins.Message(mtStatus, cString::sprintf("%s...", *title));
++           free(result);
++           result = NULL;
++           cString cmdbuf;
++           if (!isempty(parameters))
++              cmdbuf = cString::sprintf("%s %s", *command, *parameters);
++           const char *cmd = *cmdbuf ? *cmdbuf : *command;
++           dsyslog("executing command '%s'", cmd);
++           cPipe p;
++           if (p.Open(cmd, "r")) {
++              int l = 0;
++              int c;
++              while ((c = fgetc(p)) != EOF) {
++                    if (l % 20 == 0)
++                       result = (char *)realloc(result, l + 21);
++                    result[l++] = char(c);
++                    }
++              if (result)
++                 result[l] = 0;
++              p.Close();
++              }
++           else
++              esyslog("ERROR: can't open pipe for command '%s'", cmd);
++           Skins.Message(mtStatus, NULL);
++           if (result)
++              return AddSubMenu(new cMenuText(title, result, fontFix));
++           return osEnd;
++           }
+         }
+      }
+   return osContinue;
+@@ -1921,7 +2270,7 @@
+   Clear();
+   Recordings.Sort();
+   for (cRecording *recording = Recordings.First(); recording; recording = Recordings.Next(recording)) {
+-      if (!base || (strstr(recording->Name(), base) == recording->Name() && recording->Name()[strlen(base)] == '~')) {
++      if (!base || (strstr(recording->Name(), base) == recording->Name() && recording->Name()[strlen(base)] == FOLDERDELIMCHAR)) {
+          cMenuRecordingItem *Item = new cMenuRecordingItem(recording, level);
+          if (*Item->Text() && (!LastItem || strcmp(Item->Text(), LastItemText) != 0)) {
+             Add(Item);
+@@ -2746,6 +3095,7 @@
+   Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Channel entry timeout (ms)"), &data.ChannelEntryTimeout, 0));
+   Add(new cMenuEditChanItem(tr("Setup.Miscellaneous$Initial channel"),            &data.InitialChannel, tr("Setup.Miscellaneous$as before")));
+   Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Initial volume"),             &data.InitialVolume, -1, 255, tr("Setup.Miscellaneous$as before")));
++  Add(new cMenuEditBoolItem(tr("Setup.Miscellaneous$Channels wrap"),              &data.ChannelsWrap));
+   Add(new cMenuEditBoolItem(tr("Setup.Miscellaneous$Emergency exit"),             &data.EmergencyExit));
+ }
+ 
+@@ -3245,6 +3595,8 @@
+   if (Direction) {
+      while (Channel) {
+            Channel = Direction > 0 ? Channels.Next(Channel) : Channels.Prev(Channel);
++           if (!Channel && Setup.ChannelsWrap)
++              Channel = Direction > 0 ? Channels.First() : Channels.Last();
+            if (Channel && !Channel->GroupSep() && cDevice::GetDevice(Channel, 0, true))
+               return Channel;
+            }
+@@ -3759,7 +4111,7 @@
+   isyslog("record %s", fileName);
+   if (MakeDirs(fileName, true)) {
+      const cChannel *ch = timer->Channel();
+-     recorder = new cRecorder(fileName, ch->GetChannelID(), timer->Priority(), ch->Vpid(), ch->Apids(), ch->Dpids(), ch->Spids());
++     recorder = new cRecorder(fileName, ch, timer->Priority());
+      if (device->AttachReceiver(recorder)) {
+         Recording.WriteInfo();
+         cStatus::MsgRecording(device, Recording.Name(), Recording.FileName(), true);
+diff -ruN vdr-1.7.11/menu.h vdr-1.7.12/menu.h
+--- vdr-1.7.11/menu.h	2008-02-10 17:01:53.000000000 +0100
++++ vdr-1.7.12/menu.h	2010-01-17 12:21:42.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 2.0 2008/02/10 16:01:53 kls Exp $
++ * $Id: menu.h 2.1 2010/01/17 11:21:42 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -31,14 +31,39 @@
+   virtual eOSState ProcessKey(eKeys Key);
+   };
+ 
++class cMenuFolder : public cOsdMenu {
++private:
++  cNestedItemList *nestedItemList;
++  cList<cNestedItem> *list;
++  cString dir;
++  cOsdItem *firstFolder;
++  bool editing;
++  void SetHelpKeys(void);
++  void Set(const char *CurrentFolder = NULL);
++  void DescendPath(const char *Path);
++  eOSState SetFolder(void);
++  eOSState Select(void);
++  eOSState New(void);
++  eOSState Delete(void);
++  eOSState Edit(void);
++  cMenuFolder(const char *Title, cList<cNestedItem> *List, cNestedItemList *NestedItemList, const char *Dir, const char *Path = NULL);
++public:
++  cMenuFolder(const char *Title, cNestedItemList *NestedItemList, const char *Path = NULL);
++  cString GetFolder(void);
++  virtual eOSState ProcessKey(eKeys Key);
++  };
++
+ class cMenuEditTimer : public cOsdMenu {
+ private:
+   cTimer *timer;
+   cTimer data;
+   int channel;
+   bool addIfConfirmed;
++  cMenuEditStrItem *file;
+   cMenuEditDateItem *firstday;
++  eOSState SetFolder(void);
+   void SetFirstDayItem(void);
++  void SetHelpKeys(void);
+ public:
+   cMenuEditTimer(cTimer *Timer, bool New = false);
+   virtual ~cMenuEditTimer();
+diff -ruN vdr-1.7.11/osd.c vdr-1.7.12/osd.c
+--- vdr-1.7.11/osd.c	2009-12-06 12:33:47.000000000 +0100
++++ vdr-1.7.12/osd.c	2010-01-22 16:58:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 2.6 2009/12/06 11:33:47 kls Exp $
++ * $Id: osd.c 2.9 2010/01/22 15:58:39 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -145,12 +145,14 @@
+   int R1 = (Color & 0x00FF0000) >> 16;
+   int G1 = (Color & 0x0000FF00) >>  8;
+   int B1 = (Color & 0x000000FF);
+-  for (int i = 0; i < numColors; i++) {
++  for (int i = 0; i < numColors && d > 0; i++) {
+       int A2 = (color[i] & 0xFF000000) >> 24;
+       int R2 = (color[i] & 0x00FF0000) >> 16;
+       int G2 = (color[i] & 0x0000FF00) >>  8;
+       int B2 = (color[i] & 0x000000FF);
+-      int diff = (abs(A1 - A2) << 1) + (abs(R1 - R2) << 1) + (abs(G1 - G2) << 1) + (abs(B1 - B2) << 1);
++      int diff = 0;
++      if (A1 || A2) // fully transparent colors are considered equal
++         diff = (abs(A1 - A2) << 1) + (abs(R1 - R2) << 1) + (abs(G1 - G2) << 1) + (abs(B1 - B2) << 1);
+       if (diff < d) {
+          d = diff;
+          n = i;
+@@ -724,6 +726,18 @@
+ 
+ // --- cOsd ------------------------------------------------------------------
+ 
++static const char *OsdErrorTexts[] = {
++  "ok",
++  "too many areas",
++  "too many colors",
++  "bpp not supported",
++  "areas overlap",
++  "wrong alignment",
++  "out of memory",
++  "wrong area size",
++  "unknown",
++  };
++
+ int cOsd::osdLeft = 0;
+ int cOsd::osdTop = 0;
+ int cOsd::osdWidth = 0;
+@@ -814,7 +828,7 @@
+          }
+      }
+   else
+-     esyslog("ERROR: cOsd::SetAreas returned %d", Result);
++     esyslog("ERROR: cOsd::SetAreas returned %d (%s)", Result, Result < oeUnknown ? OsdErrorTexts[Result] : OsdErrorTexts[oeUnknown]);
+   return Result;
+ }
+ 
+diff -ruN vdr-1.7.11/osd.h vdr-1.7.12/osd.h
+--- vdr-1.7.11/osd.h	2009-05-08 15:41:03.000000000 +0200
++++ vdr-1.7.12/osd.h	2010-01-17 14:23:50.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.h 2.4 2009/05/08 13:41:03 kls Exp $
++ * $Id: osd.h 2.5 2010/01/17 13:23:50 kls Exp $
+  */
+ 
+ #ifndef __OSD_H
+@@ -36,7 +36,7 @@
+   clrWhite       = 0xFFFCFCFC,
+   };
+ 
+-enum eOsdError { oeOk,
++enum eOsdError { oeOk, // see also OsdErrorTexts in osd.c
+                  oeTooManyAreas,
+                  oeTooManyColors,
+                  oeBppNotSupported,
+diff -ruN vdr-1.7.11/osdbase.c vdr-1.7.12/osdbase.c
+--- vdr-1.7.11/osdbase.c	2009-06-01 13:54:50.000000000 +0200
++++ vdr-1.7.12/osdbase.c	2010-01-17 12:36:12.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osdbase.c 2.1 2009/06/01 11:54:50 kls Exp $
++ * $Id: osdbase.c 2.2 2010/01/17 11:36:12 kls Exp $
+  */
+ 
+ #include "osdbase.h"
+@@ -41,7 +41,7 @@
+ void cOsdItem::SetText(const char *Text, bool Copy)
+ {
+   free(text);
+-  text = Copy ? strdup(Text) : (char *)Text; // text assumes ownership!
++  text = Copy ? strdup(Text ? Text : "") : (char *)Text; // text assumes ownership!
+ }
+ 
+ void cOsdItem::SetSelectable(bool Selectable)
+diff -ruN vdr-1.7.11/osdbase.h vdr-1.7.12/osdbase.h
+--- vdr-1.7.11/osdbase.h	2007-11-03 15:50:52.000000000 +0100
++++ vdr-1.7.12/osdbase.h	2010-01-16 15:25:31.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osdbase.h 2.0 2007/11/03 14:50:52 kls Exp $
++ * $Id: osdbase.h 2.1 2010/01/16 14:25:31 kls Exp $
+  */
+ 
+ #ifndef __OSDBASE_H
+@@ -102,6 +102,7 @@
+   void SetCols(int c0, int c1 = 0, int c2 = 0, int c3 = 0, int c4 = 0);
+   void SetHasHotkeys(bool HasHotkeys = true);
+   virtual void Clear(void);
++  const char *Title(void) { return title; }
+   bool SelectableItem(int idx);
+   void SetCurrent(cOsdItem *Item);
+   void RefreshCurrent(void);
+@@ -116,6 +117,7 @@
+   eOSState AddSubMenu(cOsdMenu *SubMenu);
+   eOSState CloseSubMenu();
+   bool HasSubMenu(void) { return subMenu; }
++  cOsdMenu *SubMenu(void) { return subMenu; }
+   void SetStatus(const char *s);
+   void SetTitle(const char *Title);
+   void SetHelp(const char *Red, const char *Green = NULL, const char *Yellow = NULL, const char *Blue = NULL);
+diff -ruN vdr-1.7.11/po/ca_ES.po vdr-1.7.12/po/ca_ES.po
+--- vdr-1.7.11/po/ca_ES.po	2010-01-04 15:38:20.000000000 +0100
++++ vdr-1.7.12/po/ca_ES.po	2010-01-23 16:15:30.000000000 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Catalanian\n"
+@@ -586,6 +586,31 @@
+ msgid "Delete channel?"
+ msgstr "Esborrar el canal?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Editar temporitzador"
+ 
+@@ -616,9 +641,15 @@
+ msgid "File"
+ msgstr "Arxiu"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "Primer dia"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Temporitzadors"
+ 
+@@ -1047,6 +1078,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Volum inicial"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "Sortida d'emergËncia"
+ 
+diff -ruN vdr-1.7.11/po/cs_CZ.po vdr-1.7.12/po/cs_CZ.po
+--- vdr-1.7.11/po/cs_CZ.po	2010-01-04 15:38:20.000000000 +0100
++++ vdr-1.7.12/po/cs_CZ.po	2010-01-23 16:15:30.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2008-02-28 15:00+0200\n"
+ "Last-Translator: VladimÌr B·rta <vladimir.barta@k2atmitec.cz>, Ji¯Ì Dobr˝ <jdobry@centrum.cz>\n"
+ "Language-Team: Czech\n"
+@@ -584,6 +584,31 @@
+ msgid "Delete channel?"
+ msgstr "Smazat kan·l?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Editace ËasovaËe"
+ 
+@@ -614,9 +639,15 @@
+ msgid "File"
+ msgstr "Soubor"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "PrvnÌ den"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "»asovaËe"
+ 
+@@ -1045,6 +1076,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Hlasitost po spuπtÏnÌ"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "NouzovÈ ukonËenÌ"
+ 
+diff -ruN vdr-1.7.11/po/da_DK.po vdr-1.7.12/po/da_DK.po
+--- vdr-1.7.11/po/da_DK.po	2010-01-04 15:38:20.000000000 +0100
++++ vdr-1.7.12/po/da_DK.po	2010-01-23 16:15:30.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish\n"
+@@ -583,6 +583,31 @@
+ msgid "Delete channel?"
+ msgstr "Slet kanal?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Rediger timer"
+ 
+@@ -613,9 +638,15 @@
+ msgid "File"
+ msgstr "Fil"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "F¯rste dag"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Timere"
+ 
+@@ -1044,6 +1075,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Lydstyrke ved opstart"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "N¯dudgang"
+ 
+diff -ruN vdr-1.7.11/po/de_DE.po vdr-1.7.12/po/de_DE.po
+--- vdr-1.7.11/po/de_DE.po	2010-01-04 15:38:20.000000000 +0100
++++ vdr-1.7.12/po/de_DE.po	2010-01-23 16:15:30.000000000 +0100
+@@ -7,8 +7,8 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
+-"PO-Revision-Date: 2007-11-25 15:19+0200\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
++"PO-Revision-Date: 2010-01-16 16:46+0100\n"
+ "Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
+ "Language-Team: German\n"
+ "MIME-Version: 1.0\n"
+@@ -583,6 +583,31 @@
+ msgid "Delete channel?"
+ msgstr "Kanal lˆschen?"
+ 
++msgid "Edit folder"
++msgstr "Verzeichnis editieren"
++
++msgid "New folder"
++msgstr "Neues Verzeichnis"
++
++msgid "Sub folder"
++msgstr "Unterverzeichnis"
++
++msgid "Folder name already exists!"
++msgstr "Verzeichnisname existiert bereits!"
++
++#, fuzzy, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr "Verzeichnisname darf kein '{', '}' oder '#' enthalten!"
++
++msgid "Button$Select"
++msgstr "Ausw‰hlen"
++
++msgid "Delete folder and all sub folders?"
++msgstr "Verzeichnis und alle Unterverzeichnisse lˆschen?"
++
++msgid "Delete folder?"
++msgstr "Verzeichnis lˆschen?"
++
+ msgid "Edit timer"
+ msgstr "Timer editieren"
+ 
+@@ -613,9 +638,15 @@
+ msgid "File"
+ msgstr "Datei"
+ 
++msgid "Button$Folder"
++msgstr "Verzeichnis"
++
+ msgid "First day"
+ msgstr "Erster Tag"
+ 
++msgid "Select folder"
++msgstr "Verzeichnis w‰hlen"
++
+ msgid "Timers"
+ msgstr "Timer"
+ 
+@@ -1044,6 +1075,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Lautst‰rke beim Einschalten"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr "Rundum zappen"
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "Notausstieg"
+ 
+diff -ruN vdr-1.7.11/po/el_GR.po vdr-1.7.12/po/el_GR.po
+--- vdr-1.7.11/po/el_GR.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/el_GR.po	2010-01-23 16:15:30.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek\n"
+@@ -583,6 +583,31 @@
+ msgid "Delete channel?"
+ msgstr "ƒÈ·„Ò·ˆﬁ Í·Ì·ÎÈÔ˝?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "‘ÒÔÔÔﬂÁÛÁ ˜ÒÔÌÔÒÔ„Ò·ÏÏ·ÙÈÛÏÔ˝"
+ 
+@@ -613,9 +638,15 @@
+ msgid "File"
+ msgstr "¡Ò˜ÂﬂÔ"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "–Ò˛ÙÁ Ï›Ò·"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "◊ÒÔÌÔÒÔ„Ò·ÏÏ·ÙÈÛÏÔﬂ"
+ 
+@@ -1044,6 +1075,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr ""
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr ""
+ 
+diff -ruN vdr-1.7.11/po/es_ES.po vdr-1.7.12/po/es_ES.po
+--- vdr-1.7.11/po/es_ES.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/es_ES.po	2010-01-23 16:15:30.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Spanish\n"
+@@ -584,6 +584,31 @@
+ msgid "Delete channel?"
+ msgstr "øEliminar canal?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Modificar programaciÛn"
+ 
+@@ -614,9 +639,15 @@
+ msgid "File"
+ msgstr "Fichero"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "Primer dÌa"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Programar grabaciones"
+ 
+@@ -1045,6 +1076,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Volumen inicial"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "Salida de emergencia"
+ 
+diff -ruN vdr-1.7.11/po/et_EE.po vdr-1.7.12/po/et_EE.po
+--- vdr-1.7.11/po/et_EE.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/et_EE.po	2010-01-23 16:15:30.000000000 +0100
+@@ -1,13 +1,13 @@
+ # VDR language source file.
+ # Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Arthur Konovalov <artlov@gmail.com>, 2004-2009
++# Arthur Konovalov <artlov@gmail.com>, 2004-2010
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
+ "Language-Team: Estonian\n"
+@@ -34,251 +34,251 @@
+ msgstr "Kanal ei ole k‰ttesaadav!"
+ 
+ msgid "Can't start Transfer Mode!"
+-msgstr "Siirdemooduse start nurjus!"
++msgstr "‹lekandemooduse start nurjus!"
+ 
+ msgid "Starting EPG scan"
+ msgstr "EPG skaneerimine k‰ivitatud"
+ 
+ msgid "Content$Movie/Drama"
+-msgstr ""
++msgstr "Film/draama"
+ 
+ msgid "Content$Detective/Thriller"
+-msgstr ""
++msgstr "Krimi/triller"
+ 
+ msgid "Content$Adventure/Western/War"
+-msgstr ""
++msgstr "Seiklus/western/sıda"
+ 
+ msgid "Content$Science Fiction/Fantasy/Horror"
+-msgstr ""
++msgstr "Scifi/fantaasia/ıudus"
+ 
+ msgid "Content$Comedy"
+-msgstr ""
++msgstr "Komˆˆdia"
+ 
+ msgid "Content$Soap/Melodrama/Folkloric"
+-msgstr ""
++msgstr "Sari/Melodraama/p‰rimuslik"
+ 
+ msgid "Content$Romance"
+-msgstr ""
++msgstr "Romanss"
+ 
+ msgid "Content$Serious/Classical/Religious/Historical Movie/Drama"
+-msgstr ""
++msgstr "Tısine/klassikaline/religioosne/ajaloofilm/draama"
+ 
+ msgid "Content$Adult Movie/Drama"
+-msgstr ""
++msgstr "T‰iskasvanutele/draama"
+ 
+ msgid "Content$News/Current Affairs"
+-msgstr ""
++msgstr "Uudised/p‰evakajaline"
+ 
+ msgid "Content$News/Weather Report"
+-msgstr ""
++msgstr "Uudised/ilmateade"
+ 
+ msgid "Content$News Magazine"
+-msgstr ""
++msgstr "Uudisteajakiri"
+ 
+ msgid "Content$Documentary"
+-msgstr ""
++msgstr "Dokumentaal"
+ 
+ msgid "Content$Discussion/Inverview/Debate"
+-msgstr ""
++msgstr "Diskussioon/intervjuu/debatt"
+ 
+ msgid "Content$Show/Game Show"
+-msgstr ""
++msgstr "Meelelahutus"
+ 
+ msgid "Content$Game Show/Quiz/Contest"
+-msgstr ""
++msgstr "Sıum‰ng/m‰lum‰ng/vıistlus"
+ 
+ msgid "Content$Variety Show"
+-msgstr ""
++msgstr "Varietee"
+ 
+ msgid "Content$Talk Show"
+-msgstr ""
++msgstr "Vestlussaade"
+ 
+ msgid "Content$Sports"
+-msgstr ""
++msgstr "Sport"
+ 
+ msgid "Content$Special Event"
+-msgstr ""
++msgstr "Eris¸ndmus"
+ 
+ msgid "Content$Sport Magazine"
+-msgstr ""
++msgstr "Spordiajakiri"
+ 
+ msgid "Content$Football/Soccer"
+-msgstr ""
++msgstr "Jalgpall"
+ 
+ msgid "Content$Tennis/Squash"
+-msgstr ""
++msgstr "Tennis/squash"
+ 
+ msgid "Content$Team Sports"
+-msgstr ""
++msgstr "Meeskonnasport"
+ 
+ msgid "Content$Athletics"
+-msgstr ""
++msgstr "Kergejıustik"
+ 
+ msgid "Content$Motor Sport"
+-msgstr ""
++msgstr "Autosport"
+ 
+ msgid "Content$Water Sport"
+-msgstr ""
++msgstr "Veesport"
+ 
+ msgid "Content$Winter Sports"
+-msgstr ""
++msgstr "Talvesport"
+ 
+ msgid "Content$Equestrian"
+-msgstr ""
++msgstr "Ratsutamine"
+ 
+ msgid "Content$Martial Sports"
+-msgstr ""
++msgstr "Vıitluskunst"
+ 
+ msgid "Content$Children's/Youth Programme"
+-msgstr ""
++msgstr "Laste- ja noortesaade"
+ 
+ msgid "Content$Pre-school Children's Programme"
+-msgstr ""
++msgstr "Koolieelikutele"
+ 
+ msgid "Content$Entertainment Programme for 6 to 14"
+-msgstr ""
++msgstr "Meelelahutus 6-14 aastastele"
+ 
+ msgid "Content$Entertainment Programme for 10 to 16"
+-msgstr ""
++msgstr "Meelelahutus 10-16 aastastele"
+ 
+ msgid "Content$Informational/Educational/School Programme"
+-msgstr ""
++msgstr "’ppe- ja haridussaade"
+ 
+ msgid "Content$Cartoons/Puppets"
+-msgstr ""
++msgstr "Joonisfilm/Nukufilm"
+ 
+ msgid "Content$Music/Ballet/Dance"
+-msgstr ""
++msgstr "Muusika/ballett/tants"
+ 
+ msgid "Content$Rock/Pop"
+-msgstr ""
++msgstr "Rock/pop"
+ 
+ msgid "Content$Serious/Classical Music"
+-msgstr ""
++msgstr "Klassikaline muusika"
+ 
+ msgid "Content$Folk/Tradional Music"
+-msgstr ""
++msgstr "Folk/rahvamuusika"
+ 
+ msgid "Content$Jazz"
+-msgstr ""
++msgstr "Jazz"
+ 
+ msgid "Content$Musical/Opera"
+-msgstr ""
++msgstr "Muusikal/ooper"
+ 
+ msgid "Content$Ballet"
+-msgstr ""
++msgstr "Ballett"
+ 
+ msgid "Content$Arts/Culture"
+-msgstr ""
++msgstr "Kunst/kultuur"
+ 
+ msgid "Content$Performing Arts"
+-msgstr ""
++msgstr "Performance"
+ 
+ msgid "Content$Fine Arts"
+-msgstr ""
++msgstr "Kaunid kunstid"
+ 
+ msgid "Content$Religion"
+-msgstr ""
++msgstr "Religioon"
+ 
+ msgid "Content$Popular Culture/Traditional Arts"
+-msgstr ""
++msgstr "Rahvakultuur/traditsiooniline kunst"
+ 
+ msgid "Content$Literature"
+-msgstr ""
++msgstr "Kirjandus"
+ 
+ msgid "Content$Film/Cinema"
+-msgstr ""
++msgstr "Filmikunst"
+ 
+ msgid "Content$Experimental Film/Video"
+-msgstr ""
++msgstr "Eksperimentaalfilm/video"
+ 
+ msgid "Content$Broadcasting/Press"
+-msgstr ""
++msgstr "TV/raadio/ajakirjandus"
+ 
+ msgid "Content$New Media"
+-msgstr ""
++msgstr "Uus meedia"
+ 
+ msgid "Content$Arts/Culture Magazine"
+-msgstr ""
++msgstr "Kultuuriajakiri"
+ 
+ msgid "Content$Fashion"
+-msgstr ""
++msgstr "Mood"
+ 
+ msgid "Content$Social/Political/Economics"
+-msgstr ""
++msgstr "‹hiskond/poliitika/majandus"
+ 
+ msgid "Content$Magazine/Report/Documentary"
+-msgstr ""
++msgstr "Ajakiri/reportaa˛/dokumentaal"
+ 
+ msgid "Content$Economics/Social Advisory"
+-msgstr ""
++msgstr "Majandus/majandusnıuanne"
+ 
+ msgid "Content$Remarkable People"
+-msgstr ""
++msgstr "T‰helepanuv‰‰rsed isikud"
+ 
+ msgid "Content$Education/Science/Factual"
+-msgstr ""
++msgstr "Haridus/teadus/faktid"
+ 
+ msgid "Content$Nature/Animals/Environment"
+-msgstr ""
++msgstr "Loodus/loomad/keskkond"
+ 
+ msgid "Content$Technology/Natural Sciences"
+-msgstr ""
++msgstr "Tehnoloogia/loodusteadus"
+ 
+ msgid "Content$Medicine/Physiology/Psychology"
+-msgstr ""
++msgstr "Meditsiin/f¸sioloogia/ps¸hholoogia"
+ 
+ msgid "Content$Foreign Countries/Expeditions"
+-msgstr ""
++msgstr "V‰lisriigid/ekspeditsioon"
+ 
+ msgid "Content$Social/Spiritual Sciences"
+-msgstr ""
++msgstr "‹hiskondlik/Hingeteadus"
+ 
+ msgid "Content$Further Education"
+-msgstr ""
++msgstr "T‰iendıpe"
+ 
+ msgid "Content$Languages"
+-msgstr ""
++msgstr "Keeled"
+ 
+ msgid "Content$Leisure/Hobbies"
+-msgstr ""
++msgstr "Vaba aeg/hobi"
+ 
+ msgid "Content$Tourism/Travel"
+-msgstr ""
++msgstr "Turism/reisimine"
+ 
+ msgid "Content$Handicraft"
+-msgstr ""
++msgstr "K‰sitˆˆ"
+ 
+ msgid "Content$Motoring"
+-msgstr ""
++msgstr "Autondus"
+ 
+ msgid "Content$Fitness & Health"
+-msgstr ""
++msgstr "Tervis"
+ 
+ msgid "Content$Cooking"
+-msgstr ""
++msgstr "Kokasaade"
+ 
+ msgid "Content$Advertisement/Shopping"
+-msgstr ""
++msgstr "Reklaam/teleturg"
+ 
+ msgid "Content$Gardening"
+-msgstr ""
++msgstr "Aiandus"
+ 
+ msgid "Content$Original Language"
+-msgstr ""
++msgstr "Originaalkeel"
+ 
+ msgid "Content$Black & White"
+-msgstr ""
++msgstr "Mustvalge"
+ 
+ msgid "Content$Unpublished"
+-msgstr ""
++msgstr "Avaldamata"
+ 
+ msgid "Content$Live Broadcast"
+-msgstr ""
++msgstr "Otse¸lekanne"
+ 
+ #, c-format
+ msgid "ParentalRating$from %d"
+-msgstr ""
++msgstr "alates %d"
+ 
+ msgid "No title"
+ msgstr "Pealkiri puudub"
+@@ -583,6 +583,31 @@
+ msgid "Delete channel?"
+ msgstr "Kustutada kanal?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Taimeri redigeerimine"
+ 
+@@ -613,9 +638,15 @@
+ msgid "File"
+ msgstr "Fail"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "Esimene p‰ev"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Taimer"
+ 
+@@ -1044,6 +1075,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Helitugevus k‰ivitamisel"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "H‰dav‰ljumine"
+ 
+diff -ruN vdr-1.7.11/po/fi_FI.po vdr-1.7.12/po/fi_FI.po
+--- vdr-1.7.11/po/fi_FI.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/fi_FI.po	2010-01-23 16:15:30.000000000 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+ "Language-Team: Finnish\n"
+@@ -586,6 +586,31 @@
+ msgid "Delete channel?"
+ msgstr "Poistetaanko kanava?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Muokkaa ajastinta"
+ 
+@@ -616,9 +641,15 @@
+ msgid "File"
+ msgstr "Tiedosto"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "1. p‰iv‰"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Ajastimet"
+ 
+@@ -1047,6 +1078,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "ƒ‰nenvoimakkuus k‰ynnistett‰ess‰"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "K‰yt‰ h‰t‰sammutusta"
+ 
+diff -ruN vdr-1.7.11/po/fr_FR.po vdr-1.7.12/po/fr_FR.po
+--- vdr-1.7.11/po/fr_FR.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/fr_FR.po	2010-01-23 16:15:30.000000000 +0100
+@@ -13,7 +13,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2008-02-27 18:14+0100\n"
+ "Last-Translator: Jean-Claude Repetto <jc@repetto.org>\n"
+ "Language-Team: French\n"
+@@ -589,6 +589,31 @@
+ msgid "Delete channel?"
+ msgstr "Supprimer la chaÓne ?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Changer la programmation"
+ 
+@@ -619,9 +644,15 @@
+ msgid "File"
+ msgstr "Fichier"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "Premier jour"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Programmation"
+ 
+@@ -1050,6 +1081,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Volume initial"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "ArrÍt d'urgence"
+ 
+diff -ruN vdr-1.7.11/po/hr_HR.po vdr-1.7.12/po/hr_HR.po
+--- vdr-1.7.11/po/hr_HR.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/hr_HR.po	2010-01-23 16:15:30.000000000 +0100
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian\n"
+@@ -585,6 +585,31 @@
+ msgid "Delete channel?"
+ msgstr "Obrisati program?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Ureivanje tajmera"
+ 
+@@ -615,9 +640,15 @@
+ msgid "File"
+ msgstr "Datoteka"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "Prvi dan"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Tajmeri"
+ 
+@@ -1046,6 +1077,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "PoËetna jaËina zvuka"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "Izlaz u sluËaju nuæde"
+ 
+diff -ruN vdr-1.7.11/po/hu_HU.po vdr-1.7.12/po/hu_HU.po
+--- vdr-1.7.11/po/hu_HU.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/hu_HU.po	2010-01-23 16:15:31.000000000 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2007-12-01 21:42+0200\n"
+ "Last-Translator: Istv·n F¸ley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian\n"
+@@ -586,6 +586,31 @@
+ msgid "Delete channel?"
+ msgstr "Csatorna tˆrlÈse?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "IdızÌtı megv·ltoztat·sa"
+ 
+@@ -616,9 +641,15 @@
+ msgid "File"
+ msgstr "File"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "Elsı nap"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "IdızÌtı"
+ 
+@@ -1047,6 +1078,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Hangerı a bekapcsol·sn·l"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr ""
+ 
+diff -ruN vdr-1.7.11/po/it_IT.po vdr-1.7.12/po/it_IT.po
+--- vdr-1.7.11/po/it_IT.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/it_IT.po	2010-01-23 16:15:31.000000000 +0100
+@@ -11,8 +11,8 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
+-"PO-Revision-Date: 2009-11-28 22:50+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
++"PO-Revision-Date: 2010-01-12 23:53+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian\n"
+ "MIME-Version: 1.0\n"
+@@ -47,245 +47,245 @@
+ msgstr "Inizio scansione EPG"
+ 
+ msgid "Content$Movie/Drama"
+-msgstr ""
++msgstr "Film/Dramma"
+ 
+ msgid "Content$Detective/Thriller"
+-msgstr ""
++msgstr "Investigativo/Giallo"
+ 
+ msgid "Content$Adventure/Western/War"
+-msgstr ""
++msgstr "Avventura/Western/Guerra"
+ 
+ msgid "Content$Science Fiction/Fantasy/Horror"
+-msgstr ""
++msgstr "Finzione/Fantasia/Horror"
+ 
+ msgid "Content$Comedy"
+-msgstr ""
++msgstr "Commedia"
+ 
+ msgid "Content$Soap/Melodrama/Folkloric"
+-msgstr ""
++msgstr "Telenovella/Melodramma/Folcloristico"
+ 
+ msgid "Content$Romance"
+-msgstr ""
++msgstr "Romanzo"
+ 
+ msgid "Content$Serious/Classical/Religious/Historical Movie/Drama"
+-msgstr ""
++msgstr "Serio/Classico/Religioso/Film storico/Dramma"
+ 
+ msgid "Content$Adult Movie/Drama"
+-msgstr ""
++msgstr "Film per adulti/Dramma"
+ 
+ msgid "Content$News/Current Affairs"
+-msgstr ""
++msgstr "Notizie/Ultima ora"
+ 
+ msgid "Content$News/Weather Report"
+-msgstr ""
++msgstr "Notizie/Previsioni meteo"
+ 
+ msgid "Content$News Magazine"
+-msgstr ""
++msgstr "Settimanale di attualit√†"
+ 
+ msgid "Content$Documentary"
+-msgstr ""
++msgstr "Documentario"
+ 
+ msgid "Content$Discussion/Inverview/Debate"
+-msgstr ""
++msgstr "Discussione/Intervista/Dibattito"
+ 
+ msgid "Content$Show/Game Show"
+-msgstr ""
++msgstr "Spettacolo/Gioco a premi"
+ 
+ msgid "Content$Game Show/Quiz/Contest"
+-msgstr ""
++msgstr "Gioco a premi/Quiz/Gara"
+ 
+ msgid "Content$Variety Show"
+-msgstr ""
++msgstr "Spettacolo di variet√†"
+ 
+ msgid "Content$Talk Show"
+-msgstr ""
++msgstr "Talk Show"
+ 
+ msgid "Content$Sports"
+-msgstr ""
++msgstr "Sport"
+ 
+ msgid "Content$Special Event"
+-msgstr ""
++msgstr "Evento speciale"
+ 
+ msgid "Content$Sport Magazine"
+-msgstr ""
++msgstr "Settimanale di sport"
+ 
+ msgid "Content$Football/Soccer"
+-msgstr ""
++msgstr "Calcio"
+ 
+ msgid "Content$Tennis/Squash"
+-msgstr ""
++msgstr "Tennis/Squash"
+ 
+ msgid "Content$Team Sports"
+-msgstr ""
++msgstr "Sport di squadra"
+ 
+ msgid "Content$Athletics"
+-msgstr ""
++msgstr "Atletica"
+ 
+ msgid "Content$Motor Sport"
+-msgstr ""
++msgstr "Sport motoristici"
+ 
+ msgid "Content$Water Sport"
+-msgstr ""
++msgstr "Sport acquatici"
+ 
+ msgid "Content$Winter Sports"
+-msgstr ""
++msgstr "Sport invernali"
+ 
+ msgid "Content$Equestrian"
+-msgstr ""
++msgstr "Equitazione"
+ 
+ msgid "Content$Martial Sports"
+-msgstr ""
++msgstr "Arti marziali"
+ 
+ msgid "Content$Children's/Youth Programme"
+-msgstr ""
++msgstr "Programmi per ragazzi/giovani"
+ 
+ msgid "Content$Pre-school Children's Programme"
+-msgstr ""
++msgstr "Programmi per ragazzi prescolastici"
+ 
+ msgid "Content$Entertainment Programme for 6 to 14"
+-msgstr ""
++msgstr "Programmi di intrattenimento da 6 a 14"
+ 
+ msgid "Content$Entertainment Programme for 10 to 16"
+-msgstr ""
++msgstr "Programmi di intrattenimento da 10 a 16"
+ 
+ msgid "Content$Informational/Educational/School Programme"
+-msgstr ""
++msgstr "Informativo/Educativo/Programma scolastico"
+ 
+ msgid "Content$Cartoons/Puppets"
+-msgstr ""
++msgstr "Cartoni/Pupazzi"
+ 
+ msgid "Content$Music/Ballet/Dance"
+-msgstr ""
++msgstr "Musica/Balletto/Danza"
+ 
+ msgid "Content$Rock/Pop"
+-msgstr ""
++msgstr "Rock/Pop"
+ 
+ msgid "Content$Serious/Classical Music"
+-msgstr ""
++msgstr "Musica Classica/Seria"
+ 
+ msgid "Content$Folk/Tradional Music"
+-msgstr ""
++msgstr "Musica Tradizionale/Folclore"
+ 
+ msgid "Content$Jazz"
+-msgstr ""
++msgstr "Jazz"
+ 
+ msgid "Content$Musical/Opera"
+-msgstr ""
++msgstr "Musical/Opera"
+ 
+ msgid "Content$Ballet"
+-msgstr ""
++msgstr "Balletto"
+ 
+ msgid "Content$Arts/Culture"
+-msgstr ""
++msgstr "Arte/Cultura"
+ 
+ msgid "Content$Performing Arts"
+-msgstr ""
++msgstr "Arti di rendimento"
+ 
+ msgid "Content$Fine Arts"
+-msgstr ""
++msgstr "Arti fine"
+ 
+ msgid "Content$Religion"
+-msgstr ""
++msgstr "Religione"
+ 
+ msgid "Content$Popular Culture/Traditional Arts"
+-msgstr ""
++msgstr "Cultura popolare/Arti tradizionali"
+ 
+ msgid "Content$Literature"
+-msgstr ""
++msgstr "Letteratura"
+ 
+ msgid "Content$Film/Cinema"
+-msgstr ""
++msgstr "Film/Cinema"
+ 
+ msgid "Content$Experimental Film/Video"
+-msgstr ""
++msgstr "Film sperimentale/Video"
+ 
+ msgid "Content$Broadcasting/Press"
+-msgstr ""
++msgstr "Trasmissione/Stampa"
+ 
+ msgid "Content$New Media"
+-msgstr ""
++msgstr "Nuovo programma"
+ 
+ msgid "Content$Arts/Culture Magazine"
+-msgstr ""
++msgstr "Arte/Settimanale di cultura"
+ 
+ msgid "Content$Fashion"
+-msgstr ""
++msgstr "Moda"
+ 
+ msgid "Content$Social/Political/Economics"
+-msgstr ""
++msgstr "Societ√†/Politica/Economia"
+ 
+ msgid "Content$Magazine/Report/Documentary"
+-msgstr ""
++msgstr "Settimanale/Reportage/Documentario"
+ 
+ msgid "Content$Economics/Social Advisory"
+-msgstr ""
++msgstr "Economia/Consulenza sociale"
+ 
+ msgid "Content$Remarkable People"
+-msgstr ""
++msgstr "Personaggi importanti"
+ 
+ msgid "Content$Education/Science/Factual"
+-msgstr ""
++msgstr "Educazione/Scienza/Fatti"
+ 
+ msgid "Content$Nature/Animals/Environment"
+-msgstr ""
++msgstr "Natura/Animali/Ambiente"
+ 
+ msgid "Content$Technology/Natural Sciences"
+-msgstr ""
++msgstr "Tecnologia/Scienze naturali"
+ 
+ msgid "Content$Medicine/Physiology/Psychology"
+-msgstr ""
++msgstr "Medicina/Filosofia/Psicologia"
+ 
+ msgid "Content$Foreign Countries/Expeditions"
+-msgstr ""
++msgstr "Paesi esteri/Spedizioni"
+ 
+ msgid "Content$Social/Spiritual Sciences"
+-msgstr ""
++msgstr "Societ√†/Scienze spirituali"
+ 
+ msgid "Content$Further Education"
+-msgstr ""
++msgstr "Altra educazione"
+ 
+ msgid "Content$Languages"
+-msgstr ""
++msgstr "Lingue"
+ 
+ msgid "Content$Leisure/Hobbies"
+-msgstr ""
++msgstr "Tempo libero/Hobby"
+ 
+ msgid "Content$Tourism/Travel"
+-msgstr ""
++msgstr "Turismo/Viaggi"
+ 
+ msgid "Content$Handicraft"
+-msgstr ""
++msgstr "Artigianato"
+ 
+ msgid "Content$Motoring"
+-msgstr ""
++msgstr "Motori"
+ 
+ msgid "Content$Fitness & Health"
+-msgstr ""
++msgstr "Culturismo & Salute"
+ 
+ msgid "Content$Cooking"
+-msgstr ""
++msgstr "Cucina"
+ 
+ msgid "Content$Advertisement/Shopping"
+-msgstr ""
++msgstr "Pubblicit√†/Acquisti"
+ 
+ msgid "Content$Gardening"
+-msgstr ""
++msgstr "Giardinaggio"
+ 
+ msgid "Content$Original Language"
+-msgstr ""
++msgstr "Lingua madre"
+ 
+ msgid "Content$Black & White"
+-msgstr ""
++msgstr "Bianco & Nero"
+ 
+ msgid "Content$Unpublished"
+-msgstr ""
++msgstr "Non pubblicato"
+ 
+ msgid "Content$Live Broadcast"
+-msgstr ""
++msgstr "Trasmissione dal vivo"
+ 
+ #, c-format
+ msgid "ParentalRating$from %d"
+-msgstr ""
++msgstr "da %d"
+ 
+ msgid "No title"
+ msgstr "Senza titolo"
+@@ -590,6 +590,31 @@
+ msgid "Delete channel?"
+ msgstr "Eliminare il canale?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Modifica timer"
+ 
+@@ -620,9 +645,15 @@
+ msgid "File"
+ msgstr "Nome"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "1¬∞ giorno"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Timer"
+ 
+@@ -1051,6 +1082,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Volume iniziale"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "Uscita di emergenza"
+ 
+diff -ruN vdr-1.7.11/po/lt_LT.po vdr-1.7.12/po/lt_LT.po
+--- vdr-1.7.11/po/lt_LT.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/lt_LT.po	2010-01-23 16:15:31.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.9\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2009-10-17 14:19+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian\n"
+@@ -583,6 +583,31 @@
+ msgid "Delete channel?"
+ msgstr "I≈°trinti kanalƒÖ?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Koreguoti laikmatƒØ"
+ 
+@@ -613,9 +638,15 @@
+ msgid "File"
+ msgstr "Failas"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "Pirma diena"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Laikmaƒçiai"
+ 
+@@ -1044,6 +1075,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Garsas ƒØjungimo metu"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "Avarinis i≈°ƒójimas"
+ 
+diff -ruN vdr-1.7.11/po/nl_NL.po vdr-1.7.12/po/nl_NL.po
+--- vdr-1.7.11/po/nl_NL.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/nl_NL.po	2010-01-23 16:15:31.000000000 +0100
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2008-02-26 17:20+0100\n"
+ "Last-Translator: Johan Schuring <johan.schuring@vetteblei.nl>\n"
+ "Language-Team: Dutch\n"
+@@ -587,6 +587,31 @@
+ msgid "Delete channel?"
+ msgstr "Kanaal verwijderen?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Timer veranderen"
+ 
+@@ -617,9 +642,15 @@
+ msgid "File"
+ msgstr "Bestandnaam"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "Eerste dag"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Timers"
+ 
+@@ -1048,6 +1079,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Opstartvolume"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "Nooduitgang"
+ 
+diff -ruN vdr-1.7.11/po/nn_NO.po vdr-1.7.12/po/nn_NO.po
+--- vdr-1.7.11/po/nn_NO.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/nn_NO.po	2010-01-23 16:15:31.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian\n"
+@@ -584,6 +584,31 @@
+ msgid "Delete channel?"
+ msgstr "Slette kanal?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Editer timer"
+ 
+@@ -614,9 +639,15 @@
+ msgid "File"
+ msgstr "Filnavn"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "F¯rste dag"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Timere"
+ 
+@@ -1045,6 +1076,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr ""
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr ""
+ 
+diff -ruN vdr-1.7.11/po/pl_PL.po vdr-1.7.12/po/pl_PL.po
+--- vdr-1.7.11/po/pl_PL.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/pl_PL.po	2010-01-23 16:15:31.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2008-03-09 12:59+0100\n"
+ "Last-Translator: Michael Rakowski <mrak@gmx.de>\n"
+ "Language-Team:  Polish\n"
+@@ -584,6 +584,31 @@
+ msgid "Delete channel?"
+ msgstr "Usun±Ê kana≥?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Edycja timera"
+ 
+@@ -614,9 +639,15 @@
+ msgid "File"
+ msgstr "Plik"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "Pierwszy dzieÒ"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Timery"
+ 
+@@ -1045,6 +1076,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Pocz±tkowa g≥o∂no∂Ê"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "Wyj∂cie awaryjne"
+ 
+diff -ruN vdr-1.7.11/po/pt_PT.po vdr-1.7.12/po/pt_PT.po
+--- vdr-1.7.11/po/pt_PT.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/pt_PT.po	2010-01-23 16:15:31.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2008-03-18 17:04+0100\n"
+ "Last-Translator: anonymous\n"
+ "Language-Team: Portuguese\n"
+@@ -583,6 +583,31 @@
+ msgid "Delete channel?"
+ msgstr "Apagar o canal?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Editar gavaÁ„o programada"
+ 
+@@ -613,9 +638,15 @@
+ msgid "File"
+ msgstr "Ficheiro"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "Primeiro dia"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "GravaÁıes programadas"
+ 
+@@ -1044,6 +1075,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Volume inicial"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "SaÌda de emergÍncia"
+ 
+diff -ruN vdr-1.7.11/po/ro_RO.po vdr-1.7.12/po/ro_RO.po
+--- vdr-1.7.11/po/ro_RO.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/ro_RO.po	2010-01-23 16:15:31.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2008-02-25 00:39+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+ "Language-Team: Romanian\n"
+@@ -586,6 +586,31 @@
+ msgid "Delete channel?"
+ msgstr "™terg canalul?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Modificare timer"
+ 
+@@ -616,9 +641,15 @@
+ msgid "File"
+ msgstr "Fi∫ier"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "Prima zi"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Timer-e"
+ 
+@@ -1047,6 +1078,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Volumul la pornire"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "Oprire de urgen˛„"
+ 
+diff -ruN vdr-1.7.11/po/ru_RU.po vdr-1.7.12/po/ru_RU.po
+--- vdr-1.7.11/po/ru_RU.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/ru_RU.po	2010-01-23 16:15:31.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2008-12-15 14:37+0100\n"
+ "Last-Translator: Oleg Roitburd <oleg@roitburd.de>\n"
+ "Language-Team: Russian\n"
+@@ -584,6 +584,31 @@
+ msgid "Delete channel?"
+ msgstr "√‘–€ÿ‚Ï ⁄–›–€?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "√·‚–›ﬁ“⁄– ‚–Ÿ‹’‡–"
+ 
+@@ -614,9 +639,15 @@
+ msgid "File"
+ msgstr "ƒ–Ÿ€"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "ø’‡“ÎŸ ‘’›Ï"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "¬–Ÿ‹’‡Î"
+ 
+@@ -1045,6 +1076,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "≥‡ﬁ‹⁄ﬁ·‚Ï ﬂ‡ÿ “⁄€ÓÁ’›ÿÿ"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "∞“–‡ÿŸ›ÎŸ “ÎÂﬁ‘"
+ 
+diff -ruN vdr-1.7.11/po/sk_SK.po vdr-1.7.12/po/sk_SK.po
+--- vdr-1.7.11/po/sk_SK.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/sk_SK.po	2010-01-23 16:15:31.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2009-09-30 12:50+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak\n"
+@@ -584,6 +584,31 @@
+ msgid "Delete channel?"
+ msgstr "Odstr·niª kan·l?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "⁄prava pl·nu nahr·vania"
+ 
+@@ -614,9 +639,15 @@
+ msgid "File"
+ msgstr "S˙bor"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "Prv˝ deÚ"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Pl·ny nahr·vania"
+ 
+@@ -1045,6 +1076,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Hlasitosª po spustenÌ"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "N˙dzovÈ ukonËenie"
+ 
+diff -ruN vdr-1.7.11/po/sl_SI.po vdr-1.7.12/po/sl_SI.po
+--- vdr-1.7.11/po/sl_SI.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/sl_SI.po	2010-01-23 16:15:31.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2008-02-28 19:44+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian\n"
+@@ -584,6 +584,31 @@
+ msgid "Delete channel?"
+ msgstr "Izbriπi kanal?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Uredi termin"
+ 
+@@ -614,9 +639,15 @@
+ msgid "File"
+ msgstr "Datoteka"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "Prvi dan"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Termini"
+ 
+@@ -1045,6 +1076,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Privzeta glasnost"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "Izhod v sili"
+ 
+diff -ruN vdr-1.7.11/po/sv_SE.po vdr-1.7.12/po/sv_SE.po
+--- vdr-1.7.11/po/sv_SE.po	2010-01-04 15:38:21.000000000 +0100
++++ vdr-1.7.12/po/sv_SE.po	2010-01-23 16:15:31.000000000 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2008-03-12 18:25+0100\n"
+ "Last-Translator: Magnus Andersson <svankan@bahnhof.se>\n"
+ "Language-Team: Swedish\n"
+@@ -586,6 +586,31 @@
+ msgid "Delete channel?"
+ msgstr "Ta bort kanalen?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "ƒndra timer"
+ 
+@@ -616,9 +641,15 @@
+ msgid "File"
+ msgstr "Filnamn"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "Fˆrsta dag"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Timers"
+ 
+@@ -1047,6 +1078,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Ljudstyrka vid uppstart"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "Ofˆrutsedd avslutning"
+ 
+diff -ruN vdr-1.7.11/po/tr_TR.po vdr-1.7.12/po/tr_TR.po
+--- vdr-1.7.11/po/tr_TR.po	2010-01-04 15:38:22.000000000 +0100
++++ vdr-1.7.12/po/tr_TR.po	2010-01-23 16:15:31.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay YolgeÁen <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish\n"
+@@ -583,6 +583,31 @@
+ msgid "Delete channel?"
+ msgstr "Kanal˝ sil?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "Zamanlay˝c˝y˝ ayarla"
+ 
+@@ -613,9 +638,15 @@
+ msgid "File"
+ msgstr "K¸t¸k"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "›lk g¸n"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "Zamanlay˝c˝"
+ 
+@@ -1044,6 +1075,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "AÁ˝l˝˛daki ses"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "Acil c˝k˝˛"
+ 
+diff -ruN vdr-1.7.11/po/uk_UA.po vdr-1.7.12/po/uk_UA.po
+--- vdr-1.7.11/po/uk_UA.po	2010-01-04 15:38:22.000000000 +0100
++++ vdr-1.7.12/po/uk_UA.po	2010-01-23 16:15:31.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2009-05-31 13:17+0200\n"
+ "Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian\n"
+@@ -583,6 +583,31 @@
+ msgid "Delete channel?"
+ msgstr "–í–∏–¥–∞–ª–∏—Ç–∏ –∫–∞–Ω–∞–ª?"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "–ù–∞–ª–∞—à—Ç—É–≤–∞–Ω–Ω—è —Ç–∞–π–º–µ—Ä–∞"
+ 
+@@ -613,9 +638,15 @@
+ msgid "File"
+ msgstr "–§–∞–π–ª"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "–ü–µ—Ä—à–∏–π –¥–µ–Ω—å"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "–¢–∞–π–º–µ—Ä–∏"
+ 
+@@ -1044,6 +1075,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "–ì—É—á–Ω—ñ—Å—Ç—å –ø—Ä–∏ –≤–∫–ª—é—á–µ–Ω–Ω—ñ"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "–ê–≤–∞—Ä—ñ–π–Ω–∏–π –≤–∏—Ö—ñ–¥"
+ 
+diff -ruN vdr-1.7.11/po/zh_CN.po vdr-1.7.12/po/zh_CN.po
+--- vdr-1.7.11/po/zh_CN.po	2010-01-04 15:38:22.000000000 +0100
++++ vdr-1.7.12/po/zh_CN.po	2010-01-23 16:15:31.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-03 15:10+0100\n"
++"POT-Creation-Date: 2010-01-17 16:18+0100\n"
+ "PO-Revision-Date: 2009-09-23 23:50+0800\n"
+ "Last-Translator: Nan Feng <nfgx@21cn.com>\n"
+ "Language-Team: Chinese\n"
+@@ -586,6 +586,31 @@
+ msgid "Delete channel?"
+ msgstr "ÊòØÂê¶Âà†Èô§È¢ëÈÅìÔºü"
+ 
++msgid "Edit folder"
++msgstr ""
++
++msgid "New folder"
++msgstr ""
++
++msgid "Sub folder"
++msgstr ""
++
++msgid "Folder name already exists!"
++msgstr ""
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr ""
++
++msgid "Button$Select"
++msgstr ""
++
++msgid "Delete folder and all sub folders?"
++msgstr ""
++
++msgid "Delete folder?"
++msgstr ""
++
+ msgid "Edit timer"
+ msgstr "ÁºñËæëËÆ°Êó∂Âô®"
+ 
+@@ -616,9 +641,15 @@
+ msgid "File"
+ msgstr "Êñá‰ª∂"
+ 
++msgid "Button$Folder"
++msgstr ""
++
+ msgid "First day"
+ msgstr "Á¨¨‰∏ÄÂ§©"
+ 
++msgid "Select folder"
++msgstr ""
++
+ msgid "Timers"
+ msgstr "ÂΩïÂÉè‰∏≠ÂàóË°®"
+ 
+@@ -1047,6 +1078,9 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "ÂàùÂßãÂåñÂ£∞Èü≥"
+ 
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "Á™ÅÂèë‰∫ã‰ª∂ÈÄÄÂá∫"
+ 
+diff -ruN vdr-1.7.11/receiver.c vdr-1.7.12/receiver.c
+--- vdr-1.7.11/receiver.c	2010-01-01 16:38:48.000000000 +0100
++++ vdr-1.7.12/receiver.c	2010-01-30 11:25:38.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: receiver.c 2.1 2010/01/01 15:38:48 kls Exp $
++ * $Id: receiver.c 2.2 2010/01/30 10:25:38 kls Exp $
+  */
+ 
+ #include "receiver.h"
+@@ -12,28 +12,26 @@
+ #include <stdio.h>
+ #include "tools.h"
+ 
++#ifdef LEGACY_CRECEIVER
+ cReceiver::cReceiver(tChannelID ChannelID, int Priority, int Pid, const int *Pids1, const int *Pids2, const int *Pids3)
+ {
+   device = NULL;
+   channelID = ChannelID;
+   priority = Priority;
+   numPids = 0;
+-  if (Pid)
+-     pids[numPids++] = Pid;
+-  if (Pids1) {
+-     while (*Pids1 && numPids < MAXRECEIVEPIDS)
+-           pids[numPids++] = *Pids1++;
+-     }
+-  if (Pids2) {
+-     while (*Pids2 && numPids < MAXRECEIVEPIDS)
+-           pids[numPids++] = *Pids2++;
+-     }
+-  if (Pids3) {
+-     while (*Pids3 && numPids < MAXRECEIVEPIDS)
+-           pids[numPids++] = *Pids3++;
+-     }
+-  if (numPids >= MAXRECEIVEPIDS)
+-     dsyslog("too many PIDs in cReceiver");
++  AddPid(Pid);
++  AddPids(Pids1);
++  AddPids(Pids2);
++  AddPids(Pids3);
++}
++#endif
++
++cReceiver::cReceiver(const cChannel *Channel, int Priority)
++{
++  device = NULL;
++  priority = Priority;
++  numPids = 0;
++  SetPids(Channel);
+ }
+ 
+ cReceiver::~cReceiver()
+@@ -46,6 +44,49 @@
+      }
+ }
+ 
++bool cReceiver::AddPid(int Pid)
++{
++  if (Pid) {
++     if (numPids < MAXRECEIVEPIDS)
++        pids[numPids++] = Pid;
++     else {
++        dsyslog("too many PIDs in cReceiver (Pid = %d)", Pid);
++        return false;
++        }
++     }
++  return true;
++}
++
++bool cReceiver::AddPids(const int *Pids)
++{
++  if (Pids) {
++     while (*Pids) {
++           if (!AddPid(*Pids++))
++              return false;
++           }
++     }
++  return true;
++}
++
++bool cReceiver::AddPids(int Pid1, int Pid2, int Pid3, int Pid4, int Pid5, int Pid6, int Pid7, int Pid8, int Pid9)
++{
++  return AddPid(Pid1) && AddPid(Pid2) && AddPid(Pid3) && AddPid(Pid4) && AddPid(Pid5) && AddPid(Pid6) && AddPid(Pid7) && AddPid(Pid8) && AddPid(Pid9);
++}
++
++bool cReceiver::SetPids(const cChannel *Channel)
++{
++  numPids = 0;
++  if (Channel) {
++     channelID = Channel->GetChannelID();
++     return AddPid(Channel->Vpid()) &&
++            (Channel->Ppid() == Channel->Vpid() || AddPid(Channel->Ppid())) &&
++            AddPids(Channel->Apids()) &&
++            (!Setup.UseDolbyDigital || AddPids(Channel->Dpids())) &&
++            AddPids(Channel->Spids());
++     }
++return true;
++}
++
+ bool cReceiver::WantsPid(int Pid)
+ {
+   if (Pid) {
+diff -ruN vdr-1.7.11/receiver.h vdr-1.7.12/receiver.h
+--- vdr-1.7.11/receiver.h	2007-01-05 12:00:36.000000000 +0100
++++ vdr-1.7.12/receiver.h	2010-01-30 11:25:19.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: receiver.h 2.0 2007/01/05 11:00:36 kls Exp $
++ * $Id: receiver.h 2.1 2010/01/30 10:25:19 kls Exp $
+  */
+ 
+ #ifndef __RECEIVER_H
+@@ -14,6 +14,8 @@
+ 
+ #define MAXRECEIVEPIDS  64 // the maximum number of PIDs per receiver
+ 
++#define LEGACY_CRECEIVER // Code enclosed with this macro is deprecated and may be removed in a future version
++
+ class cReceiver {
+   friend class cDevice;
+ private:
+@@ -38,20 +40,35 @@
+                ///< will be delivered only ONCE, so the cReceiver must make sure that
+                ///< it will be able to buffer the data if necessary.
+ public:
++#ifdef LEGACY_CRECEIVER
+   cReceiver(tChannelID ChannelID, int Priority, int Pid, const int *Pids1 = NULL, const int *Pids2 = NULL, const int *Pids3 = NULL);
+-               ///< Creates a new receiver for the channel with the given ChannelID with
+-               ///< the given Priority. Pid is a single PID (typically the video PID), while
+-               ///< Pids1...Pids3 are pointers to zero terminated lists of PIDs.
+-               ///< If any of these PIDs are 0, they will be silently ignored.
+-               ///< The total number of non-zero PIDs must not exceed MAXRECEIVEPIDS.
++#endif
++  cReceiver(const cChannel *Channel = NULL, int Priority = -1);
++               ///< Creates a new receiver for the given Channel with the given Priority.
++               ///< If Channel is not NULL, its pids set by a call to SetPids().
++               ///< Otherwise pids can be added to the receiver by separate calls to the AddPid[s]
++               ///< functions.
++               ///< The total number of PIDs added to a receiver must not exceed MAXRECEIVEPIDS.
+                ///< Priority may be any value in the range -99..99. Negative values indicate
+                ///< that this cReceiver may be detached at any time (without blocking the
+                ///< cDevice it is attached to).
+-               ///< The ChannelID is necessary to allow the device that will be used for this
+-               ///< receiver to detect and store whether the channel can be decrypted in case
+-               ///< this is an encrypted channel. If the channel is not encrypted or this
+-               ///< detection is not wanted, an invalid tChannelID may be given.
+   virtual ~cReceiver();
++  bool AddPid(int Pid);
++               ///< Adds the given Pid to the list of PIDs of this receiver.
++  bool AddPids(const int *Pids);
++               ///< Adds the given izero terminated list of Pids to the list of PIDs of this
++               ///< receiver.
++  bool AddPids(int Pid1, int Pid2, int Pid3 = 0, int Pid4 = 0, int Pid5 = 0, int Pid6 = 0, int Pid7 = 0, int Pid8 = 0, int Pid9 = 0);
++               ///< Adds the given Pids to the list of PIDs of this receiver.
++  bool SetPids(const cChannel *Channel);
++               ///< Sets the PIDs of this receiver to those of the given Channel,
++               ///< replacing and previously stored PIDs. If Channel is NULL, all
++               ///< PIDs will be cleared. Parameters in the Setup may control whether
++               ///< certain types of PIDs (like Dolby Digital, for instance) are
++               ///< actually set. The Channel's ID is stored and can later be retrieved
++               ///< through ChannelID(). The ChannelID is necessary to allow the device
++               ///< that will be used for this receiver to detect and store whether the
++               ///< channel can be decrypted in case this is an encrypted channel.
+   tChannelID ChannelID(void) { return channelID; }
+   bool IsAttached(void) { return device != NULL; }
+                ///< Returns true if this receiver is (still) attached to a device.
+diff -ruN vdr-1.7.11/recorder.c vdr-1.7.12/recorder.c
+--- vdr-1.7.11/recorder.c	2009-12-06 12:34:41.000000000 +0100
++++ vdr-1.7.12/recorder.c	2010-01-29 17:37:22.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.c 2.7 2009/12/06 11:34:41 kls Exp $
++ * $Id: recorder.c 2.8 2010/01/29 16:37:22 kls Exp $
+  */
+ 
+ #include "recorder.h"
+@@ -21,8 +21,8 @@
+ 
+ // --- cRecorder -------------------------------------------------------------
+ 
+-cRecorder::cRecorder(const char *FileName, tChannelID ChannelID, int Priority, int VPid, const int *APids, const int *DPids, const int *SPids)
+-:cReceiver(ChannelID, Priority, VPid, APids, Setup.UseDolbyDigital ? DPids : NULL, SPids)
++cRecorder::cRecorder(const char *FileName, const cChannel *Channel, int Priority)
++:cReceiver(Channel, Priority)
+ ,cThread("recording")
+ ,recordingInfo(FileName)
+ {
+@@ -32,15 +32,15 @@
+ 
+   ringBuffer = new cRingBufferLinear(RECORDERBUFSIZE, MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE, true, "Recorder");
+   ringBuffer->SetTimeouts(0, 100);
+-  cChannel *Channel = Channels.GetByChannelID(ChannelID);
+-  int Pid = VPid;
+-  int Type = Channel ? Channel->Vtype() : 0;
+-  if (!Pid && APids) {
+-     Pid = APids[0];
++
++  int Pid = Channel->Vpid();
++  int Type = Channel->Vtype();
++  if (!Pid && Channel->Apid(0)) {
++     Pid = Channel->Apid(0);
+      Type = 0x04;
+      }
+-  if (!Pid && DPids) {
+-     Pid = DPids[0];
++  if (!Pid && Channel->Dpid(0)) {
++     Pid = Channel->Dpid(0);
+      Type = 0x06;
+      }
+   frameDetector = new cFrameDetector(Pid, Type);
+diff -ruN vdr-1.7.11/recorder.h vdr-1.7.12/recorder.h
+--- vdr-1.7.11/recorder.h	2009-01-06 11:44:58.000000000 +0100
++++ vdr-1.7.12/recorder.h	2010-01-29 17:32:32.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.h 2.1 2009/01/06 10:44:58 kls Exp $
++ * $Id: recorder.h 2.2 2010/01/29 16:32:32 kls Exp $
+  */
+ 
+ #ifndef __RECORDER_H
+@@ -34,9 +34,9 @@
+   virtual void Receive(uchar *Data, int Length);
+   virtual void Action(void);
+ public:
+-  cRecorder(const char *FileName, tChannelID ChannelID, int Priority, int VPid, const int *APids, const int *DPids, const int *SPids);
+-               // Creates a new recorder for the channel with the given ChannelID and
+-               // the given Priority that will record the given PIDs into the file FileName.
++  cRecorder(const char *FileName, const cChannel *Channel, int Priority);
++               // Creates a new recorder for the given Channel and
++               // the given Priority that will record into the file FileName.
+   virtual ~cRecorder();
+   };
+ 
+diff -ruN vdr-1.7.11/recording.c vdr-1.7.12/recording.c
+--- vdr-1.7.11/recording.c	2010-01-02 14:46:05.000000000 +0100
++++ vdr-1.7.12/recording.c	2010-01-16 12:18:30.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.21 2010/01/02 13:46:05 kls Exp $
++ * $Id: recording.c 2.22 2010/01/16 11:18:30 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -524,8 +524,8 @@
+ 
+ struct tCharExchange { char a; char b; };
+ tCharExchange CharExchange[] = {
+-  { '~',  '/'    },
+-  { '/',  '~'    },
++  { FOLDERDELIMCHAR,  '/' },
++  { '/',  FOLDERDELIMCHAR },
+   { ' ',  '_'    },
+   // backwards compatibility:
+   { '\'', '\''   },
+@@ -546,10 +546,10 @@
+               switch (*p) {
+                      // characters that can be mapped to other characters:
+                      case ' ': *p = '_'; break;
+-                     case '~': *p = '/'; break;
++                     case FOLDERDELIMCHAR: *p = '/'; break;
+                      // characters that have to be encoded:
+                      default:
+-                       if (strchr(InvalidChars, *p) || *p == '.' && (!*(p + 1) || *(p + 1) == '~')) { // Windows can't handle '.' at the end of file/directory names
++                       if (strchr(InvalidChars, *p) || *p == '.' && (!*(p + 1) || *(p + 1) == FOLDERDELIMCHAR)) { // Windows can't handle '.' at the end of file/directory names
+                           int l = p - s;
+                           s = (char *)realloc(s, strlen(s) + 10);
+                           p = s + l;
+@@ -565,7 +565,7 @@
+               switch (*p) {
+                 // mapped characters:
+                 case '_': *p = ' '; break;
+-                case '/': *p = '~'; break;
++                case '/': *p = FOLDERDELIMCHAR; break;
+                 // encoded characters:
+                 case '#': {
+                      if (strlen(p) > 2 && isxdigit(*(p + 1)) && isxdigit(*(p + 2))) {
+@@ -635,7 +635,7 @@
+      // avoid blanks at the end:
+      int l = strlen(name);
+      while (l-- > 2) {
+-           if (name[l] == ' ' && name[l - 1] != '~')
++           if (name[l] == ' ' && name[l - 1] != FOLDERDELIMCHAR)
+               name[l] = 0;
+            else
+               break;
+@@ -853,7 +853,7 @@
+      struct tm tm_r;
+      struct tm *t = localtime_r(&start, &tm_r);
+      char *s;
+-     if (Level > 0 && (s = strrchr(name, '~')) != NULL)
++     if (Level > 0 && (s = strrchr(name, FOLDERDELIMCHAR)) != NULL)
+         s++;
+      else
+         s = name;
+@@ -867,18 +867,18 @@
+                             New,
+                             Delimiter,
+                             s));
+-     // let's not display a trailing '~':
++     // let's not display a trailing FOLDERDELIMCHAR:
+      if (!NewIndicator)
+         stripspace(titleBuffer);
+      s = &titleBuffer[strlen(titleBuffer) - 1];
+-     if (*s == '~')
++     if (*s == FOLDERDELIMCHAR)
+         *s = 0;
+      }
+   else if (Level < HierarchyLevels()) {
+      const char *s = name;
+      const char *p = s;
+      while (*++s) {
+-           if (*s == '~') {
++           if (*s == FOLDERDELIMCHAR) {
+               if (Level--)
+                  p = s + 1;
+               else
+@@ -911,7 +911,7 @@
+   const char *s = name;
+   int level = 0;
+   while (*++s) {
+-        if (*s == '~')
++        if (*s == FOLDERDELIMCHAR)
+            level++;
+         }
+   return level;
+@@ -919,7 +919,7 @@
+ 
+ bool cRecording::IsEdited(void) const
+ {
+-  const char *s = strrchr(name, '~');
++  const char *s = strrchr(name, FOLDERDELIMCHAR);
+   s = !s ? name : s + 1;
+   return *s == '%';
+ }
+diff -ruN vdr-1.7.11/recording.h vdr-1.7.12/recording.h
+--- vdr-1.7.11/recording.h	2010-01-02 13:10:07.000000000 +0100
++++ vdr-1.7.12/recording.h	2010-01-16 12:16:20.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 2.12 2010/01/02 12:10:07 kls Exp $
++ * $Id: recording.h 2.13 2010/01/16 11:16:20 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -18,6 +18,8 @@
+ #include "timers.h"
+ #include "tools.h"
+ 
++#define FOLDERDELIMCHAR '~'
++
+ extern bool VfatFileSystem;
+ extern int InstanceId;
+ 
+diff -ruN vdr-1.7.11/remux.c vdr-1.7.12/remux.c
+--- vdr-1.7.11/remux.c	2009-12-29 16:56:33.000000000 +0100
++++ vdr-1.7.12/remux.c	2010-01-30 11:43:12.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 2.37 2009/12/29 15:56:33 kls Exp $
++ * $Id: remux.c 2.41 2010/01/30 10:43:12 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -144,7 +144,7 @@
+ 
+ // --- cPatPmtGenerator ------------------------------------------------------
+ 
+-cPatPmtGenerator::cPatPmtGenerator(cChannel *Channel)
++cPatPmtGenerator::cPatPmtGenerator(const cChannel *Channel)
+ {
+   numPmtPackets = 0;
+   patCounter = pmtCounter = 0;
+@@ -243,7 +243,7 @@
+ #define P_PMT_PID 0x0084 // pseudo PMT pid
+ #define MAXPID    0x2000 // the maximum possible number of pids
+ 
+-void cPatPmtGenerator::GeneratePmtPid(cChannel *Channel)
++void cPatPmtGenerator::GeneratePmtPid(const cChannel *Channel)
+ {
+   bool Used[MAXPID] = { false };
+ #define SETPID(p) { if ((p) >= 0 && (p) < MAXPID) Used[p] = true; }
+@@ -287,7 +287,7 @@
+   IncVersion(patVersion);
+ }
+ 
+-void cPatPmtGenerator::GeneratePmt(cChannel *Channel)
++void cPatPmtGenerator::GeneratePmt(const cChannel *Channel)
+ {
+   // generate the complete PMT section:
+   uchar buf[MAX_SECTION_SIZE];
+@@ -295,7 +295,7 @@
+   numPmtPackets = 0;
+   if (Channel) {
+      int Vpid = Channel->Vpid();
+-     int Ppid = 0x1FFF; // no PCR pid
++     int Ppid = Channel->Ppid();
+      uchar *p = buf;
+      int i = 0;
+      p[i++] = 0x02; // table id
+@@ -364,7 +364,7 @@
+   pmtVersion = PmtVersion & 0x1F;
+ }
+ 
+-void cPatPmtGenerator::SetChannel(cChannel *Channel)
++void cPatPmtGenerator::SetChannel(const cChannel *Channel)
+ {
+   if (Channel) {
+      GeneratePmtPid(Channel);
+@@ -402,6 +402,7 @@
+   patVersion = pmtVersion = -1;
+   pmtPid = -1;
+   vpid = vtype = 0;
++  ppid = 0;
+ }
+ 
+ void cPatPmtParser::ParsePat(const uchar *Data, int Length)
+@@ -486,6 +487,7 @@
+      int NumDpids = 0;
+      int NumSpids = 0;
+      vpid = vtype = 0;
++     ppid = 0;
+      apids[0] = 0;
+      dpids[0] = 0;
+      spids[0] = 0;
+@@ -500,6 +502,7 @@
+            case 0x1B: // MPEG4
+                       vpid = stream.getPid();
+                       vtype = stream.getStreamType();
++                      ppid = Pmt.getPCRPid();
+                       break;
+            case 0x03: // STREAMTYPE_11172_AUDIO
+            case 0x04: // STREAMTYPE_13818_AUDIO
+@@ -842,10 +845,12 @@
+                        // determine frame info:
+                        if (isVideo) {
+                           if (Delta % 3600 == 0)
+-                             frameDuration = 3600; // PAL, 25 fps
++                             frameDuration = 3600; // PAL, 25 fps, exact timing
++                          else if (abs(Delta % 3600) == 3599 || abs(Delta % 3600) == 1)
++                             frameDuration = 3600; // PAL, 25 fps, timing with jitter
+                           else if (Delta % 3003 == 0)
+                              frameDuration = 3003; // NTSC, 29.97 fps
+-                          else if (Delta == 1800) {
++                          else if (abs(Delta - 1800) <= 1) {
+                              frameDuration = 3600; // PAL, 25 fps
+                              framesPerPayloadUnit = -2;
+                              }
+diff -ruN vdr-1.7.11/remux.h vdr-1.7.12/remux.h
+--- vdr-1.7.11/remux.h	2009-12-29 16:53:54.000000000 +0100
++++ vdr-1.7.12/remux.h	2010-01-29 17:51:26.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 2.23 2009/12/29 15:53:54 kls Exp $
++ * $Id: remux.h 2.24 2010/01/29 16:51:26 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+@@ -172,16 +172,16 @@
+   int MakeSubtitlingDescriptor(uchar *Target, const char *Language, uchar SubtitlingType, uint16_t CompositionPageId, uint16_t AncillaryPageId);
+   int MakeLanguageDescriptor(uchar *Target, const char *Language);
+   int MakeCRC(uchar *Target, const uchar *Data, int Length);
+-  void GeneratePmtPid(cChannel *Channel);
++  void GeneratePmtPid(const cChannel *Channel);
+        ///< Generates a PMT pid that doesn't collide with any of the actual
+        ///< pids of the Channel.
+   void GeneratePat(void);
+        ///< Generates a PAT section for later use with GetPat().
+-  void GeneratePmt(cChannel *Channel);
++  void GeneratePmt(const cChannel *Channel);
+        ///< Generates a PMT section for the given Channel, for later use
+        ///< with GetPmt().
+ public:
+-  cPatPmtGenerator(cChannel *Channel = NULL);
++  cPatPmtGenerator(const cChannel *Channel = NULL);
+   void SetVersions(int PatVersion, int PmtVersion);
+        ///< Sets the version numbers for the generated PAT and PMT, in case
+        ///< this generator is used to, e.g.,  continue a previously interrupted
+@@ -191,7 +191,7 @@
+        ///< higher bits will automatically be cleared.
+        ///< SetVersions() needs to be called before SetChannel() in order to
+        ///< have an effect from the very start.
+-  void SetChannel(cChannel *Channel);
++  void SetChannel(const cChannel *Channel);
+        ///< Sets the Channel for which the PAT/PMT shall be generated.
+   uchar *GetPat(void);
+        ///< Returns a pointer to the PAT section, which consists of exactly
+@@ -213,6 +213,7 @@
+   int pmtVersion;
+   int pmtPid;
+   int vpid;
++  int ppid;
+   int vtype;
+   int apids[MAXAPIDS + 1]; // list is zero-terminated
+   int atypes[MAXAPIDS + 1]; // list is zero-terminated
+@@ -252,6 +253,9 @@
+   int Vpid(void) const { return vpid; }
+        ///< Returns the video pid as defined by the current PMT, or 0 if no video
+        ///< pid has been detected, yet.
++  int Ppid(void) const { return ppid; }
++       ///< Returns the PCR pid as defined by the current PMT, or 0 if no PCR
++       ///< pid has been detected, yet.
+   int Vtype(void) const { return vtype; }
+        ///< Returns the video stream type as defined by the current PMT, or 0 if no video
+        ///< stream type has been detected, yet.
+diff -ruN vdr-1.7.11/runvdr vdr-1.7.12/runvdr
+--- vdr-1.7.11/runvdr	2006-05-14 18:02:05.000000000 +0200
++++ vdr-1.7.12/runvdr	1970-01-01 01:00:00.000000000 +0100
+@@ -1,61 +0,0 @@
+-#!/bin/sh
+-
+-# runvdr: Loads the DVB driver and runs VDR
+-#
+-# If VDR exits abnormally, the driver will be reloaded
+-# and VDR restarted.
+-#
+-# In order to actually use this script you need to implement
+-# the functions DriverLoaded(), LoadDriver() and UnloadDriver()
+-# and maybe adjust the VDRPRG and VDRCMD to your particular
+-# requirements.
+-#
+-# Since this script loads the DVB driver, it must be started
+-# as user 'root'. Add the option "-u username" to run VDR
+-# under the given user name.
+-#
+-# Any command line parameters will be passed on to the
+-# actual 'vdr' program.
+-#
+-# See the main source file 'vdr.c' for copyright information and
+-# how to reach the author.
+-#
+-# $Id: runvdr 2.0 2006/05/14 16:02:05 kls Exp $
+-
+-VDRPRG="./vdr"
+-VDRCMD="$VDRPRG -w 60 $*"
+-
+-KILL="/usr/bin/killall -q -TERM"
+-
+-# Detect whether the DVB driver is already loaded
+-# and return 0 if it *is* loaded, 1 if not:
+-function DriverLoaded()
+-{
+-  return 1
+-}
+-
+-# Load all DVB driver modules needed for your hardware:
+-function LoadDriver()
+-{
+-}
+-
+-# Unload all DVB driver modules loaded in LoadDriver():
+-function UnloadDriver()
+-{
+-}
+-
+-# Load driver if it hasn't been loaded already:
+-if ! DriverLoaded; then
+-   LoadDriver
+-   fi
+-
+-while (true) do
+-      eval "$VDRCMD"
+-      if test $? -eq 0 -o $? -eq 2; then exit; fi
+-      echo "`date` reloading DVB driver"
+-      $KILL $VDRPRG
+-      sleep 10
+-      UnloadDriver
+-      LoadDriver
+-      echo "`date` restarting VDR"
+-      done
+diff -ruN vdr-1.7.11/runvdr.template vdr-1.7.12/runvdr.template
+--- vdr-1.7.11/runvdr.template	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.7.12/runvdr.template	2010-01-17 13:39:27.000000000 +0100
+@@ -0,0 +1,71 @@
++#!/bin/sh
++
++# runvdr: Loads the DVB driver and runs VDR
++#
++# If VDR exits abnormally, the driver will be reloaded
++# and VDR restarted.
++#
++# In order to actually use this script you need to implement
++# the functions DriverLoaded(), LoadDriver() and UnloadDriver()
++# and maybe adjust the VDRPRG and VDRCMD to your particular
++# requirements.
++#
++# Since this script loads the DVB driver, it must be started
++# as user 'root'. Add the option "-u username" to run VDR
++# under the given user name.
++#
++# Any command line parameters will be passed on to the
++# actual 'vdr' program.
++#
++# See the main source file 'vdr.c' for copyright information and
++# how to reach the author.
++#
++# $Id: runvdr 2.1 2010/01/17 12:39:27 kls Exp $
++
++VDRPRG="./vdr"
++
++VDROPTIONS="-w 60"
++# For other options see manpage vdr.1
++
++VDRPLUGINS=""
++# You will need to select your output device plugin if you want
++# to use VDR to watch video. For instance, for a "Full Featured"
++# DVB card that would be
++# VDRPLUGINS="-P dvbsddevice"
++
++VDRCMD="$VDRPRG $VDROPTIONS $VDRPLUGINS $*"
++
++KILL="/usr/bin/killall -q -TERM"
++
++# Detect whether the DVB driver is already loaded
++# and return 0 if it *is* loaded, 1 if not:
++function DriverLoaded()
++{
++  return 1
++}
++
++# Load all DVB driver modules needed for your hardware:
++function LoadDriver()
++{
++}
++
++# Unload all DVB driver modules loaded in LoadDriver():
++function UnloadDriver()
++{
++}
++
++# Load driver if it hasn't been loaded already:
++if ! DriverLoaded; then
++   LoadDriver
++   fi
++
++while (true) do
++      eval "$VDRCMD"
++      if test $? -eq 0 -o $? -eq 2; then exit; fi
++      echo "`date` reloading DVB driver"
++      $KILL $VDRPRG
++      sleep 10
++      UnloadDriver
++      LoadDriver
++      echo "`date` restarting VDR"
++      done
+diff -ruN vdr-1.7.11/svdrp.c vdr-1.7.12/svdrp.c
+--- vdr-1.7.11/svdrp.c	2010-01-03 16:41:26.000000000 +0100
++++ vdr-1.7.12/svdrp.c	2010-01-17 13:23:31.000000000 +0100
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 2.7 2010/01/03 15:41:26 kls Exp $
++ * $Id: svdrp.c 2.8 2010/01/17 12:23:31 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -79,7 +79,7 @@
+      struct sockaddr_in name;
+      name.sin_family = AF_INET;
+      name.sin_port = htons(port);
+-     name.sin_addr.s_addr = htonl(INADDR_ANY);
++     name.sin_addr.s_addr = SVDRPhosts.LocalhostOnly() ? htonl(INADDR_LOOPBACK) : htonl(INADDR_ANY);
+      if (bind(sock, (struct sockaddr *)&name, sizeof(name)) < 0) {
+         LOG_ERROR;
+         Close();
+diff -ruN vdr-1.7.11/timers.c vdr-1.7.12/timers.c
+--- vdr-1.7.11/timers.c	2009-08-09 14:43:20.000000000 +0200
++++ vdr-1.7.12/timers.c	2010-01-16 12:18:53.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 2.3 2009/08/09 12:43:20 kls Exp $
++ * $Id: timers.c 2.4 2010/01/16 11:18:53 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -301,7 +301,7 @@
+      //TODO add more plausibility checks
+      result = ParseDay(daybuffer, day, weekdays);
+      if (VfatFileSystem) {
+-        char *p = strrchr(filebuffer, '~');
++        char *p = strrchr(filebuffer, FOLDERDELIMCHAR);
+         if (p)
+            p++;
+         else
+diff -ruN vdr-1.7.11/transfer.c vdr-1.7.12/transfer.c
+--- vdr-1.7.11/transfer.c	2009-12-06 15:22:23.000000000 +0100
++++ vdr-1.7.12/transfer.c	2010-01-30 12:10:25.000000000 +0100
+@@ -4,17 +4,17 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: transfer.c 2.4 2009/12/06 14:22:23 kls Exp $
++ * $Id: transfer.c 2.5 2010/01/30 11:10:25 kls Exp $
+  */
+ 
+ #include "transfer.h"
+ 
+ // --- cTransfer -------------------------------------------------------------
+ 
+-cTransfer::cTransfer(tChannelID ChannelID, int VPid, const int *APids, const int *DPids, const int *SPids)
+-:cReceiver(ChannelID, -1, VPid, APids, Setup.UseDolbyDigital ? DPids : NULL, SPids)
++cTransfer::cTransfer(const cChannel *Channel)
++:cReceiver(Channel)
+ {
+-  patPmtGenerator.SetChannel(Channels.GetByChannelID(ChannelID));
++  patPmtGenerator.SetChannel(Channel);
+ }
+ 
+ cTransfer::~cTransfer()
+@@ -55,8 +55,8 @@
+ 
+ cDevice *cTransferControl::receiverDevice = NULL;
+ 
+-cTransferControl::cTransferControl(cDevice *ReceiverDevice, tChannelID ChannelID, int VPid, const int *APids, const int *DPids, const int *SPids)
+-:cControl(transfer = new cTransfer(ChannelID, VPid, APids, DPids, SPids), true)
++cTransferControl::cTransferControl(cDevice *ReceiverDevice, const cChannel *Channel)
++:cControl(transfer = new cTransfer(Channel), true)
+ {
+   ReceiverDevice->AttachReceiver(transfer);
+   receiverDevice = ReceiverDevice;
+diff -ruN vdr-1.7.11/transfer.h vdr-1.7.12/transfer.h
+--- vdr-1.7.11/transfer.h	2008-05-25 14:44:49.000000000 +0200
++++ vdr-1.7.12/transfer.h	2010-01-29 17:38:09.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: transfer.h 2.1 2008/05/25 12:44:49 kls Exp $
++ * $Id: transfer.h 2.2 2010/01/29 16:38:09 kls Exp $
+  */
+ 
+ #ifndef __TRANSFER_H
+@@ -21,7 +21,7 @@
+   virtual void Activate(bool On);
+   virtual void Receive(uchar *Data, int Length);
+ public:
+-  cTransfer(tChannelID ChannelID, int VPid, const int *APids, const int *DPids, const int *SPids);
++  cTransfer(const cChannel *Channel);
+   virtual ~cTransfer();
+   };
+ 
+@@ -30,7 +30,7 @@
+   cTransfer *transfer;
+   static cDevice *receiverDevice;
+ public:
+-  cTransferControl(cDevice *ReceiverDevice, tChannelID ChannelID, int VPid, const int *APids, const int *DPids, const int *SPids);
++  cTransferControl(cDevice *ReceiverDevice, const cChannel *Channel);
+   ~cTransferControl();
+   virtual void Hide(void) {}
+   static cDevice *ReceiverDevice(void) { return receiverDevice; }
+diff -ruN vdr-1.7.11/vdr.5 vdr-1.7.12/vdr.5
+--- vdr-1.7.11/vdr.5	2010-01-03 14:37:07.000000000 +0100
++++ vdr-1.7.12/vdr.5	2010-01-31 13:59:50.000000000 +0100
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 2.11 2010/01/03 13:37:07 kls Exp $
++.\" $Id: vdr.5 2.13 2010/01/31 12:59:50 kls Exp $
+ .\"
+ .TH vdr 5 "10 Feb 2008" "1.6" "Video Disk Recorder Files"
+ .SH NAME
+@@ -489,6 +489,46 @@
+ in "normal viewing" mode (i.e. when no other menu or player is active). The
+ \fIUser1\fR...\fIUser9\fR keys will always execute their macro function.
+ There may be up to 15 keys in such a key sequence.
++.SS FOLDERS
++The file \fIfolders.conf\fR contains the definitions of folders that can be used
++in the "Edit timer" menu. Each line contains one folder definition. Leading whitespace
++and everything after and including a '#' is ignored. A line ending with '{'
++defines a sub folder (i.e. a folder that contains other folders), and a line
++consisting of only '}' ends the definition of a sub folder.
++
++Example:
++
++Daily {
++.br
++  News
++.br
++  Soaps
++.br
++  }
++.br
++Archive {
++.br
++  Movies
++.br
++  Sports
++.br
++  Sci-Fi {
++.br
++    Star Trek
++.br
++    U.F.O.
++.br
++    }
++.br
++  }
++.br
++Comedy
++.br
++Science
++
++Note that these folder definitions are only used to set the file name under which
++a timer will store its recording. Changing these definitions in any way has no
++effect on existing timers or recordings.
+ .SS COMMANDS
+ The file \fIcommands.conf\fR contains the definitions of commands that can
+ be executed from the \fBvdr\fR main menu's "Commands" option.
+@@ -506,6 +546,24 @@
+ 
+ Everything following (and including) a '#' character is considered to be comment.
+ 
++You can have nested layers of command menus by surrounding a sequence of
++commands with '{'...'}' and giving it a title, as in
++
++My Commands {
++.br
++  First list {
++    Do something: some command
++    Do something else: another command
++    }
++  Second list {
++    Even more: yet another command
++    So much more: and yet another one
++    }
++.br
++  }
++
++Command lists can be nested to any depth.
++
+ By default the menu entries in the "Commands" menu will be numbered '1'...'9'
+ to make them selectable by pressing the corresponding number key. If you want
+ to use your own numbering scheme (maybe to skip certain numbers), just precede
+diff -ruN vdr-1.7.11/vdr.c vdr-1.7.12/vdr.c
+--- vdr-1.7.11/vdr.c	2010-01-02 12:52:40.000000000 +0100
++++ vdr-1.7.12/vdr.c	2010-01-31 12:14:40.000000000 +0100
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 2.14 2010/01/02 11:52:40 kls Exp $
++ * $Id: vdr.c 2.16 2010/01/31 11:14:40 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -582,11 +582,12 @@
+   Diseqcs.Load(AddDirectory(ConfigDirectory, "diseqc.conf"), true, Setup.DiSEqC);
+   Channels.Load(AddDirectory(ConfigDirectory, "channels.conf"), false, true);
+   Timers.Load(AddDirectory(ConfigDirectory, "timers.conf"));
+-  Commands.Load(AddDirectory(ConfigDirectory, "commands.conf"), true);
+-  RecordingCommands.Load(AddDirectory(ConfigDirectory, "reccmds.conf"), true);
++  Commands.Load(AddDirectory(ConfigDirectory, "commands.conf"));
++  RecordingCommands.Load(AddDirectory(ConfigDirectory, "reccmds.conf"));
+   SVDRPhosts.Load(AddDirectory(ConfigDirectory, "svdrphosts.conf"), true);
+   Keys.Load(AddDirectory(ConfigDirectory, "remote.conf"));
+   KeyMacros.Load(AddDirectory(ConfigDirectory, "keymacros.conf"), true);
++  Folders.Load(AddDirectory(ConfigDirectory, "folders.conf"));
+ 
+   if (!*cFont::GetFontFileName(Setup.FontOsd)) {
+      const char *msg = "no fonts available - OSD will not show any text!";

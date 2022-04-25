@@ -1,0 +1,2316 @@
+diff -ruN vdr-2.3.3/CONTRIBUTORS vdr-2.3.4/CONTRIBUTORS
+--- vdr-2.3.3/CONTRIBUTORS	2017-03-28 10:31:39.000000000 +0200
++++ vdr-2.3.4/CONTRIBUTORS	2017-04-23 14:00:06.000000000 +0200
+@@ -2618,6 +2618,9 @@
+  for adding HandledExternally() to the EPG handler interface
+  for adding IsUpdate() to the EPG handler interface
+  for adding Begin/EndSegmentTransfer() to the EPG handler interface
++ for making cEpgHandlers::BeginSegmentTransfer() boolean
++ for suggesting to change tEventID back to u_int32_t
++ for adding the 'aux' member to cEvent
+ 
+ Peter Pinnau <vdr@unterbrecher.de>
+  for reporting that 'uint32_t' requires including stdint.h in font.h on some systems
+@@ -3385,6 +3388,7 @@
+  for suggesting that the -V and -h options should list the plugins in alphabetical order
+  for suggesting to implement the setup option "Recording/Record key handling"
+  for suggesting to cache the channel/CAM relations in the file 'cam.data'
++ for suggesting to optionally list the channels with channel ids in the SVDRP command LSTC
+ 
+ Stefan Schallenberg <infos@nafets.de>
+  for adding the functions IndexOf(), InsertUnique(), AppendUnique() and RemoveElement()
+@@ -3466,6 +3470,8 @@
+ Sergey Chernyavskiy <glenvt18@gmail.com>
+  for reporting truncated date/time strings in the skins on multi-byte UTF-8
+  for adding a short sleep to cTSBuffer::Action() to avoid high CPU usage
++ for making the SVDRP commands that deal with recordings use a unique id for each
++ recording
+ 
+ Frank Richter <kulpstur@t-online.de>
+  for adding 'S3W ABS-3A' to sources.conf
+diff -ruN vdr-2.3.3/HISTORY vdr-2.3.4/HISTORY
+--- vdr-2.3.3/HISTORY	2017-03-28 10:31:51.000000000 +0200
++++ vdr-2.3.4/HISTORY	2017-04-27 10:43:41.000000000 +0200
+@@ -8924,3 +8924,69 @@
+   reading thread, without additional locking.
+ - Now stopping any ongoing recordings before stopping the plugins, to avoid
+   a crash when stopping VDR while recording.
++
++2017-04-27: Version 2.3.4
++
++- The functionality of HandleRemoteModifications(), which synchronizes changes to
++  timers between peer VDR machines, has been moved to timers.[ch] and renamed to
++  HandleRemoteTimerModifications(). It now also handles deleting remote timers.
++- The function cEpgHandlers::BeginSegmentTransfer() is now boolean (thanks to
++  J�rg Wendel). See the description in epg.h for the meaning of the return value.
++- Changed tEventID back to u_int32_t (suggested by J�rg Wendel). The change to
++  u_int16_t in version 2.3.1 was ill-conceived, because the description of the
++  "event id" in vdr.5 explicitly mentioned this parameter to be 32 bit in size!
++  The members of cEvent have been slightly rearranged to minimize the memory
++  requirements on both 32 and 64 bit systems.
++- The file 'cam.data' is no longer written if it is read-only.
++- Detecting whether a particular CAM actually decrypts a given channel is now
++  done separately for each receiver.
++- The cEvent class now has a new member 'aux', in which external applications can
++  store auxiliary information with an event (thanks to J�rg Wendel). This string
++  has no meaning whatsoever to VDR itself, and it will not be written into the
++  info file of a recording that is made for such an event.
++- Added some guidelines and recommendations to the 'Logging' section of PLUGINS.html.
++  The most important being: implement a command line option to control the level
++  of logging (in particular allow turning off logging completely!) and never print
++  anything to stdout or stderr (unless one of the listed exceptions applies).
++- Added a note to the "Pausing live video" section of the MANUAL, stating that
++  the timer for paused live video will always record on the local VDR, even if
++  an "SVDRP default host" has been set for normal timer recordings.
++- cOsdMenu::Display() now checks whether the OSD size has changed and if so calls
++  SetDisplayMenu().
++- The SVDRP commands that deal with recordings (DELR, EDIT, LSTR, MOVR, and PLAY)
++  now use a unique id for each recording, which remains valid as long as this
++  instance of VDR is running. This means that recordings are no longer continuously
++  numbered from 1 to N in LSTR. There may be gaps in the sequence, in case recordings
++  have been deleted, and they are not necessarily listed in numeric order.
++  Thanks to Sergey Chernyavskiy.
++- Changed 'number' to 'id' in the help texts of SVDRP commands that deal with
++  timers.
++- Fixed a deadlock in the SVDRP command PLAY in case there is currently a
++  recording being replayed.
++- Signal strength and quality (CNR) are now determined via DVB API 5 (if available).
++  Fallback is the old DVB API 3 method.
++- The function cCamSlot::Decrypt() can now also be called with Data == NULL.
++  This is necessary to allow CAMs that copy the incoming data into a separate buffer
++  to return previously received and decrypted TS packets. See ci.h for details.
++  Plugins that implement a derived cCamSlot need to properly handle this case, and
++  plugins that implement a derived cDevice need to call Decrypt() in their
++  GetTSPacket() function even if the incoming buffer is currently empty (see
++  cDvbDevice::GetTSPacket()).
++- cTSBuffer::Skip() no longer immediately deletes the given number of bytes from the
++  TS buffer, but rather stores the number for later deletion in the next call to
++  Get(). This is necessary because in cDvbDevice::GetTSPacket() tsBuffer->Skip()
++  is called, but the actual TS packet returned (pointed to by Data) may well be
++  (and typically is, unless the CAM copies the data) in the area of the buffer that
++  would be deleted by Skip().
++- The new function cDevice::SignalStats() (if implemented by an actual device) returns
++  statistics about the currently received signal.
++- Updated the Finnish OSD texts (thanks to Rolf Ahrenberg).
++- Fixed displaying remote timers in the main menu of skin LCARS.
++- Fixed editing a remote timer immediately after it has been created.
++- Fixed handling the uncorrected block counter for DVB API 3 devices when calculating
++  signal quality.
++- The SVDRP command LSTC can now list the channels with channel ids if the option
++  ':ids' is given (suggested by Dietmar Spingler).
++- If 0 is given as the channel number in the SVDRP command LSTC, the data of the
++  current channel is listed.
++- Fixed a possible crash when pulling the CAM while decrypting a channel with MTD.
+diff -ruN vdr-2.3.3/MANUAL vdr-2.3.4/MANUAL
+--- vdr-2.3.3/MANUAL	2015-09-11 10:29:41.000000000 +0200
++++ vdr-2.3.4/MANUAL	2017-04-03 10:39:15.000000000 +0200
+@@ -264,7 +264,7 @@
+ 
+ * Pausing live video
+ 
+-  If you want to pause the live programme you are just watching, simple press
++  If you want to pause the live programme you are just watching, simply press
+   "Menu/Yellow" or "Pause" on your remote control. VDR will start an instant
+   recording of the current channel (just as if you had pressed "Menu/Red" or
+   "Record") and immediately begin replaying that recording. Replay will be
+@@ -276,6 +276,9 @@
+   in the "Setup/Recording" menu. Recording time will be the same as for
+   any other instant recording, so by default it will record 3 hours (which
+   should be enough for any normal broadcast).
++  Note that the timer that is created for recording the paused live video will
++  always record on the local VDR, even if an "SVDRP default host" has been
++  set for normal timer recordings.
+ 
+ * Replaying a Recording
+ 
+diff -ruN vdr-2.3.3/PLUGINS.html vdr-2.3.4/PLUGINS.html
+--- vdr-2.3.3/PLUGINS.html	2015-05-21 14:16:37.000000000 +0200
++++ vdr-2.3.4/PLUGINS.html	2017-04-02 14:57:28.000000000 +0200
+@@ -583,6 +583,30 @@
+ 
+ Note that the log messages will be given as provided, the plugin's name will not
+ automatically be added, so make sure your log messages are obvious enough.
++<p>
++<modified>
++Only use the above logging functions for occasional log messages. Do not use
++them unconditionally for frequent messages that produce long sequences of lines
++in the log file every few seconds. That might make it hard to work on other plugins
++or the core VDR code, watching their log entries while they are permanently
++interspersed with unrelated stuff.<br>
++<br>
++The recommended behavior for a plugin that does logging is to implement a command
++line option that controls the level of log messages, preferably '-l N, --log=N',
++where 'N' is in the range 0...3, with 0 meaning no logging whatsoever, 1 log only
++errors, 2 log errors and informational messages, and 3 also log debug information.<br>
++<br>
++If a plugin can output extensive data for special debugging purposes (either to
++the log file or stdout/stderr), this should be enabled by setting proper switches
++in one of its source files (see for example how the communication between VDR and
++CAMs can be monitored in VDR/ci.c).<br>
++<br>
++Under no circumstances must a plugin print anything to stdout or stderr during
++normal operation! The only exceptions being special debug information as described
++above, fatal error messages that will cause VDR to abort, or if it is the sole
++purpose of the plugin to display something on stdout, like for instance the
++<i>skincurses</i> plugin, which displays the OSD at the console.
++</modified>
+ 
+ <hr><h2><a name="Main menu entry">Main menu entry</a></h2>
+ 
+diff -ruN vdr-2.3.3/ci.c vdr-2.3.4/ci.c
+--- vdr-2.3.3/ci.c	2017-03-25 15:09:23.000000000 +0100
++++ vdr-2.3.4/ci.c	2017-04-26 11:18:26.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 4.9 2017/03/25 14:09:23 kls Exp $
++ * $Id: ci.c 4.13 2017/04/26 09:18:26 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -1968,9 +1968,13 @@
+           case msNone:
+                dbgprotocol("Slot %d: no module present\n", slotNumber);
+                isyslog("CAM %d: no module present", slotNumber);
+-               MtdActivate(false);
++               StopDecrypting();
+                DeleteAllConnections();
+                CancelActivation();
++               if (mtdHandler)
++                  mtdHandler->UnAssignAll();
++               else
++                  Assign(NULL);
+                break;
+           case msReset:
+                dbgprotocol("Slot %d: module reset\n", slotNumber);
+@@ -2415,7 +2419,8 @@
+ 
+ uchar *cCamSlot::Decrypt(uchar *Data, int &Count)
+ {
+-  Count = TS_SIZE;
++  if (Data)
++     Count = TS_SIZE;
+   return Data;
+ }
+ 
+@@ -2663,6 +2668,13 @@
+ void cChannelCamRelations::Save(void)
+ {
+   cMutexLock MutexLock(&mutex);
++  struct stat st;
++  if (stat(fileName, &st) == 0) {
++     if ((st.st_mode & S_IWUSR) == 0) {
++        dsyslog("not saving %s (file is read-only)", *fileName);
++        return;
++        }
++     }
+   dsyslog("saving %s", *fileName);
+   cSafeFile f(fileName);
+   if (f.Open()) {
+diff -ruN vdr-2.3.3/ci.h vdr-2.3.4/ci.h
+--- vdr-2.3.3/ci.h	2017-03-23 15:23:33.000000000 +0100
++++ vdr-2.3.4/ci.h	2017-04-10 11:17:56.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.h 4.5 2017/03/23 14:23:33 kls Exp $
++ * $Id: ci.h 4.6 2017/04/10 09:17:56 kls Exp $
+  */
+ 
+ #ifndef __CI_H
+@@ -345,7 +345,12 @@
+        ///< in hardware, it can implement this function to be given access
+        ///< to the data in the device's TS buffer. Data points to a buffer
+        ///< of Count bytes of TS data. The first byte in Data is guaranteed
+-       ///< to be a TS_SYNC_BYTE.
++       ///< to be a TS_SYNC_BYTE, and Count is at least TS_SIZE.
++       ///< Note that Decrypt() may be called with Data == NULL! This is necessary
++       ///< to allow CAMs that copy the incoming data into a separate buffer to
++       ///< return previously received and decrypted TS packets. If Data is NULL,
++       ///< Count is 0 and must not be modified, and the return value shall point to the
++       ///< next available decrypted TS packet (if any).
+        ///< There are three possible ways a CAM can handle decryption:
+        ///< 1. If the full TS data is physically routed through the CAM in hardware,
+        ///< there is no need to reimplement this function.
+diff -ruN vdr-2.3.3/config.h vdr-2.3.4/config.h
+--- vdr-2.3.3/config.h	2016-12-27 12:45:25.000000000 +0100
++++ vdr-2.3.4/config.h	2017-03-30 15:42:15.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 4.7 2016/12/27 11:45:25 kls Exp $
++ * $Id: config.h 4.8 2017/03/30 13:42:15 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.3.3"
+-#define VDRVERSNUM   20303  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.3.4"
++#define VDRVERSNUM   20304  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "2.3.3"
+-#define APIVERSNUM   20303  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "2.3.4"
++#define APIVERSNUM   20304  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-2.3.3/device.c vdr-2.3.4/device.c
+--- vdr-2.3.3/device.c	2017-03-27 16:02:54.000000000 +0200
++++ vdr-2.3.4/device.c	2017-04-17 16:47:42.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 4.11 2017/03/27 14:02:54 kls Exp $
++ * $Id: device.c 4.15 2017/04/17 14:47:42 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -89,8 +89,6 @@
+   nitFilter = NULL;
+ 
+   camSlot = NULL;
+-  startScrambleDetection = 0;
+-  scramblingTimeout = 0;
+ 
+   occupiedTimeout = 0;
+ 
+@@ -253,7 +251,7 @@
+          if (CamSlot->ModuleStatus() == msReady) {
+             if (CamSlot->ProvidesCa(Channel->Caids())) {
+                if (!ChannelCamRelations.CamChecked(Channel->GetChannelID(), CamSlot->MasterSlotNumber())) {
+-                  SlotPriority[CamSlot->Index()] = CamSlot->Priority();
++                  SlotPriority[CamSlot->Index()] = CamSlot->MtdActive() ? IDLEPRIORITY : CamSlot->Priority(); // we don't need to take the priority into account here for MTD CAM slots, because they can be used with several devices in parallel
+                   NumUsableSlots++;
+                   }
+                }
+@@ -751,6 +749,11 @@
+   return NULL;
+ }
+ 
++bool cDevice::SignalStats(int &Valid, double *Strength, double *Cnr, double *BerPre, double *BerPost, double *Per) const
++{
++  return false;
++}
++
+ int cDevice::SignalStrength(void) const
+ {
+   return -1;
+@@ -1652,50 +1655,47 @@
+ 
+ void cDevice::Action(void)
+ {
+-  time_t LastScrambledPacket = 0;
+   if (Running() && OpenDvr()) {
+      while (Running()) {
+            // Read data from the DVR device:
+            uchar *b = NULL;
+            if (GetTSPacket(b)) {
+               if (b) {
+-                 int Pid = TsPid(b);
+-                 // Check whether the TS packets are scrambled:
+-                 bool DetachReceivers = false;
+-                 bool DescramblingOk = false;
+-                 int CamSlotNumber = 0;
+-                 cCamSlot *cs = NULL;
+-                 if (startScrambleDetection) {
+-                    cs = CamSlot();
+-                    CamSlotNumber = cs ? cs->MasterSlotNumber() : 0;
+-                    if (CamSlotNumber) {
+-                       if (LastScrambledPacket < startScrambleDetection)
+-                          LastScrambledPacket = startScrambleDetection;
+-                       time_t Now = time(NULL);
+-                       if (TsIsScrambled(b)) {
+-                          LastScrambledPacket = Now;
+-                          if (Now - startScrambleDetection > scramblingTimeout)
+-                             DetachReceivers = true;
+-                          }
+-                       if (Now - LastScrambledPacket > TS_SCRAMBLING_TIME_OK)
+-                          DescramblingOk = true;
+-                       }
+-                    }
+                  // Distribute the packet to all attached receivers:
+                  Lock();
++                 int Pid = TsPid(b);
++                 bool IsScrambled = TsIsScrambled(b);
+                  for (int i = 0; i < MAXRECEIVERS; i++) {
+-                     if (receiver[i] && receiver[i]->WantsPid(Pid)) {
+-                        if (DetachReceivers && cs && (!cs->IsActivating() || receiver[i]->Priority() >= LIVEPRIORITY)) {
+-                           dsyslog("CAM %d: won't decrypt channel %s, detaching receiver", CamSlotNumber, *receiver[i]->ChannelID().ToString());
+-                           ChannelCamRelations.SetChecked(receiver[i]->ChannelID(), CamSlotNumber);
+-                           Detach(receiver[i]);
+-                           }
+-                        else
+-                           receiver[i]->Receive(b, TS_SIZE);
+-                        if (DescramblingOk && receiver[i]->ChannelID().Valid()) {
+-                           dsyslog("CAM %d: decrypts channel %s", CamSlotNumber, *receiver[i]->ChannelID().ToString());
+-                           ChannelCamRelations.SetDecrypt(receiver[i]->ChannelID(), CamSlotNumber);
+-                           startScrambleDetection = 0;
++                     cReceiver *Receiver = receiver[i];
++                     if (Receiver && Receiver->WantsPid(Pid)) {
++                        Receiver->Receive(b, TS_SIZE);
++                        // Check whether the TS packet is scrambled:
++                        if (Receiver->startScrambleDetection) {
++                           if (cCamSlot *cs = CamSlot()) {
++                              int CamSlotNumber = cs->MasterSlotNumber();
++                              if (Receiver->lastScrambledPacket < Receiver->startScrambleDetection)
++                                 Receiver->lastScrambledPacket = Receiver->startScrambleDetection;
++                              time_t Now = time(NULL);
++                              if (IsScrambled) {
++                                 Receiver->lastScrambledPacket = Now;
++                                 if (Now - Receiver->startScrambleDetection > Receiver->scramblingTimeout) {
++                                    if (!cs->IsActivating() || Receiver->Priority() >= LIVEPRIORITY) {
++                                       if (Receiver->ChannelID().Valid()) {
++                                          dsyslog("CAM %d: won't decrypt channel %s, detaching receiver", CamSlotNumber, *Receiver->ChannelID().ToString());
++                                          ChannelCamRelations.SetChecked(Receiver->ChannelID(), CamSlotNumber);
++                                          }
++                                       Detach(Receiver);
++                                       }
++                                    }
++                                 }
++                              else if (Now - Receiver->lastScrambledPacket > TS_SCRAMBLING_TIME_OK) {
++                                 if (Receiver->ChannelID().Valid()) {
++                                    dsyslog("CAM %d: decrypts channel %s", CamSlotNumber, *Receiver->ChannelID().ToString());
++                                    ChannelCamRelations.SetDecrypt(Receiver->ChannelID(), CamSlotNumber);
++                                    }
++                                 Receiver->startScrambleDetection = 0;
++                                 }
++                              }
+                            }
+                         }
+                      }
+@@ -1756,12 +1756,13 @@
+          if (camSlot && Receiver->priority > MINPRIORITY) { // priority check to avoid an infinite loop with the CAM slot's caPidReceiver
+             camSlot->StartDecrypting();
+             if (CamSlots.NumReadyMasterSlots() > 1) { // don't try different CAMs if there is only one
+-               startScrambleDetection = time(NULL);
+-               scramblingTimeout = TS_SCRAMBLING_TIMEOUT;
++               Receiver->startScrambleDetection = time(NULL);
++               Receiver->scramblingTimeout = TS_SCRAMBLING_TIMEOUT;
+                bool KnownToDecrypt = ChannelCamRelations.CamDecrypt(Receiver->ChannelID(), camSlot->MasterSlotNumber());
+                if (KnownToDecrypt)
+-                  scramblingTimeout *= 10; // give it time to receive ECM/EMM
+-               dsyslog("CAM %d: %sknown to decrypt channel %s (scramblingTimeout = %ds)", camSlot->SlotNumber(), KnownToDecrypt ? "" : "not ", *Receiver->ChannelID().ToString(), scramblingTimeout);
++                  Receiver->scramblingTimeout *= 10; // give it time to receive ECM/EMM
++               if (Receiver->ChannelID().Valid())
++                  dsyslog("CAM %d: %sknown to decrypt channel %s (scramblingTimeout = %ds)", camSlot->MasterSlotNumber(), KnownToDecrypt ? "" : "not ", *Receiver->ChannelID().ToString(), Receiver->scramblingTimeout);
+                }
+             }
+          Start();
+@@ -1828,7 +1829,7 @@
+   SetDescription("device %d TS buffer", CardIndex);
+   f = File;
+   cardIndex = CardIndex;
+-  delivered = false;
++  delivered = 0;
+   ringBuffer = new cRingBufferLinear(Size, TS_SIZE, true, "TS");
+   ringBuffer->SetTimeouts(100, 100);
+   ringBuffer->SetIoThrottle();
+@@ -1864,13 +1865,15 @@
+      }
+ }
+ 
+-uchar *cTSBuffer::Get(int *Available)
++uchar *cTSBuffer::Get(int *Available, bool CheckAvailable)
+ {
+   int Count = 0;
+   if (delivered) {
+-     ringBuffer->Del(TS_SIZE);
+-     delivered = false;
++     ringBuffer->Del(delivered);
++     delivered = 0;
+      }
++  if (CheckAvailable && ringBuffer->Available() < TS_SIZE)
++     return NULL;
+   uchar *p = ringBuffer->Get(Count);
+   if (p && Count >= TS_SIZE) {
+      if (*p != TS_SYNC_BYTE) {
+@@ -1884,7 +1887,7 @@
+         esyslog("ERROR: skipped %d bytes to sync on TS packet on device %d", Count, cardIndex);
+         return NULL;
+         }
+-     delivered = true;
++     delivered = TS_SIZE;
+      if (Available)
+         *Available = Count;
+      return p;
+@@ -1894,6 +1897,5 @@
+ 
+ void cTSBuffer::Skip(int Count)
+ {
+-  ringBuffer->Del(Count);
+-  delivered = false;
++  delivered = Count;
+ }
+diff -ruN vdr-2.3.3/device.h vdr-2.3.4/device.h
+--- vdr-2.3.3/device.h	2017-02-21 14:23:24.000000000 +0100
++++ vdr-2.3.4/device.h	2017-04-17 16:46:57.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 4.4 2017/02/21 13:23:24 kls Exp $
++ * $Id: device.h 4.8 2017/04/17 14:46:57 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -106,6 +106,13 @@
+ 
+ /// The cDevice class is the base from which actual devices can be derived.
+ 
++#define DTV_STAT_VALID_NONE      0x0000
++#define DTV_STAT_VALID_STRENGTH  0x0001
++#define DTV_STAT_VALID_CNR       0x0002
++#define DTV_STAT_VALID_BERPRE    0x0004
++#define DTV_STAT_VALID_BERPOST   0x0008
++#define DTV_STAT_VALID_PER       0x0010
++
+ class cDevice : public cThread {
+   friend class cLiveSubtitle;
+   friend class cDeviceHook;
+@@ -284,6 +291,22 @@
+          ///< move the satellite dish to the requested position (only applies to DVB-S
+          ///< devices). If no positioner is involved, or this is not a DVB-S device,
+          ///< NULL will be returned.
++  virtual bool SignalStats(int &Valid, double *Strength = NULL, double *Cnr = NULL, double *BerPre = NULL, double *BerPost = NULL, double *Per = NULL) const;
++         ///< Returns statistics about the currently received signal (if available).
++         ///< Strength is the signal strength in dBm (typical range -100dBm...0dBm).
++         ///< Cnr is the carrier to noise ratio in dB (typical range 0dB...40dB).
++         ///< BerPre is the bit error rate before the forward error correction (FEC).
++         ///< BerPost is the bit error rate after the forward error correction (FEC).
++         ///< Per is the block error rate after the forward error correction (FEC).
++         ///< Typical range for BerPre, BerPost and Per is 0...1.
++         ///< If any of the given pointers is not NULL, the value of the respective signal
++         ///< statistic is returned in it. Upon return, Valid holds a combination of
++         ///< DTV_STAT_VALID_* flags, indicating which of the returned values are actually
++         ///< valid. If the flag for a particular parameter in Valid is 0, the returned
++         ///< value is undefined. It depends on the device which of these parameters
++         ///< (if any) are available.
++         ///< Returns true if any of the requested parameters is valid.
++         ///< If false is returned, the value in Valid is undefined.
+   virtual int SignalStrength(void) const;
+          ///< Returns the "strength" of the currently received signal.
+          ///< This is a value in the range 0 (no signal at all) through
+@@ -426,8 +449,6 @@
+ // Common Interface facilities:
+ 
+ private:
+-  time_t startScrambleDetection;
+-  int scramblingTimeout;
+   cCamSlot *camSlot;
+ public:
+   virtual bool HasCi(void);
+@@ -842,19 +863,23 @@
+ private:
+   int f;
+   int cardIndex;
+-  bool delivered;
++  int delivered;
+   cRingBufferLinear *ringBuffer;
+   virtual void Action(void);
+ public:
+   cTSBuffer(int File, int Size, int CardIndex);
+   virtual ~cTSBuffer();
+-  uchar *Get(int *Available = NULL);
++  uchar *Get(int *Available = NULL, bool CheckAvailable = false);
+      ///< Returns a pointer to the first TS packet in the buffer. If Available is given,
+      ///< it will return the total number of consecutive bytes pointed to in the buffer.
+      ///< It is guaranteed that the returned pointer points to a TS_SYNC_BYTE and that
+      ///< there are at least TS_SIZE bytes in the buffer. Otherwise NULL will be
+      ///< returned and the value in Available (if given) is undefined.
+      ///< Each call to Get() returns a pointer to the next TS packet in the buffer.
++     ///< If CheckAvailable is true, the buffer will be checked whether it contains
++     ///< at least TS_SIZE bytes before trying to get any data from it. Otherwise, if
++     ///< the buffer is empty, this function will wait a little while for the buffer
++     ///< to be filled again.
+   void Skip(int Count);
+      ///< If after a call to Get() more or less than TS_SIZE of the available data
+      ///< has been processed, a call to Skip() with the number of processed bytes
+diff -ruN vdr-2.3.3/dvbdevice.c vdr-2.3.4/dvbdevice.c
+--- vdr-2.3.3/dvbdevice.c	2017-01-09 16:11:39.000000000 +0100
++++ vdr-2.3.4/dvbdevice.c	2017-04-20 16:42:35.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 4.4 2017/01/09 15:11:39 kls Exp $
++ * $Id: dvbdevice.c 4.9 2017/04/20 14:42:35 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -309,6 +309,9 @@
+   int tuneTimeout;
+   int lockTimeout;
+   time_t lastTimeoutReport;
++  mutable uint32_t lastUncValue;
++  mutable uint32_t lastUncDelta;
++  mutable time_t lastUncChange;
+   cChannel channel;
+   const cDiseqc *lastDiseqc;
+   int diseqcOffset;
+@@ -346,6 +349,7 @@
+   void SetChannel(const cChannel *Channel);
+   bool Locked(int TimeoutMs = 0);
+   const cPositioner *Positioner(void) const { return positioner; }
++  bool GetSignalStats(int &Valid, double *Strength = NULL, double *Cnr = NULL, double *BerPre = NULL, double *BerPost = NULL, double *Per = NULL) const;
+   int GetSignalStrength(void) const;
+   int GetSignalQuality(void) const;
+   };
+@@ -363,6 +367,9 @@
+   tuneTimeout = 0;
+   lockTimeout = 0;
+   lastTimeoutReport = 0;
++  lastUncValue = 0;
++  lastUncDelta = 0;
++  lastUncChange = 0;
+   lastDiseqc = NULL;
+   diseqcOffset = 0;
+   lastSource = 0;
+@@ -554,12 +561,162 @@
+   return false;
+ }
+ 
++//#define DEBUG_SIGNALSTATS
+ //#define DEBUG_SIGNALSTRENGTH
+ //#define DEBUG_SIGNALQUALITY
+ 
++#define MAXFRONTENDCMDS 16
++#define SETCMD(c, d) { Props[CmdSeq.num].cmd = (c);\
++                       Props[CmdSeq.num].u.data = (d);\
++                       if (CmdSeq.num++ > MAXFRONTENDCMDS) {\
++                          esyslog("ERROR: too many tuning commands on frontend %d/%d", adapter, frontend);\
++                          return false;\
++                          }\
++                     }
++
++bool cDvbTuner::GetSignalStats(int &Valid, double *Strength, double *Cnr, double *BerPre, double *BerPost, double *Per) const
++{
++  ClearEventQueue();
++  dtv_property Props[MAXFRONTENDCMDS];
++  dtv_properties CmdSeq;
++  memset(&Props, 0, sizeof(Props));
++  memset(&CmdSeq, 0, sizeof(CmdSeq));
++  CmdSeq.props = Props;
++  if (Strength)   SETCMD(DTV_STAT_SIGNAL_STRENGTH, 0);
++  if (Cnr)        SETCMD(DTV_STAT_CNR, 0);
++  if (BerPre)   { SETCMD(DTV_STAT_PRE_ERROR_BIT_COUNT, 0);
++                  SETCMD(DTV_STAT_PRE_TOTAL_BIT_COUNT, 0); }
++  if (BerPost)  { SETCMD(DTV_STAT_POST_ERROR_BIT_COUNT, 0);
++                  SETCMD(DTV_STAT_POST_TOTAL_BIT_COUNT, 0); }
++  if (Per)      { SETCMD(DTV_STAT_ERROR_BLOCK_COUNT, 0);
++                  SETCMD(DTV_STAT_TOTAL_BLOCK_COUNT, 0); }
++  if (ioctl(fd_frontend, FE_GET_PROPERTY, &CmdSeq) != 0) {
++     esyslog("ERROR: frontend %d/%d: %m", adapter, frontend);
++     return false;
++     }
++  Valid = DTV_STAT_VALID_NONE;
++  int i = 0;
++  if (Strength) {
++     if (Props[i].u.st.len > 0) {
++        switch (Props[i].u.st.stat[0].scale) {
++          case FE_SCALE_DECIBEL:  *Strength = double(Props[i].u.st.stat[0].svalue) / 1000;
++                                  Valid |= DTV_STAT_VALID_STRENGTH;
++                                  break;
++          default: ;
++          }
++        }
++     i++;
++     }
++  if (Cnr) {
++     if (Props[i].u.st.len > 0) {
++        switch (Props[i].u.st.stat[0].scale) {
++          case FE_SCALE_DECIBEL:  *Cnr = double(Props[i].u.st.stat[0].svalue) / 1000;
++                                  Valid |= DTV_STAT_VALID_CNR;
++                                  break;
++          default: ;
++          }
++        }
++     i++;
++     }
++  if (BerPre) {
++     if (Props[i].u.st.len > 0 && Props[i + 1].u.st.len > 0) {
++        if (Props[i].u.st.stat[0].scale == FE_SCALE_COUNTER && Props[i + 1].u.st.stat[0].scale == FE_SCALE_COUNTER) {
++           uint64_t ebc = Props[i].u.st.stat[0].uvalue; // error bit count
++           uint64_t tbc = Props[i + 1].u.st.stat[0].uvalue; // total bit count
++           if (tbc > 0) {
++              *BerPre = double(ebc) / tbc;
++              Valid |= DTV_STAT_VALID_BERPRE;
++              }
++           }
++        }
++     i += 2;
++     }
++  if (BerPost) {
++     if (Props[i].u.st.len > 0 && Props[i + 1].u.st.len > 0) {
++        if (Props[i].u.st.stat[0].scale == FE_SCALE_COUNTER && Props[i + 1].u.st.stat[0].scale == FE_SCALE_COUNTER) {
++           uint64_t ebc = Props[i].u.st.stat[0].uvalue; // error bit count
++           uint64_t tbc = Props[i + 1].u.st.stat[0].uvalue; // total bit count
++           if (tbc > 0) {
++              *BerPost = double(ebc) / tbc;
++              Valid |= DTV_STAT_VALID_BERPOST;
++              }
++           }
++        }
++     i += 2;
++     }
++  if (Per) {
++     if (Props[i].u.st.len > 0 && Props[i + 1].u.st.len > 0) {
++        if (Props[i].u.st.stat[0].scale == FE_SCALE_COUNTER && Props[i + 1].u.st.stat[0].scale == FE_SCALE_COUNTER) {
++           uint64_t ebc = Props[i].u.st.stat[0].uvalue; // error block count
++           uint64_t tbc = Props[i + 1].u.st.stat[0].uvalue; // total block count
++           if (tbc > 0) {
++              *Per = double(ebc) / tbc;
++              Valid |= DTV_STAT_VALID_PER;
++              }
++           }
++        }
++     i += 2;
++     }
++#ifdef DEBUG_SIGNALSTATS
++  fprintf(stderr, "FE %d/%d: API5 %04X", adapter, frontend, Valid);
++  if ((Valid & DTV_STAT_VALID_STRENGTH) != 0) fprintf(stderr, " STR=%1.1fdBm",  *Strength);
++  if ((Valid & DTV_STAT_VALID_CNR)      != 0) fprintf(stderr, " CNR=%1.1fdB",   *Cnr);
++  if ((Valid & DTV_STAT_VALID_BERPRE)   != 0) fprintf(stderr, " BERPRE=%1.1e",  *BerPre);
++  if ((Valid & DTV_STAT_VALID_BERPOST)  != 0) fprintf(stderr, " BERPOST=%1.1e", *BerPost);
++  if ((Valid & DTV_STAT_VALID_PER)      != 0) fprintf(stderr, " PER=%1.1e",     *Per);
++  fprintf(stderr, "\n");
++#endif
++  return Valid != DTV_STAT_VALID_NONE;
++}
++
++int dB1000toPercent(int dB1000, int Low, int High)
++{
++  // Convert the given value, which is in 1/1000 dBm, to a percentage in the
++  // range 0..100. Anything below Low is considered 0%, and anything above
++  // High counts as 100%.
++  if (dB1000 < Low)
++     return 0;
++  if (dB1000 > High)
++     return 100;
++  // return 100 - 100 * (High - dB1000) / (High - Low); // linear conversion
++  // return 100 - 100 * sqr(dB1000 - High) / sqr(Low - High); // quadratic conversion, see https://www.adriangranados.com/blog/dbm-to-percent-conversion
++  double v = 10.0 * (dB1000 - High) / (Low - High); // avoids the sqr() function
++  return 100 - v * v;
++}
++
+ int cDvbTuner::GetSignalStrength(void) const
+ {
+   ClearEventQueue();
++  // Try DVB API 5:
++  for (int i = 0; i < 1; i++) { // just a trick to break out with 'continue' ;-)
++      dtv_property Props[MAXFRONTENDCMDS];
++      dtv_properties CmdSeq;
++      memset(&Props, 0, sizeof(Props));
++      memset(&CmdSeq, 0, sizeof(CmdSeq));
++      CmdSeq.props = Props;
++      SETCMD(DTV_STAT_SIGNAL_STRENGTH, 0);
++      if (ioctl(fd_frontend, FE_GET_PROPERTY, &CmdSeq) != 0) {
++         esyslog("ERROR: frontend %d/%d: %m", adapter, frontend);
++         return -1;
++         }
++      int Signal = 0;;
++      if (Props[0].u.st.len > 0) {
++         switch (Props[0].u.st.stat[0].scale) {
++           case FE_SCALE_DECIBEL:  Signal = dB1000toPercent(Props[0].u.st.stat[0].svalue, -95000, -20000); // TODO use different values for DVB-S, -T, -C?
++                                   break;
++           case FE_SCALE_RELATIVE: Signal = 100 * Props[0].u.st.stat[0].uvalue / 0xFFFF;
++                                   break;
++           default: ;
++           }
++#ifdef DEBUG_SIGNALSTRENGTH
++         fprintf(stderr, "FE %d/%d: API5 %d %08X %.1f S = %d\n", adapter, frontend, Props[0].u.st.stat[0].scale, int(Props[0].u.st.stat[0].svalue), int(Props[0].u.st.stat[0].svalue) / 1000.0, Signal);
++#endif
++         }
++      else
++         continue;
++      return Signal;
++      }
++  // Fall back to DVB API 3:
+   uint16_t Signal;
+   while (1) {
+         if (ioctl(fd_frontend, FE_READ_SIGNAL_STRENGTH, &Signal) != -1)
+@@ -579,7 +736,7 @@
+   if (s > 100)
+      s = 100;
+ #ifdef DEBUG_SIGNALSTRENGTH
+-  fprintf(stderr, "FE %d/%d: %08X S = %04X %04X %3d%%\n", adapter, frontend, subsystemId, MaxSignal, Signal, s);
++  fprintf(stderr, "FE %d/%d: API3 %08X S = %04X %04X %3d%%\n", adapter, frontend, subsystemId, MaxSignal, Signal, s);
+ #endif
+   return s;
+ }
+@@ -588,6 +745,36 @@
+ 
+ int cDvbTuner::GetSignalQuality(void) const
+ {
++  // Try DVB API 5:
++  for (int i = 0; i < 1; i++) { // just a trick to break out with 'continue' ;-)
++      dtv_property Props[MAXFRONTENDCMDS];
++      dtv_properties CmdSeq;
++      memset(&Props, 0, sizeof(Props));
++      memset(&CmdSeq, 0, sizeof(CmdSeq));
++      CmdSeq.props = Props;
++      SETCMD(DTV_STAT_CNR, 0);
++      if (ioctl(fd_frontend, FE_GET_PROPERTY, &CmdSeq) != 0) {
++         esyslog("ERROR: frontend %d/%d: %m", adapter, frontend);
++         return -1;
++         }
++      int Cnr = 0;;
++      if (Props[0].u.st.len > 0) {
++         switch (Props[0].u.st.stat[0].scale) {
++           case FE_SCALE_DECIBEL:  Cnr = dB1000toPercent(Props[0].u.st.stat[0].svalue, 5000, 20000); // TODO use different values for DVB-S, -T, -C?
++                                   break;
++           case FE_SCALE_RELATIVE: Cnr = 100 * Props[0].u.st.stat[0].uvalue / 0xFFFF;
++                                   break;
++           default: ;
++           }
++#ifdef DEBUG_SIGNALQUALITY
++         fprintf(stderr, "FE %d/%d: API5 %d %08X %.1f Q = %d\n", adapter, frontend, Props[0].u.st.stat[0].scale, int(Props[0].u.st.stat[0].svalue), int(Props[0].u.st.stat[0].svalue) / 1000.0, Cnr);
++#endif
++         }
++      else
++         continue;
++      return Cnr;
++      }
++  // Fall back to DVB API 3:
+   fe_status_t Status;
+   if (GetFrontendStatus(Status)) {
+      // Actually one would expect these checks to be done from FE_HAS_SIGNAL to FE_HAS_LOCK, but some drivers (like the stb0899) are broken, so FE_HAS_LOCK is the only one that (hopefully) is generally reliable...
+@@ -637,8 +824,35 @@
+ #endif
+      uint32_t Unc;
+      while (1) {
+-           if (ioctl(fd_frontend, FE_READ_UNCORRECTED_BLOCKS, &Unc) != -1)
++           if (ioctl(fd_frontend, FE_READ_UNCORRECTED_BLOCKS, &Unc) != -1) {
++              if (Unc != lastUncValue) {
++#ifdef DEBUG_SIGNALQUALITY
++                 fprintf(stderr, "FE %d/%d: API3 UNC = %u %u %u\n", adapter, frontend, Unc, lastUncValue, lastUncDelta);
++#endif
++                 lastUncDelta = (Unc >= lastUncValue) ? Unc - lastUncValue : lastUncValue - Unc;
++                 lastUncValue = Unc;
++                 lastUncChange = time(NULL);
++                 }
++              // The number of uncorrected blocks is a counter, which is normally
++              // at a constant value and only increases if there are new uncorrected
++              // blocks. So a change in the Unc value indicates reduced signal quality.
++              // Whenever the Unc counter changes, we take the delta between the old
++              // and new value into account for calculating the overall signal quality.
++              // The impact of Unc is considered for 2 seconds, and after that it is
++              // bisected with every passing second in order to phase it out. Otherwise
++              // once one or more uncorrected blocks occur, the signal quality would
++              // be considered low even if there haven't been any more uncorrected bocks
++              // for quite a while.
++              Unc = lastUncDelta;
++              int t = time(NULL) - lastUncChange - 2;
++              if (t > 0)
++                 Unc >>= min(t, 32);
++#ifdef DEBUG_SIGNALQUALITY
++              if (Unc > 0)
++                 fprintf(stderr, "FE %d/%d: API3 UNC = %u\n", adapter, frontend, Unc);
++#endif
+               break;
++              }
+            if (errno != EINTR) {
+               Unc = 0;
+ #ifdef DEBUG_SIGNALQUALITY
+@@ -673,7 +887,7 @@
+      if (q > 100)
+         q = 100;
+ #ifdef DEBUG_SIGNALQUALITY
+-     fprintf(stderr, "FE %d/%d: %08X Q = %04X %04X %d %5d %5d %3d%%\n", adapter, frontend, subsystemId, MaxSnr, Snr, HasSnr, HasBer ? int(Ber) : -1, HasUnc ? int(Unc) : -1, q);
++     fprintf(stderr, "FE %d/%d: API3 %08X Q = %04X %04X %d %5d %5d %3d%%\n", adapter, frontend, subsystemId, MaxSnr, Snr, HasSnr, HasBer ? int(Ber) : -1, HasUnc ? int(Unc) : -1, q);
+ #endif
+      return q;
+      }
+@@ -777,19 +991,11 @@
+ 
+ bool cDvbTuner::SetFrontend(void)
+ {
+-#define MAXFRONTENDCMDS 16
+-#define SETCMD(c, d) { Frontend[CmdSeq.num].cmd = (c);\
+-                       Frontend[CmdSeq.num].u.data = (d);\
+-                       if (CmdSeq.num++ > MAXFRONTENDCMDS) {\
+-                          esyslog("ERROR: too many tuning commands on frontend %d/%d", adapter, frontend);\
+-                          return false;\
+-                          }\
+-                     }
+-  dtv_property Frontend[MAXFRONTENDCMDS];
+-  memset(&Frontend, 0, sizeof(Frontend));
++  dtv_property Props[MAXFRONTENDCMDS];
++  memset(&Props, 0, sizeof(Props));
+   dtv_properties CmdSeq;
+   memset(&CmdSeq, 0, sizeof(CmdSeq));
+-  CmdSeq.props = Frontend;
++  CmdSeq.props = Props;
+   SETCMD(DTV_CLEAR, 0);
+   if (ioctl(fd_frontend, FE_SET_PROPERTY, &CmdSeq) < 0) {
+      esyslog("ERROR: frontend %d/%d: %m", adapter, frontend);
+@@ -1111,6 +1317,7 @@
+   fd_ca = DvbOpen(DEV_DVB_CA, adapter, frontend, O_RDWR);
+   if (fd_ca >= 0)
+      ciAdapter = cDvbCiAdapter::CreateCiAdapter(this, fd_ca);
++  checkTsBuffer = false;
+ 
+   // The DVR device (will be opened and closed as needed):
+ 
+@@ -1263,36 +1470,36 @@
+      LOG_ERROR;
+      return false;
+      }
+-  dtv_property Frontend[1];
++  dtv_property Props[1];
+   dtv_properties CmdSeq;
+   // Determine the version of the running DVB API:
+   if (!DvbApiVersion) {
+-     memset(&Frontend, 0, sizeof(Frontend));
++     memset(&Props, 0, sizeof(Props));
+      memset(&CmdSeq, 0, sizeof(CmdSeq));
+-     CmdSeq.props = Frontend;
++     CmdSeq.props = Props;
+      SETCMD(DTV_API_VERSION, 0);
+      if (ioctl(fd_frontend, FE_GET_PROPERTY, &CmdSeq) != 0) {
+         LOG_ERROR;
+         return false;
+         }
+-     DvbApiVersion = Frontend[0].u.data;
++     DvbApiVersion = Props[0].u.data;
+      isyslog("DVB API version is 0x%04X (VDR was built with 0x%04X)", DvbApiVersion, DVBAPIVERSION);
+      }
+   // Determine the types of delivery systems this device provides:
+   bool LegacyMode = true;
+   if (DvbApiVersion >= 0x0505) {
+-     memset(&Frontend, 0, sizeof(Frontend));
++     memset(&Props, 0, sizeof(Props));
+      memset(&CmdSeq, 0, sizeof(CmdSeq));
+-     CmdSeq.props = Frontend;
++     CmdSeq.props = Props;
+      SETCMD(DTV_ENUM_DELSYS, 0);
+      int Result = ioctl(fd_frontend, FE_GET_PROPERTY, &CmdSeq);
+      if (Result == 0) {
+-        for (uint i = 0; i < Frontend[0].u.buffer.len; i++) {
++        for (uint i = 0; i < Props[0].u.buffer.len; i++) {
+             if (numDeliverySystems >= MAXDELIVERYSYSTEMS) {
+                esyslog("ERROR: too many delivery systems on frontend %d/%d", adapter, frontend);
+                break;
+                }
+-            deliverySystems[numDeliverySystems++] = Frontend[0].u.buffer.data[i];
++            deliverySystems[numDeliverySystems++] = Props[0].u.buffer.data[i];
+             }
+         LegacyMode = false;
+         }
+@@ -1620,6 +1827,11 @@
+   return dvbTuner ? dvbTuner->Positioner() : NULL;
+ }
+ 
++bool cDvbDevice::SignalStats(int &Valid, double *Strength, double *Cnr, double *BerPre, double *BerPost, double *Per) const
++{
++  return dvbTuner ? dvbTuner->GetSignalStats(Valid, Strength, Cnr, BerPre, BerPost, Per) : false;
++}
++
+ int cDvbDevice::SignalStrength(void) const
+ {
+   return dvbTuner ? dvbTuner->GetSignalStrength() : -1;
+@@ -1687,11 +1899,12 @@
+      if (cCamSlot *cs = CamSlot()) {
+         if (cs->WantsTsData()) {
+            int Available;
+-           Data = tsBuffer->Get(&Available);
+-           if (Data) {
+-              Data = cs->Decrypt(Data, Available);
+-              tsBuffer->Skip(Available);
+-              }
++           Data = tsBuffer->Get(&Available, checkTsBuffer);
++           if (!Data)
++              Available = 0;
++           Data = cs->Decrypt(Data, Available);
++           tsBuffer->Skip(Available);
++           checkTsBuffer = Data != NULL;
+            return true;
+            }
+         }
+diff -ruN vdr-2.3.3/dvbdevice.h vdr-2.3.4/dvbdevice.h
+--- vdr-2.3.3/dvbdevice.h	2015-04-18 15:57:27.000000000 +0200
++++ vdr-2.3.4/dvbdevice.h	2017-04-17 16:44:43.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 4.1 2015/04/18 13:57:27 kls Exp $
++ * $Id: dvbdevice.h 4.3 2017/04/17 14:44:43 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -187,6 +187,7 @@
+   int numDeliverySystems;
+   int numModulations;
+   int fd_dvr, fd_ca;
++  bool checkTsBuffer;
+   static cMutex bondMutex;
+   cDvbDevice *bondedDevice;
+   mutable bool needsDetachBondedReceivers;
+@@ -243,6 +244,7 @@
+   virtual bool ProvidesEIT(void) const;
+   virtual int NumProvidedSystems(void) const;
+   virtual const cPositioner *Positioner(void) const;
++  virtual bool SignalStats(int &Valid, double *Strength = NULL, double *Cnr = NULL, double *BerPre = NULL, double *BerPost = NULL, double *Per = NULL) const;
+   virtual int SignalStrength(void) const;
+   virtual int SignalQuality(void) const;
+   virtual const cChannel *GetCurrentlyTunedTransponder(void) const;
+diff -ruN vdr-2.3.3/eit.c vdr-2.3.4/eit.c
+--- vdr-2.3.3/eit.c	2015-08-23 12:43:36.000000000 +0200
++++ vdr-2.3.4/eit.c	2017-03-31 17:16:46.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 4.1 2015/08/23 10:43:36 kls Exp $
++ * $Id: eit.c 4.2 2017/03/31 15:16:46 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -67,8 +67,13 @@
+      return;
+      }
+ 
++  if (!EpgHandlers.BeginSegmentTransfer(Channel)) {
++     SchedulesStateKey.Remove(false);
++     ChannelsStateKey.Remove(false);
++     return;
++     }
++
+   bool ChannelsModified = false;
+-  EpgHandlers.BeginSegmentTransfer(Channel);
+   bool handledExternally = EpgHandlers.HandledExternally(Channel);
+   cSchedule *pSchedule = (cSchedule *)Schedules->GetSchedule(Channel, true);
+ 
+diff -ruN vdr-2.3.3/epg.c vdr-2.3.4/epg.c
+--- vdr-2.3.3/epg.c	2015-09-10 12:58:19.000000000 +0200
++++ vdr-2.3.4/epg.c	2017-04-02 13:34:15.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 4.2 2015/09/10 10:58:19 kls Exp $
++ * $Id: epg.c 4.4 2017/04/02 11:34:15 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -129,6 +129,7 @@
+   startTime = 0;
+   duration = 0;
+   vps = 0;
++  aux = NULL;
+   SetSeen();
+ }
+ 
+@@ -137,6 +138,7 @@
+   free(title);
+   free(shortText);
+   free(description);
++  free(aux);
+   delete components;
+ }
+ 
+@@ -237,6 +239,12 @@
+   seen = time(NULL);
+ }
+ 
++void cEvent::SetAux(const char *Aux)
++{
++  free(aux);
++  aux = Aux ? strdup(Aux) : NULL;
++}
++
+ cString cEvent::ToDescr(void) const
+ {
+   char vpsbuf[64] = "";
+@@ -469,6 +477,11 @@
+         }
+      if (vps)
+         fprintf(f, "%sV %ld\n", Prefix, vps);
++     if (!InfoOnly && !isempty(aux)) {
++        strreplace(aux, '\n', '|');
++        fprintf(f, "%s@ %s\n", Prefix, aux);
++        strreplace(aux, '|', '\n');
++        }
+      if (!InfoOnly)
+         fprintf(f, "%se\n", Prefix);
+      }
+@@ -507,6 +520,9 @@
+               break;
+     case 'V': SetVps(atoi(t));
+               break;
++    case '@': strreplace(t, '|', '\n');
++              SetAux(t);
++              break;
+     default:  esyslog("ERROR: unexpected tag while reading EPG data: %s", s);
+               return false;
+     }
+@@ -1527,12 +1543,13 @@
+   Schedule->DropOutdated(SegmentStart, SegmentEnd, TableID, Version);
+ }
+ 
+-void cEpgHandlers::BeginSegmentTransfer(const cChannel *Channel)
++bool cEpgHandlers::BeginSegmentTransfer(const cChannel *Channel)
+ {
+   for (cEpgHandler *eh = First(); eh; eh = Next(eh)) {
+-      if (eh->BeginSegmentTransfer(Channel, false))
+-         return;
++      if (!eh->BeginSegmentTransfer(Channel, false))
++         return false;
+       }
++  return true;
+ }
+ 
+ void cEpgHandlers::EndSegmentTransfer(bool Modified)
+diff -ruN vdr-2.3.3/epg.h vdr-2.3.4/epg.h
+--- vdr-2.3.3/epg.h	2015-08-09 13:25:04.000000000 +0200
++++ vdr-2.3.4/epg.h	2017-04-02 13:22:21.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.h 4.1 2015/08/09 11:25:04 kls Exp $
++ * $Id: epg.h 4.4 2017/04/02 11:22:21 kls Exp $
+  */
+ 
+ #ifndef __EPG_H
+@@ -66,7 +66,7 @@
+ 
+ class cSchedule;
+ 
+-typedef u_int16_t tEventID;
++typedef u_int32_t tEventID;
+ 
+ class cEvent : public cListObject {
+   friend class cSchedule;
+@@ -84,11 +84,12 @@
+   char *shortText;         // Short description of this event (typically the episode name in case of a series)
+   char *description;       // Description of this event
+   cComponents *components; // The stream components of this event
+-  uchar contents[MaxEventContents]; // Contents of this event
+   time_t startTime;        // Start time of this event
+   int duration;            // Duration of this event in seconds
++  uchar contents[MaxEventContents]; // Contents of this event
+   time_t vps;              // Video Programming Service timestamp (VPS, aka "Programme Identification Label", PIL)
+   time_t seen;             // When this event was last seen in the data stream
++  char *aux;               // Auxiliary data, for use with plugins
+ public:
+   cEvent(tEventID EventID);
+   ~cEvent();
+@@ -111,6 +112,7 @@
+   time_t Vps(void) const { return vps; }
+   time_t Seen(void) const { return seen; }
+   bool SeenWithin(int Seconds) const { return time(NULL) - seen < Seconds; }
++  const char *Aux(void) const { return aux; }
+   void IncNumTimers(void) const;
+   void DecNumTimers(void) const;
+   bool HasTimer(void) const { return numTimers > 0; }
+@@ -135,6 +137,7 @@
+   void SetDuration(int Duration);
+   void SetVps(time_t Vps);
+   void SetSeen(void);
++  void SetAux(const char *Aux);
+   cString ToDescr(void) const;
+   void Dump(FILE *f, const char *Prefix = "", bool InfoOnly = false) const;
+   bool Parse(char *s);
+@@ -284,6 +287,9 @@
+   virtual bool BeginSegmentTransfer(const cChannel *Channel, bool Dummy) { return false; } // TODO remove obsolete Dummy
+           ///< Called directly after IgnoreChannel() before any other handler method is called.
+           ///< Designed to give handlers the possibility to prepare a database transaction.
++          ///< If any EPG handler returns false in this function, it is assumed that
++          ///< the EPG for the given Channel has to be handled later due to some transaction problems,
++          ///> therefore the processing will aborted.
+           ///< Dummy is for backward compatibility and may be removed in a future version.
+   virtual bool EndSegmentTransfer(bool Modified, bool Dummy) { return false; } // TODO remove obsolete Dummy
+           ///< Called after the segment data has been processed.
+@@ -311,7 +317,7 @@
+   void HandleEvent(cEvent *Event);
+   void SortSchedule(cSchedule *Schedule);
+   void DropOutdated(cSchedule *Schedule, time_t SegmentStart, time_t SegmentEnd, uchar TableID, uchar Version);
+-  void BeginSegmentTransfer(const cChannel *Channel);
++  bool BeginSegmentTransfer(const cChannel *Channel);
+   void EndSegmentTransfer(bool Modified);
+   };
+ 
+diff -ruN vdr-2.3.3/menu.c vdr-2.3.4/menu.c
+--- vdr-2.3.3/menu.c	2017-03-18 15:27:50.000000000 +0100
++++ vdr-2.3.4/menu.c	2017-04-20 11:15:49.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 4.22 2017/03/18 14:27:50 kls Exp $
++ * $Id: menu.c 4.25 2017/04/20 09:15:49 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -1071,52 +1071,10 @@
+ 
+ static bool HandleRemoteModifications(cTimer *NewTimer, cTimer *OldTimer = NULL)
+ {
+-  cStringList Response;
+-  if (!OldTimer || OldTimer->Local() || !OldTimer->Id()) {
+-     if (NewTimer->Local()) { // timer stays local, nothing to do
+-        if (OldTimer && OldTimer->Id())
+-           isyslog("modified timer %s", *NewTimer->ToDescr());
+-        else
+-           isyslog("added timer %s", *NewTimer->ToDescr());
+-        }
+-     else { // timer is new, or moved from local to remote
+-        if (!ExecSVDRPCommand(NewTimer->Remote(), cString::sprintf("NEWT %s", *NewTimer->ToText(true)), &Response) || SVDRPCode(Response[0]) != 250)
+-           return RemoteTimerError(NewTimer);
+-        int RemoteId = atoi(SVDRPValue(Response[0]));
+-        if (RemoteId <= 0)
+-           return RemoteTimerError(NewTimer);
+-        NewTimer->SetId(RemoteId);
+-        if (OldTimer && OldTimer->Id()) {
+-           if (OldTimer->Recording())
+-              cRecordControls::Stop(OldTimer);
+-           isyslog("moved timer %d to %s", OldTimer->Id(), *NewTimer->ToDescr());
+-           }
+-        else
+-           isyslog("added timer %s", *NewTimer->ToDescr());
+-        }
+-     }
+-  else if (NewTimer->Local()) { // timer is moved from remote to local
+-     if (!ExecSVDRPCommand(OldTimer->Remote(), cString::sprintf("DELT %d", OldTimer->Id()), &Response) || SVDRPCode(Response[0]) != 250)
+-        return RemoteTimerError(OldTimer);
+-     NewTimer->SetId(cTimers::NewTimerId());
+-     NewTimer->ClrFlags(tfRecording); // in case it was recording on the remote machine
+-     isyslog("moved timer %d@%s to %s", OldTimer->Id(), OldTimer->Remote(), *NewTimer->ToDescr());
+-     }
+-  else if (strcmp(OldTimer->Remote(), NewTimer->Remote()) == 0) { // timer stays remote on same machine
+-     if (!ExecSVDRPCommand(OldTimer->Remote(), cString::sprintf("MODT %d %s", OldTimer->Id(), *NewTimer->ToText(true)), &Response) || SVDRPCode(Response[0]) != 250)
+-        return RemoteTimerError(NewTimer);
+-     isyslog("modified timer %s", *NewTimer->ToDescr());
+-     }
+-  else { // timer is moved from one remote machine to an other
+-     if (!ExecSVDRPCommand(NewTimer->Remote(), cString::sprintf("NEWT %s", *NewTimer->ToText(true)), &Response) || SVDRPCode(Response[0]) != 250)
+-        return RemoteTimerError(NewTimer);
+-     int RemoteId = atoi(SVDRPValue(Response[0]));
+-     if (RemoteId <= 0)
+-        return RemoteTimerError(NewTimer);
+-     NewTimer->SetId(RemoteId);
+-     if (!ExecSVDRPCommand(OldTimer->Remote(), cString::sprintf("DELT %d", OldTimer->Id()), &Response) || SVDRPCode(Response[0]) != 250)
+-        return RemoteTimerError(OldTimer);
+-     isyslog("moved timer %d@%s to %s", OldTimer->Id(), OldTimer->Remote(), *NewTimer->ToDescr());
++  cString ErrorMessage;
++  if (!HandleRemoteTimerModifications(NewTimer, OldTimer, &ErrorMessage)) {
++     Skins.Message(mtError, ErrorMessage);
++     return false;
+      }
+   return true;
+ }
+@@ -1130,8 +1088,12 @@
+        case kOk:     if (timer) {
+                         LOCK_TIMERS_WRITE;
+                         if (!addIfConfirmed && !Timers->Contains(timer)) {
+-                           Skins.Message(mtWarning, tr("Timer has been deleted!"));
+-                           break;
++                           if (cTimer *t = Timers->GetById(timer->Id(), timer->Remote()))
++                              timer = t;
++                           else {
++                              Skins.Message(mtWarning, tr("Timer has been deleted!"));
++                              break;
++                              }
+                            }
+                         LOCK_CHANNELS_READ;
+                         if (const cChannel *Channel = Channels->GetByNumber(channel))
+@@ -1157,6 +1119,8 @@
+                         else {
+                            if (!HandleRemoteModifications(&data, timer))
+                               return osContinue;
++                           if (timer->Local() && timer->Recording() && data.Remote())
++                              cRecordControls::Stop(timer);
+                            *timer = data;
+                            }
+                         LOCK_SCHEDULES_READ;
+@@ -1387,15 +1351,13 @@
+               Timer = NULL;
+            }
+         if (Timer) {
+-           if (Timer->Remote()) {
+-              cStringList Response;
+-              if (!ExecSVDRPCommand(Timer->Remote(), cString::sprintf("DELT %d", Timer->Id()), &Response) || SVDRPCode(Response[0]) != 250)
+-                 RemoteTimerError(Timer);
++           if (!HandleRemoteModifications(NULL, Timer)) {
++              timersStateKey.Remove();
++              return osContinue;
+               }
+            Timers->Del(Timer);
+            cOsdMenu::Del(Current());
+            Display();
+-           isyslog("deleted timer %s", *Timer->ToDescr());
+            }
+         }
+      }
+@@ -3389,10 +3351,8 @@
+   int oldOsdLanguageIndex = osdLanguageIndex;
+   eOSState state = cMenuSetupBase::ProcessKey(Key);
+ 
+-  if (ModifiedAppearance) {
++  if (ModifiedAppearance)
+      cOsdProvider::UpdateOsdSize(true);
+-     SetDisplayMenu();
+-     }
+ 
+   if (osdLanguageIndex != oldOsdLanguageIndex || skinIndex != oldSkinIndex) {
+      strn0cpy(data.OSDLanguage, I18nLocale(osdLanguageIndex), sizeof(data.OSDLanguage));
+@@ -4149,7 +4109,6 @@
+         Store();
+         // Reinitialize OSD and skin, in case any plugin setup change has an influence on these:
+         cOsdProvider::UpdateOsdSize(true);
+-        SetDisplayMenu();
+         Display();
+         }
+      }
+diff -ruN vdr-2.3.3/mtd.c vdr-2.3.4/mtd.c
+--- vdr-2.3.3/mtd.c	2017-03-27 16:26:04.000000000 +0200
++++ vdr-2.3.4/mtd.c	2017-04-26 10:33:54.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: mtd.c 1.9 2017/03/27 14:26:04 kls Exp $
++ * $Id: mtd.c 1.10 2017/04/26 08:33:54 kls Exp $
+  */
+ 
+ #include "mtd.h"
+@@ -136,6 +136,12 @@
+   return CardIndexes.Size() > 0;
+ }
+ 
++void cMtdHandler::UnAssignAll(void)
++{
++  for (int i = 0; i < camSlots.Size(); i++)
++      camSlots[i]->Assign(NULL);
++}
++
+ // --- cMtdMapper ------------------------------------------------------------
+ 
+ #define MTD_INVALID_PID 0xFFFF
+diff -ruN vdr-2.3.3/mtd.h vdr-2.3.4/mtd.h
+--- vdr-2.3.3/mtd.h	2017-03-27 10:30:00.000000000 +0200
++++ vdr-2.3.4/mtd.h	2017-04-26 11:17:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: mtd.h 1.6 2017/03/27 08:30:00 kls Exp $
++ * $Id: mtd.h 1.7 2017/04/26 09:17:08 kls Exp $
+  */
+ 
+ #ifndef __MTD_H
+@@ -140,6 +140,8 @@
+       ///< Adds the card indexes of the devices of any active MTD CAM slots to
+       ///< the given CardIndexes.
+       ///< Returns true if the array is not empty.
++  void UnAssignAll(void);
++      ///< Unassigns all MTD CAM slots from their devices.
+   };
+ 
+ #define MTD_DONT_CALL(v) dsyslog("PROGRAMMING ERROR (%s,%d): DON'T CALL %s", __FILE__, __LINE__, __FUNCTION__); return v;
+diff -ruN vdr-2.3.3/osdbase.c vdr-2.3.4/osdbase.c
+--- vdr-2.3.3/osdbase.c	2015-09-10 13:23:07.000000000 +0200
++++ vdr-2.3.4/osdbase.c	2017-04-03 14:30:52.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osdbase.c 4.1 2015/09/10 11:23:07 kls Exp $
++ * $Id: osdbase.c 4.2 2017/04/03 12:30:52 kls Exp $
+  */
+ 
+ #include "osdbase.h"
+@@ -77,6 +77,7 @@
+ 
+ cSkinDisplayMenu *cOsdMenu::displayMenu = NULL;
+ int cOsdMenu::displayMenuCount = 0;
++int cOsdMenu::osdState = 0;
+ 
+ cOsdMenu::cOsdMenu(const char *Title, int c0, int c1, int c2, int c3, int c4)
+ {
+@@ -96,8 +97,10 @@
+   helpRed = helpGreen = helpYellow = helpBlue = NULL;
+   helpDisplayed = false;
+   status = NULL;
+-  if (!displayMenuCount++)
++  if (!displayMenuCount++) {
++     cOsdProvider::OsdSizeChanged(osdState); // to get the current state
+      SetDisplayMenu();
++     }
+ }
+ 
+ cOsdMenu::~cOsdMenu()
+@@ -226,6 +229,8 @@
+      subMenu->Display();
+      return;
+      }
++  if (cOsdProvider::OsdSizeChanged(osdState))
++     SetDisplayMenu();
+   displayMenu->SetMessage(mtStatus, NULL);
+   displayMenu->Clear();
+   cStatus::MsgOsdClear();
+diff -ruN vdr-2.3.3/osdbase.h vdr-2.3.4/osdbase.h
+--- vdr-2.3.3/osdbase.h	2015-09-10 13:17:52.000000000 +0200
++++ vdr-2.3.4/osdbase.h	2017-04-03 14:02:16.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osdbase.h 4.1 2015/09/10 11:17:52 kls Exp $
++ * $Id: osdbase.h 4.2 2017/04/03 12:02:16 kls Exp $
+  */
+ 
+ #ifndef __OSDBASE_H
+@@ -87,6 +87,7 @@
+ private:
+   static cSkinDisplayMenu *displayMenu;
+   static int displayMenuCount;
++  static int osdState;
+   int displayMenuItems;
+   char *title;
+   int cols[cSkinDisplayMenu::MaxTabs];
+diff -ruN vdr-2.3.3/po/fi_FI.po vdr-2.3.4/po/fi_FI.po
+--- vdr-2.3.3/po/fi_FI.po	2017-03-27 16:32:11.048766178 +0200
++++ vdr-2.3.4/po/fi_FI.po	2017-04-22 17:15:16.279602695 +0200
+@@ -665,7 +665,7 @@
+ msgstr "Tiedosto"
+ 
+ msgid "Record on"
+-msgstr ""
++msgstr "Tallennin"
+ 
+ msgid "Button$Folder"
+ msgstr "Kansio"
+@@ -680,10 +680,10 @@
+ msgstr "1. päivä"
+ 
+ msgid "Error while accessing remote timer"
+-msgstr ""
++msgstr "Etäajastimen hakeminen epäonnistui"
+ 
+ msgid "Timer has been deleted!"
+-msgstr ""
++msgstr "Ajastin on poistettu!"
+ 
+ msgid "Select folder"
+ msgstr "Valitse kansio"
+@@ -861,10 +861,10 @@
+ msgstr "aina"
+ 
+ msgid "by name"
+-msgstr ""
++msgstr "nimen mukaan"
+ 
+ msgid "by time"
+-msgstr ""
++msgstr "ajan mukaan"
+ 
+ msgid "OSD"
+ msgstr "Kuvaruutunäyttö"
+@@ -954,7 +954,7 @@
+ msgstr "Näytä kansiot ensin"
+ 
+ msgid "Setup.OSD$Default sort mode for recordings"
+-msgstr ""
++msgstr "Järjestä tallenteet oletuksena"
+ 
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Käytä numeronäppäimiä tekstisyötteessä"
+@@ -1141,7 +1141,7 @@
+ msgstr " (aktivoidaan)"
+ 
+ msgid "@ device"
+-msgstr ""
++msgstr "@ laite"
+ 
+ msgid "CAM"
+ msgstr "CAM"
+@@ -1174,13 +1174,13 @@
+ msgstr "CA-moduulin nollaus epäonnistui!"
+ 
+ msgid "no instant recording"
+-msgstr ""
++msgstr "ei pikatallennusta"
+ 
+ msgid "confirm instant recording"
+-msgstr ""
++msgstr "varmista pikatallennus"
+ 
+ msgid "record instantly"
+-msgstr ""
++msgstr "pikatallennus"
+ 
+ msgid "do not pause live video"
+ msgstr "älä pysäytä lähetystä"
+@@ -1213,7 +1213,7 @@
+ msgstr "Tallenteen oletuselinikä (d)"
+ 
+ msgid "Setup.Recording$Record key handling"
+-msgstr ""
++msgstr "Tallennusnäppäimen toiminta"
+ 
+ msgid "Setup.Recording$Pause key handling"
+ msgstr "Taukonäppäimen toiminta"
+@@ -1315,13 +1315,13 @@
+ msgstr "SVDRP-komennon odotusaika (s)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP peering"
+-msgstr ""
++msgstr "Käytä SVDRP-vertaisverkkoa"
+ 
+ msgid "Setup.Miscellaneous$SVDRP host name"
+-msgstr ""
++msgstr "SVDRP-palvelimen nimi"
+ 
+ msgid "Setup.Miscellaneous$SVDRP default host"
+-msgstr ""
++msgstr "SVDRP-oletuspalvelin"
+ 
+ msgid "Setup.Miscellaneous$Zap timeout (s)"
+ msgstr "Kanavavalinnan odotusaika (s)"
+@@ -1577,7 +1577,7 @@
+ msgstr "Pysäytetäänkö lähetys?"
+ 
+ msgid "Start recording?"
+-msgstr ""
++msgstr "Aloitetaanko tallennus?"
+ 
+ msgid "Recording started"
+ msgstr "Tallennus aloitettu"
+diff -ruN vdr-2.3.3/receiver.c vdr-2.3.4/receiver.c
+--- vdr-2.3.3/receiver.c	2017-02-21 11:59:27.000000000 +0100
++++ vdr-2.3.4/receiver.c	2017-04-01 17:55:38.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: receiver.c 4.2 2017/02/21 10:59:27 kls Exp $
++ * $Id: receiver.c 4.3 2017/04/01 15:55:38 kls Exp $
+  */
+ 
+ #include "receiver.h"
+@@ -16,6 +16,9 @@
+   device = NULL;
+   SetPriority(Priority);
+   numPids = 0;
++  lastScrambledPacket = 0;
++  startScrambleDetection = 0;
++  scramblingTimeout = 0;
+   SetPids(Channel);
+ }
+ 
+diff -ruN vdr-2.3.3/receiver.h vdr-2.3.4/receiver.h
+--- vdr-2.3.3/receiver.h	2015-09-05 13:42:47.000000000 +0200
++++ vdr-2.3.4/receiver.h	2017-04-01 17:55:27.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: receiver.h 4.1 2015/09/05 11:42:47 kls Exp $
++ * $Id: receiver.h 4.2 2017/04/01 15:55:27 kls Exp $
+  */
+ 
+ #ifndef __RECEIVER_H
+@@ -22,6 +22,9 @@
+   int priority;
+   int pids[MAXRECEIVEPIDS];
+   int numPids;
++  time_t lastScrambledPacket;
++  time_t startScrambleDetection;
++  int scramblingTimeout;
+   bool WantsPid(int Pid);
+ protected:
+   cDevice *Device(void) { return device; }
+diff -ruN vdr-2.3.3/recording.c vdr-2.3.4/recording.c
+--- vdr-2.3.3/recording.c	2017-01-01 18:52:51.000000000 +0100
++++ vdr-2.3.4/recording.c	2017-04-03 15:34:30.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 4.7 2017/01/01 17:52:51 kls Exp $
++ * $Id: recording.c 4.8 2017/04/03 13:34:30 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -753,6 +753,7 @@
+ 
+ cRecording::cRecording(cTimer *Timer, const cEvent *Event)
+ {
++  id = 0;
+   resume = RESUME_NOT_INITIALIZED;
+   titleBuffer = NULL;
+   sortBufferName = sortBufferTime = NULL;
+@@ -808,6 +809,7 @@
+ 
+ cRecording::cRecording(const char *FileName)
+ {
++  id = 0;
+   resume = RESUME_NOT_INITIALIZED;
+   fileSizeMB = -1; // unknown
+   channel = -1;
+@@ -1000,6 +1002,11 @@
+   sortBufferName = sortBufferTime = NULL;
+ }
+ 
++void cRecording::SetId(int Id)
++{
++  id = Id;
++}
++
+ int cRecording::GetResume(void) const
+ {
+   if (resume == RESUME_NOT_INITIALIZED) {
+@@ -1456,6 +1463,7 @@
+ 
+ cRecordings cRecordings::recordings;
+ cRecordings cRecordings::deletedRecordings(true);
++int cRecordings::lastRecordingId = 0;
+ char *cRecordings::updateFileName = NULL;
+ cVideoDirectoryScannerThread *cRecordings::videoDirectoryScannerThread = NULL;
+ time_t cRecordings::lastUpdate = 0;
+@@ -1507,6 +1515,15 @@
+      }
+ }
+ 
++const cRecording *cRecordings::GetById(int Id) const
++{
++  for (const cRecording *Recording = First(); Recording; Recording = Next(Recording)) {
++      if (Recording->Id() == Id)
++         return Recording;
++      }
++  return NULL;
++}
++
+ const cRecording *cRecordings::GetByName(const char *FileName) const
+ {
+   if (FileName) {
+@@ -1518,6 +1535,12 @@
+   return NULL;
+ }
+ 
++void cRecordings::Add(cRecording *Recording)
++{
++  Recording->SetId(++lastRecordingId);
++  cList<cRecording>::Add(Recording);
++}
++
+ void cRecordings::AddByName(const char *FileName, bool TriggerUpdate)
+ {
+   if (!GetByName(FileName)) {
+diff -ruN vdr-2.3.3/recording.h vdr-2.3.4/recording.h
+--- vdr-2.3.3/recording.h	2016-12-13 14:12:12.000000000 +0100
++++ vdr-2.3.4/recording.h	2017-04-03 15:31:16.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 4.4 2016/12/13 13:12:12 kls Exp $
++ * $Id: recording.h 4.5 2017/04/03 13:31:16 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -97,6 +97,7 @@
+ class cRecording : public cListObject {
+   friend class cRecordings;
+ private:
++  int id;
+   mutable int resume;
+   mutable char *titleBuffer;
+   mutable char *sortBufferName;
+@@ -116,6 +117,7 @@
+   static char *StripEpisodeName(char *s, bool Strip);
+   char *SortName(void) const;
+   void ClearSortName(void);
++  void SetId(int Id); // should only be set by cRecordings
+   time_t start;
+   int priority;
+   int lifetime;
+@@ -124,6 +126,7 @@
+   cRecording(cTimer *Timer, const cEvent *Event);
+   cRecording(const char *FileName);
+   virtual ~cRecording();
++  int Id(void) const { return id; }
+   time_t Start(void) const { return start; }
+   int Priority(void) const { return priority; }
+   int Lifetime(void) const { return lifetime; }
+@@ -222,6 +225,7 @@
+ private:
+   static cRecordings recordings;
+   static cRecordings deletedRecordings;
++  static int lastRecordingId;
+   static char *updateFileName;
+   static time_t lastUpdate;
+   static cVideoDirectoryScannerThread *videoDirectoryScannerThread;
+@@ -254,8 +258,11 @@
+   static bool NeedsUpdate(void);
+   void ResetResume(const char *ResumeFileName = NULL);
+   void ClearSortNames(void);
++  const cRecording *GetById(int Id) const;
++  cRecording *GetById(int Id) { return const_cast<cRecording *>(static_cast<const cRecordings *>(this)->GetById(Id)); };
+   const cRecording *GetByName(const char *FileName) const;
+   cRecording *GetByName(const char *FileName) { return const_cast<cRecording *>(static_cast<const cRecordings *>(this)->GetByName(FileName)); }
++  void Add(cRecording *Recording);
+   void AddByName(const char *FileName, bool TriggerUpdate = true);
+   void DelByName(const char *FileName);
+   void UpdateByName(const char *FileName);
+diff -ruN vdr-2.3.3/remux.c vdr-2.3.4/remux.c
+--- vdr-2.3.3/remux.c	2017-03-26 15:07:01.000000000 +0200
++++ vdr-2.3.4/remux.c	2017-04-24 16:59:39.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 4.5 2017/03/26 13:07:01 kls Exp $
++ * $Id: remux.c 4.6 2017/04/24 14:59:39 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -502,7 +502,7 @@
+   p[i++] = pmtPid & 0xFF; // program number lo
+   p[i++] = 0xE0 | (pmtPid >> 8); // dummy (3), PMT pid hi (5)
+   p[i++] = pmtPid & 0xFF; // PMT pid lo
+-  pat[SectionLength] = i - SectionLength - 1 + 4; // -2 = SectionLength storage, +4 = length of CRC
++  pat[SectionLength] = i - SectionLength - 1 + 4; // -1 = SectionLength storage, +4 = length of CRC
+   MakeCRC(pat + i, pat + PayloadStart, i - PayloadStart);
+   IncVersion(patVersion);
+ }
+diff -ruN vdr-2.3.3/skinlcars.c vdr-2.3.4/skinlcars.c
+--- vdr-2.3.3/skinlcars.c	2017-01-19 16:27:48.000000000 +0100
++++ vdr-2.3.4/skinlcars.c	2017-04-20 10:46:42.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinlcars.c 4.3 2017/01/19 15:27:48 kls Exp $
++ * $Id: skinlcars.c 4.4 2017/04/20 08:46:42 kls Exp $
+  */
+ 
+ // "Star Trek: The Next Generation"(R) is a registered trademark of Paramount Pictures,
+@@ -1270,6 +1270,8 @@
+                            FreeDeviceSlots.Append(y);
+                            y += lineHeight + Gap;
+                            }
++                        else
++                           continue;
+                         }
+                      else if (cRecordControl *RecordControl = cRecordControls::GetRecordControl(Timer)) {
+                         if (!Device || Device == RecordControl->Device()) {
+diff -ruN vdr-2.3.3/svdrp.c vdr-2.3.4/svdrp.c
+--- vdr-2.3.3/svdrp.c	2016-12-08 11:48:53.000000000 +0100
++++ vdr-2.3.4/svdrp.c	2017-04-22 13:57:31.000000000 +0200
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 4.11 2016/12/08 10:48:53 kls Exp $
++ * $Id: svdrp.c 4.17 2017/04/22 11:57:31 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -723,18 +723,20 @@
+   "    interfere with data from the broadcasters.",
+   "DELC <number>\n"
+   "    Delete channel.",
+-  "DELR <number>\n"
+-  "    Delete the recording with the given number. Before a recording can be\n"
+-  "    deleted, an LSTR command must have been executed in order to retrieve\n"
+-  "    the recording numbers. The numbers don't change during subsequent DELR\n"
+-  "    commands. CAUTION: THERE IS NO CONFIRMATION PROMPT WHEN DELETING A\n"
++  "DELR <id>\n"
++  "    Delete the recording with the given id. Before a recording can be\n"
++  "    deleted, an LSTR command should have been executed in order to retrieve\n"
++  "    the recording ids. The ids are unique and don't change while this\n"
++  "    instance of VDR is running.\n"
++  "    CAUTION: THERE IS NO CONFIRMATION PROMPT WHEN DELETING A\n"
+   "    RECORDING - BE SURE YOU KNOW WHAT YOU ARE DOING!",
+-  "DELT <number>\n"
+-  "    Delete timer.",
+-  "EDIT <number>\n"
+-  "    Edit the recording with the given number. Before a recording can be\n"
+-  "    edited, an LSTR command must have been executed in order to retrieve\n"
+-  "    the recording numbers.",
++  "DELT <id>\n"
++  "    Delete the timer with the given id. If this timer is currently recording,\n"
++  "    the recording will be stopped without any warning.",
++  "EDIT <id>\n"
++  "    Edit the recording with the given id. Before a recording can be\n"
++  "    edited, an LSTR command should have been executed in order to retrieve\n"
++  "    the recording ids.",
+   "GRAB <filename> [ <quality> [ <sizex> <sizey> ] ]\n"
+   "    Grab the current frame and save it to the given file. Images can\n"
+   "    be stored as JPEG or PNM, depending on the given file name extension.\n"
+@@ -752,45 +754,49 @@
+   "    valid key names is given. If more than one key is given, they are\n"
+   "    entered into the remote control queue in the given sequence. There\n"
+   "    can be up to 31 keys.",
+-  "LSTC [ :groups | <number> | <name> | <id> ]\n"
++  "LSTC [ :ids ] [ :groups | <number> | <name> | <id> ]\n"
+   "    List channels. Without option, all channels are listed. Otherwise\n"
+   "    only the given channel is listed. If a name is given, all channels\n"
+   "    containing the given string as part of their name are listed.\n"
+   "    If ':groups' is given, all channels are listed including group\n"
+-  "    separators. The channel number of a group separator is always 0.",
++  "    separators. The channel number of a group separator is always 0.\n"
++  "    With ':ids' the channel ids are listed following the channel numbers.\n"
++  "    The special number 0 can be given to list the current channel.",
+   "LSTE [ <channel> ] [ now | next | at <time> ]\n"
+   "    List EPG data. Without any parameters all data of all channels is\n"
+   "    listed. If a channel is given (either by number or by channel ID),\n"
+   "    only data for that channel is listed. 'now', 'next', or 'at <time>'\n"
+   "    restricts the returned data to present events, following events, or\n"
+   "    events at the given time (which must be in time_t form).",
+-  "LSTR [ <number> [ path ] ]\n"
++  "LSTR [ <id> [ path ] ]\n"
+   "    List recordings. Without option, all recordings are listed. Otherwise\n"
+   "    the information for the given recording is listed. If a recording\n"
+-  "    number and the keyword 'path' is given, the actual file name of that\n"
+-  "    recording's directory is listed.",
+-  "LSTT [ <number> ] [ id ]\n"
++  "    id and the keyword 'path' is given, the actual file name of that\n"
++  "    recording's directory is listed.\n"
++  "    Note that the ids of the recordings are not necessarily given in\n"
++  "    numeric order.",
++  "LSTT [ <id> ] [ id ]\n"
+   "    List timers. Without option, all timers are listed. Otherwise\n"
+-  "    only the given timer is listed. If the keyword 'id' is given, the\n"
+-  "    channels will be listed with their unique channel ids instead of\n"
+-  "    their numbers. This command lists only the timers that are defined\n"
+-  "    locally on this VDR, not any remote timers from other VDRs.",
++  "    only the timer with the given id is listed. If the keyword 'id' is\n"
++  "    given, the channels will be listed with their unique channel ids\n"
++  "    instead of their numbers. This command lists only the timers that are\n"
++  "    defined locally on this VDR, not any remote timers from other VDRs.",
+   "MESG <message>\n"
+   "    Displays the given message on the OSD. The message will be queued\n"
+   "    and displayed whenever this is suitable.\n",
+   "MODC <number> <settings>\n"
+   "    Modify a channel. Settings must be in the same format as returned\n"
+   "    by the LSTC command.",
+-  "MODT <number> on | off | <settings>\n"
++  "MODT <id> on | off | <settings>\n"
+   "    Modify a timer. Settings must be in the same format as returned\n"
+   "    by the LSTT command. The special keywords 'on' and 'off' can be\n"
+   "    used to easily activate or deactivate a timer.",
+   "MOVC <number> <to>\n"
+   "    Move a channel to a new position.",
+-  "MOVR <number> <new name>\n"
+-  "    Move the recording with the given number. Before a recording can be\n"
+-  "    moved, an LSTR command must have been executed in order to retrieve\n"
+-  "    the recording numbers. The numbers don't change during subsequent MOVR\n"
++  "MOVR <id> <new name>\n"
++  "    Move the recording with the given id. Before a recording can be\n"
++  "    moved, an LSTR command should have been executed in order to retrieve\n"
++  "    the recording ids. The ids don't change during subsequent MOVR\n"
+   "    commands.\n",
+   "NEWC <settings>\n"
+   "    Create a new channel. Settings must be in the same format as returned\n"
+@@ -806,16 +812,16 @@
+   "    number of seconds from now until the event. If the absolute time given\n"
+   "    is smaller than the current time, or if the relative time is less than\n"
+   "    zero, this means that the timer is currently recording and has started\n"
+-  "    at the given time. The first value in the resulting line is the number\n"
++  "    at the given time. The first value in the resulting line is the id\n"
+   "    of the timer.",
+   "PING\n"
+   "    Used by peer-to-peer connections between VDRs to keep the connection\n"
+   "    from timing out. May be used at any time and simply returns a line of\n"
+   "    the form '<hostname> is alive'.",
+-  "PLAY <number> [ begin | <position> ]\n"
+-  "    Play the recording with the given number. Before a recording can be\n"
+-  "    played, an LSTR command must have been executed in order to retrieve\n"
+-  "    the recording numbers.\n"
++  "PLAY <id> [ begin | <position> ]\n"
++  "    Play the recording with the given id. Before a recording can be\n"
++  "    played, an LSTR command should have been executed in order to retrieve\n"
++  "    the recording ids.\n"
+   "    The keyword 'begin' plays the recording from its very beginning, while\n"
+   "    a <position> (given as hh:mm:ss[.ff] or framenumber) starts at that\n"
+   "    position. If neither 'begin' nor a <position> are given, replay is resumed\n"
+@@ -1280,7 +1286,7 @@
+      if (isnumber(Option)) {
+         LOCK_RECORDINGS_WRITE;
+         Recordings->SetExplicitModify();
+-        if (cRecording *Recording = Recordings->Get(strtol(Option, NULL, 10) - 1)) {
++        if (cRecording *Recording = Recordings->GetById(strtol(Option, NULL, 10))) {
+            if (int RecordingInUse = Recording->IsInUse())
+               Reply(550, "%s", *RecordingInUseMessage(RecordingInUse, Option, Recording));
+            else {
+@@ -1297,10 +1303,10 @@
+            Reply(550, "Recording \"%s\" not found", Option);
+         }
+      else
+-        Reply(501, "Error in recording number \"%s\"", Option);
++        Reply(501, "Error in recording id \"%s\"", Option);
+      }
+   else
+-     Reply(501, "Missing recording number");
++     Reply(501, "Missing recording id");
+ }
+ 
+ void cSVDRPServer::CmdDELT(const char *Option)
+@@ -1332,7 +1338,7 @@
+   if (*Option) {
+      if (isnumber(Option)) {
+         LOCK_RECORDINGS_READ;
+-        if (const cRecording *Recording = Recordings->Get(strtol(Option, NULL, 10) - 1)) {
++        if (const cRecording *Recording = Recordings->GetById(strtol(Option, NULL, 10))) {
+            cMarks Marks;
+            if (Marks.Load(Recording->FileName(), Recording->FramesPerSecond(), Recording->IsPesRecording()) && Marks.Count()) {
+               if (RecordingsHandler.Add(ruCut, Recording->FileName()))
+@@ -1347,10 +1353,10 @@
+            Reply(550, "Recording \"%s\" not found", Option);
+         }
+      else
+-        Reply(501, "Error in recording number \"%s\"", Option);
++        Reply(501, "Error in recording id \"%s\"", Option);
+      }
+   else
+-     Reply(501, "Missing recording number");
++     Reply(501, "Missing recording id");
+ }
+ 
+ void cSVDRPServer::CmdGRAB(const char *Option)
+@@ -1560,11 +1566,17 @@
+ void cSVDRPServer::CmdLSTC(const char *Option)
+ {
+   LOCK_CHANNELS_READ;
++  bool WithChannelIds = startswith(Option, ":ids") && (Option[4] == ' ' || Option[4] == 0);
++  if (WithChannelIds)
++     Option = skipspace(Option + 4);
+   bool WithGroupSeps = strcasecmp(Option, ":groups") == 0;
+   if (*Option && !WithGroupSeps) {
+      if (isnumber(Option)) {
+-        if (const cChannel *Channel = Channels->GetByNumber(strtol(Option, NULL, 10)))
+-           Reply(250, "%d %s", Channel->Number(), *Channel->ToText());
++        int n = strtol(Option, NULL, 10);
++        if (n == 0)
++           n = cDevice::CurrentChannel();
++        if (const cChannel *Channel = Channels->GetByNumber(n))
++           Reply(250, "%d%s%s %s", Channel->Number(), WithChannelIds ? " " : "", WithChannelIds ? *Channel->GetChannelID().ToString() : "", *Channel->ToText());
+         else
+            Reply(501, "Channel \"%s\" not defined", Option);
+         }
+@@ -1572,17 +1584,17 @@
+         const cChannel *Next = Channels->GetByChannelID(tChannelID::FromString(Option));
+         if (!Next) {
+            for (const cChannel *Channel = Channels->First(); Channel; Channel = Channels->Next(Channel)) {
+-              if (!Channel->GroupSep()) {
+-                 if (strcasestr(Channel->Name(), Option)) {
+-                    if (Next)
+-                       Reply(-250, "%d %s", Next->Number(), *Next->ToText());
+-                    Next = Channel;
+-                    }
+-                 }
+-              }
++               if (!Channel->GroupSep()) {
++                  if (strcasestr(Channel->Name(), Option)) {
++                     if (Next)
++                        Reply(-250, "%d%s%s %s", Next->Number(), WithChannelIds ? " " : "", WithChannelIds ? *Next->GetChannelID().ToString() : "", *Next->ToText());
++                     Next = Channel;
++                     }
++                  }
++               }
+            }
+         if (Next)
+-           Reply(250, "%d %s", Next->Number(), *Next->ToText());
++           Reply(250, "%d%s%s %s", Next->Number(), WithChannelIds ? " " : "", WithChannelIds ? *Next->GetChannelID().ToString() : "", *Next->ToText());
+         else
+            Reply(501, "Channel \"%s\" not defined", Option);
+         }
+@@ -1590,9 +1602,9 @@
+   else if (cChannels::MaxNumber() >= 1) {
+      for (const cChannel *Channel = Channels->First(); Channel; Channel = Channels->Next(Channel)) {
+          if (WithGroupSeps)
+-            Reply(Channel->Next() ? -250: 250, "%d %s", Channel->GroupSep() ? 0 : Channel->Number(), *Channel->ToText());
++            Reply(Channel->Next() ? -250: 250, "%d%s%s %s", Channel->GroupSep() ? 0 : Channel->Number(), (WithChannelIds && !Channel->GroupSep()) ? " " : "", (WithChannelIds && !Channel->GroupSep()) ? *Channel->GetChannelID().ToString() : "", *Channel->ToText());
+          else if (!Channel->GroupSep())
+-            Reply(Channel->Number() < cChannels::MaxNumber() ? -250 : 250, "%d %s", Channel->Number(), *Channel->ToText());
++            Reply(Channel->Number() < cChannels::MaxNumber() ? -250 : 250, "%d%s%s %s", Channel->Number(), WithChannelIds ? " " : "", WithChannelIds ? *Channel->GetChannelID().ToString() : "", *Channel->ToText());
+          }
+      }
+   else
+@@ -1694,7 +1706,7 @@
+               if (isnumber(p))
+                  Number = strtol(p, NULL, 10);
+               else {
+-                 Reply(501, "Error in recording number \"%s\"", Option);
++                 Reply(501, "Error in recording id \"%s\"", Option);
+                  return;
+                  }
+               }
+@@ -1707,7 +1719,7 @@
+            p = strtok_r(NULL, delim, &strtok_next);
+            }
+      if (Number) {
+-        if (const cRecording *Recording = Recordings->Get(strtol(Option, NULL, 10) - 1)) {
++        if (const cRecording *Recording = Recordings->GetById(strtol(Option, NULL, 10))) {
+            FILE *f = fdopen(file, "w");
+            if (f) {
+               if (Path)
+@@ -1729,7 +1741,7 @@
+   else if (Recordings->Count()) {
+      const cRecording *Recording = Recordings->First();
+      while (Recording) {
+-           Reply(Recording == Recordings->Last() ? 250 : -250, "%d %s", Recording->Index() + 1, Recording->Title(' ', true));
++           Reply(Recording == Recordings->Last() ? 250 : -250, "%d %s", Recording->Id(), Recording->Title(' ', true));
+            Recording = Recordings->Next(Recording);
+            }
+      }
+@@ -1868,7 +1880,7 @@
+            Reply(501, "Timer \"%d\" not defined", Id);
+         }
+      else
+-        Reply(501, "Error in timer number");
++        Reply(501, "Error in timer id");
+      }
+   else
+      Reply(501, "Missing timer settings");
+@@ -1940,7 +1952,7 @@
+      if (isnumber(num)) {
+         LOCK_RECORDINGS_WRITE;
+         Recordings->SetExplicitModify();
+-        if (cRecording *Recording = Recordings->Get(strtol(num, NULL, 10) - 1)) {
++        if (cRecording *Recording = Recordings->GetById(strtol(num, NULL, 10))) {
+            if (int RecordingInUse = Recording->IsInUse())
+               Reply(550, "%s", *RecordingInUseMessage(RecordingInUse, Option, Recording));
+            else {
+@@ -1964,11 +1976,11 @@
+            Reply(550, "Recording \"%s\" not found", num);
+         }
+      else
+-        Reply(501, "Error in recording number \"%s\"", num);
++        Reply(501, "Error in recording id \"%s\"", num);
+      free(opt);
+      }
+   else
+-     Reply(501, "Missing recording number");
++     Reply(501, "Missing recording id");
+ }
+ 
+ void cSVDRPServer::CmdNEWC(const char *Option)
+@@ -2053,36 +2065,45 @@
+      char c = *option;
+      *option = 0;
+      if (isnumber(num)) {
+-        LOCK_RECORDINGS_READ;
+-        if (const cRecording *Recording = Recordings->Get(strtol(num, NULL, 10) - 1)) {
+-           if (c)
+-              option = skipspace(++option);
+-           cReplayControl::SetRecording(NULL);
+-           cControl::Shutdown();
+-           if (*option) {
+-              int pos = 0;
+-              if (strcasecmp(option, "BEGIN") != 0)
+-                 pos = HMSFToIndex(option, Recording->FramesPerSecond());
+-              cResumeFile Resume(Recording->FileName(), Recording->IsPesRecording());
+-              if (pos <= 0)
+-                 Resume.Delete();
+-              else
+-                 Resume.Save(pos);
++        cStateKey StateKey;
++        if (const cRecordings *Recordings = cRecordings::GetRecordingsRead(StateKey)) {
++           if (const cRecording *Recording = Recordings->GetById(strtol(num, NULL, 10))) {
++              cString FileName = Recording->FileName();
++              cString Title = Recording->Title();
++              int FramesPerSecond = Recording->FramesPerSecond();
++              bool IsPesRecording = Recording->IsPesRecording();
++              StateKey.Remove(); // must give up the lock for the call to cControl::Shutdown()
++              if (c)
++                 option = skipspace(++option);
++              cReplayControl::SetRecording(NULL);
++              cControl::Shutdown();
++              if (*option) {
++                 int pos = 0;
++                 if (strcasecmp(option, "BEGIN") != 0)
++                    pos = HMSFToIndex(option, FramesPerSecond);
++                 cResumeFile Resume(FileName, IsPesRecording);
++                 if (pos <= 0)
++                    Resume.Delete();
++                 else
++                    Resume.Save(pos);
++                 }
++              cReplayControl::SetRecording(FileName);
++              cControl::Launch(new cReplayControl);
++              cControl::Attach();
++              Reply(250, "Playing recording \"%s\" [%s]", num, *Title);
++              }
++           else {
++              StateKey.Remove();
++              Reply(550, "Recording \"%s\" not found", num);
+               }
+-           cReplayControl::SetRecording(Recording->FileName());
+-           cControl::Launch(new cReplayControl);
+-           cControl::Attach();
+-           Reply(250, "Playing recording \"%s\" [%s]", num, Recording->Title());
+            }
+-        else
+-           Reply(550, "Recording \"%s\" not found", num);
+         }
+      else
+-        Reply(501, "Error in recording number \"%s\"", num);
++        Reply(501, "Error in recording id \"%s\"", num);
+      free(opt);
+      }
+   else
+-     Reply(501, "Missing recording number");
++     Reply(501, "Missing recording id");
+ }
+ 
+ void cSVDRPServer::CmdPLUG(const char *Option)
+diff -ruN vdr-2.3.3/timers.c vdr-2.3.4/timers.c
+--- vdr-2.3.3/timers.c	2016-12-23 10:48:39.000000000 +0100
++++ vdr-2.3.4/timers.c	2017-04-20 11:15:06.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 4.7 2016/12/23 09:48:39 kls Exp $
++ * $Id: timers.c 4.9 2017/04/20 09:15:06 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -739,11 +739,13 @@
+   return ++lastTimerId; // no need for locking, the caller must have a lock on the global Timers list
+ }
+ 
+-const cTimer *cTimers::GetById(int Id) const
++const cTimer *cTimers::GetById(int Id, const char *Remote) const
+ {
+   for (const cTimer *ti = First(); ti; ti = Next(ti)) {
+-      if (!ti->Remote() && ti->Id() == Id)
+-         return ti;
++      if (ti->Id() == Id) {
++         if (!Remote && !ti->Remote() || Remote && ti->Remote() && strcmp(Remote, ti->Remote()) == 0)
++            return ti;
++         }
+       }
+   return NULL;
+ }
+@@ -955,6 +957,72 @@
+      }
+ }
+ 
++static bool RemoteTimerError(const cTimer *Timer, cString *Msg)
++{
++  if (Msg)
++     *Msg = cString::sprintf("%s %d@%s!", tr("Error while accessing remote timer"), Timer->Id(), Timer->Remote());
++  return false; // convenience return code
++}
++
++bool HandleRemoteTimerModifications(cTimer *NewTimer, cTimer *OldTimer, cString *Msg)
++{
++  cStringList Response;
++  if (!NewTimer) {
++     if (OldTimer) { // timer shall be deleted from remote machine
++        if (OldTimer->Remote() && OldTimer->Id()) {
++           if (!ExecSVDRPCommand(OldTimer->Remote(), cString::sprintf("DELT %d", OldTimer->Id()), &Response) || SVDRPCode(Response[0]) != 250)
++              return RemoteTimerError(OldTimer, Msg);
++           }
++        isyslog("deleted timer %s", *OldTimer->ToDescr());
++        }
++     }
++  else if (!OldTimer || OldTimer->Local() || !OldTimer->Id()) {
++     if (NewTimer->Local()) { // timer stays local, nothing to do
++        if (OldTimer && OldTimer->Id())
++           isyslog("modified timer %s", *NewTimer->ToDescr());
++        else
++           isyslog("added timer %s", *NewTimer->ToDescr());
++        }
++     else { // timer is new, or moved from local to remote
++        if (!ExecSVDRPCommand(NewTimer->Remote(), cString::sprintf("NEWT %s", *NewTimer->ToText(true)), &Response) || SVDRPCode(Response[0]) != 250)
++           return RemoteTimerError(NewTimer, Msg);
++        int RemoteId = atoi(SVDRPValue(Response[0]));
++        if (RemoteId <= 0)
++           return RemoteTimerError(NewTimer, Msg);
++        NewTimer->SetId(RemoteId);
++        if (OldTimer && OldTimer->Id()) {
++           isyslog("moved timer %d to %s", OldTimer->Id(), *NewTimer->ToDescr());
++           }
++        else
++           isyslog("added timer %s", *NewTimer->ToDescr());
++        }
++     }
++  else if (NewTimer->Local()) { // timer is moved from remote to local
++     if (!ExecSVDRPCommand(OldTimer->Remote(), cString::sprintf("DELT %d", OldTimer->Id()), &Response) || SVDRPCode(Response[0]) != 250)
++        return RemoteTimerError(OldTimer, Msg);
++     NewTimer->SetId(cTimers::NewTimerId());
++     NewTimer->ClrFlags(tfRecording); // in case it was recording on the remote machine
++     isyslog("moved timer %d@%s to %s", OldTimer->Id(), OldTimer->Remote(), *NewTimer->ToDescr());
++     }
++  else if (strcmp(OldTimer->Remote(), NewTimer->Remote()) == 0) { // timer stays remote on same machine
++     if (!ExecSVDRPCommand(OldTimer->Remote(), cString::sprintf("MODT %d %s", OldTimer->Id(), *NewTimer->ToText(true)), &Response) || SVDRPCode(Response[0]) != 250)
++        return RemoteTimerError(NewTimer, Msg);
++     isyslog("modified timer %s", *NewTimer->ToDescr());
++     }
++  else { // timer is moved from one remote machine to an other
++     if (!ExecSVDRPCommand(NewTimer->Remote(), cString::sprintf("NEWT %s", *NewTimer->ToText(true)), &Response) || SVDRPCode(Response[0]) != 250)
++        return RemoteTimerError(NewTimer, Msg);
++     int RemoteId = atoi(SVDRPValue(Response[0]));
++     if (RemoteId <= 0)
++        return RemoteTimerError(NewTimer, Msg);
++     NewTimer->SetId(RemoteId);
++     if (!ExecSVDRPCommand(OldTimer->Remote(), cString::sprintf("DELT %d", OldTimer->Id()), &Response) || SVDRPCode(Response[0]) != 250)
++        return RemoteTimerError(OldTimer, Msg);
++     isyslog("moved timer %d@%s to %s", OldTimer->Id(), OldTimer->Remote(), *NewTimer->ToDescr());
++     }
++  return true;
++}
++
+ // --- cSortedTimers ---------------------------------------------------------
+ 
+ static int CompareTimers(const void *a, const void *b)
+diff -ruN vdr-2.3.3/timers.h vdr-2.3.4/timers.h
+--- vdr-2.3.3/timers.h	2016-12-23 10:49:31.000000000 +0100
++++ vdr-2.3.4/timers.h	2017-04-20 11:09:45.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.h 4.6 2016/12/23 09:49:31 kls Exp $
++ * $Id: timers.h 4.8 2017/04/20 09:09:45 kls Exp $
+  */
+ 
+ #ifndef __TIMERS_H
+@@ -168,8 +168,8 @@
+       ///<    }
+   static bool Load(const char *FileName);
+   static int NewTimerId(void);
+-  const cTimer *GetById(int Id) const;
+-  cTimer *GetById(int Id) { return const_cast<cTimer *>(static_cast<const cTimers *>(this)->GetById(Id)); };
++  const cTimer *GetById(int Id, const char *Remote = NULL) const;
++  cTimer *GetById(int Id, const char *Remote = NULL) { return const_cast<cTimer *>(static_cast<const cTimers *>(this)->GetById(Id, Remote)); };
+   const cTimer *GetTimer(const cTimer *Timer) const;
+   cTimer *GetTimer(const cTimer *Timer) { return const_cast<cTimer *>(static_cast<const cTimers *>(this)->GetTimer(Timer)); };
+   const cTimer *GetMatch(time_t t) const;
+@@ -200,6 +200,22 @@
+       ///< known remote machines.
+   };
+ 
++bool HandleRemoteTimerModifications(cTimer *NewTimer, cTimer *OldTimer = NULL, cString *Msg = NULL);
++     ///< Performs any operations necessary to synchronize changes to a timer
++     ///< between peer VDR machines. OldTimer must point to the old version
++     ///< of the timer, while NewTimer points to the new version. If either
++     ///< of the two is a remote timer, the necessary SVDRP commands are executed
++     ///< to reflect the changes on the remote machine(s). If NewTimer is NULL,
++     ///< OldTimer will be removed from the remote machine (if applicable).
++     ///< If OldTimer is NULL, NewTimer will be added to the remote machine (if
++     ///< applicable). If anything goes wrong, an error message is generated in the
++     ///< optional Msg string, which should be presented to the user.
++     ///< Any necessary local operations (like adding/deleting the timer to the
++     ///< local list of timers etc.) must be done before and/or after the call to this
++     ///< function. Proper log messages will be generated by this function, even
++     ///< if no remote operations are required.
++     ///< Returns true if successful.
++
+ // Provide lock controlled access to the list:
+ 
+ DEF_LIST_LOCK(Timers);
+diff -ruN vdr-2.3.3/vdr.5 vdr-2.3.4/vdr.5
+--- vdr-2.3.3/vdr.5	2017-01-09 14:35:08.000000000 +0100
++++ vdr-2.3.4/vdr.5	2017-04-02 14:11:13.089583348 +0200
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 4.1 2017/01/09 13:35:08 kls Exp $
++.\" $Id: vdr.5 4.2 2017/04/02 11:41:51 kls Exp $
+ .\"
+ .TH vdr 5 "19 Feb 2015" "2.2" "Video Disk Recorder Files"
+ .SH NAME
+@@ -845,19 +845,20 @@
+ 
+ The following tag characters are defined:
+ .TS
+-tab (@);
++tab (|);
+ l l.
+-\fBC\fR@<channel id> <channel name>
+-\fBE\fR@<event id> <start time> <duration> <table id> <version>
+-\fBT\fR@<title>
+-\fBS\fR@<short text>
+-\fBD\fR@<description>
+-\fBG\fR@<genre> <genre>...
+-\fBR\fR@<parental rating>
+-\fBX\fR@<stream> <type> <language> <descr>
+-\fBV\fR@<vps time>
+-\fBe\fR@
+-\fBc\fR@
++\fBC\fR|<channel id> <channel name>
++\fBE\fR|<event id> <start time> <duration> <table id> <version>
++\fBT\fR|<title>
++\fBS\fR|<short text>
++\fBD\fR|<description>
++\fBG\fR|<genre> <genre>...
++\fBR\fR|<parental rating>
++\fBX\fR|<stream> <type> <language> <descr>
++\fBV\fR|<vps time>
++\fB@\fR|<auxiliary data>
++\fBe\fR|
++\fBc\fR|
+ .TE
+ 
+ Lowercase characters mark the end of a sequence that was started by the
+@@ -869,7 +870,6 @@
+ 
+ There may be several \fBX\fR tags, depending on the number of tracks (video, audio etc.)
+ the event provides.
+-
+ .TS
+ tab (@);
+ l l.
+@@ -890,6 +890,7 @@
+ <language>     @is the three letter language code (optionally two codes, separated by '+')
+ <descr>        @is the description of this stream component
+ <vps time>     @is the Video Programming Service time of this event
++<auxiliary data>@is an arbitrary string that can be used by external applications to store data; newline characters will be replaced with '|' when writing the \fIepg.data\fR file.
+ .TE
+ 
+ This file will be read at program startup in order to restore the results of
+@@ -899,6 +900,10 @@
+ just 16 bit wide. The internal representation in VDR allows for 32 bit to
+ be used, so that external tools can generate EPG data that is guaranteed
+ not to collide with the ids of existing data.
++
++The \fBauxiliary data\fR can be used for plugin specific purposes and has no meaning
++whatsoever to VDR itself. It will \fBnot\fR be written into the \fIinfo\fR file of
++a recording that is made for such an event.
+ .SS CAM DATA
+ The file \fIcam.data\fR contains information about which CAM in the system can
+ decrypt a particular channel.
+diff -ruN vdr-2.3.3/vdr.c vdr-2.3.4/vdr.c
+--- vdr-2.3.3/vdr.c	2017-03-25 15:20:30.000000000 +0100
++++ vdr-2.3.4/vdr.c	2017-04-03 14:35:37.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 4.11 2017/03/25 14:20:30 kls Exp $
++ * $Id: vdr.c 4.12 2017/04/03 12:35:37 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -986,6 +986,11 @@
+           static time_t lastOsdSizeUpdate = 0;
+           if (Now != lastOsdSizeUpdate) { // once per second
+              cOsdProvider::UpdateOsdSize();
++             static int OsdState = 0;
++             if (cOsdProvider::OsdSizeChanged(OsdState)) {
++                if (cOsdMenu *OsdMenu = dynamic_cast<cOsdMenu *>(Menu))
++                   OsdMenu->Display();
++                }
+              lastOsdSizeUpdate = Now;
+              }
+         }

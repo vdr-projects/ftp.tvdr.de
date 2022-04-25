@@ -1,0 +1,384 @@
+diff -ruNbw vdr-1.2.4/CONTRIBUTORS vdr-1.2.5pre1/CONTRIBUTORS
+--- vdr-1.2.4/CONTRIBUTORS	Sun Aug 24 16:47:34 2003
++++ vdr-1.2.5pre1/CONTRIBUTORS	Sat Aug 30 13:48:45 2003
+@@ -489,6 +489,8 @@
+  the remote control keys
+  for reporting a bug in reading 'epg.data' for channels with non-zero RID
+  for fixing I/O handling in case an explicit controlling terminal is given
++ for fixing displaying still pictures, now using the driver's VIDEO_STILLPICTURE call
++ directly
+ 
+ Reinhard Walter Buchner <rw.buchner@freenet.de>
+  for adding some satellites to 'sources.conf'
+@@ -774,3 +776,9 @@
+ Javier Marcet <lists@marcet.info>
+  for reporting a problem when starting a recording on the primary device if there
+  is a replay session active
++
++Peter Waechtler <pwaechtler@mac.com>
++ for adding channels for DVB-T Hannover (Germany) to channels.cont.terr
++
++Robert Bartl <robert@bartl.priv.at>
++ for reporting a hangup in SVDRP when the client disappears without sending QUIT
+diff -ruNbw vdr-1.2.4/HISTORY vdr-1.2.5pre1/HISTORY
+--- vdr-1.2.4/HISTORY	Sun Aug 24 16:49:53 2003
++++ vdr-1.2.5pre1/HISTORY	Sun Aug 31 15:06:18 2003
+@@ -2315,7 +2315,7 @@
+ - Removing deleted recordings faster than normal when cutting, to avoid running
+   out of disk space (thanks to Manfred Schmidt-Voigt for reporting this one).
+ 
+-2003-08-24: Version 1.2.4
++2003-08-26: Version 1.2.4 (not officially released)
+ 
+ - Fixed 'runvdr' to stay in the loop only if VDR returns an exit status of '1'.
+ - Completed the Finnish OSD texts (thanks to Rolf Ahrenberg).
+@@ -2329,3 +2329,26 @@
+   active (thanks to Javier Marcet for reporting this one).
+ - Avoiding an unnecessary stop of an ongoing Transfer Mode when starting a
+   recording on the primary device.
++
++2003-08-31: Version 1.2.5pre1
++
++- Now explicitly handling exit value 0 and 2 in 'runvdr'.
++- Added a missing 'w' to the allowed characters for Finnish and Swedish (thanks
++  to Lauri Tischler and Ragnar Sundblad).
++- Added channels for DVB-T Hannover (Germany) to channels.cont.terr (thanks to
++  Peter Waechtler).
++- Fixed a hangup in SVDRP when the client disappears without sending QUIT (thanks
++  to Robert Bartl for reporting this one). The problem was introduced in version
++  1.2.2 through the fix for an occasional "Broken pipe" error in SVDRP connections.
++- Updated 'channels.conf.terr' for Berlin.
++- Fixed displaying still pictures, now using the driver's VIDEO_STILLPICTURE call
++  directly (thanks to Oliver Endriss). This also improves navigating through DVD
++  menus with the DVD plugin. If this causes problems with your particular system
++  (maybe because you are using the 'analogtv' plugin) you can reactivate the
++  previous behaviour by commenting out the line
++  #define VIDEO_STILLPICTURE_WORKS_WITH_VDR_FRAMES
++  in VDR/dvbdevice.c.
++- Fixed handling extra blanks in plugin command lines.
++- Actually implemented the SVDRP command DELC.
++- Now clearing the player device if there are too many poll timeouts in 'Transfer
++  Mode', which avoids buffer overflows and black screens in such cases.
+diff -ruNbw vdr-1.2.4/channels.conf.terr vdr-1.2.5pre1/channels.conf.terr
+--- vdr-1.2.4/channels.conf.terr	Sun May 11 14:00:48 2003
++++ vdr-1.2.5pre1/channels.conf.terr	Sat Aug 30 12:31:55 2003
+@@ -45,7 +45,14 @@
+ KISS (RADIO):537833:I0C34D0M16B8T2G32Y0:T:27500:0:1101:0:0:26176:0:0:0
+ oneword (RADIO):537833:I0C34D0M16B8T2G32Y0:T:27500:0:1501:0:0:26432:0:0:0
+ Smash Hits! (RADIO):537833:I0C34D0M16B8T2G32Y0:T:27500:0:1201:0:0:26240:0:0:0
+-: DVB-T Berlin Germany
++: DVB-T Berlin, Germany
++BBC World:177500:I0C23D0M16B8T8G8Y0:T:27500:49:50:55:0:16387:0:0:0
++FAB:177500:I0C23D0M16B8T8G8Y0:T:27500:3073:3074:3079:0:16576:0:0:0
++WDR:177500:I0C23D0M16B8T8G8Y0:T:27500:241:242:247:0:15:0:0:0
++SWR BW:177500:I0C23D0M16B8T8G8Y0:T:27500:257:258:263:0:16:0:0:0
++MDR Fernsehen:191500:I0C23D0M16B8T8G8Y0:T:27500:101:102:104:0:1:0:0:0
++arte:191500:I0C23D0M16B8T8G8Y0:T:27500:201:202,203:204:0:2:0:0:0
++NDR Fernsehen:191500:I0C23D0M16B8T8G8Y0:T:27500:301:302:304:0:3:0:0:0
+ RTL:506000:I0C23D0M16B8T8G8Y0:T:27500:337:338:343:0:16405:0:0:0
+ RTL2:506000:I0C23D0M16B8T8G8Y0:T:27500:353:354:359:0:16406:0:0:0
+ Super RTL:506000:I0C23D0M16B8T8G8Y0:T:27500:433:434:439:0:16411:0:0:0
+@@ -61,6 +68,15 @@
+ N24:658000:I0C23D0M16B8T8G8Y0:T:27500:225:226:231:0:16398:0:0:0
+ ProSieben:658000:I0C23D0M16B8T8G8Y0:T:27500:305:306;307:311:0:16403:0:0:0
+ SAT.1:658000:I0C23D0M16B8T8G8Y0:T:27500:385:386:391:0:16408:0:0:0
+-MTV:778000:I0C23D0M16B8T8G8Y0:T:27500:193:194:199:0:16396:0:0:0
+-n-tv:778000:I0C23D0M16B8T8G8Y0:T:27500:273:274:279:0:16401:0:0:0
+-Eurosport:778000:I0C23D0M16B8T8G8Y0:T:27500:577:578:583:0:16420:0:0:0
++Testkanal 9live:754000:I0C23D0M16B8T8G8Y0:T:27500:273:274:279:0:16401:0:0:0
++Eurosport:754000:I0C23D0M16B8T8G8Y0:T:27500:577:578:583:0:16420:0:0:0
++DSF:754000:I0C23D0M16B8T8G8Y0:T:27500:129:130:135:0:16392:0:0:0
++VIVA Plus:754000:I0C23D0M16B8T8G8Y0:T:27500:529:530:535:0:16417:0:0:0
++Testkanal Pro7:778000:I0C23D0M16B8T8G8Y0:T:27500:305:306:311:0:16403:0:0:0
++: DVB-T Hannover, Germany
++ARD:554000:I0C12D0M16B8T8G32Y0:T:27500:512:650:513:0:28156:0:0:0
++ZDF:554000:I0C12D0M16B8T8G32Y0:T:27500:513:651:513:0:28160:0:0:0
++NDR:554000:I0C12D0M16B8T8G32Y0:T:27500:514:652:513:0:28162:0:0:0
++RTL:530500:I0C12D0M16B8T8G32Y0:T:27500:512:650:513:0:1:0:0:0
++SAT1:530500:I0C12D0M16B8T8G32Y0:T:27500:513:651:513:0:2:0:0:0
++9Live:530500:I0C12D0M16B8T8G32Y0:T:27500:514:652:513:0:3:0:0:0
+diff -ruNbw vdr-1.2.4/config.h vdr-1.2.5pre1/config.h
+--- vdr-1.2.4/config.h	Sun Aug 24 12:52:20 2003
++++ vdr-1.2.5pre1/config.h	Sat Aug 30 10:39:37 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.169 2003/08/24 10:52:20 kls Exp $
++ * $Id: config.h 1.170 2003/08/30 08:39:37 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -19,8 +19,8 @@
+ #include "device.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.2.4"
+-#define VDRVERSNUM   10204  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.2.5pre1"
++#define VDRVERSNUM   10205  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+diff -ruNbw vdr-1.2.4/dvbdevice.c vdr-1.2.5pre1/dvbdevice.c
+--- vdr-1.2.4/dvbdevice.c	Sun Aug 24 16:23:12 2003
++++ vdr-1.2.5pre1/dvbdevice.c	Sat Aug 30 13:40:41 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.62 2003/08/24 14:23:12 kls Exp $
++ * $Id: dvbdevice.c 1.63 2003/08/30 11:40:41 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -896,11 +896,49 @@
+    If anybody ever finds out what could be changed so that VIDEO_STILLPICTURE
+    could be used, please let me know!
+    kls 2002-03-23
++   2003-08-30: apparently the driver can't handle PES data, so Oliver Endriss
++               <o.endriss@gmx.de> has changed this to strip all PES headers
++               and send pure ES data to the driver. Seems to work just fine!
++               Let's drop the VIDEO_STILLPICTURE_WORKS_WITH_VDR_FRAMES stuff
++               once this has proven to work in all cases.
+ */
+-//#define VIDEO_STILLPICTURE_WORKS_WITH_VDR_FRAMES
++#define VIDEO_STILLPICTURE_WORKS_WITH_VDR_FRAMES
+ #ifdef VIDEO_STILLPICTURE_WORKS_WITH_VDR_FRAMES
++  if (Data[0] == 0x00 && Data[1] == 0x00 && Data[2] == 0x01 && (Data[3] & 0xF0) == 0xE0) {
++     // PES data
++     char *buf = MALLOC(char, Length);
++     if (!buf)
++        return;
++     int i = 0;
++     int blen = 0;
++     while (i < Length - 4) {
++           if (Data[i] == 0x00 && Data[i + 1] == 0x00 && Data[i + 2] == 0x01 && (Data[i + 3] & 0xF0) == 0xE0) {
++              // skip PES header
++              int offs = i + 6;
++              int len = Data[i + 4] * 256 + Data[i + 5];
++              // skip header extension
++              if ((Data[i + 6] & 0xC0) == 0x80) {
++                 offs += 3;
++                 offs += Data[i + 8];
++                 len -= 3;
++                 len -= Data[i + 8];
++                 }
++              memcpy(&buf[blen], &Data[offs], len);
++              i = offs + len;
++              blen += len;
++              }
++           else
++              i++;
++           }
++     video_still_picture sp = { buf, blen };
++     CHECK(ioctl(fd_video, VIDEO_STILLPICTURE, &sp));
++     free(buf);
++     }
++  else {
++     // non-PES data
+   video_still_picture sp = { (char *)Data, Length };
+   CHECK(ioctl(fd_video, VIDEO_STILLPICTURE, &sp));
++     }
+ #else
+ #define MIN_IFRAME 400000
+   for (int i = MIN_IFRAME / Length + 1; i > 0; i--) {
+diff -ruNbw vdr-1.2.4/i18n.c vdr-1.2.5pre1/i18n.c
+--- vdr-1.2.4/i18n.c	Sun Aug 24 12:52:08 2003
++++ vdr-1.2.5pre1/i18n.c	Tue Aug 26 17:27:25 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.131 2003/08/24 10:52:08 kls Exp $
++ * $Id: i18n.c 1.133 2003/08/26 15:27:25 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -79,7 +79,7 @@
+     "Português",
+     "Français",
+     "Norsk",
+-    "Suomi",
++    "suomi", // this is not a typo - it's really lowercase!
+     "Polski",
+     "Español",
+     "Ellinika",
+@@ -2724,11 +2724,11 @@
+     "",// TODO
+     " aàbcçdeéèêfghiîjklmnoôpqrstuùûvwxyz0123456789-.#~",
+     "",// TODO
+-    " abcdefghijklmnopqrstuvxyzåäö0123456789-.#~",
++    " abcdefghijklmnopqrstuvwxyzåäö0123456789-.#~",
+     " abcdefghijklmnopqrstuvwxyz0123456789-.#~",
+     " aábcdeéfghiíjklmnñoópqrstuúvwxyz0123456789-.#~",
+     "",// TODO
+-    " abcdefghijklmnopqrstuvxyzåäö0123456789-.#~",
++    " abcdefghijklmnopqrstuvwxyzåäö0123456789-.#~",
+     " abcdefghijklmnopqrstuvwxyz0123456789-.#~",
+     " aábcdeéfghiíjklmnoóöpqrstuúüvwxyz0123456789-.,#~",
+     " aàbcçdeéèfghiíjklmnoòpqrstuúvwxyz0123456789-.,#~_·",
+diff -ruNbw vdr-1.2.4/plugin.c vdr-1.2.5pre1/plugin.c
+--- vdr-1.2.4/plugin.c	Fri May  9 17:01:26 2003
++++ vdr-1.2.5pre1/plugin.c	Sat Aug 30 16:52:58 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: plugin.c 1.9 2003/05/09 15:01:26 kls Exp $
++ * $Id: plugin.c 1.10 2003/08/30 14:52:58 kls Exp $
+  */
+ 
+ #include "plugin.h"
+@@ -170,7 +170,7 @@
+      if (plugin && args) {
+         int argc = 0;
+         char *argv[MAXPLUGINARGS];
+-        char *p = args;
++        char *p = skipspace(stripspace(args));
+         char *q = NULL;
+         bool done = false;
+         while (!done) {
+@@ -205,7 +205,7 @@
+                                }
+                             }
+                          if (!done)
+-                            p++;
++                            p = *p ? p + 1 : skipspace(p + 1);
+                 }
+               }
+         argv[argc] = NULL;
+@@ -278,7 +278,7 @@
+         }
+      return;
+      }
+-  char *s = strdup(Args);
++  char *s = strdup(skipspace(Args));
+   char *p = strchr(s, ' ');
+   if (p)
+      *p = 0;
+diff -ruNbw vdr-1.2.4/runvdr vdr-1.2.5pre1/runvdr
+--- vdr-1.2.4/runvdr	Sun Aug 17 16:27:31 2003
++++ vdr-1.2.5pre1/runvdr	Tue Aug 26 18:15:41 2003
+@@ -18,7 +18,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: runvdr 1.10 2003/08/17 14:27:31 kls Exp $
++# $Id: runvdr 1.11 2003/08/26 16:15:41 kls Exp $
+ 
+ DVBDIR="../DVB/driver"
+ VDRPRG="./vdr"
+@@ -34,7 +34,7 @@
+ 
+ while (true) do
+       su -c "$VDRCMD" $VDRUSR
+-      if test $? -ne 1; then exit; fi
++      if test $? -eq 0 -o $? -eq 2; then exit; fi
+       date
+       echo "restarting VDR"
+       $KILL $VDRPRG
+diff -ruNbw vdr-1.2.4/svdrp.c vdr-1.2.5pre1/svdrp.c
+--- vdr-1.2.4/svdrp.c	Sat Jul 26 12:57:33 2003
++++ vdr-1.2.5pre1/svdrp.c	Sun Aug 31 13:24:47 2003
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 1.53 2003/07/26 10:57:33 kls Exp $
++ * $Id: svdrp.c 1.55 2003/08/31 11:24:47 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -464,8 +464,30 @@
+ 
+ void cSVDRP::CmdDELC(const char *Option)
+ {
+-  //TODO combine this with menu action (timers must be updated)
+-  Reply(502, "DELC not yet implemented");
++  if (*Option) {
++     if (isnumber(Option)) {
++        cChannel *channel = Channels.GetByNumber(strtol(Option, NULL, 10));
++        if (channel) {
++           for (cTimer *timer = Timers.First(); timer; timer = Timers.Next(timer)) {
++               if (timer->Channel() == channel) {
++                  Reply(550, "Channel \"%s\" is in use by timer %d", Option, timer->Index() + 1);
++                  return;
++                  }
++               }
++           Channels.Del(channel);
++           Channels.ReNumber();
++           Channels.Save();
++           isyslog("channel %s deleted", Option);
++           Reply(250, "Channel \"%s\" deleted", Option);
++           }
++        else
++           Reply(501, "Channel \"%s\" not defined", Option);
++        }
++     else
++        Reply(501, "Error in channel number \"%s\"", Option);
++     }
++  else
++     Reply(501, "Missing channel number");
+ }
+ 
+ void cSVDRP::CmdDELR(const char *Option)
+@@ -1104,6 +1126,8 @@
+               isyslog("lost connection to SVDRP client");
+               Close();
+               }
++           else
++              break;
+            }
+      if (Setup.SVDRPTimeout && time(NULL) - lastActivity > Setup.SVDRPTimeout) {
+         isyslog("timeout on SVDRP connection");
+diff -ruNbw vdr-1.2.4/transfer.c vdr-1.2.5pre1/transfer.c
+--- vdr-1.2.4/transfer.c	Sun May 18 17:22:09 2003
++++ vdr-1.2.5pre1/transfer.c	Sun Aug 31 14:19:16 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: transfer.c 1.13 2003/05/18 15:22:09 kls Exp $
++ * $Id: transfer.c 1.14 2003/08/31 12:19:16 kls Exp $
+  */
+ 
+ #include "transfer.h"
+@@ -13,6 +13,7 @@
+ // The size of the array used to buffer video data:
+ // (must be larger than MINVIDEODATA - see remux.h)
+ #define VIDEOBUFSIZE  MEGABYTE(1)
++#define POLLTIMEOUTS_BEFORE_DEVICECLEAR 3
+ 
+ // --- cTransfer -------------------------------------------------------------
+ 
+@@ -67,6 +68,7 @@
+ {
+   dsyslog("transfer thread started (pid=%d)", getpid());
+ 
++  int PollTimeouts = 0;
+   active = true;
+   while (active) {
+ 
+@@ -99,6 +101,7 @@
+               while (Result > 0 && active) {
+                     cPoller Poller;
+                     if (DevicePoll(Poller, 100)) {
++                       PollTimeouts = 0;
+                        int w = PlayVideo(p, Result);
+                        if (w > 0) {
+                           p += w;
+@@ -107,6 +110,13 @@
+                        else if (w < 0 && FATALERRNO) {
+                           LOG_ERROR;
+                           break;
++                          }
++                       }
++                    else {
++                       PollTimeouts++;
++                       if (PollTimeouts == POLLTIMEOUTS_BEFORE_DEVICECLEAR) {
++                          dsyslog("clearing device because of consecutive poll timeouts");
++                          DeviceClear();
+                           }
+                        }
+                     }

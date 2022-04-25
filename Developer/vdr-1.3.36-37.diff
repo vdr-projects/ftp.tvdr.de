@@ -1,0 +1,2079 @@
+diff -ruN vdr-1.3.36/CONTRIBUTORS vdr-1.3.37/CONTRIBUTORS
+--- vdr-1.3.36/CONTRIBUTORS	2005-11-05 16:48:05.000000000 +0100
++++ vdr-1.3.37/CONTRIBUTORS	2005-11-26 15:16:02.000000000 +0100
+@@ -205,6 +205,8 @@
+  for fixing a memory leak in the SVDRP command LSTE
+  for reporting a problem with the EPG scan disturbing players that have also set
+  live PIDs
++ for reporting a problem in SetProgress() of the 'skincurses' plugin in case Total
++ is 0
+ 
+ Ulrich Röder <roeder@efr-net.de>
+  for pointing out that there are channels that have a symbol rate higher than 27500
+@@ -290,6 +292,8 @@
+  for reporting a problem with ensuring there is a current audio track in case there
+  is only one track
+  for enabling a device to detach all receivers for a given PID
++ for modifying switching to Dolby Digital audio in live mode, if the driver
++ and firmware can handle live DD without the need of a Transfer Mode
+ 
+ Rolf Hakenes <hakenes@hippomi.de>
+  for providing 'libdtv' and adapting the EIT mechanisms to it
+@@ -912,6 +916,7 @@
+  for making EPG events without a title display "No title" instead of "(null)"
+  for changing the title of the recording info menu
+  for reporting a bug in handling key macros with keys after @plugin
++ for adding compiler options "-fPIC -g" to all plugins
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1244,6 +1249,9 @@
+  for reporting that the FATALERRNO macro needs to check for a non-zero errno value
+  for reporting missing mutex locks in cCiMenu::Abort() and cCiEnquiry::Abort()
+  for fixing a race condition in the SPU decoder
++ for fixing initializing the day index when editing the weekday parameter of a
++ repeating timer
++ for figuring out some obscure length bytes the the CA PMT Reply data of AlphaCrypt CAMs
+ 
+ Jürgen Schmitz <j.schmitz@web.de>
+  for reporting a bug in displaying the current channel when switching via the SVDRP
+@@ -1536,3 +1544,6 @@
+ 
+ Maarten Wisse <Maarten.Wisse@urz.uni-hd.de>
+  for translating OSD texts to the Dutch language
++
++Holger Brunn <holger.brunn@stud.uni-karlsruhe.de>
++ for adding a copy constructor to cString and fixing its assignment operator
+diff -ruN vdr-1.3.36/HISTORY vdr-1.3.37/HISTORY
+--- vdr-1.3.36/HISTORY	2005-11-06 11:34:13.000000000 +0100
++++ vdr-1.3.37/HISTORY	2005-11-27 16:57:03.000000000 +0100
+@@ -3828,14 +3828,8 @@
+   startup if there are a great many of recordings, or the disk(s) have to spin up.
+   If the Recordings menu is opened while the list of recordings is still being read,
+   the menu will be updated accordingly.
+-  Plugins that access the global Recordings variable should lock the thread, either
+-  by calling
+-
+-    Recordings.Lock();
+-    ...
+-    Recordings.Unlock();
+-
+-  or by putting something like
++  Plugins that access the global Recordings variable should lock the thread
++  by putting something like
+ 
+     cThreadLock RecordingsLock(&Recordings);
+ 
+@@ -3930,7 +3924,7 @@
+   to Andreas Mair for reporting a problem with extremely long summary fields
+   in timers).
+ - cSVDRP now dynamically allocates its command buffer in order to handle
+-  commands of any length. The MAXPARSEBUFFER macros is now obsolete and has
++  commands of any length. The MAXPARSEBUFFER macro is now obsolete and has
+   been removed. If a plugin has used that macro, it should either define
+   a buffer size of its own, or use cReadLine when reading files.
+ - Fixed a race condition in the SPU decoder (thanks to Marco Schlüßler).
+@@ -3939,3 +3933,32 @@
+ - Fixed setting the help key display in the Recordings menu in case of several
+   layers of subdirectories.
+ - Removed EPG bugfix #0, because it removed actually important data.
++
++2005-11-27: Version 1.3.37
++
++- Added compiler options "-fPIC -g" to all plugins (thanks to Rolf Ahrenberg).
++- Fixed initializing the day index when editing the weekday parameter of a
++  repeating timer (thanks to Marco Schlüßler).
++- No longer removing superfluous hyphens in EPG data - would become too
++  language dependent to handle all kinds of exceptions.
++- Modified switching to Dolby Digital audio in live mode, if the driver
++  and firmware can handle live DD without the need of a Transfer Mode (thanks
++  to Werner Fink). Live DD mode requires a full featured DVB card and a
++  LinuxDVB driver with firmware version 0x2622 or higher. Older versions will
++  use Transfer Mode just like before.
++- Implemented handling of the "CA PMT Reply" for CAMs (thanks to Marco
++  Schlüßler for figuring out some obscure length bytes in the CA PMT Reply
++  data of AlphaCrypt CAMs).
++- Some preparations for being able to record several encrypted channels from
++  the same transponder at the same time (or record and view different encrypted
++  channels), provided the CAM in use can handle this. This is work in progress
++  and isn't actively used, yet.
++- Fixed SetProgress() in the 'skincurses' plugin in case Total is 0 (reported
++  by Stefan Huelswitt).
++- Added a copy constructor to cString and fixed its assignment operator
++  (thanks to Holger Brunn).
++- The new function Skins.QueueMessage() can be called from a background thread
++  to queue a message for display. See VDR/skins.h for details.
++- The SVDRP command MESG uses the new message queueing facility, so MESG
++  commands may now be executed at any time, and the message will be displayed
++  (no more "pending message").
+diff -ruN vdr-1.3.36/PLUGINS/src/hello/Makefile vdr-1.3.37/PLUGINS/src/hello/Makefile
+--- vdr-1.3.36/PLUGINS/src/hello/Makefile	2003-12-21 16:47:22.000000000 +0100
++++ vdr-1.3.37/PLUGINS/src/hello/Makefile	2005-11-11 14:20:14.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.9 2003/12/21 15:47:22 kls Exp $
++# $Id: Makefile 1.10 2005/11/11 13:20:14 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,7 @@
+ ### The C++ compiler and options:
+ 
+ CXX      ?= g++
+-CXXFLAGS ?= -O2 -Wall -Woverloaded-virtual
++CXXFLAGS ?= -fPIC -g -O2 -Wall -Woverloaded-virtual
+ 
+ ### The directory environment:
+ 
+diff -ruN vdr-1.3.36/PLUGINS/src/osddemo/Makefile vdr-1.3.37/PLUGINS/src/osddemo/Makefile
+--- vdr-1.3.36/PLUGINS/src/osddemo/Makefile	2003-12-21 16:47:26.000000000 +0100
++++ vdr-1.3.37/PLUGINS/src/osddemo/Makefile	2005-11-11 14:20:14.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.3 2003/12/21 15:47:26 kls Exp $
++# $Id: Makefile 1.4 2005/11/11 13:20:14 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,7 @@
+ ### The C++ compiler and options:
+ 
+ CXX      ?= g++
+-CXXFLAGS ?= -O2 -Wall -Woverloaded-virtual
++CXXFLAGS ?= -fPIC -g -O2 -Wall -Woverloaded-virtual
+ 
+ ### The directory environment:
+ 
+diff -ruN vdr-1.3.36/PLUGINS/src/servicedemo/Makefile vdr-1.3.37/PLUGINS/src/servicedemo/Makefile
+--- vdr-1.3.36/PLUGINS/src/servicedemo/Makefile	2005-08-21 12:43:12.000000000 +0200
++++ vdr-1.3.37/PLUGINS/src/servicedemo/Makefile	2005-11-11 14:20:14.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.1 2005/08/21 10:43:12 kls Exp $
++# $Id: Makefile 1.2 2005/11/11 13:20:14 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -17,7 +17,7 @@
+ ### The C++ compiler and options:
+ 
+ CXX      ?= g++
+-CXXFLAGS ?= -O2 -Wall -Woverloaded-virtual
++CXXFLAGS ?= -fPIC -g -O2 -Wall -Woverloaded-virtual
+ 
+ ### The directory environment:
+ 
+diff -ruN vdr-1.3.36/PLUGINS/src/skincurses/HISTORY vdr-1.3.37/PLUGINS/src/skincurses/HISTORY
+--- vdr-1.3.36/PLUGINS/src/skincurses/HISTORY	2005-10-01 14:20:25.000000000 +0200
++++ vdr-1.3.37/PLUGINS/src/skincurses/HISTORY	2005-11-26 14:53:31.000000000 +0100
+@@ -21,3 +21,7 @@
+ 2005-10-01:
+ 
+ - Added a note about using this skin to the README file.
++
++2005-11-26: Version 0.0.5
++
++- Fixed SetProgress() in case Total is 0.
+diff -ruN vdr-1.3.36/PLUGINS/src/skincurses/Makefile vdr-1.3.37/PLUGINS/src/skincurses/Makefile
+--- vdr-1.3.36/PLUGINS/src/skincurses/Makefile	2004-05-29 16:44:58.000000000 +0200
++++ vdr-1.3.37/PLUGINS/src/skincurses/Makefile	2005-11-11 14:20:14.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.1 2004/05/29 14:44:58 kls Exp $
++# $Id: Makefile 1.2 2005/11/11 13:20:14 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,7 @@
+ ### The C++ compiler and options:
+ 
+ CXX      ?= g++
+-CXXFLAGS ?= -O2 -Wall -Woverloaded-virtual
++CXXFLAGS ?= -fPIC -g -O2 -Wall -Woverloaded-virtual
+ 
+ ### The directory environment:
+ 
+diff -ruN vdr-1.3.36/PLUGINS/src/skincurses/skincurses.c vdr-1.3.37/PLUGINS/src/skincurses/skincurses.c
+--- vdr-1.3.36/PLUGINS/src/skincurses/skincurses.c	2005-05-16 12:45:12.000000000 +0200
++++ vdr-1.3.37/PLUGINS/src/skincurses/skincurses.c	2005-11-26 14:52:39.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: skincurses.c 1.6 2005/05/16 10:45:12 kls Exp $
++ * $Id: skincurses.c 1.7 2005/11/26 13:52:39 kls Exp $
+  */
+ 
+ #include <ncurses.h>
+@@ -11,7 +11,7 @@
+ #include <vdr/plugin.h>
+ #include <vdr/skins.h>
+ 
+-static const char *VERSION        = "0.0.4";
++static const char *VERSION        = "0.0.5";
+ static const char *DESCRIPTION    = "A text only skin";
+ static const char *MAINMENUENTRY  = NULL;
+ 
+@@ -500,7 +500,7 @@
+ 
+ void cSkinCursesDisplayReplay::SetProgress(int Current, int Total)
+ {
+-  int p = OsdWidth * Current / Total;
++  int p = Total > 0 ? OsdWidth * Current / Total : 0;
+   osd->DrawRectangle(0, 1, p, 1, clrGreen);
+   osd->DrawRectangle(p, 1, OsdWidth, 1, clrWhite);
+ }
+diff -ruN vdr-1.3.36/PLUGINS/src/sky/Makefile vdr-1.3.37/PLUGINS/src/sky/Makefile
+--- vdr-1.3.36/PLUGINS/src/sky/Makefile	2003-12-21 16:47:31.000000000 +0100
++++ vdr-1.3.37/PLUGINS/src/sky/Makefile	2005-11-11 14:20:14.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.3 2003/12/21 15:47:31 kls Exp $
++# $Id: Makefile 1.4 2005/11/11 13:20:14 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,7 @@
+ ### The C++ compiler and options:
+ 
+ CXX      ?= g++
+-CXXFLAGS ?= -O2 -Wall -Woverloaded-virtual
++CXXFLAGS ?= -fPIC -g -O2 -Wall -Woverloaded-virtual
+ 
+ ### The directory environment:
+ 
+diff -ruN vdr-1.3.36/PLUGINS/src/status/Makefile vdr-1.3.37/PLUGINS/src/status/Makefile
+--- vdr-1.3.36/PLUGINS/src/status/Makefile	2003-12-21 16:47:41.000000000 +0100
++++ vdr-1.3.37/PLUGINS/src/status/Makefile	2005-11-11 14:20:14.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.7 2003/12/21 15:47:41 kls Exp $
++# $Id: Makefile 1.8 2005/11/11 13:20:14 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,7 @@
+ ### The C++ compiler and options:
+ 
+ CXX      ?= g++
+-CXXFLAGS ?= -O2 -Wall -Woverloaded-virtual
++CXXFLAGS ?= -fPIC -g -O2 -Wall -Woverloaded-virtual
+ 
+ ### The directory environment:
+ 
+diff -ruN vdr-1.3.36/PLUGINS/src/svdrpdemo/Makefile vdr-1.3.37/PLUGINS/src/svdrpdemo/Makefile
+--- vdr-1.3.36/PLUGINS/src/svdrpdemo/Makefile	2005-08-27 13:26:49.000000000 +0200
++++ vdr-1.3.37/PLUGINS/src/svdrpdemo/Makefile	2005-11-11 14:20:14.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.1 2005/08/27 11:26:49 kls Exp $
++# $Id: Makefile 1.2 2005/11/11 13:20:14 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,7 @@
+ ### The C++ compiler and options:
+ 
+ CXX      ?= g++
+-CXXFLAGS ?= -O2 -Wall -Woverloaded-virtual
++CXXFLAGS ?= -fPIC -g -O2 -Wall -Woverloaded-virtual
+ 
+ ### The directory environment:
+ 
+diff -ruN vdr-1.3.36/PLUGINS.html vdr-1.3.37/PLUGINS.html
+--- vdr-1.3.36/PLUGINS.html	2005-11-04 15:23:45.000000000 +0100
++++ vdr-1.3.37/PLUGINS.html	2005-11-27 16:46:12.000000000 +0100
+@@ -14,18 +14,18 @@
+ <a href="http://www.cadsoft.de/vdr">www.cadsoft.de/vdr</a>
+ </center>
+ <p>
+-<!--X1.3.20--><table width=100%><tr><td bgcolor=#0000AA>&nbsp;</td><td width=100%>
+-Important modifications introduced in version 1.3.20 are marked like this.
+-<!--X1.3.20--></td></tr></table>
+-<!--X1.3.21--><table width=100%><tr><td bgcolor=#00AA00>&nbsp;</td><td width=100%>
++<!--X1.3.21--><table width=100%><tr><td bgcolor=#0000AA>&nbsp;</td><td width=100%>
+ Important modifications introduced in version 1.3.21 are marked like this.
+ <!--X1.3.21--></td></tr></table>
+-<!--X1.3.30--><table width=100%><tr><td bgcolor=#AA0000>&nbsp;</td><td width=100%>
++<!--X1.3.30--><table width=100%><tr><td bgcolor=#00AA00>&nbsp;</td><td width=100%>
+ Important modifications introduced in version 1.3.30 are marked like this.
+ <!--X1.3.30--></td></tr></table>
+-<!--X1.3.31--><table width=100%><tr><td bgcolor=#FF0000>&nbsp;</td><td width=100%>
++<!--X1.3.31--><table width=100%><tr><td bgcolor=#AA0000>&nbsp;</td><td width=100%>
+ Important modifications introduced in version 1.3.31 are marked like this.
+ <!--X1.3.31--></td></tr></table>
++<!--X1.3.37--><table width=100%><tr><td bgcolor=#FF0000>&nbsp;</td><td width=100%>
++Important modifications introduced in version 1.3.37 are marked like this.
++<!--X1.3.37--></td></tr></table>
+ <p>
+ VDR provides an easy to use plugin interface that allows additional functionality
+ to be added to the program by implementing a dynamically loadable library file.
+@@ -58,9 +58,7 @@
+ <li><a href="#Command line arguments">Command line arguments</a>
+ <li><a href="#Command line help">Command line help</a>
+ <li><a href="#Getting started">Getting started</a>
+-<!--X1.3.20--><table width=100%><tr><td bgcolor=#0000AA>&nbsp;</td><td width=100%>
+ <li><a href="#Shutting down">Shutting down</a>
+-<!--X1.3.20--></td></tr></table>
+ <li><a href="#Main menu entry">Main menu entry</a>
+ <li><a href="#User interaction">User interaction</a>
+ <li><a href="#Housekeeping">Housekeeping</a>
+@@ -68,10 +66,10 @@
+ <li><a href="#The Setup menu">The Setup menu</a>
+ <li><a href="#Configuration files">Configuration files</a>
+ <li><a href="#Internationalization">Internationalization</a>
+-<!--X1.3.30--><table width=100%><tr><td bgcolor=#AA0000>&nbsp;</td><td width=100%>
++<!--X1.3.30--><table width=100%><tr><td bgcolor=#00AA00>&nbsp;</td><td width=100%>
+ <li><a href="#Custom services">Custom services</a>
+ <!--X1.3.30--></td></tr></table>
+-<!--X1.3.31--><table width=100%><tr><td bgcolor=#FF0000>&nbsp;</td><td width=100%>
++<!--X1.3.31--><table width=100%><tr><td bgcolor=#AA0000>&nbsp;</td><td width=100%>
+ <li><a href="#SVDRP commands">SVDRP commands</a>
+ <!--X1.3.31--></td></tr></table>
+ <li><a href="#Loading plugins into VDR">Loading plugins into VDR</a>
+@@ -87,7 +85,7 @@
+ <li><a href="#Skins">Skins</a>
+ <li><a href="#Themes">Themes</a>
+ <li><a href="#Devices">Devices</a>
+-<!--X1.3.21--><table width=100%><tr><td bgcolor=#00AA00>&nbsp;</td><td width=100%>
++<!--X1.3.21--><table width=100%><tr><td bgcolor=#0000AA>&nbsp;</td><td width=100%>
+ <li><a href="#Audio">Audio</a>
+ <!--X1.3.21--></td></tr></table>
+ <li><a href="#Remote Control">Remote Control</a>
+@@ -314,10 +312,8 @@
+ command line help - and after that immediately destroys them again.
+ <p>
+ The <b>destructor</b> has to clean up any data created by the plugin.
+-<!--X1.3.20--><table width=100%><tr><td bgcolor=#0000AA>&nbsp;</td><td width=100%>
+ Any threads the plugin may have created shall be stopped in the
+ <a href="#Shutting down"><tt>Stop()</tt></a> function.
+-<!--X1.3.20--></td></tr></table>
+ <p>
+ Of course, if your plugin doesn't define any member variables that need to be
+ initialized (and deleted), you don't need to implement either of these functions.
+@@ -512,7 +508,6 @@
+ If the plugin doesn't implement any background functionality or internationalized
+ texts, it doesn't need to implement either of these functions.
+ 
+-<!--X1.3.20--><table width=100%><tr><td bgcolor=#0000AA>&nbsp;</td><td width=100%>
+ <a name="Shutting down"><hr><h2>Shutting down</h2>
+ 
+ <center><i><b>Stop it, right there!</b></i></center><p>
+@@ -529,7 +524,6 @@
+ <a href="#Getting started"><tt>Start()</tt></a> function of that plugin has
+ returned <i>true</i>. The <tt>Stop()</tt> functions are called in the reverse order
+ as the <a href="#Getting started"><tt>Start()</tt></a> functions were called.
+-<!--X1.3.20--></td></tr></table>
+ 
+ <a name="Main menu entry"><hr><h2>Main menu entry</h2>
+ 
+@@ -872,7 +866,7 @@
+ and then in the global VDR texts. So a plugin can make use of texts defined by the
+ core VDR code.
+ 
+-<!--X1.3.30--><table width=100%><tr><td bgcolor=#AA0000>&nbsp;</td><td width=100%>
++<!--X1.3.30--><table width=100%><tr><td bgcolor=#00AA00>&nbsp;</td><td width=100%>
+ <a name="Custom services"><hr><h2>Custom services</h2>
+ 
+ <center><i><b>What can I do for you?</b></i></center><p>
+@@ -943,7 +937,7 @@
+ 
+ <!--X1.3.30--></td></tr></table>
+ 
+-<!--X1.3.31--><table width=100%><tr><td bgcolor=#FF0000>&nbsp;</td><td width=100%>
++<!--X1.3.31--><table width=100%><tr><td bgcolor=#AA0000>&nbsp;</td><td width=100%>
+ <a name="SVDRP commands"><hr><h2>SVDRP commands</h2>
+ 
+ <center><i><b>Infinite Diversity in Infinite Combinations</b></i></center><p>
+@@ -1521,6 +1515,22 @@
+ areas. Drawing areas are always rectangular and may not overlap (but do not need
+ to be adjacent).
+ 
++<!--X1.3.37--><table width=100%><tr><td bgcolor=#FF0000>&nbsp;</td><td width=100%>
++<p>
++Directly accessing the OSD is only allowed from the foreground thread, which
++restricts this to a <tt>cOsdObject</tt> returned from the plugin's <tt>MainMenuAction()</tt>
++function, or any of the skin classes a plugin might implement.
++<p>
++If a plugin runs a separate thread and wants to issue a message directly from
++within that tread, it can call
++
++<p><table><tr><td bgcolor=#F0F0F0><pre>
++int cSkins::QueueMessage(eMessageType Type, const char *s, int Seconds = 0, int Timeout = 0);
++</pre></td></tr></table><p>
++
++to queue that message for display. See <tt>VDR/skins.h</tt> for details.
++<!--X1.3.37--></td></tr></table>
++
+ <a name="Skins"><hr><h2>Skins</h2>
+ 
+ <center><i><b>The emperor's new clothes</b></i></center><p>
+@@ -1830,7 +1840,7 @@
+   virtual void Action(void);
+ public:
+   cMyAudio(void);
+-<!--X1.3.21--><table width=100%><tr><td bgcolor=#00AA00>&nbsp;</td><td width=100%>
++<!--X1.3.21--><table width=100%><tr><td bgcolor=#0000AA>&nbsp;</td><td width=100%>
+   virtual void Play(const uchar *Data, int Length, uchar Id);
+ <!--X1.3.21--></td></tr></table>
+   virtual void Mute(bool On);
+diff -ruN vdr-1.3.36/channels.conf vdr-1.3.37/channels.conf
+--- vdr-1.3.36/channels.conf	2005-11-06 16:02:40.000000000 +0100
++++ vdr-1.3.37/channels.conf	2005-11-27 16:59:18.000000000 +0100
+@@ -6,14 +6,14 @@
+ Bayerisches FS;ARD:11836:hC34:S19.2E:27500:201:202=deu:204:0:28107:1:1101:0
+ hr-fernsehen;ARD:11836:hC34:S19.2E:27500:301:302=deu:304:0:28108:1:1101:0
+ NDR FS MV;ARD:12109:hC34:S19.2E:27500:2401:2402=deu:2404:0:28224:1:1073:0
+-SR SÜDWEST Fernsehen;ARD:12265:hC34:S19.2E:27500:1301:1302=deu:1304:0:28486:1:1093:0
++SR SÜDWEST Ferns.;ARD:12265:hC34:S19.2E:27500:1301:1302=deu:1304:0:28486:1:1093:0
+ WDR Köln;ARD:11836:hC34:S19.2E:27500:601:602=deu:604:0:28111:1:1101:0
+-BR-alpha;ARD:11836:hC34:S19.2E:27500:701:702=deu:704:0:28112:1:1101:0
++BR-alpha;ARD:11836:hC34:S19.2E:27500:701:702=deu;703:704:0:28112:1:1101:0
+ SÜDWEST Ferns. BW;ARD:11836:hC34:S19.2E:27500:801:802=deu:804:0:28113:1:1101:0
+ Phoenix;ARD:11836:hC34:S19.2E:27500:901:902=deu:904:0:28114:1:1101:0
+ ZDF;ZDFvision:11953:hC34:S19.2E:27500:110:120=deu,121=2ch;125=dd:130:0:28006:1:1079:0
+ 3sat;ZDFvision:11953:hC34:S19.2E:27500:210:220=deu,221=2ch;225=dd:230:0:28007:1:1079:0
+-KiKa;ZDFvision:11953:hC34:S19.2E:27500:310:320=deu:330:0:28008:1:1079:0
++KiKa;ZDFvision:11953:hC34:S19.2E:27500:310:320:0:0:28008:1:1079:0
+ arte;ARD:11836:hC34:S19.2E:27500:401:402=deu,403=fra:404:0:28109:1:1101:0
+ ORF1;ORF:12692:hC56:S19.2E:22000:160:161=deu;163=deu:165:1762,D05,1702,1801:13001:1:1117:0
+ ORF2;ORF:12692:hC56:S19.2E:22000:500:501=deu;503=deu:505:1762,D05,1702,1801:13002:1:1117:0
+@@ -45,14 +45,14 @@
+ rbb Berlin;ARD:12109:hC34:S19.2E:27500:601:602=deu:604:0:28206:1:1073:0
+ :Premiere World
+ PREMIERE START,START;PREMIERE:11797:hC34:S19.2E:27500:255:256=deu:32:1:8:133:2:0
+-PREMIERE 1,PREM 1;PREMIERE:11797:hC34:S19.2E:27500:511:512=deu,513=deu;515=deu:32:1:10:133:2:0
+-PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu,1793=deu;1795=deu:32:1:11:133:2:0
+-PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu,2305=deu:32:1:43:133:2:0
+-PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu,769=deu:32:1801,1722,1702:9:133:2:0
+-PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu:32:1722,1702,1801:29:133:2:0
+-PREMIERE 6,PREM 6;PREMIERE:11797:hC34:S19.2E:27500:1535:1536=deu:32:1:41:133:2:0
++PREMIERE 1,PREM 1;PREMIERE:11797:hC34:S19.2E:27500:511:512=deu,513=deu;515=deu:32:1702,1722,1801:10:133:2:0
++PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu,1793=deu;1795=deu:32:1702,1801,1722:11:133:2:0
++PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu,2305=deu:32:1722,1702,1801:43:133:2:0
++PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu:32:1801,1722,1702:9:133:2:0
++PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu,1281=deu:32:1722,1702,1801:29:133:2:0
++PREMIERE 6,PREM 6;PREMIERE:11797:hC34:S19.2E:27500:1535:1536=deu:32:1702,1722,1801:41:133:2:0
+ PREMIERE 7,PREM 7;PREMIERE:11797:hC34:S19.2E:27500:1023:1024=deu:32:1801,1702,1722:20:133:2:0
+-DISNEY CHANNEL,DISNEY;PREMIERE:11758:hC34:S19.2E:27500:2559:2560=deu:32:1722,1801,1702:34:133:17:0
++DISNEY CHANNEL,DISNEY;PREMIERE:11758:hC34:S19.2E:27500:2559:2560=deu:32:1801,1702,1722:34:133:17:0
+ :Premiere Direkt
+ PREMIERE DIREKT,DIREKT;PREMIERE:12031:hC34:S19.2E:27500:2815:2816=deu,2817=deu;2819=deu:0:0:18:133:4:0
+ :PW Erotic
+@@ -90,12 +90,12 @@
+ :@201 Sky
+ Sky One;BSkyB:12226:hC23:S28.2E:27500:515+8190:643=eng:579:960,961:4705:2:2027:0
+ Sky Two;BSkyB:12226:hC23:S28.2E:27500:514+8190:642=eng,662=NAR:578:960,961:5104:2:2027:0
+-ITV2;BSkyB:10758:vC56:S28.2E:22000:2314:2315=eng,2363=NAR:2317:960,961:10070:2:2044:0
++ITV2;BSkyB:10758:vC56:S28.2E:22000:2314:2315=eng,2363=NAR:2317:0:10070:2:2044:0
+ Sci-Fi;BSkyB:12148:hC23:S28.2E:27500:512+8190:640=eng:576:960,961:4905:2:2023:0
+-Paramount;BSkyB:12187:hC23:S28.2E:27500:2313+2304:2326=eng,2327=NAR:2315:960,961:5904:2:2025:0
++Paramount;BSkyB:12187:hC23:S28.2E:27500:518+8190:666=eng,686=NAR:582:960,961:5904:2:2025:0
+ Paramount;BSkyB:11526:vC23:S28.2E:27500:2317+2306:2318=eng:2319:960,961:50305:2:2404:0
+ Paramount 2;BSkyB:11914:hC23:S28.2E:27500:514+8190:642=eng,662=NAR:578:960,961:4504:2:2011:0
+-Discovery;BSkyB:11875:hC23:S28.2E:27500:2304:2306=eng,2307=NAR:2305:960,961:6201:2:2009:0
++Discovery;BSkyB:11875:hC23:S28.2E:27500:2308:2310=eng,2311=NAR:2309:960,961:6201:2:2009:0
+ Sky Movies 1;BSkyB:11836:hC23:S28.2E:27500:518+8190:646=eng,653=NAR;686=eng:582:960,961:4303:2:2007:0
+ Sky Movies 2;BSkyB:11836:hC23:S28.2E:27500:519+8190:647=eng,667=NAR;687=eng:583:960,961:4302:2:2007:0
+ Sky Movies 3;BSkyB:11836:hC23:S28.2E:27500:520+8190:648=eng,654=NAR;688=eng:584:960,961:4403:2:2007:0
+@@ -110,7 +110,7 @@
+ :@900 Some 'seed' channels
+ Chelsea TV;BskyB:11778:vC23:S28.2E:27500:2308+2304:2309=eng:0:960,961:9307:2:2004:0
+ WDR Münster;ARD:12421:hC34:S19.2E:27500:101:102=deu:104:0:28310:1:1201:0
+-Animal Plnt+;BSkyB:12070:hC23:S28.2E:27500:2314+2307:2315=eng:0:960,961:50002:2:2019:0
++Animal Plnt+;BSkyB:12070:hC23:S28.2E:27500:2315+2307:2316=eng:0:960,961:50002:2:2019:0
+ S1T;BSkyB:12285:vC23:S28.2E:27500:513+8190:641=eng,661=NAR:577:960,961:4409:2:2030:0
+ CNN;BSkyB:12051:vC23:S28.2E:27500:2313:2315=eng:2314:0:7140:2:2018:0
+ BBC PARL'MNT;BSkyB:10847:vC56:S28.2E:22000:2327:2328=eng:2331:0:6902:2:2050:0
+diff -ruN vdr-1.3.36/ci.c vdr-1.3.37/ci.c
+--- vdr-1.3.36/ci.c	2005-11-04 15:18:52.000000000 +0100
++++ vdr-1.3.37/ci.c	2005-11-26 14:36:51.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 1.39 2005/11/04 14:18:52 kls Exp $
++ * $Id: ci.c 1.40 2005/11/26 13:36:51 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -845,10 +845,118 @@
+   return false;
+ }
+ 
++// --- cCiCaPmt --------------------------------------------------------------
++
++// Ca Pmt List Management:
++
++#define CPLM_MORE    0x00
++#define CPLM_FIRST   0x01
++#define CPLM_LAST    0x02
++#define CPLM_ONLY    0x03
++#define CPLM_ADD     0x04
++#define CPLM_UPDATE  0x05
++
++// Ca Pmt Cmd Ids:
++
++#define CPCI_OK_DESCRAMBLING  0x01
++#define CPCI_OK_MMI           0x02
++#define CPCI_QUERY            0x03
++#define CPCI_NOT_SELECTED     0x04
++
++class cCiCaPmt : public cListObject {
++  friend class cCiConditionalAccessSupport;
++private:
++  uint8_t cmdId;
++  int length;
++  int esInfoLengthPos;
++  uint8_t capmt[2048]; ///< XXX is there a specified maximum?
++  int caDescriptorsLength;
++  uint8_t caDescriptors[2048];
++  bool streamFlag;
++  void AddCaDescriptors(int Length, const uint8_t *Data);
++public:
++  cCiCaPmt(uint8_t CmdId, int Source, int Transponder, int ProgramNumber, const unsigned short *CaSystemIds);
++  void SetListManagement(uint8_t ListManagement);
++  bool Valid(void);
++  void AddPid(int Pid, uint8_t StreamType);
++  };
++
++cCiCaPmt::cCiCaPmt(uint8_t CmdId, int Source, int Transponder, int ProgramNumber, const unsigned short *CaSystemIds)
++{
++  cmdId = CmdId;
++  caDescriptorsLength = GetCaDescriptors(Source, Transponder, ProgramNumber, CaSystemIds, sizeof(caDescriptors), caDescriptors, streamFlag);
++  length = 0;
++  capmt[length++] = CPLM_ONLY;
++  capmt[length++] = (ProgramNumber >> 8) & 0xFF;
++  capmt[length++] =  ProgramNumber       & 0xFF;
++  capmt[length++] = 0x01; // version_number, current_next_indicator - apparently vn doesn't matter, but cni must be 1
++  esInfoLengthPos = length;
++  capmt[length++] = 0x00; // program_info_length H (at program level)
++  capmt[length++] = 0x00; // program_info_length L
++  if (!streamFlag)
++     AddCaDescriptors(caDescriptorsLength, caDescriptors);
++}
++
++void cCiCaPmt::SetListManagement(uint8_t ListManagement)
++{
++  capmt[0] = ListManagement;
++}
++
++bool cCiCaPmt::Valid(void)
++{
++  return caDescriptorsLength > 0;
++}
++
++void cCiCaPmt::AddPid(int Pid, uint8_t StreamType)
++{
++  if (Pid) {
++     //XXX buffer overflow check???
++     capmt[length++] = StreamType;
++     capmt[length++] = (Pid >> 8) & 0xFF;
++     capmt[length++] =  Pid       & 0xFF;
++     esInfoLengthPos = length;
++     capmt[length++] = 0x00; // ES_info_length H (at ES level)
++     capmt[length++] = 0x00; // ES_info_length L
++     if (streamFlag)
++        AddCaDescriptors(caDescriptorsLength, caDescriptors);
++     }
++}
++
++void cCiCaPmt::AddCaDescriptors(int Length, const uint8_t *Data)
++{
++  if (esInfoLengthPos) {
++     if (length + Length < int(sizeof(capmt))) {
++        capmt[length++] = cmdId;
++        memcpy(capmt + length, Data, Length);
++        length += Length;
++        int l = length - esInfoLengthPos - 2;
++        capmt[esInfoLengthPos]     = (l >> 8) & 0xFF;
++        capmt[esInfoLengthPos + 1] =  l       & 0xFF;
++        }
++     else
++        esyslog("ERROR: buffer overflow in CA descriptor");
++     esInfoLengthPos = 0;
++     }
++  else
++     esyslog("ERROR: adding CA descriptor without Pid!");
++}
++
+ // --- cCiConditionalAccessSupport -------------------------------------------
+ 
+ #define MAXCASYSTEMIDS 16
+ 
++// CA Enable Ids:
++
++#define CAEI_POSSIBLE                  0x01
++#define CAEI_POSSIBLE_COND_PURCHASE    0x02
++#define CAEI_POSSIBLE_COND_TECHNICAL   0x03
++#define CAEI_NOT_POSSIBLE_ENTITLEMENT  0x71
++#define CAEI_NOT_POSSIBLE_TECHNICAL    0x73
++
++#define CA_ENABLE_FLAG                 0x80
++
++#define CA_ENABLE(x) (((x) & CA_ENABLE_FLAG) ? (x) & ~CA_ENABLE_FLAG : 0)
++
+ class cCiConditionalAccessSupport : public cCiSession {
+ private:
+   int state;
+@@ -858,14 +966,15 @@
+   cCiConditionalAccessSupport(int SessionId, cCiTransportConnection *Tc);
+   virtual bool Process(int Length = 0, const uint8_t *Data = NULL);
+   const unsigned short *GetCaSystemIds(void) { return caSystemIds; }
+-  bool SendPMT(cCiCaPmt &CaPmt);
++  bool SendPMT(cCiCaPmt *CaPmt);
++  bool ReceivedReply(bool CanDescramble = false);
+   };
+ 
+ cCiConditionalAccessSupport::cCiConditionalAccessSupport(int SessionId, cCiTransportConnection *Tc)
+ :cCiSession(SessionId, RI_CONDITIONAL_ACCESS_SUPPORT, Tc)
+ {
+   dbgprotocol("New Conditional Access Support (session id %d)\n", SessionId);
+-  state = 0;
++  state = 0; // inactive
+   caSystemIds[numCaSystemIds = 0] = 0;
+ }
+ 
+@@ -892,7 +1001,58 @@
+                   }
+             dbgprotocol("\n");
+             }
+-            state = 2;
++            state = 2; // got ca info
++            break;
++       case AOT_CA_PMT_REPLY: {
++            dbgprotocol("%d: <== Ca Pmt Reply", SessionId());
++            state = 4; // got ca pmt reply
++            int l = 0;
++            const uint8_t *d = GetData(Data, l);
++            if (l > 1) {
++               unsigned short pnr = ((unsigned short)(*d) << 8) | *(d + 1);
++               dbgprotocol(" %d", pnr);
++               d += 2;
++               l -= 2;
++               if (l > 0) {
++                  dbgprotocol(" %02X", *d);
++                  d += 1;
++                  l -= 1;
++                  if (l > 0) {
++                     if (l % 3 == 0 && l > 1) {
++                        // The EN50221 standard defines that the next byte is supposed
++                        // to be the CA_enable value at programme level. However, there are
++                        // CAMs (for instance the AlphaCrypt with firmware <= 3.05) that
++                        // insert a two byte length field here.
++                        // This is a workaround to skip this length field:
++                        unsigned short len = ((unsigned short)(*d) << 8) | *(d + 1);
++                        if (len == l - 2) {
++                           d += 2;
++                           l -= 2;
++                           }
++                        }
++                     unsigned char caepl = *d;
++                     dbgprotocol(" %02X", caepl);
++                     d += 1;
++                     l -= 1;
++                     bool ok = true;
++                     if (l <= 2)
++                        ok = CA_ENABLE(caepl) == CAEI_POSSIBLE;
++                     while (l > 2) {
++                           unsigned short pid = ((unsigned short)(*d) << 8) | *(d + 1);
++                           unsigned char caees = *(d + 2);
++                           dbgprotocol(" %d=%02X", pid, caees);
++                           d += 3;
++                           l -= 3;
++                           if (CA_ENABLE(caees) != CAEI_POSSIBLE)
++                              ok = false;
++                           }
++                     if (ok)
++                        state = 5; // descrambling possible
++                     }
++                  }
++               }
++            dbgprotocol("\n");
++            }
+             break;
+        default: esyslog("ERROR: CI conditional access support: unknown tag %06X", Tag);
+                 return false;
+@@ -901,20 +1061,27 @@
+   else if (state == 0) {
+      dbgprotocol("%d: ==> Ca Info Enq\n", SessionId());
+      SendData(AOT_CA_INFO_ENQ);
+-     state = 1;
++     state = 1; // enquired ca info
+      }
+   return true;
+ }
+ 
+-bool cCiConditionalAccessSupport::SendPMT(cCiCaPmt &CaPmt)
++bool cCiConditionalAccessSupport::SendPMT(cCiCaPmt *CaPmt)
+ {
+-  if (state == 2) {
+-     SendData(AOT_CA_PMT, CaPmt.length, CaPmt.capmt);
++  if (CaPmt && state >= 2) {
++     dbgprotocol("%d: ==> Ca Pmt\n", SessionId());
++     SendData(AOT_CA_PMT, CaPmt->length, CaPmt->capmt);
++     state = 3; // sent ca pmt
+      return true;
+      }
+   return false;
+ }
+ 
++bool cCiConditionalAccessSupport::ReceivedReply(bool CanDescramble)
++{
++  return state >= (CanDescramble ? 5 : 4);
++}
++
+ // --- cCiDateTime -----------------------------------------------------------
+ 
+ class cCiDateTime : public cCiSession {
+@@ -1307,78 +1474,6 @@
+   return mmi && mmi->SendCloseMMI();
+ }
+ 
+-// --- cCiCaPmt --------------------------------------------------------------
+-
+-// Ca Pmt List Management:
+-
+-#define CPLM_MORE    0x00
+-#define CPLM_FIRST   0x01
+-#define CPLM_LAST    0x02
+-#define CPLM_ONLY    0x03
+-#define CPLM_ADD     0x04
+-#define CPLM_UPDATE  0x05
+-
+-// Ca Pmt Cmd Ids:
+-
+-#define CPCI_OK_DESCRAMBLING  0x01
+-#define CPCI_OK_MMI           0x02
+-#define CPCI_QUERY            0x03
+-#define CPCI_NOT_SELECTED     0x04
+-
+-cCiCaPmt::cCiCaPmt(int Source, int Transponder, int ProgramNumber, const unsigned short *CaSystemIds)
+-{
+-  caDescriptorsLength = GetCaDescriptors(Source, Transponder, ProgramNumber, CaSystemIds, sizeof(caDescriptors), caDescriptors, streamFlag);
+-  length = 0;
+-  capmt[length++] = CPLM_ONLY;
+-  capmt[length++] = (ProgramNumber >> 8) & 0xFF;
+-  capmt[length++] =  ProgramNumber       & 0xFF;
+-  capmt[length++] = 0x01; // version_number, current_next_indicator - apparently vn doesn't matter, but cni must be 1
+-  esInfoLengthPos = length;
+-  capmt[length++] = 0x00; // program_info_length H (at program level)
+-  capmt[length++] = 0x00; // program_info_length L
+-  if (!streamFlag)
+-     AddCaDescriptors(caDescriptorsLength, caDescriptors);
+-}
+-
+-bool cCiCaPmt::Valid(void)
+-{
+-  return caDescriptorsLength > 0;
+-}
+-
+-void cCiCaPmt::AddPid(int Pid, uint8_t StreamType)
+-{
+-  if (Pid) {
+-     //XXX buffer overflow check???
+-     capmt[length++] = StreamType;
+-     capmt[length++] = (Pid >> 8) & 0xFF;
+-     capmt[length++] =  Pid       & 0xFF;
+-     esInfoLengthPos = length;
+-     capmt[length++] = 0x00; // ES_info_length H (at ES level)
+-     capmt[length++] = 0x00; // ES_info_length L
+-     if (streamFlag)
+-        AddCaDescriptors(caDescriptorsLength, caDescriptors);
+-     }
+-}
+-
+-void cCiCaPmt::AddCaDescriptors(int Length, const uint8_t *Data)
+-{
+-  if (esInfoLengthPos) {
+-     if (length + Length < int(sizeof(capmt))) {
+-        capmt[length++] = CPCI_OK_DESCRAMBLING;
+-        memcpy(capmt + length, Data, Length);
+-        length += Length;
+-        int l = length - esInfoLengthPos - 2;
+-        capmt[esInfoLengthPos]     = (l >> 8) & 0xFF;
+-        capmt[esInfoLengthPos + 1] =  l       & 0xFF;
+-        }
+-     else
+-        esyslog("ERROR: buffer overflow in CA descriptor");
+-     esInfoLengthPos = 0;
+-     }
+-  else
+-     esyslog("ERROR: adding CA descriptor without Pid!");
+-}
+-
+ // -- cCiHandler -------------------------------------------------------------
+ 
+ cCiHandler::cCiHandler(int Fd, int NumSlots)
+@@ -1393,6 +1488,7 @@
+       moduleReady[i] = false;
+   tpl = new cCiTransportLayer(Fd, numSlots);
+   tc = NULL;
++  source = transponder = 0;
+ }
+ 
+ cCiHandler::~cCiHandler()
+@@ -1556,58 +1652,98 @@
+   return true;
+ }
+ 
+-bool cCiHandler::Process(void)
++bool cCiHandler::Process(int Slot)
+ {
+   bool result = true;
+   cMutexLock MutexLock(&mutex);
+-  for (int Slot = 0; Slot < numSlots; Slot++) {
+-      tc = tpl->Process(Slot);
+-      if (tc) {
+-         int Length;
+-         const uint8_t *Data = tc->Data(Length);
+-         if (Data && Length > 1) {
+-            switch (*Data) {
+-              case ST_SESSION_NUMBER:          if (Length > 4) {
+-                                                  int SessionId = ntohs(get_unaligned((uint16_t *)&Data[2]));
+-                                                  cCiSession *Session = GetSessionBySessionId(SessionId);
+-                                                  if (Session)
+-                                                     Session->Process(Length - 4, Data + 4);
+-                                                  else
+-                                                     esyslog("ERROR: unknown session id: %d", SessionId);
+-                                                  }
+-                                               break;
+-              case ST_OPEN_SESSION_REQUEST:    OpenSession(Length, Data);
+-                                               break;
+-              case ST_CLOSE_SESSION_REQUEST:   if (Length == 4)
+-                                                  CloseSession(ntohs(get_unaligned((uint16_t *)&Data[2])));
+-                                               break;
+-              case ST_CREATE_SESSION_RESPONSE: //XXX fall through to default
+-              case ST_CLOSE_SESSION_RESPONSE:  //XXX fall through to default
+-              default: esyslog("ERROR: unknown session tag: %02X", *Data);
+-              }
++  for (int slot = 0; slot < numSlots; slot++) {
++      if (Slot < 0 || slot == Slot) {
++         tc = tpl->Process(slot);
++         if (tc) {
++            int Length;
++            const uint8_t *Data = tc->Data(Length);
++            if (Data && Length > 1) {
++               switch (*Data) {
++                 case ST_SESSION_NUMBER:          if (Length > 4) {
++                                                     int SessionId = ntohs(get_unaligned((uint16_t *)&Data[2]));
++                                                     cCiSession *Session = GetSessionBySessionId(SessionId);
++                                                     if (Session)
++                                                        Session->Process(Length - 4, Data + 4);
++                                                     else
++                                                        esyslog("ERROR: unknown session id: %d", SessionId);
++                                                     }
++                                                  break;
++                 case ST_OPEN_SESSION_REQUEST:    OpenSession(Length, Data);
++                                                  break;
++                 case ST_CLOSE_SESSION_REQUEST:   if (Length == 4)
++                                                     CloseSession(ntohs(get_unaligned((uint16_t *)&Data[2])));
++                                                  break;
++                 case ST_CREATE_SESSION_RESPONSE: //XXX fall through to default
++                 case ST_CLOSE_SESSION_RESPONSE:  //XXX fall through to default
++                 default: esyslog("ERROR: unknown session tag: %02X", *Data);
++                 }
++               }
++            }
++         else if (CloseAllSessions(slot)) {
++            tpl->ResetSlot(slot);
++            result = false;
++            }
++         else if (tpl->ModuleReady(slot)) {
++            dbgprotocol("Module ready in slot %d\n", slot);
++            moduleReady[slot] = true;
++            tpl->NewConnection(slot);
+             }
+-         }
+-      else if (CloseAllSessions(Slot)) {
+-         tpl->ResetSlot(Slot);
+-         result = false;
+-         }
+-      else if (tpl->ModuleReady(Slot)) {
+-         dbgprotocol("Module ready in slot %d\n", Slot);
+-         moduleReady[Slot] = true;
+-         tpl->NewConnection(Slot);
+          }
+       }
++  SendCaPmt();
+   bool UserIO = false;
+   for (int i = 0; i < MAX_CI_SESSION; i++) {
+       if (sessions[i] && sessions[i]->Process())
+          UserIO |= sessions[i]->HasUserIO();
+       }
+   hasUserIO = UserIO;
+-  if (newCaSupport)
+-     newCaSupport = result = false; // triggers new SetCaPmt at caller!
+   return result;
+ }
+ 
++void cCiHandler::SendCaPmt(void)
++{
++  cMutexLock MutexLock(&mutex);
++  if (newCaSupport) {
++     newCaSupport = false;
++     for (int Slot = 0; Slot < numSlots; Slot++) {
++         cCiConditionalAccessSupport *cas = (cCiConditionalAccessSupport *)GetSessionByResourceId(RI_CONDITIONAL_ACCESS_SUPPORT, Slot);
++         if (cas) {
++            // build the list of CA_PMT data:
++            cList<cCiCaPmt> CaPmtList;
++            for (cCiCaProgramData *p = caProgramList.First(); p; p = caProgramList.Next(p)) {
++                bool Active = false;
++                cCiCaPmt *CaPmt = new cCiCaPmt(CPCI_OK_DESCRAMBLING, source, transponder, p->programNumber, GetCaSystemIds(Slot));
++                if (CaPmt->Valid()) {
++                   for (cCiCaPidData *q = p->pidList.First(); q; q = p->pidList.Next(q)) {
++                       if (q->active) {
++                          CaPmt->AddPid(q->pid, q->streamType);
++                          Active = true;
++                          }
++                       }
++                   }
++                if (Active)
++                   CaPmtList.Add(CaPmt);
++                else
++                   delete CaPmt;
++                }
++            // send the CA_PMT data:
++            uint8_t ListManagement = CaPmtList.Count() > 1 ? CPLM_FIRST : CPLM_ONLY;
++            for (cCiCaPmt *CaPmt = CaPmtList.First(); CaPmt; CaPmt = CaPmtList.Next(CaPmt)) {
++                CaPmt->SetListManagement(ListManagement);
++                if (!cas->SendPMT(CaPmt))
++                   newCaSupport = true;
++                ListManagement = CaPmt->Next() && CaPmt->Next()->Next() ? CPLM_MORE : CPLM_LAST;
++                }
++            }
++         }
++     }
++}
++
+ bool cCiHandler::EnterMenu(int Slot)
+ {
+   cMutexLock MutexLock(&mutex);
+@@ -1676,11 +1812,89 @@
+   return false;
+ }
+ 
+-bool cCiHandler::SetCaPmt(cCiCaPmt &CaPmt, int Slot)
++void cCiHandler::SetSource(int Source, int Transponder)
+ {
+   cMutexLock MutexLock(&mutex);
+-  cCiConditionalAccessSupport *cas = (cCiConditionalAccessSupport *)GetSessionByResourceId(RI_CONDITIONAL_ACCESS_SUPPORT, Slot);
+-  return cas && cas->SendPMT(CaPmt);
++  if (source != Source || transponder != Transponder) {
++     //XXX if there are active entries, send an empty CA_PMT
++     caProgramList.Clear();
++     }
++  source = Source;
++  transponder = Transponder;
++}
++
++void cCiHandler::AddPid(int ProgramNumber, int Pid, int StreamType)
++{
++  cMutexLock MutexLock(&mutex);
++  cCiCaProgramData *ProgramData = NULL;
++  for (cCiCaProgramData *p = caProgramList.First(); p; p = caProgramList.Next(p)) {
++      if (p->programNumber == ProgramNumber) {
++         ProgramData = p;
++         for (cCiCaPidData *q = p->pidList.First(); q; q = p->pidList.Next(q)) {
++             if (q->pid == Pid)
++                return;
++             }
++         }
++      }
++  if (!ProgramData)
++     caProgramList.Add(ProgramData = new cCiCaProgramData(ProgramNumber));
++  ProgramData->pidList.Add(new cCiCaPidData(Pid, StreamType));
++}
++
++void cCiHandler::SetPid(int Pid, bool Active)
++{
++  cMutexLock MutexLock(&mutex);
++  for (cCiCaProgramData *p = caProgramList.First(); p; p = caProgramList.Next(p)) {
++      for (cCiCaPidData *q = p->pidList.First(); q; q = p->pidList.Next(q)) {
++          if (q->pid == Pid) {
++             q->active = Active;
++             return;
++             }
++         }
++      }
++}
++
++bool cCiHandler::CanDecrypt(int ProgramNumber)
++{
++  cMutexLock MutexLock(&mutex);
++  for (int Slot = 0; Slot < numSlots; Slot++) {
++      cCiConditionalAccessSupport *cas = (cCiConditionalAccessSupport *)GetSessionByResourceId(RI_CONDITIONAL_ACCESS_SUPPORT, Slot);
++      if (cas) {
++         for (cCiCaProgramData *p = caProgramList.First(); p; p = caProgramList.Next(p)) {
++             if (p->programNumber == ProgramNumber) {
++                cCiCaPmt CaPmt(CPCI_QUERY, source, transponder, p->programNumber, GetCaSystemIds(Slot));//XXX???
++                if (CaPmt.Valid()) {
++                   for (cCiCaPidData *q = p->pidList.First(); q; q = p->pidList.Next(q)) {
++//XXX                       if (q->active)
++                          CaPmt.AddPid(q->pid, q->streamType);
++                       }
++                   }
++                if (!cas->SendPMT(&CaPmt))
++                   return false;//XXX
++                //XXX
++                time_t timeout = time(NULL) + 3;//XXX
++                while (time(NULL) <= timeout) {
++                      Process(Slot);
++                      cas = (cCiConditionalAccessSupport *)GetSessionByResourceId(RI_CONDITIONAL_ACCESS_SUPPORT, Slot);
++                      if (!cas)
++                         return false;//XXX
++                      if (cas->ReceivedReply(true))
++                         return true;
++                      //XXX remember if a slot doesn't receive a reply
++                      }
++                break;
++                }
++             }
++         }
++      }
++  return false;
++}
++
++void cCiHandler::StartDecrypting(void)
++{
++  cMutexLock MutexLock(&mutex);
++  newCaSupport = true;
++  SendCaPmt();
+ }
+ 
+ bool cCiHandler::Reset(int Slot)
+diff -ruN vdr-1.3.36/ci.h vdr-1.3.37/ci.h
+--- vdr-1.3.36/ci.h	2005-10-30 13:31:14.000000000 +0100
++++ vdr-1.3.37/ci.h	2005-11-26 14:37:42.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.h 1.18 2005/10/30 12:31:14 kls Exp $
++ * $Id: ci.h 1.19 2005/11/26 13:37:42 kls Exp $
+  */
+ 
+ #ifndef __CI_H
+@@ -13,6 +13,7 @@
+ #include <stdint.h>
+ #include <stdio.h>
+ #include "thread.h"
++#include "tools.h"
+ 
+ class cCiMMI;
+ 
+@@ -65,24 +66,31 @@
+   bool Abort(void);
+   };
+ 
+-class cCiCaPmt {
+-  friend class cCiConditionalAccessSupport;
+-private:
+-  int length;
+-  int esInfoLengthPos;
+-  uint8_t capmt[2048]; ///< XXX is there a specified maximum?
+-  int caDescriptorsLength;
+-  uint8_t caDescriptors[2048];
+-  bool streamFlag;
+-  void AddCaDescriptors(int Length, const uint8_t *Data);
++#define MAX_CI_SESSION  16 //XXX
++#define MAX_CI_SLOT     16
++
++class cCiCaPidData : public cListObject {
+ public:
+-  cCiCaPmt(int Source, int Transponder, int ProgramNumber, const unsigned short *CaSystemIds);
+-  bool Valid(void);
+-  void AddPid(int Pid, uint8_t StreamType);
++  bool active;
++  int pid;
++  int streamType;
++  cCiCaPidData(int Pid, int StreamType)
++  {
++    active = false;
++    pid = Pid;
++    streamType = StreamType;
++  }
+   };
+ 
+-#define MAX_CI_SESSION  16 //XXX
+-#define MAX_CI_SLOT     16
++class cCiCaProgramData : public cListObject {
++public:
++  int programNumber;
++  cList<cCiCaPidData> pidList;
++  cCiCaProgramData(int ProgramNumber)
++  {
++    programNumber = ProgramNumber;
++  }
++  };
+ 
+ class cCiSession;
+ class cCiTransportLayer;
+@@ -99,6 +107,9 @@
+   cCiSession *sessions[MAX_CI_SESSION];
+   cCiTransportLayer *tpl;
+   cCiTransportConnection *tc;
++  int source;
++  int transponder;
++  cList<cCiCaProgramData> caProgramList;
+   int ResourceIdToInt(const uint8_t *Data);
+   bool Send(uint8_t Tag, int SessionId, int ResourceId = 0, int Status = -1);
+   cCiSession *GetSessionBySessionId(int SessionId);
+@@ -108,12 +119,15 @@
+   bool CloseSession(int SessionId);
+   int CloseAllSessions(int Slot);
+   cCiHandler(int Fd, int NumSlots);
++  void SendCaPmt(void);
+ public:
+   ~cCiHandler();
+   static cCiHandler *CreateCiHandler(const char *FileName);
+   int NumSlots(void) { return numSlots; }
+   bool Ready(void);
+-  bool Process(void);
++  bool Process(int Slot = -1);
++       ///< Processes the given Slot. If Slot is -1, all slots are processed.
++       ///< Returns false in case of an error.
+   bool HasUserIO(void) { return hasUserIO; }
+   bool EnterMenu(int Slot);
+   cCiMenu *GetMenu(void);
+@@ -121,7 +135,24 @@
+   const char *GetCamName(int Slot);
+   const unsigned short *GetCaSystemIds(int Slot);
+   bool ProvidesCa(const unsigned short *CaSystemIds); //XXX Slot???
+-  bool SetCaPmt(cCiCaPmt &CaPmt, int Slot);
++  void SetSource(int Source, int Transponder);
++       ///< Sets the Source and Transponder of the device this cCiHandler is
++       ///< currently tuned to. If Source or Transponder are different than
++       ///< what was given in a previous call to SetSource(), any previously
++       ///< added PIDs will be cleared.
++  void AddPid(int ProgramNumber, int Pid, int StreamType);
++       ///< Adds the given PID information to the list of PIDs. A later call
++       ///< to SetPid() will (de)activate one of these entries.
++  void SetPid(int Pid, bool Active);
++       ///< Sets the given Pid (which has previously been added through a
++       ///< call to AddPid()) to Active. If Active is true, a later call to
++       ///< StartDecrypting() will send the full list of currently active CA_PMT
++       ///< entries to the CAM, including this one.
++  bool CanDecrypt(int ProgramNumber);
++       ///< XXX
++  void StartDecrypting(void);
++       ///< Triggers sending all currently active CA_PMT entries to the CAM,
++       ///< so that it will start decrypting.
+   bool Reset(int Slot);
+   };
+ 
+diff -ruN vdr-1.3.36/config.h vdr-1.3.37/config.h
+--- vdr-1.3.36/config.h	2005-11-04 16:55:05.000000000 +0100
++++ vdr-1.3.37/config.h	2005-11-11 14:22:02.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.234 2005/11/04 15:55:05 kls Exp $
++ * $Id: config.h 1.235 2005/11/11 13:22:02 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -19,8 +19,8 @@
+ #include "i18n.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.3.36"
+-#define VDRVERSNUM   10336  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.3.37"
++#define VDRVERSNUM   10337  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+diff -ruN vdr-1.3.36/device.c vdr-1.3.37/device.c
+--- vdr-1.3.36/device.c	2005-11-05 16:23:58.000000000 +0100
++++ vdr-1.3.37/device.c	2005-11-26 13:56:09.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 1.111 2005/11/05 15:23:58 kls Exp $
++ * $Id: device.c 1.112 2005/11/26 12:56:09 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -397,6 +397,8 @@
+               DelPid(Pid, PidType);
+               return false;
+               }
++           if (ciHandler)
++              ciHandler->SetPid(Pid, true);
+            }
+         PRINTPIDS("a");
+         return true;
+@@ -424,6 +426,8 @@
+            DelPid(Pid, PidType);
+            return false;
+            }
++        if (ciHandler)
++           ciHandler->SetPid(Pid, true);
+         }
+      }
+   return true;
+@@ -450,6 +454,8 @@
+            if (pidHandles[n].used == 0) {
+               pidHandles[n].handle = -1;
+               pidHandles[n].pid = 0;
++              if (ciHandler)
++                 ciHandler->SetPid(Pid, false);
+               }
+            }
+         PRINTPIDS("E");
+@@ -601,12 +607,34 @@
+         sectionHandler->SetStatus(false);
+         sectionHandler->SetChannel(NULL);
+         }
++     // Tell the ciHandler about the channel switch and add all PIDs of this
++     // channel to it, for possible later decryption:
++     if (ciHandler) {
++        ciHandler->SetSource(Channel->Source(), Channel->Transponder());
++// Men at work - please stand clear! ;-)
++#ifdef XXX_DO_MULTIPLE_CA_CHANNELS
++        if (Channel->Ca() > CACONFBASE) {
++#endif
++           ciHandler->AddPid(Channel->Sid(), Channel->Vpid(), 2);
++           for (const int *Apid = Channel->Apids(); *Apid; Apid++)
++               ciHandler->AddPid(Channel->Sid(), *Apid, 4);
++           for (const int *Dpid = Channel->Dpids(); *Dpid; Dpid++)
++               ciHandler->AddPid(Channel->Sid(), *Dpid, 0);
++#ifdef XXX_DO_MULTIPLE_CA_CHANNELS
++           bool CanDecrypt = ciHandler->CanDecrypt(Channel->Sid());//XXX
++           dsyslog("CanDecrypt %d %d %d %s", CardIndex() + 1, CanDecrypt, Channel->Number(), Channel->Name());//XXX
++           }
++#endif
++        }
+      if (SetChannelDevice(Channel, LiveView)) {
+         // Start section handling:
+         if (sectionHandler) {
+            sectionHandler->SetChannel(Channel);
+            sectionHandler->SetStatus(true);
+            }
++        // Start decrypting any PIDs the might have been set in SetChannelDevice():
++        if (ciHandler)
++           ciHandler->StartDecrypting();
+         }
+      else
+         Result = scrFailed;
+@@ -1168,6 +1196,8 @@
+          Unlock();
+          if (!Running())
+             Start();
++         if (ciHandler)
++            ciHandler->StartDecrypting();
+          return true;
+          }
+       }
+@@ -1194,6 +1224,8 @@
+       else if (receiver[i])
+          receiversLeft = true;
+       }
++  if (ciHandler)
++     ciHandler->StartDecrypting();
+   if (!receiversLeft)
+      Cancel(3);
+ }
+diff -ruN vdr-1.3.36/dvbdevice.c vdr-1.3.37/dvbdevice.c
+--- vdr-1.3.36/dvbdevice.c	2005-08-21 11:17:20.000000000 +0200
++++ vdr-1.3.37/dvbdevice.c	2005-11-26 14:23:11.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.136 2005/08/21 09:17:20 kls Exp $
++ * $Id: dvbdevice.c 1.138 2005/11/26 13:23:11 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -35,6 +35,7 @@
+ 
+ #define DO_REC_AND_PLAY_ON_PRIMARY_DEVICE 1
+ #define DO_MULTIPLE_RECORDINGS 1
++//#define DO_MULTIPLE_CA_CHANNELS
+ 
+ #define DEV_VIDEO         "/dev/video"
+ #define DEV_DVB_ADAPTER   "/dev/dvb/adapter"
+@@ -69,15 +70,13 @@
+ 
+ class cDvbTuner : public cThread {
+ private:
+-  enum eTunerStatus { tsIdle, tsSet, tsTuned, tsLocked, tsCam };
++  enum eTunerStatus { tsIdle, tsSet, tsTuned, tsLocked };
+   int fd_frontend;
+   int cardIndex;
+   fe_type_t frontendType;
+   cCiHandler *ciHandler;
+   cChannel channel;
+   const char *diseqcCommands;
+-  bool useCa;
+-  time_t startTime;
+   eTunerStatus tunerStatus;
+   cMutex mutex;
+   cCondVar locked;
+@@ -89,7 +88,7 @@
+   cDvbTuner(int Fd_Frontend, int CardIndex, fe_type_t FrontendType, cCiHandler *CiHandler);
+   virtual ~cDvbTuner();
+   bool IsTunedTo(const cChannel *Channel) const;
+-  void Set(const cChannel *Channel, bool Tune, bool UseCa);
++  void Set(const cChannel *Channel, bool Tune);
+   bool Locked(int TimeoutMs = 0);
+   };
+ 
+@@ -100,9 +99,7 @@
+   frontendType = FrontendType;
+   ciHandler = CiHandler;
+   diseqcCommands = NULL;
+-  useCa = false;
+   tunerStatus = tsIdle;
+-  startTime = time(NULL);
+   if (frontendType == FE_QPSK)
+      CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, SEC_VOLTAGE_13)); // must explicitly turn on LNB power
+   SetDescription("tuner on device %d", cardIndex + 1);
+@@ -122,16 +119,11 @@
+   return tunerStatus != tsIdle && channel.Source() == Channel->Source() && channel.Transponder() == Channel->Transponder();
+ }
+ 
+-void cDvbTuner::Set(const cChannel *Channel, bool Tune, bool UseCa)
++void cDvbTuner::Set(const cChannel *Channel, bool Tune)
+ {
+   cMutexLock MutexLock(&mutex);
+   if (Tune)
+      tunerStatus = tsSet;
+-  else if (tunerStatus == tsCam)
+-     tunerStatus = tsLocked;
+-  useCa = UseCa;
+-  if (Channel->Ca() && tunerStatus != tsCam)
+-     startTime = time(NULL);
+   channel = *Channel;
+   newSet.Broadcast();
+ }
+@@ -309,7 +301,6 @@
+                continue;
+           case tsTuned:
+           case tsLocked:
+-          case tsCam:
+                if (hasEvent) {
+                   if (event.status & FE_REINIT) {
+                      tunerStatus = tsSet;
+@@ -323,30 +314,10 @@
+                   }
+           }
+ 
+-        if (ciHandler) {
+-           if (ciHandler->Process() && useCa) {
+-              if (tunerStatus == tsLocked) {
+-                 for (int Slot = 0; Slot < ciHandler->NumSlots(); Slot++) {
+-                     cCiCaPmt CaPmt(channel.Source(), channel.Transponder(), channel.Sid(), ciHandler->GetCaSystemIds(Slot));
+-                     if (CaPmt.Valid()) {
+-                        CaPmt.AddPid(channel.Vpid(), 2);
+-                        CaPmt.AddPid(channel.Apid(0), 4);
+-                        CaPmt.AddPid(channel.Apid(1), 4);
+-                        CaPmt.AddPid(channel.Dpid(0), 0);
+-                        if (ciHandler->SetCaPmt(CaPmt, Slot)) {
+-                           tunerStatus = tsCam;
+-                           startTime = 0;
+-                           }
+-                        }
+-                     }
+-                 }
+-              }
+-           else if (tunerStatus > tsLocked)
+-              tunerStatus = tsLocked;
+-           }
+-        // in the beginning we loop more often to let the CAM connection start up fast
++        if (ciHandler)
++           ciHandler->Process();
+         if (tunerStatus != tsTuned)
+-           newSet.TimedWait(mutex, (ciHandler && (time(NULL) - startTime < 20)) ? 100 : 1000);
++           newSet.TimedWait(mutex, 1000);
+         }
+ }
+ 
+@@ -659,6 +630,11 @@
+   return VideoSystem;
+ }
+ 
++bool cDvbDevice::SetAudioBypass(bool On)
++{
++  return ioctl(fd_audio, AUDIO_SET_BYPASS_MODE, On) == 0;
++}
++
+ //                            ptAudio        ptVideo        ptPcr        ptTeletext        ptDolby        ptOther
+ dmx_pes_type_t PesTypes[] = { DMX_PES_AUDIO, DMX_PES_VIDEO, DMX_PES_PCR, DMX_PES_TELETEXT, DMX_PES_OTHER, DMX_PES_OTHER };
+ 
+@@ -777,9 +753,12 @@
+         if (dvbTuner->IsTunedTo(Channel)) {
+            if (Channel->Vpid() && !HasPid(Channel->Vpid()) || Channel->Apid(0) && !HasPid(Channel->Apid(0))) {
+ #ifdef DO_MULTIPLE_RECORDINGS
++#ifndef DO_MULTIPLE_CA_CHANNELS
+               if (Ca() > CACONFBASE || Channel->Ca() > CACONFBASE)
+                  needsDetachReceivers = Ca() != Channel->Ca();
+-              else if (!IsPrimaryDevice())
++              else
++#endif
++              if (!IsPrimaryDevice())
+                  result = true;
+ #ifdef DO_REC_AND_PLAY_ON_PRIMARY_DEVICE
+               else
+@@ -829,18 +808,19 @@
+ 
+   // Set the tuner:
+ 
+-  dvbTuner->Set(Channel, DoTune, !EITScanner.UsesDevice(this)); //XXX 1.3: this is an ugly hack - find a cleaner solution//XXX
++  dvbTuner->Set(Channel, DoTune);
+ 
+   // If this channel switch was requested by the EITScanner we don't wait for
+   // a lock and don't set any live PIDs (the EITScanner will wait for the lock
+   // by itself before setting any filters):
+ 
+-  if (EITScanner.UsesDevice(this))
++  if (EITScanner.UsesDevice(this)) //XXX
+      return true;
+ 
+   // PID settings:
+ 
+   if (TurnOnLivePIDs) {
++     SetAudioBypass(false);
+      if (!(AddPid(Channel->Ppid(), ptPcr) && AddPid(Channel->Vpid(), ptVideo) && AddPid(Channel->Apid(0), ptAudio))) {
+         esyslog("ERROR: failed to set PIDs for channel %d on device %d", Channel->Number(), CardIndex() + 1);
+         return false;
+@@ -910,7 +890,8 @@
+ {
+   const tTrackId *TrackId = GetTrack(Type);
+   if (TrackId && TrackId->id) {
+-     if (IS_AUDIO_TRACK(Type)) {
++     SetAudioBypass(false);
++     if (IS_AUDIO_TRACK(Type) || (IS_DOLBY_TRACK(Type) && SetAudioBypass(true))) {
+         if (pidHandles[ptAudio].pid && pidHandles[ptAudio].pid != TrackId->id) {
+            DetachAll(pidHandles[ptAudio].pid);
+            pidHandles[ptAudio].pid = TrackId->id;
+diff -ruN vdr-1.3.36/dvbdevice.h vdr-1.3.37/dvbdevice.h
+--- vdr-1.3.36/dvbdevice.h	2005-08-20 17:20:15.000000000 +0200
++++ vdr-1.3.37/dvbdevice.h	2005-11-11 15:51:38.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 1.35 2005/08/20 15:20:15 kls Exp $
++ * $Id: dvbdevice.h 1.36 2005/11/11 14:51:38 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -69,6 +69,8 @@
+ 
+ // PID handle facilities
+ 
++private:
++  bool SetAudioBypass(bool On);
+ protected:
+   virtual bool SetPid(cPidHandle *Handle, int Type, bool On);
+ 
+diff -ruN vdr-1.3.36/epg.c vdr-1.3.37/epg.c
+--- vdr-1.3.36/epg.c	2005-11-06 11:31:58.000000000 +0100
++++ vdr-1.3.37/epg.c	2005-11-11 14:37:43.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 1.39 2005/11/06 10:31:58 kls Exp $
++ * $Id: epg.c 1.40 2005/11/11 13:37:43 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -503,19 +503,6 @@
+      title = compactspace(title);
+      shortText = compactspace(shortText);
+      description = compactspace(description);
+-     // Remove superfluous hyphens:
+-     if (description) {
+-        char *p = description;
+-        while (*p && *(p + 1) && *(p + 2)) {
+-              if (*p == '-' && *(p + 1) == ' ' && p != description && islower(*(p - 1)) && islower(*(p + 2))) {
+-                 if (!startswith(p + 2, "und ")) { // special case in German, as in "Lach- und Sachgeschichten"
+-                    memmove(p, p + 2, strlen(p + 2) + 1);
+-                    EpgBugFixStat(5, ChannelID());
+-                    }
+-                 }
+-              p++;
+-              }
+-        }
+ 
+ #define MAX_USEFUL_EPISODE_LENGTH 40
+      // Some channels put a whole lot of information in the ShortText and leave
+diff -ruN vdr-1.3.36/interface.c vdr-1.3.37/interface.c
+--- vdr-1.3.36/interface.c	2005-09-03 11:07:23.000000000 +0200
++++ vdr-1.3.37/interface.c	2005-11-27 16:31:06.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: interface.c 1.69 2005/09/03 09:07:23 kls Exp $
++ * $Id: interface.c 1.70 2005/11/27 15:31:06 kls Exp $
+  */
+ 
+ #include "interface.h"
+@@ -36,13 +36,6 @@
+   if (SVDRP) {
+      if (SVDRP->Process())
+         Wait = false;
+-     if (!Skins.IsOpen()) {
+-        char *message = SVDRP->GetMessage();
+-        if (message) {
+-           Skins.Message(mtInfo, message);
+-           free(message);
+-           }
+-        }
+      }
+   return cRemote::Get(Wait ? 1000 : 10);
+ }
+diff -ruN vdr-1.3.36/menuitems.c vdr-1.3.37/menuitems.c
+--- vdr-1.3.36/menuitems.c	2005-09-17 11:36:31.000000000 +0200
++++ vdr-1.3.37/menuitems.c	2005-11-12 13:22:10.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.c 1.23 2005/09/17 09:36:31 kls Exp $
++ * $Id: menuitems.c 1.24 2005/11/12 12:22:10 kls Exp $
+  */
+ 
+ #include "menuitems.h"
+@@ -578,10 +578,18 @@
+   value = Value;
+   weekdays = WeekDays;
+   oldvalue = 0;
+-  dayindex = 0;
++  dayindex = weekdays ? FindDayIndex(*weekdays) : 0;
+   Set();
+ }
+ 
++int cMenuEditDateItem::FindDayIndex(int WeekDays)
++{
++  for (unsigned int i = 0; i < sizeof(days) / sizeof(int); i++)
++      if (WeekDays == days[i])
++         return i;
++  return 0;
++}
++
+ void cMenuEditDateItem::Set(void)
+ {
+ #define DATEBUFFERSIZE 32
+diff -ruN vdr-1.3.36/menuitems.h vdr-1.3.37/menuitems.h
+--- vdr-1.3.36/menuitems.h	2005-03-19 16:02:57.000000000 +0100
++++ vdr-1.3.37/menuitems.h	2005-11-11 14:26:51.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.h 1.11 2005/03/19 15:02:57 kls Exp $
++ * $Id: menuitems.h 1.12 2005/11/11 13:26:51 kls Exp $
+  */
+ 
+ #ifndef __MENUITEMS_H
+@@ -125,6 +125,7 @@
+   int *weekdays;
+   time_t oldvalue;
+   int dayindex;
++  int FindDayIndex(int WeekDays);
+   virtual void Set(void);
+ public:
+   cMenuEditDateItem(const char *Name, time_t *Value, int *WeekDays = NULL);
+diff -ruN vdr-1.3.36/newplugin vdr-1.3.37/newplugin
+--- vdr-1.3.36/newplugin	2005-09-14 18:02:06.000000000 +0200
++++ vdr-1.3.37/newplugin	2005-11-11 14:20:14.000000000 +0100
+@@ -12,7 +12,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: newplugin 1.21 2005/09/14 16:02:06 kls Exp $
++# $Id: newplugin 1.22 2005/11/11 13:20:14 kls Exp $
+ 
+ $PLUGIN_NAME = $ARGV[0] || die "Usage: newplugin <name>\n";
+ 
+@@ -71,7 +71,7 @@
+ ### The C++ compiler and options:
+ 
+ CXX      ?= g++
+-CXXFLAGS ?= -O2 -Wall -Woverloaded-virtual
++CXXFLAGS ?= -fPIC -g -O2 -Wall -Woverloaded-virtual
+ 
+ ### The directory environment:
+ 
+diff -ruN vdr-1.3.36/skins.c vdr-1.3.37/skins.c
+--- vdr-1.3.36/skins.c	2005-10-02 12:12:10.000000000 +0200
++++ vdr-1.3.37/skins.c	2005-11-27 16:52:25.000000000 +0100
+@@ -4,13 +4,49 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skins.c 1.5 2005/10/02 10:12:10 kls Exp $
++ * $Id: skins.c 1.6 2005/11/27 15:52:25 kls Exp $
+  */
+ 
+ #include "skins.h"
+ #include "interface.h"
+ #include "status.h"
+-#include "tools.h"
++
++// --- cSkinQueuedMessage ----------------------------------------------------
++
++class cSkinQueuedMessage : public cListObject {
++  friend class cSkins;
++private:
++  eMessageType type;
++  char *message;
++  int seconds;
++  int timeout;
++  tThreadId threadId;
++  eKeys key;
++  int state;
++  cMutex mutex;
++  cCondVar condVar;
++public:
++  cSkinQueuedMessage(eMessageType Type, const char *s, int Seconds, int Timeout);
++  virtual ~cSkinQueuedMessage();
++  };
++
++cSkinQueuedMessage::cSkinQueuedMessage(eMessageType Type, const char *s, int Seconds, int Timeout)
++{
++  type = Type;
++  message = s ? strdup(s) : NULL;
++  seconds = Seconds;
++  timeout = Timeout;
++  threadId = cThread::ThreadId();
++  key = kNone;
++  state = 0; // waiting
++}
++
++cSkinQueuedMessage::~cSkinQueuedMessage()
++{
++  free(message);
++}
++
++cList<cSkinQueuedMessage> SkinQueuedMessages;
+ 
+ // --- cSkinDisplay ----------------------------------------------------------
+ 
+@@ -202,6 +238,95 @@
+   return k;
+ }
+ 
++int cSkins::QueueMessage(eMessageType Type, const char *s, int Seconds, int Timeout)
++{
++  if (Type == mtStatus) {
++     dsyslog("cSkins::QueueMessage() called with mtStatus - ignored!");
++     return kNone;
++     }
++  if (isempty(s)) {
++     dsyslog("cSkins::QueueMessage() called with empty message - ignored!");
++     return kNone;
++     }
++  int k = kNone;
++  if (Timeout > 0) {
++     if (cThread::IsMainThread()) {
++        dsyslog("cSkins::QueueMessage() called from main thread with Timeout = %d - ignored!", Timeout);
++        return k;
++        }
++     cSkinQueuedMessage *m = new cSkinQueuedMessage(Type, s, Seconds, Timeout);
++     queueMessageMutex.Lock();
++     SkinQueuedMessages.Add(m);
++     m->mutex.Lock();
++     queueMessageMutex.Unlock();
++     if (m->condVar.TimedWait(m->mutex, Timeout * 1000))
++        k = m->key;
++     else
++        k = -1; // timeout, nothing has been displayed
++     m->state = 2; // done
++     m->mutex.Unlock();
++     }
++  else {
++     queueMessageMutex.Lock();
++     // Check if there is a waiting message w/o timeout for this thread:
++     if (Timeout == -1) {
++        for (cSkinQueuedMessage *m = SkinQueuedMessages.Last(); m; m = SkinQueuedMessages.Prev(m)) {
++            if (m->threadId == cThread::ThreadId()) {
++               if (m->state == 0 && m->timeout == -1)
++                  m->state = 2; // done
++               break;
++               }
++            }
++         }
++     // Add the new message:
++     SkinQueuedMessages.Add(new cSkinQueuedMessage(Type, s, Seconds, Timeout));
++     queueMessageMutex.Unlock();
++     }
++  return k;
++}
++
++void cSkins::ProcessQueuedMessages(void)
++{
++  if (!cThread::IsMainThread()) {
++     dsyslog("cSkins::ProcessQueuedMessages() called from background thread - ignored!");
++     return;
++     }
++  cSkinQueuedMessage *msg = NULL;
++  // Get the first waiting message:
++  queueMessageMutex.Lock();
++  for (cSkinQueuedMessage *m = SkinQueuedMessages.First(); m; m = SkinQueuedMessages.Next(m)) {
++      if (m->state == 0) { // waiting
++         m->state = 1; // active
++         msg = m;
++         break;
++         }
++      }
++  queueMessageMutex.Unlock();
++  // Display the message:
++  if (msg) {
++     msg->mutex.Lock();
++     if (msg->state == 1) { // might have changed since we got it
++        msg->key = Skins.Message(msg->type, msg->message, msg->seconds);
++        if (msg->timeout == 0)
++           msg->state = 2; // done
++        else
++           msg->condVar.Broadcast();
++        }
++     msg->mutex.Unlock();
++     }
++  // Remove done messages from the queue:
++  queueMessageMutex.Lock();
++  for (;;) {
++      cSkinQueuedMessage *m = SkinQueuedMessages.First();
++      if (m && m->state == 2) { // done
++         SkinQueuedMessages.Del(m);
++         }
++      else
++         break;
++      } 
++  queueMessageMutex.Unlock();
++}
++
+ void cSkins::Flush(void)
+ {
+   if (cSkinDisplay::Current())
+diff -ruN vdr-1.3.36/skins.h vdr-1.3.37/skins.h
+--- vdr-1.3.36/skins.h	2005-05-15 16:41:41.000000000 +0200
++++ vdr-1.3.37/skins.h	2005-11-27 16:41:44.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skins.h 1.8 2005/05/15 14:41:41 kls Exp $
++ * $Id: skins.h 1.9 2005/11/27 15:41:44 kls Exp $
+  */
+ 
+ #ifndef __SKINS_H
+@@ -16,6 +16,7 @@
+ #include "osd.h"
+ #include "recording.h"
+ #include "themes.h"
++#include "thread.h"
+ #include "tools.h"
+ 
+ enum eMessageType { mtStatus = 0, mtInfo, mtWarning, mtError }; // will be used to calculate color offsets!
+@@ -298,6 +299,7 @@
+ private:
+   cSkin *current;
+   cSkinDisplayMessage *displayMessage;
++  cMutex queueMessageMutex;
+ public:
+   cSkins(void);
+   ~cSkins();
+@@ -312,6 +314,35 @@
+        ///< Displays the given message, either through a currently visible
+        ///< display object that is capable of doing so, or by creating a
+        ///< temporary cSkinDisplayMessage object.
++       ///< The return value is the key pressed by the user. If no user input
++       ///< has been received within Seconds (the default value of 0 results
++       ///< in the ///< value defined for "Message time" in the setup), kNone
++       ///< will be returned.
++  int QueueMessage(eMessageType Type, const char *s, int Seconds = 0, int Timeout = 0);
++       ///< Like Message(), but this function may be called from a background
++       ///< thread. The given message is put into a queue and the main program
++       ///< loop will display it as soon as this is suitable. If Timeout is 0,
++       ///< QueueMessage() returns immediately and the return value will be kNone.
++       ///< If a positive Timeout is given, the thread will wait at most the given
++       ///< number of seconds for the message to be actually displayed (note that
++       ///< the user may currently be doing something that doesn't allow for
++       ///< queued messages to be displayed immediately). If the timeout expires
++       ///< and the message hasn't been displayed yet, the return value is -1
++       ///< and the message will be removed from the queue without being displayed.
++       ///< Positive values of Timeout are only allowed for background threads.
++       ///< If QueueMessage() is called from the foreground thread with a Timeout
++       ///< greater than 0, the call is ignored and nothing is displayed.
++       ///< Queued messages will be displayed in the sequence they have been
++       ///< put into the queue, so messages from different threads may appear
++       ///< mingled. If a particular thread queues a message with a Timeout of
++       ///< -1, and the previous message from the same thread also had a Timeout
++       ///< of -1, only the last message will be displayed. This can be used for
++       ///< progress displays, where only the most recent message is actually
++       ///< important.
++       ///< Type may only be mtInfo, mtWarning or mtError. A call with mtStatus
++       ///< will be ignored, as will be one with an empty message.
++  void ProcessQueuedMessages(void);
++       ///< Processes the first queued message, if any.
+   void Flush(void);
+        ///< Flushes the currently active cSkinDisplay, if any.
+   };
+diff -ruN vdr-1.3.36/svdrp.c vdr-1.3.37/svdrp.c
+--- vdr-1.3.36/svdrp.c	2005-11-05 12:21:38.000000000 +0100
++++ vdr-1.3.37/svdrp.c	2005-11-27 16:29:28.000000000 +0100
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 1.83 2005/11/05 11:21:38 kls Exp $
++ * $Id: svdrp.c 1.84 2005/11/27 15:29:28 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -35,6 +35,7 @@
+ #include "menu.h"
+ #include "plugin.h"
+ #include "remote.h"
++#include "skins.h"
+ #include "timers.h"
+ #include "tools.h"
+ #include "videodir.h"
+@@ -225,12 +226,9 @@
+   "LSTT [ <number> ]\n"
+   "    List timers. Without option, all timers are listed. Otherwise\n"
+   "    only the given timer is listed.",
+-  "MESG [ <message> ]\n"
+-  "    Displays the given message on the OSD. If message is omitted, the\n"
+-  "    currently pending message (if any) will be returned. The message\n"
+-  "    will be displayed for a few seconds as soon as the OSD has become\n"
+-  "    idle. If a new MESG command is entered while the previous message\n"
+-  "    has not yet been displayed, the old message will be overwritten.",
++  "MESG <message>\n"
++  "    Displays the given message on the OSD. The message will be queued\n"
++  "    and displayed whenever this is suitable.\n",
+   "MODC <number> <settings>\n"
+   "    Modify a channel. Settings must be in the same format as returned\n"
+   "    by the LSTC command.",
+@@ -363,7 +361,6 @@
+   numChars = 0;
+   length = BUFSIZ;
+   cmdLine = MALLOC(char, length);
+-  message = NULL;
+   lastActivity = 0;
+   isyslog("SVDRP listening on port %d", Port);
+ }
+@@ -371,7 +368,6 @@
+ cSVDRP::~cSVDRP()
+ {
+   Close();
+-  free(message);
+   free(cmdLine);
+ }
+ 
+@@ -954,15 +950,12 @@
+ void cSVDRP::CmdMESG(const char *Option)
+ {
+   if (*Option) {
+-     free(message);
+-     message = strdup(Option);
+-     isyslog("SVDRP message: '%s'", message);
+-     Reply(250, "Message stored");
++     isyslog("SVDRP message: '%s'", Option);
++     Skins.QueueMessage(mtInfo, Option);
++     Reply(250, "Message queued");
+      }
+-  else if (message)
+-     Reply(250, "%s", message);
+   else
+-     Reply(550, "No pending message");
++     Reply(501, "Missing message");
+ }
+ 
+ void cSVDRP::CmdMODC(const char *Option)
+@@ -1489,11 +1482,4 @@
+   return false;
+ }
+ 
+-char *cSVDRP::GetMessage(void)
+-{
+-  char *s = message;
+-  message = NULL;
+-  return s;
+-}
+-
+ //TODO more than one connection???
+diff -ruN vdr-1.3.36/svdrp.h vdr-1.3.37/svdrp.h
+--- vdr-1.3.36/svdrp.h	2005-11-05 11:54:22.000000000 +0100
++++ vdr-1.3.37/svdrp.h	2005-11-27 16:26:42.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: svdrp.h 1.25 2005/11/05 10:54:22 kls Exp $
++ * $Id: svdrp.h 1.26 2005/11/27 15:26:42 kls Exp $
+  */
+ 
+ #ifndef __SVDRP_H
+@@ -48,7 +48,6 @@
+   int numChars;
+   int length;
+   char *cmdLine;
+-  char *message;
+   time_t lastActivity;
+   void Close(bool Timeout = false);
+   bool Send(const char *s, int length = -1);
+@@ -88,7 +87,6 @@
+   ~cSVDRP();
+   bool HasConnection(void) { return file.IsOpen(); }
+   bool Process(void);
+-  char *GetMessage(void);
+   };
+ 
+ #endif //__SVDRP_H
+diff -ruN vdr-1.3.36/thread.c vdr-1.3.37/thread.c
+--- vdr-1.3.36/thread.c	2005-08-14 13:15:42.000000000 +0200
++++ vdr-1.3.37/thread.c	2005-11-27 16:15:53.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.c 1.45 2005/08/14 11:15:42 kls Exp $
++ * $Id: thread.c 1.46 2005/11/27 15:15:53 kls Exp $
+  */
+ 
+ #include "thread.h"
+@@ -193,6 +193,7 @@
+ 
+ // --- cThread ---------------------------------------------------------------
+ 
++tThreadId cThread::mainThreadId = cThread::ThreadId();
+ bool cThread::emergencyExitRequested = false;
+ 
+ cThread::cThread(const char *Description)
+diff -ruN vdr-1.3.36/thread.h vdr-1.3.37/thread.h
+--- vdr-1.3.36/thread.h	2005-10-09 13:12:32.000000000 +0200
++++ vdr-1.3.37/thread.h	2005-11-27 16:16:50.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.h 1.31 2005/10/09 11:12:32 kls Exp $
++ * $Id: thread.h 1.32 2005/11/27 15:16:50 kls Exp $
+  */
+ 
+ #ifndef __THREAD_H
+@@ -72,6 +72,8 @@
+   void Unlock(void);
+   };
+ 
++typedef pthread_t tThreadId;
++
+ class cThread {
+   friend class cThreadLock;
+ private:
+@@ -80,6 +82,7 @@
+   pthread_t childTid;
+   cMutex mutex;
+   char *description;
++  static tThreadId mainThreadId;
+   static bool emergencyExitRequested;
+   static void *StartThread(cThread *Thread);
+ protected:
+@@ -112,6 +115,8 @@
+   bool Active(void);
+        ///< Checks whether the thread is still alive.
+   static bool EmergencyExit(bool Request = false);
++  static tThreadId ThreadId(void) { return pthread_self(); }
++  static tThreadId IsMainThread(void) { return ThreadId() == mainThreadId; }
+   };
+ 
+ // cMutexLock can be used to easily set a lock on mutex and make absolutely
+diff -ruN vdr-1.3.36/tools.c vdr-1.3.37/tools.c
+--- vdr-1.3.36/tools.c	2005-11-04 17:33:18.000000000 +0100
++++ vdr-1.3.37/tools.c	2005-11-26 15:12:31.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 1.103 2005/11/04 16:33:18 kls Exp $
++ * $Id: tools.c 1.104 2005/11/26 14:12:31 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -527,6 +527,11 @@
+   s = TakePointer ? (char *)S : S ? strdup(S) : NULL;
+ }
+ 
++cString::cString(const cString &String)
++{
++  s = String.s ? strdup(String.s) : NULL;
++}
++
+ cString::~cString()
+ {
+   free(s);
+@@ -534,6 +539,8 @@
+ 
+ cString &cString::operator=(const cString &String)
+ {
++  if (this == &String)
++     return *this;
+   free(s);
+   s = String.s ? strdup(String.s) : NULL;
+   return *this;
+diff -ruN vdr-1.3.36/tools.h vdr-1.3.37/tools.h
+--- vdr-1.3.36/tools.h	2005-11-05 11:54:39.000000000 +0100
++++ vdr-1.3.37/tools.h	2005-11-26 15:03:47.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 1.83 2005/11/05 10:54:39 kls Exp $
++ * $Id: tools.h 1.84 2005/11/26 14:03:47 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -75,6 +75,7 @@
+   char *s;
+ public:
+   cString(const char *S = NULL, bool TakePointer = false);
++  cString(const cString &String);
+   virtual ~cString();
+   operator const char * () const { return s; } // for use in (const char *) context
+   const char * operator*() const { return s; } // for use in (const void *) context (printf() etc.)
+diff -ruN vdr-1.3.36/vdr.c vdr-1.3.37/vdr.c
+--- vdr-1.3.36/vdr.c	2005-11-04 14:48:39.000000000 +0100
++++ vdr-1.3.37/vdr.c	2005-11-27 16:56:18.000000000 +0100
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.219 2005/11/04 13:48:39 kls Exp $
++ * $Id: vdr.c 1.220 2005/11/27 15:56:18 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -677,6 +677,9 @@
+            else if (!LastCamMenu)
+               LastCamMenu = time(NULL);
+            }
++        // Queued messages:
++        if (!Skins.IsOpen())
++           Skins.ProcessQueuedMessages();
+         // User Input:
+         cOsdObject *Interact = Menu ? Menu : cControl::Control();
+         eKeys key = Interface->GetKey((!Interact || !Interact->NeedsFastResponse()) && time(NULL) - LastCamMenu > LASTCAMMENUTIMEOUT);

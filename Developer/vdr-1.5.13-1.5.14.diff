@@ -1,0 +1,4107 @@
+diff -ruN vdr-1.5.13/CONTRIBUTORS vdr-1.5.14/CONTRIBUTORS
+--- vdr-1.5.13/CONTRIBUTORS	2008-01-13 16:05:25.000000000 +0100
++++ vdr-1.5.14/CONTRIBUTORS	2008-01-26 16:20:41.000000000 +0100
+@@ -223,6 +223,7 @@
+  for suggesting to increase the APIVERSION to allow plugins that relied on the
+  cStatus::MsgSetVolume() bug to react properly
+  for improving the 'i18n' target in the Makefile to avoid unnecessary work
++ for a patch that was used to implement the --localedir option
+ 
+ Ulrich Röder <roeder@efr-net.de>
+  for pointing out that there are channels that have a symbol rate higher than 27500
+@@ -1037,6 +1038,7 @@
+  for implementing cDevice::CloseFilter()
+  for some fixes to PLUGINS.html
+  for fixing handling CONFDIR
++ for updating the Makefile of the skincurses plugin
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1155,6 +1157,7 @@
+  for fixing assembling PS1 packets in cTS2PES::instant_repack()
+  for a patch that was used to fix handling small PES packets that caused subtitles
+  to be displayed late in live mode
++ for a patch that was used to implement handling of DVB-S2
+ 
+ Richard Robson <richard_robson@beeb.net>
+  for reporting freezing replay if a timer starts while in Transfer Mode from the
+@@ -1443,6 +1446,7 @@
+  for fixing the description of DeviceSetAvailableTrack() and cReceiver(), and adding
+  an example ~cMyReceiver() in PLUGINS.html (thanks to Marco Schlüßler).
+  for fixing checking compatibility mode for old subtitles plugin
++ for a patch that was used to implement handling of DVB-S2
+ 
+ Jürgen Schmitz <j.schmitz@web.de>
+  for reporting a bug in displaying the current channel when switching via the SVDRP
+@@ -2263,3 +2267,6 @@
+ Benjamin Hess <benjamin.h@gmx.ch>
+  for enhancing the SVDRP command CLRE to allow clearing the EPG data of a particular
+  channel
++
++Winfried Koehler <w_koehl@gmx.de>
++ for fixing finding new transponders
+diff -ruN vdr-1.5.13/HISTORY vdr-1.5.14/HISTORY
+--- vdr-1.5.13/HISTORY	2008-01-13 16:04:57.000000000 +0100
++++ vdr-1.5.14/HISTORY	2008-01-27 15:40:11.000000000 +0100
+@@ -5563,3 +5563,18 @@
+ - Added a section about "Logging" to PLUGINS.html (suggested by Torsten Kunkel).
+ - Enhanced the SVDRP command CLRE to allow clearing the EPG data of a particular
+   channel (thanks to Benjamin Hess).
++
++2008-01-27: Version 1.5.14
++
++- Fixed the Play function in the pictures plugin.
++- Updated the Finnish OSD texts (thanks to Rolf Ahrenberg).
++- Updated the Makefile of the skincurses plugin (thanks to Rolf Ahrenberg).
++- The new option --localedir can be used to set the locale directory at runtime
++  (based on a patch from Stefan Huelswitt).
++- Fixed finding new transponders (thanks to Winfried Köhler).
++- Implemented handling of DVB-S2 (thanks to Marco Schlüßler and Reinhald Nissl
++  for a patch that was used to implement this). VDR now requires the "multiproto"
++  DVB driver, e.g. from http://jusst.de/hg/multiproto.
++- Removed switching to the next higher or lower channel if the current channel
++  is not available, in order to allow staying on an encrypted channel that takes
++  a while for the CAM to start decrypting.
+diff -ruN vdr-1.5.13/PLUGINS/src/pictures/HISTORY vdr-1.5.14/PLUGINS/src/pictures/HISTORY
+--- vdr-1.5.13/PLUGINS/src/pictures/HISTORY	2008-01-13 12:37:50.000000000 +0100
++++ vdr-1.5.14/PLUGINS/src/pictures/HISTORY	2008-01-19 12:36:41.000000000 +0100
+@@ -4,3 +4,9 @@
+ 2008-01-13: Version 0.0.1
+ 
+ - Initial revision.
++
++2008-01-19: Version 0.0.2
++
++- Fixed the Play function (when used from a directory in the pictures menu
++  it always started with the next directory).
++- Added Finnish texts (thanks to Rolf Ahrenberg <rahrenbe@cc.hut.fi>).
+diff -ruN vdr-1.5.13/PLUGINS/src/pictures/entry.c vdr-1.5.14/PLUGINS/src/pictures/entry.c
+--- vdr-1.5.13/PLUGINS/src/pictures/entry.c	2008-01-06 10:52:41.000000000 +0100
++++ vdr-1.5.14/PLUGINS/src/pictures/entry.c	2008-01-18 16:49:51.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: entry.c 1.1 2008/01/06 09:52:41 kls Exp $
++ * $Id: entry.c 1.2 2008/01/18 15:49:51 kls Exp $
+  */
+ 
+ #include "entry.h"
+@@ -138,6 +138,11 @@
+         return pe;
+         }
+      }
++  else if (IsDirectory()) {
++     const cPictureEntry *p = FirstPicture();
++     if (p)
++        return p;
++     }
+   if (parent)
+      return parent->NextPicture(this);
+   return NULL;
+diff -ruN vdr-1.5.13/PLUGINS/src/pictures/pictures.c vdr-1.5.14/PLUGINS/src/pictures/pictures.c
+--- vdr-1.5.13/PLUGINS/src/pictures/pictures.c	2008-01-12 15:46:52.000000000 +0100
++++ vdr-1.5.14/PLUGINS/src/pictures/pictures.c	2008-01-19 12:20:03.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: pictures.c 1.1 2008/01/12 14:46:52 kls Exp $
++ * $Id: pictures.c 1.2 2008/01/19 11:20:03 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -11,7 +11,7 @@
+ #include "menu.h"
+ #include "player.h"
+ 
+-static const char *VERSION       = "0.0.1";
++static const char *VERSION       = "0.0.2";
+ static const char *DESCRIPTION   = trNOOP("A simple picture viewer");
+ static const char *MAINMENUENTRY = trNOOP("Pictures");
+ 
+diff -ruN vdr-1.5.13/PLUGINS/src/pictures/player.c vdr-1.5.14/PLUGINS/src/pictures/player.c
+--- vdr-1.5.13/PLUGINS/src/pictures/player.c	2008-01-13 12:29:27.000000000 +0100
++++ vdr-1.5.14/PLUGINS/src/pictures/player.c	2008-01-19 12:01:58.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: player.c 1.1 2008/01/13 11:29:27 kls Exp $
++ * $Id: player.c 1.2 2008/01/19 11:01:58 kls Exp $
+  */
+ 
+ #include "player.h"
+@@ -95,6 +95,7 @@
+   pictureEntry = PictureEntry;
+   osd = NULL;
+   lastPath = "/";
++  slideShowDelay.Set(SlideShowDelay * 1000);
+   slideShow = SlideShow;
+   alwaysDisplayCaption = false;
+   NextPicture(slideShow && pictureEntry->IsDirectory() ? 1 : 0);
+diff -ruN vdr-1.5.13/PLUGINS/src/pictures/po/fi_FI.po vdr-1.5.14/PLUGINS/src/pictures/po/fi_FI.po
+--- vdr-1.5.13/PLUGINS/src/pictures/po/fi_FI.po	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.5.14/PLUGINS/src/pictures/po/fi_FI.po	2008-01-19 13:17:40.000000000 +0100
+@@ -0,0 +1,32 @@
++# VDR plugin language source file.
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# This file is distributed under the same license as the VDR package.
++# Rolf Ahrenberg <rahrenbe@cc.hut.fi>, 2008.
++#
++msgid ""
++msgstr ""
++"Project-Id-Version: pictures 0.0.1\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"POT-Creation-Date: 2008-01-12 17:38+0100\n"
++"PO-Revision-Date: 2008-01-12 17:41+0100\n"
++"Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
++"Language-Team: Finnish\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=ISO-8859-15\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgid "Pictures"
++msgstr "Kuvat"
++
++msgid "A simple picture viewer"
++msgstr "Yksinkertainen kuvaselain"
++
++msgid "Picture directory"
++msgstr "Kuvahakemisto"
++
++msgid "Slide show delay (s)"
++msgstr "Diaesityksen viive (s)"
++
++msgid "No picture directory has been defined!"
++msgstr "Kuvahakemistoa ei ole määritelty!"
+diff -ruN vdr-1.5.13/PLUGINS/src/skincurses/HISTORY vdr-1.5.14/PLUGINS/src/skincurses/HISTORY
+--- vdr-1.5.13/PLUGINS/src/skincurses/HISTORY	2007-08-26 22:36:59.000000000 +0200
++++ vdr-1.5.14/PLUGINS/src/skincurses/HISTORY	2008-01-19 12:42:41.000000000 +0100
+@@ -61,3 +61,7 @@
+ 2007-08-26: Version 0.1.4
+ 
+ - Adapted to the new Level parameter of cOsd.
++
++2008-01-19:
++
++- Updated the Makefile of the skincurses plugin (thanks to Rolf Ahrenberg).
+diff -ruN vdr-1.5.13/PLUGINS/src/skincurses/Makefile vdr-1.5.14/PLUGINS/src/skincurses/Makefile
+--- vdr-1.5.13/PLUGINS/src/skincurses/Makefile	2007-11-04 11:52:13.000000000 +0100
++++ vdr-1.5.14/PLUGINS/src/skincurses/Makefile	2008-01-19 12:40:33.000000000 +0100
+@@ -1,11 +1,13 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.14 2007/11/04 10:52:13 kls Exp $
++# $Id: Makefile 1.15 2008/01/19 11:40:33 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+ # By default the main source file also carries this name.
++# IMPORTANT: the presence of this macro is important for the Make.config
++# file. So it must be defined, even if it is not used here!
+ #
+ PLUGIN = skincurses
+ 
+@@ -16,7 +18,7 @@
+ ### The C++ compiler and options:
+ 
+ CXX      ?= g++
+-CXXFLAGS ?= -fPIC -g -O2 -Wall -Woverloaded-virtual
++CXXFLAGS ?= -fPIC -g -O2 -Wall -Woverloaded-virtual -Wno-parentheses
+ 
+ ### The directory environment:
+ 
+@@ -56,9 +58,9 @@
+ %.o: %.c
+ 	$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
+ 
+-# Dependencies:
++### Dependencies:
+ 
+-MAKEDEP = g++ -MM -MG
++MAKEDEP = $(CXX) -MM -MG
+ DEPFILE = .dependencies
+ $(DEPFILE): Makefile
+ 	@$(MAKEDEP) $(DEFINES) $(INCLUDES) $(OBJS:%.o=%.c) > $@
+@@ -88,7 +90,7 @@
+ 	cp $< $@
+ 
+ .PHONY: i18n
+-i18n: $(I18Nmsgs)
++i18n: $(I18Nmsgs) $(I18Npot)
+ 
+ ### Targets:
+ 
+@@ -105,5 +107,4 @@
+ 	@echo Distribution package created as $(PACKAGE).tgz
+ 
+ clean:
+-	@-rm -f $(PODIR)/*.mo $(PODIR)/*.pot
+-	@-rm -f $(OBJS) $(DEPFILE) *.so *.tgz core* *~
++	@-rm -f $(OBJS) $(DEPFILE) *.so *.tgz core* *~ $(PODIR)/*.mo $(PODIR)/*.pot
+diff -ruN vdr-1.5.13/channels.c vdr-1.5.14/channels.c
+--- vdr-1.5.13/channels.c	2007-10-12 16:40:53.000000000 +0200
++++ vdr-1.5.14/channels.c	2008-01-27 14:59:53.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 1.55 2007/10/12 14:40:53 kls Exp $
++ * $Id: channels.c 1.56 2008/01/27 13:59:53 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -21,67 +21,114 @@
+ // -- Channel Parameter Maps -------------------------------------------------
+ 
+ const tChannelParameterMap InversionValues[] = {
+-  {   0, INVERSION_OFF },
+-  {   1, INVERSION_ON },
+-  { 999, INVERSION_AUTO },
++  {   0, DVBFE_INVERSION_OFF, trNOOP("off") },
++  {   1, DVBFE_INVERSION_ON,  trNOOP("on") },
++  { 999, DVBFE_INVERSION_AUTO },
+   { -1 }
+   };
+ 
+ const tChannelParameterMap BandwidthValues[] = {
+-  {   6, BANDWIDTH_6_MHZ },
+-  {   7, BANDWIDTH_7_MHZ },
+-  {   8, BANDWIDTH_8_MHZ },
+-  { 999, BANDWIDTH_AUTO },
++  {   5, DVBFE_BANDWIDTH_5_MHZ, "5 MHz" },
++  {   6, DVBFE_BANDWIDTH_6_MHZ, "6 MHz" },
++  {   7, DVBFE_BANDWIDTH_7_MHZ, "7 MHz" },
++  {   8, DVBFE_BANDWIDTH_8_MHZ, "8 MHz" },
++  { 999, DVBFE_BANDWIDTH_AUTO },
+   { -1 }
+   };
+ 
+ const tChannelParameterMap CoderateValues[] = {
+-  {   0, FEC_NONE },
+-  {  12, FEC_1_2 },
+-  {  23, FEC_2_3 },
+-  {  34, FEC_3_4 },
+-  {  45, FEC_4_5 },
+-  {  56, FEC_5_6 },
+-  {  67, FEC_6_7 },
+-  {  78, FEC_7_8 },
+-  {  89, FEC_8_9 },
+-  { 999, FEC_AUTO },
++  {   0, DVBFE_FEC_NONE, trNOOP("none") },
++  {  12, DVBFE_FEC_1_2,  "1/2" },
++  {  13, DVBFE_FEC_1_3,  "1/3" },
++  {  14, DVBFE_FEC_1_4,  "1/4" },
++  {  23, DVBFE_FEC_2_3,  "2/3" },
++  {  25, DVBFE_FEC_2_5,  "2/5" },
++  {  34, DVBFE_FEC_3_4,  "3/4" },
++  {  35, DVBFE_FEC_3_5,  "3/5" },
++  {  45, DVBFE_FEC_4_5,  "4/5" },
++  {  56, DVBFE_FEC_5_6,  "5/6" },
++  {  67, DVBFE_FEC_6_7,  "6/7" },
++  {  78, DVBFE_FEC_7_8,  "7/8" },
++  {  89, DVBFE_FEC_8_9,  "8/9" },
++  { 910, DVBFE_FEC_9_10, "9/10" },
++  { 999, DVBFE_FEC_AUTO },
+   { -1 }
+   };
+ 
+ const tChannelParameterMap ModulationValues[] = {
+-  {   0, QPSK },
+-  {  16, QAM_16 },
+-  {  32, QAM_32 },
+-  {  64, QAM_64 },
+-  { 128, QAM_128 },
+-  { 256, QAM_256 },
+-  { 999, QAM_AUTO },
++  {   0, DVBFE_MOD_NONE,    trNOOP("none") },
++  {   4, DVBFE_MOD_QAM4,    "QAM4" },
++  {  16, DVBFE_MOD_QAM16,   "QAM16" },
++  {  32, DVBFE_MOD_QAM32,   "QAM32" },
++  {  64, DVBFE_MOD_QAM64,   "QAM64" },
++  { 128, DVBFE_MOD_QAM128,  "QAM128" },
++  { 256, DVBFE_MOD_QAM256,  "QAM256" },
++  { 512, DVBFE_MOD_QAM512,  "QAM512" },
++  {1024, DVBFE_MOD_QAM1024, "QAM1024" },
++  {   1, DVBFE_MOD_BPSK,    "BPSK" },
++  {   2, DVBFE_MOD_QPSK,    "QPSK" },
++  {   3, DVBFE_MOD_OQPSK,   "OQPSK" },
++  {   5, DVBFE_MOD_8PSK,    "8PSK" },
++  {   6, DVBFE_MOD_16APSK,  "16APSK" },
++  {   7, DVBFE_MOD_32APSK,  "32APSK" },
++  {   8, DVBFE_MOD_OFDM,    "OFDM" },
++  {   9, DVBFE_MOD_COFDM,   "COFDM" },
++  {  10, DVBFE_MOD_VSB8,    "VSB8" },
++  {  11, DVBFE_MOD_VSB16,   "VSB16" },
++  { 998, DVBFE_MOD_QAMAUTO, "QAMAUTO" },
++  { 999, DVBFE_MOD_AUTO },
++  { -1 }
++  };
++
++const tChannelParameterMap SystemValues[] = {
++  {   0, DVBFE_DELSYS_DVBS,  "DVB-S" },
++  {   1, DVBFE_DELSYS_DVBS2, "DVB-S2" },
+   { -1 }
+   };
+ 
+ const tChannelParameterMap TransmissionValues[] = {
+-  {   2, TRANSMISSION_MODE_2K },
+-  {   8, TRANSMISSION_MODE_8K },
+-  { 999, TRANSMISSION_MODE_AUTO },
++  {   2, DVBFE_TRANSMISSION_MODE_2K, "2K" },
++  {   4, DVBFE_TRANSMISSION_MODE_4K, "4K" },
++  {   8, DVBFE_TRANSMISSION_MODE_8K, "8K" },
++  { 999, DVBFE_TRANSMISSION_MODE_AUTO },
+   { -1 }
+   };
+ 
+ const tChannelParameterMap GuardValues[] = {
+-  {   4, GUARD_INTERVAL_1_4 },
+-  {   8, GUARD_INTERVAL_1_8 },
+-  {  16, GUARD_INTERVAL_1_16 },
+-  {  32, GUARD_INTERVAL_1_32 },
+-  { 999, GUARD_INTERVAL_AUTO },
++  {   4, DVBFE_GUARD_INTERVAL_1_4,  "1/4" },
++  {   8, DVBFE_GUARD_INTERVAL_1_8,  "1/8" },
++  {  16, DVBFE_GUARD_INTERVAL_1_16, "1/16" },
++  {  32, DVBFE_GUARD_INTERVAL_1_32, "1/32" },
++  { 999, DVBFE_GUARD_INTERVAL_AUTO },
+   { -1 }
+   };
+ 
+ const tChannelParameterMap HierarchyValues[] = {
+-  {   0, HIERARCHY_NONE },
+-  {   1, HIERARCHY_1 },
+-  {   2, HIERARCHY_2 },
+-  {   4, HIERARCHY_4 },
+-  { 999, HIERARCHY_AUTO },
++  {   0, DVBFE_HIERARCHY_OFF, trNOOP("off") },
++  {   1, DVBFE_HIERARCHY_ON,  trNOOP("on") },
++  { 999, DVBFE_HIERARCHY_AUTO },
++  { -1 }
++  };
++
++const tChannelParameterMap AlphaValues[] = {
++  {   0, 0 },
++  {   1, DVBFE_ALPHA_1 },
++  {   2, DVBFE_ALPHA_2 },
++  {   4, DVBFE_ALPHA_4 },
++  { -1 }
++  };
++
++const tChannelParameterMap PriorityValues[] = {
++  {   0, DVBFE_STREAM_PRIORITY_HP, trNOOP("high") },
++  {   1, DVBFE_STREAM_PRIORITY_LP, trNOOP("low") },
++  { -1 }
++  };
++
++const tChannelParameterMap RollOffValues[] = {
++  {   0, DVBFE_ROLLOFF_UNKNOWN },
++  {  20, DVBFE_ROLLOFF_20, "0.20" },
++  {  25, DVBFE_ROLLOFF_25, "0.25" },
++  {  35, DVBFE_ROLLOFF_35, "0.35" },
+   { -1 }
+   };
+ 
+@@ -107,11 +154,14 @@
+   return -1;
+ }
+ 
+-int MapToUser(int Value, const tChannelParameterMap *Map)
++int MapToUser(int Value, const tChannelParameterMap *Map, const char **String)
+ {
+   int n = DriverIndex(Value, Map);
+-  if (n >= 0)
++  if (n >= 0) {
++     if (String)
++        *String = tr(Map[n].userString);
+      return Map[n].userValue;
++     }
+   return -1;
+ }
+ 
+@@ -167,14 +217,18 @@
+   provider = strdup("");
+   portalName = strdup("");
+   memset(&__BeginData__, 0, (char *)&__EndData__ - (char *)&__BeginData__);
+-  inversion    = INVERSION_AUTO;
+-  bandwidth    = BANDWIDTH_AUTO;
+-  coderateH    = FEC_AUTO;
+-  coderateL    = FEC_AUTO;
+-  modulation   = QAM_AUTO;
+-  transmission = TRANSMISSION_MODE_AUTO;
+-  guard        = GUARD_INTERVAL_AUTO;
+-  hierarchy    = HIERARCHY_AUTO;
++  inversion    = DVBFE_INVERSION_AUTO;
++  bandwidth    = DVBFE_BANDWIDTH_AUTO;
++  coderateH    = DVBFE_FEC_AUTO;
++  coderateL    = DVBFE_FEC_AUTO;
++  modulation   = DVBFE_MOD_AUTO;
++  system       = DVBFE_DELSYS_DVBS;
++  transmission = DVBFE_TRANSMISSION_MODE_AUTO;
++  guard        = DVBFE_GUARD_INTERVAL_AUTO;
++  hierarchy    = DVBFE_HIERARCHY_AUTO;
++  alpha        = 0;
++  priority     = DVBFE_STREAM_PRIORITY_HP;
++  rollOff      = DVBFE_ROLLOFF_UNKNOWN;
+   modification = CHANNELMOD_NONE;
+   schedule     = NULL;
+   linkChannels = NULL;
+@@ -277,13 +331,17 @@
+      coderateH    = Channel->coderateH;
+      coderateL    = Channel->coderateL;
+      modulation   = Channel->modulation;
++     system       = Channel->system;
+      transmission = Channel->transmission;
+      guard        = Channel->guard;
+      hierarchy    = Channel->hierarchy;
++     alpha        = Channel->alpha;
++     priority     = Channel->priority;
++     rollOff      = Channel->rollOff;
+      }
+ }
+ 
+-bool cChannel::SetSatTransponderData(int Source, int Frequency, char Polarization, int Srate, int CoderateH)
++bool cChannel::SetSatTransponderData(int Source, int Frequency, char Polarization, int Srate, int CoderateH, int Modulation, int System, int RollOff)
+ {
+   // Workarounds for broadcaster stupidity:
+   // Some providers broadcast the transponder frequency of their channels with two different
+@@ -297,19 +355,22 @@
+   if (abs(srate - Srate) <= 1)
+      Srate = srate;
+ 
+-  if (source != Source || frequency != Frequency || polarization != Polarization || srate != Srate || coderateH != CoderateH) {
+-     if (Number()) {
+-        dsyslog("changing transponder data of channel %d from %s:%d:%c:%d:%d to %s:%d:%c:%d:%d", Number(), *cSource::ToString(source), frequency, polarization, srate, coderateH, *cSource::ToString(Source), Frequency, Polarization, Srate, CoderateH);
+-        modification |= CHANNELMOD_TRANSP;
+-        Channels.SetModified();
+-        }
++  if (source != Source || frequency != Frequency || polarization != Polarization || srate != Srate || coderateH != CoderateH || modulation != Modulation || system != System || rollOff != RollOff) {
++     cString OldParameters = ParametersToString();
+      source = Source;
+      frequency = Frequency;
+      polarization = Polarization;
+      srate = Srate;
+      coderateH = CoderateH;
+-     modulation = QPSK;
++     modulation = Modulation;
++     system = System;
++     rollOff = RollOff;
+      schedule = NULL;
++     if (Number()) {
++        dsyslog("changing transponder data of channel %d from %d:%s:%s:%d to %d:%s:%s:%d", Number(), frequency, *OldParameters, *cSource::ToString(source), srate, Frequency, *ParametersToString(), *cSource::ToString(Source), Srate);
++        modification |= CHANNELMOD_TRANSP;
++        Channels.SetModified();
++        }
+      }
+   return true;
+ }
+@@ -317,29 +378,26 @@
+ bool cChannel::SetCableTransponderData(int Source, int Frequency, int Modulation, int Srate, int CoderateH)
+ {
+   if (source != Source || frequency != Frequency || modulation != Modulation || srate != Srate || coderateH != CoderateH) {
+-     if (Number()) {
+-        dsyslog("changing transponder data of channel %d from %s:%d:%d:%d:%d to %s:%d:%d:%d:%d", Number(), *cSource::ToString(source), frequency, modulation, srate, coderateH, *cSource::ToString(Source), Frequency, Modulation, Srate, CoderateH);
+-        modification |= CHANNELMOD_TRANSP;
+-        Channels.SetModified();
+-        }
++     cString OldParameters = ParametersToString();
+      source = Source;
+      frequency = Frequency;
+      modulation = Modulation;
+      srate = Srate;
+      coderateH = CoderateH;
+      schedule = NULL;
++     if (Number()) {
++        dsyslog("changing transponder data of channel %d from %d:%s:%s:%d to %d:%s:%s:%d", Number(), frequency, *OldParameters, *cSource::ToString(source), srate, Frequency, *ParametersToString(), *cSource::ToString(Source), Srate);
++        modification |= CHANNELMOD_TRANSP;
++        Channels.SetModified();
++        }
+      }
+   return true;
+ }
+ 
+-bool cChannel::SetTerrTransponderData(int Source, int Frequency, int Bandwidth, int Modulation, int Hierarchy, int CoderateH, int CoderateL, int Guard, int Transmission)
++bool cChannel::SetTerrTransponderData(int Source, int Frequency, int Bandwidth, int Modulation, int Hierarchy, int CoderateH, int CoderateL, int Guard, int Transmission, int Alpha, int Priority)
+ {
+-  if (source != Source || frequency != Frequency || bandwidth != Bandwidth || modulation != Modulation || hierarchy != Hierarchy || coderateH != CoderateH || coderateL != CoderateL || guard != Guard || transmission != Transmission) {
+-     if (Number()) {
+-        dsyslog("changing transponder data of channel %d from %s:%d:%d:%d:%d:%d:%d:%d:%d to %s:%d:%d:%d:%d:%d:%d:%d:%d", Number(), *cSource::ToString(source), frequency, bandwidth, modulation, hierarchy, coderateH, coderateL, guard, transmission, *cSource::ToString(Source), Frequency, Bandwidth, Modulation, Hierarchy, CoderateH, CoderateL, Guard, Transmission);
+-        modification |= CHANNELMOD_TRANSP;
+-        Channels.SetModified();
+-        }
++  if (source != Source || frequency != Frequency || bandwidth != Bandwidth || modulation != Modulation || hierarchy != Hierarchy || coderateH != CoderateH || coderateL != CoderateL || guard != Guard || transmission != Transmission || alpha != Alpha || priority != Priority) {
++     cString OldParameters = ParametersToString();
+      source = Source;
+      frequency = Frequency;
+      bandwidth = Bandwidth;
+@@ -349,7 +407,14 @@
+      coderateL = CoderateL;
+      guard = Guard;
+      transmission = Transmission;
++     alpha = Alpha;
++     priority = Priority;
+      schedule = NULL;
++     if (Number()) {
++        dsyslog("changing transponder data of channel %d from %d:%s:%s to %d:%s:%s", Number(), frequency, *OldParameters, *cSource::ToString(source), Frequency, *ParametersToString(), *cSource::ToString(Source));
++        modification |= CHANNELMOD_TRANSP;
++        Channels.SetModified();
++        }
+      }
+   return true;
+ }
+@@ -597,13 +662,17 @@
+   char *q = buffer;
+   *q = 0;
+   ST(" S ")  q += sprintf(q, "%c", polarization);
+-  ST("CST")  q += PrintParameter(q, 'I', MapToUser(inversion, InversionValues));
++  ST("  T")  q += PrintParameter(q, 'A', MapToUser(alpha, AlphaValues));
++  ST("  T")  q += PrintParameter(q, 'B', MapToUser(bandwidth, BandwidthValues));
+   ST("CST")  q += PrintParameter(q, 'C', MapToUser(coderateH, CoderateValues));
+   ST("  T")  q += PrintParameter(q, 'D', MapToUser(coderateL, CoderateValues));
+-  ST("C T")  q += PrintParameter(q, 'M', MapToUser(modulation, ModulationValues));
+-  ST("  T")  q += PrintParameter(q, 'B', MapToUser(bandwidth, BandwidthValues));
+-  ST("  T")  q += PrintParameter(q, 'T', MapToUser(transmission, TransmissionValues));
+   ST("  T")  q += PrintParameter(q, 'G', MapToUser(guard, GuardValues));
++  ST("CST")  q += PrintParameter(q, 'I', MapToUser(inversion, InversionValues));
++  ST("CST")  q += PrintParameter(q, 'M', MapToUser(modulation, ModulationValues));
++  ST(" S ")  q += PrintParameter(q, 'O', MapToUser(rollOff, RollOffValues));
++  ST("  T")  q += PrintParameter(q, 'P', MapToUser(priority, PriorityValues));
++  ST(" S ")  q += PrintParameter(q, 'S', MapToUser(system, SystemValues));
++  ST("  T")  q += PrintParameter(q, 'T', MapToUser(transmission, TransmissionValues));
+   ST("  T")  q += PrintParameter(q, 'Y', MapToUser(hierarchy, HierarchyValues));
+   return buffer;
+ }
+@@ -628,6 +697,7 @@
+ {
+   while (s && *s) {
+         switch (toupper(*s)) {
++          case 'A': s = ParseParameter(s, alpha, AlphaValues); break;
+           case 'B': s = ParseParameter(s, bandwidth, BandwidthValues); break;
+           case 'C': s = ParseParameter(s, coderateH, CoderateValues); break;
+           case 'D': s = ParseParameter(s, coderateL, CoderateValues); break;
+@@ -636,7 +706,11 @@
+           case 'I': s = ParseParameter(s, inversion, InversionValues); break;
+           case 'L': polarization = *s++; break;
+           case 'M': s = ParseParameter(s, modulation, ModulationValues); break;
++          case 'Z':// for compatibility with the original DVB-S2 patch - may be removed in future versions
++          case 'O': s = ParseParameter(s, rollOff, RollOffValues); break;
++          case 'P': s = ParseParameter(s, priority, PriorityValues); break;
+           case 'R': polarization = *s++; break;
++          case 'S': s = ParseParameter(s, system, SystemValues); break;
+           case 'T': s = ParseParameter(s, transmission, TransmissionValues); break;
+           case 'V': polarization = *s++; break;
+           case 'Y': s = ParseParameter(s, hierarchy, HierarchyValues); break;
+diff -ruN vdr-1.5.13/channels.h vdr-1.5.14/channels.h
+--- vdr-1.5.13/channels.h	2007-09-02 12:23:11.000000000 +0200
++++ vdr-1.5.14/channels.h	2008-01-26 17:04:26.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.h 1.45 2007/09/02 10:23:11 kls Exp $
++ * $Id: channels.h 1.46 2008/01/26 16:04:26 kls Exp $
+  */
+ 
+ #ifndef __CHANNELS_H
+@@ -50,10 +50,10 @@
+ struct tChannelParameterMap {
+   int userValue;
+   int driverValue;
++  const char *userString;
+   };
+ 
+-//XXX into cChannel???
+-int MapToUser(int Value, const tChannelParameterMap *Map);
++int MapToUser(int Value, const tChannelParameterMap *Map, const char **String = NULL);
+ int MapToDriver(int Value, const tChannelParameterMap *Map);
+ int UserIndex(int Value, const tChannelParameterMap *Map);
+ int DriverIndex(int Value, const tChannelParameterMap *Map);
+@@ -62,9 +62,13 @@
+ extern const tChannelParameterMap BandwidthValues[];
+ extern const tChannelParameterMap CoderateValues[];
+ extern const tChannelParameterMap ModulationValues[];
++extern const tChannelParameterMap SystemValues[];
+ extern const tChannelParameterMap TransmissionValues[];
+ extern const tChannelParameterMap GuardValues[];
+ extern const tChannelParameterMap HierarchyValues[];
++extern const tChannelParameterMap AlphaValues[];
++extern const tChannelParameterMap PriorityValues[];
++extern const tChannelParameterMap RollOffValues[];
+ 
+ struct tChannelID {
+ private:
+@@ -140,9 +144,13 @@
+   int coderateH;
+   int coderateL;
+   int modulation;
++  int system;
+   int transmission;
+   int guard;
+   int hierarchy;
++  int alpha;
++  int priority;
++  int rollOff;
+   int __EndData__;
+   int modification;
+   mutable const cSchedule *schedule;
+@@ -194,9 +202,13 @@
+   int CoderateH(void) const { return coderateH; }
+   int CoderateL(void) const { return coderateL; }
+   int Modulation(void) const { return modulation; }
++  int System(void) const { return system; }
+   int Transmission(void) const { return transmission; }
+   int Guard(void) const { return guard; }
+   int Hierarchy(void) const { return hierarchy; }
++  int Alpha(void) const { return alpha; }
++  int Priority(void) const { return priority; }
++  int RollOff(void) const { return rollOff; }
+   const cLinkChannels* LinkChannels(void) const { return linkChannels; }
+   const cChannel *RefChannel(void) const { return refChannel; }
+   bool IsCable(void) const { return cSource::IsCable(source); }
+@@ -206,9 +218,9 @@
+   bool HasTimer(void) const;
+   int Modification(int Mask = CHANNELMOD_ALL);
+   void CopyTransponderData(const cChannel *Channel);
+-  bool SetSatTransponderData(int Source, int Frequency, char Polarization, int Srate, int CoderateH);
++  bool SetSatTransponderData(int Source, int Frequency, char Polarization, int Srate, int CoderateH, int Modulation, int System, int RollOff);
+   bool SetCableTransponderData(int Source, int Frequency, int Modulation, int Srate, int CoderateH);
+-  bool SetTerrTransponderData(int Source, int Frequency, int Bandwidth, int Modulation, int Hierarchy, int CodeRateH, int CodeRateL, int Guard, int Transmission);
++  bool SetTerrTransponderData(int Source, int Frequency, int Bandwidth, int Modulation, int Hierarchy, int CodeRateH, int CodeRateL, int Guard, int Transmission, int Alpha, int Priority);
+   void SetId(int Nid, int Tid, int Sid, int Rid = 0);
+   void SetName(const char *Name, const char *ShortName, const char *Provider);
+   void SetPortalName(const char *PortalName);
+diff -ruN vdr-1.5.13/config.h vdr-1.5.14/config.h
+--- vdr-1.5.13/config.h	2007-11-25 14:45:48.000000000 +0100
++++ vdr-1.5.14/config.h	2008-01-19 13:08:29.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.303 2007/11/25 13:45:48 kls Exp $
++ * $Id: config.h 1.304 2008/01/19 12:08:29 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.5.13"
+-#define VDRVERSNUM   10513  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.5.14"
++#define VDRVERSNUM   10514  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.5.13"
+-#define APIVERSNUM   10513  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.5.14"
++#define APIVERSNUM   10514  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-1.5.13/device.c vdr-1.5.14/device.c
+--- vdr-1.5.13/device.c	2007-11-17 16:39:28.000000000 +0100
++++ vdr-1.5.14/device.c	2008-01-27 11:40:46.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 1.148 2007/11/17 15:39:28 kls Exp $
++ * $Id: device.c 1.149 2008/01/27 10:40:46 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -359,6 +359,21 @@
+   return (0 <= Index && Index < numDevices) ? device[Index] : NULL;
+ }
+ 
++static int GetClippedNumProvidedSystems(int AvailableBits, cDevice *Device)
++{
++  int MaxNumProvidedSystems = 1 << AvailableBits;
++  int NumProvidedSystems = Device->NumProvidedSystems();
++  if (NumProvidedSystems > MaxNumProvidedSystems) {
++     esyslog("ERROR: device %d supports %d modulation systems but cDevice::GetDevice() currently only supports %d delivery systems which should be fixed", Device->CardIndex() + 1, NumProvidedSystems, MaxNumProvidedSystems);
++     NumProvidedSystems = MaxNumProvidedSystems;
++     }
++  else if (NumProvidedSystems <= 0) {
++     esyslog("ERROR: device %d reported an invalid number (%d) of supported delivery systems - assuming 1", Device->CardIndex() + 1, NumProvidedSystems);
++     NumProvidedSystems = 1;
++     }
++  return NumProvidedSystems;
++}
++
+ cDevice *cDevice::GetDevice(const cChannel *Channel, int Priority, bool LiveView)
+ {
+   // Collect the current priorities of all CAM slots that can decrypt the channel:
+@@ -408,6 +423,7 @@
+              imp <<= 1; imp |= LiveView ? !device[i]->IsPrimaryDevice() || ndr : 0;                                  // prefer the primary device for live viewing if we don't need to detach existing receivers
+              imp <<= 1; imp |= !device[i]->Receiving() && (device[i] != cTransferControl::ReceiverDevice() || device[i]->IsPrimaryDevice()) || ndr; // use receiving devices if we don't need to detach existing receivers, but avoid primary device in local transfer mode
+              imp <<= 1; imp |= device[i]->Receiving();                                                               // avoid devices that are receiving
++             imp <<= 2; imp |= GetClippedNumProvidedSystems(2, device[i]) - 1;                                       // avoid cards which support multiple delivery systems
+              imp <<= 1; imp |= device[i] == cTransferControl::ReceiverDevice();                                      // avoid the Transfer Mode receiver device
+              imp <<= 8; imp |= min(max(device[i]->Priority() + MAXPRIORITY, 0), 0xFF);                               // use the device with the lowest priority (+MAXPRIORITY to assure that values -99..99 can be used)
+              imp <<= 8; imp |= min(max((NumUsableSlots ? SlotPriority[j] : 0) + MAXPRIORITY, 0), 0xFF);              // use the CAM slot with the lowest priority (+MAXPRIORITY to assure that values -99..99 can be used)
+@@ -696,6 +712,11 @@
+   return false;
+ }
+ 
++int cDevice::NumProvidedSystems(void) const
++{
++  return 0;
++}
++
+ bool cDevice::IsTunedToTransponder(const cChannel *Channel)
+ {
+   return false;
+diff -ruN vdr-1.5.13/device.h vdr-1.5.14/device.h
+--- vdr-1.5.13/device.h	2007-10-21 11:21:52.000000000 +0200
++++ vdr-1.5.14/device.h	2008-01-27 11:35:18.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 1.86 2007/10/21 09:21:52 kls Exp $
++ * $Id: device.h 1.87 2008/01/27 10:35:18 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -224,6 +224,12 @@
+          ///< function itself actually returns true.
+          ///< The default implementation always returns false, so a derived cDevice
+          ///< class that can provide channels must implement this function.
++  virtual int NumProvidedSystems(void) const;
++         ///< Returns the number of individual "delivery systems" this device provides.
++         ///< The default implementation returns 0, so any derived class that can
++         ///< actually provide channels must implement this function.
++         ///< The result of this function is used when selecting a device, in order
++         ///< to avoid devices that provide more than one system.
+   virtual bool IsTunedToTransponder(const cChannel *Channel);
+          ///< Returns true if this device is currently tuned to the given Channel's
+          ///< transponder.
+diff -ruN vdr-1.5.13/dvbdevice.c vdr-1.5.14/dvbdevice.c
+--- vdr-1.5.13/dvbdevice.c	2007-10-14 14:56:03.000000000 +0200
++++ vdr-1.5.14/dvbdevice.c	2008-01-27 15:35:54.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.167 2007/10/14 12:56:03 kls Exp $
++ * $Id: dvbdevice.c 1.168 2008/01/27 14:35:54 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -76,7 +76,7 @@
+   int tuneTimeout;
+   int lockTimeout;
+   time_t lastTimeoutReport;
+-  fe_type_t frontendType;
++  dvbfe_delsys frontendType;
+   cChannel channel;
+   const char *diseqcCommands;
+   eTunerStatus tunerStatus;
+@@ -87,14 +87,14 @@
+   bool SetFrontend(void);
+   virtual void Action(void);
+ public:
+-  cDvbTuner(int Fd_Frontend, int CardIndex, fe_type_t FrontendType);
++  cDvbTuner(int Fd_Frontend, int CardIndex, dvbfe_delsys FrontendType);
+   virtual ~cDvbTuner();
+   bool IsTunedTo(const cChannel *Channel) const;
+   void Set(const cChannel *Channel, bool Tune);
+   bool Locked(int TimeoutMs = 0);
+   };
+ 
+-cDvbTuner::cDvbTuner(int Fd_Frontend, int CardIndex, fe_type_t FrontendType)
++cDvbTuner::cDvbTuner(int Fd_Frontend, int CardIndex, dvbfe_delsys FrontendType)
+ {
+   fd_frontend = Fd_Frontend;
+   cardIndex = CardIndex;
+@@ -104,7 +104,7 @@
+   lastTimeoutReport = 0;
+   diseqcCommands = NULL;
+   tunerStatus = tsIdle;
+-  if (frontendType == FE_QPSK)
++  if (frontendType & (DVBFE_DELSYS_DVBS | DVBFE_DELSYS_DVBS2))
+      CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, SEC_VOLTAGE_13)); // must explicitly turn on LNB power
+   SetDescription("tuner on device %d", cardIndex + 1);
+   Start();
+@@ -120,7 +120,26 @@
+ 
+ bool cDvbTuner::IsTunedTo(const cChannel *Channel) const
+ {
+-  return tunerStatus != tsIdle && channel.Source() == Channel->Source() && channel.Transponder() == Channel->Transponder();
++  if (tunerStatus == tsIdle)
++     return false; // not tuned to
++  if (channel.Source() != Channel->Source() || channel.Transponder() != Channel->Transponder())
++     return false; // sufficient mismatch
++  char Type = **cSource::ToString(Channel->Source());
++#define ST(s, p) if (strchr(s, Type)) if (channel.p() != Channel->p()) return false;
++  // Polarization is already checked as part of the Transponder.
++  ST("  T", Alpha);
++  ST("  T", Bandwidth);
++  ST("CST", CoderateH);
++  ST("  T", CoderateL);
++  ST("  T", Guard);
++  ST("CST", Inversion);
++  ST("CST", Modulation);
++  ST(" S ", RollOff);
++  ST("  T", Priority);
++  ST(" S ", System);
++  ST("  T", Transmission);
++  ST("  T", Hierarchy);
++  return true;
+ }
+ 
+ void cDvbTuner::Set(const cChannel *Channel, bool Tune)
+@@ -173,114 +192,126 @@
+ 
+ bool cDvbTuner::SetFrontend(void)
+ {
+-  dvb_frontend_parameters Frontend;
+-
++  dvbfe_params Frontend;
+   memset(&Frontend, 0, sizeof(Frontend));
+ 
+-  switch (frontendType) {
+-    case FE_QPSK: { // DVB-S
+-
+-         unsigned int frequency = channel.Frequency();
+-
+-         if (Setup.DiSEqC) {
+-            cDiseqc *diseqc = Diseqcs.Get(channel.Source(), channel.Frequency(), channel.Polarization());
+-            if (diseqc) {
+-               if (diseqc->Commands() && (!diseqcCommands || strcmp(diseqcCommands, diseqc->Commands()) != 0)) {
+-                  cDiseqc::eDiseqcActions da;
+-                  for (char *CurrentAction = NULL; (da = diseqc->Execute(&CurrentAction)) != cDiseqc::daNone; ) {
+-                      switch (da) {
+-                        case cDiseqc::daNone:      break;
+-                        case cDiseqc::daToneOff:   CHECK(ioctl(fd_frontend, FE_SET_TONE, SEC_TONE_OFF)); break;
+-                        case cDiseqc::daToneOn:    CHECK(ioctl(fd_frontend, FE_SET_TONE, SEC_TONE_ON)); break;
+-                        case cDiseqc::daVoltage13: CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, SEC_VOLTAGE_13)); break;
+-                        case cDiseqc::daVoltage18: CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, SEC_VOLTAGE_18)); break;
+-                        case cDiseqc::daMiniA:     CHECK(ioctl(fd_frontend, FE_DISEQC_SEND_BURST, SEC_MINI_A)); break;
+-                        case cDiseqc::daMiniB:     CHECK(ioctl(fd_frontend, FE_DISEQC_SEND_BURST, SEC_MINI_B)); break;
+-                        case cDiseqc::daCodes: {
+-                             int n = 0;
+-                             uchar *codes = diseqc->Codes(n);
+-                             if (codes) {
+-                                struct dvb_diseqc_master_cmd cmd;
+-                                memcpy(cmd.msg, codes, min(n, int(sizeof(cmd.msg))));
+-                                cmd.msg_len = n;
+-                                CHECK(ioctl(fd_frontend, FE_DISEQC_SEND_MASTER_CMD, &cmd));
+-                                }
+-                             }
+-                             break;
+-                        }
+-                      }
+-                  diseqcCommands = diseqc->Commands();
++  if (frontendType & (DVBFE_DELSYS_DVBS | DVBFE_DELSYS_DVBS2)) {
++     unsigned int frequency = channel.Frequency();
++     if (Setup.DiSEqC) {
++        cDiseqc *diseqc = Diseqcs.Get(channel.Source(), channel.Frequency(), channel.Polarization());
++        if (diseqc) {
++           if (diseqc->Commands() && (!diseqcCommands || strcmp(diseqcCommands, diseqc->Commands()) != 0)) {
++              cDiseqc::eDiseqcActions da;
++              for (char *CurrentAction = NULL; (da = diseqc->Execute(&CurrentAction)) != cDiseqc::daNone; ) {
++                  switch (da) {
++                    case cDiseqc::daNone:      break;
++                    case cDiseqc::daToneOff:   CHECK(ioctl(fd_frontend, FE_SET_TONE, SEC_TONE_OFF)); break;
++                    case cDiseqc::daToneOn:    CHECK(ioctl(fd_frontend, FE_SET_TONE, SEC_TONE_ON)); break;
++                    case cDiseqc::daVoltage13: CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, SEC_VOLTAGE_13)); break;
++                    case cDiseqc::daVoltage18: CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, SEC_VOLTAGE_18)); break;
++                    case cDiseqc::daMiniA:     CHECK(ioctl(fd_frontend, FE_DISEQC_SEND_BURST, SEC_MINI_A)); break;
++                    case cDiseqc::daMiniB:     CHECK(ioctl(fd_frontend, FE_DISEQC_SEND_BURST, SEC_MINI_B)); break;
++                    case cDiseqc::daCodes: {
++                         int n = 0;
++                         uchar *codes = diseqc->Codes(n);
++                         if (codes) {
++                            struct dvb_diseqc_master_cmd cmd;
++                            memcpy(cmd.msg, codes, min(n, int(sizeof(cmd.msg))));
++                            cmd.msg_len = n;
++                            CHECK(ioctl(fd_frontend, FE_DISEQC_SEND_MASTER_CMD, &cmd));
++                            }
++                         }
++                         break;
++                    }
+                   }
+-               frequency -= diseqc->Lof();
+-               }
+-            else {
+-               esyslog("ERROR: no DiSEqC parameters found for channel %d", channel.Number());
+-               return false;
+-               }
+-            }
+-         else {
+-            int tone = SEC_TONE_OFF;
+-
+-            if (frequency < (unsigned int)Setup.LnbSLOF) {
+-               frequency -= Setup.LnbFrequLo;
+-               tone = SEC_TONE_OFF;
+-               }
+-            else {
+-               frequency -= Setup.LnbFrequHi;
+-               tone = SEC_TONE_ON;
+-               }
+-            int volt = (channel.Polarization() == 'v' || channel.Polarization() == 'V' || channel.Polarization() == 'r' || channel.Polarization() == 'R') ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
+-            CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, volt));
+-            CHECK(ioctl(fd_frontend, FE_SET_TONE, tone));
+-            }
+-
+-         frequency = abs(frequency); // Allow for C-band, where the frequency is less than the LOF
+-         Frontend.frequency = frequency * 1000UL;
+-         Frontend.inversion = fe_spectral_inversion_t(channel.Inversion());
+-         Frontend.u.qpsk.symbol_rate = channel.Srate() * 1000UL;
+-         Frontend.u.qpsk.fec_inner = fe_code_rate_t(channel.CoderateH());
+-
+-         tuneTimeout = DVBS_TUNE_TIMEOUT;
+-         lockTimeout = DVBS_LOCK_TIMEOUT;
+-         }
+-         break;
+-    case FE_QAM: { // DVB-C
+-
+-         // Frequency and symbol rate:
+-
+-         Frontend.frequency = FrequencyToHz(channel.Frequency());
+-         Frontend.inversion = fe_spectral_inversion_t(channel.Inversion());
+-         Frontend.u.qam.symbol_rate = channel.Srate() * 1000UL;
+-         Frontend.u.qam.fec_inner = fe_code_rate_t(channel.CoderateH());
+-         Frontend.u.qam.modulation = fe_modulation_t(channel.Modulation());
+-
+-         tuneTimeout = DVBC_TUNE_TIMEOUT;
+-         lockTimeout = DVBC_LOCK_TIMEOUT;
+-         }
+-         break;
+-    case FE_OFDM: { // DVB-T
++              diseqcCommands = diseqc->Commands();
++              }
++           frequency -= diseqc->Lof();
++           }
++        else {
++           esyslog("ERROR: no DiSEqC parameters found for channel %d", channel.Number());
++           return false;
++           }
++        }
++     else {
++        int tone = SEC_TONE_OFF;
++        if (frequency < (unsigned int)Setup.LnbSLOF) {
++           frequency -= Setup.LnbFrequLo;
++           tone = SEC_TONE_OFF;
++           }
++        else {
++           frequency -= Setup.LnbFrequHi;
++           tone = SEC_TONE_ON;
++           }
++        int volt = (channel.Polarization() == 'v' || channel.Polarization() == 'V' || channel.Polarization() == 'r' || channel.Polarization() == 'R') ? SEC_VOLTAGE_13 : SEC_VOLTAGE_18;
++        CHECK(ioctl(fd_frontend, FE_SET_VOLTAGE, volt));
++        CHECK(ioctl(fd_frontend, FE_SET_TONE, tone));
++        }
++     frequency = abs(frequency); // Allow for C-band, where the frequency is less than the LOF
+ 
+-         // Frequency and OFDM paramaters:
++     Frontend.delivery = dvbfe_delsys(channel.System());
++     Frontend.frequency = frequency * 1000UL;
++     Frontend.inversion = fe_spectral_inversion_t(channel.Inversion());
++     if (Frontend.delivery == DVBFE_DELSYS_DVBS) {
++        Frontend.delsys.dvbs.modulation = dvbfe_modulation(channel.Modulation());
++        Frontend.delsys.dvbs.symbol_rate = channel.Srate() * 1000UL;
++        Frontend.delsys.dvbs.fec = dvbfe_fec(channel.CoderateH());
++        }
++     else {
++        Frontend.delsys.dvbs2.modulation = dvbfe_modulation(channel.Modulation());
++        Frontend.delsys.dvbs2.symbol_rate = channel.Srate() * 1000UL;
++        Frontend.delsys.dvbs2.fec = dvbfe_fec(channel.CoderateH());
++        Frontend.delsys.dvbs2.rolloff = dvbfe_rolloff(channel.RollOff());
++        }
+ 
+-         Frontend.frequency = FrequencyToHz(channel.Frequency());
+-         Frontend.inversion = fe_spectral_inversion_t(channel.Inversion());
+-         Frontend.u.ofdm.bandwidth = fe_bandwidth_t(channel.Bandwidth());
+-         Frontend.u.ofdm.code_rate_HP = fe_code_rate_t(channel.CoderateH());
+-         Frontend.u.ofdm.code_rate_LP = fe_code_rate_t(channel.CoderateL());
+-         Frontend.u.ofdm.constellation = fe_modulation_t(channel.Modulation());
+-         Frontend.u.ofdm.transmission_mode = fe_transmit_mode_t(channel.Transmission());
+-         Frontend.u.ofdm.guard_interval = fe_guard_interval_t(channel.Guard());
+-         Frontend.u.ofdm.hierarchy_information = fe_hierarchy_t(channel.Hierarchy());
++     tuneTimeout = DVBS_TUNE_TIMEOUT;
++     lockTimeout = DVBS_LOCK_TIMEOUT;
+ 
+-         tuneTimeout = DVBT_TUNE_TIMEOUT;
+-         lockTimeout = DVBT_LOCK_TIMEOUT;
+-         }
+-         break;
+-    default:
+-         esyslog("ERROR: attempt to set channel with unknown DVB frontend type");
+-         return false;
++     dvbfe_info feinfo;
++     feinfo.delivery = Frontend.delivery;
++     CHECK(ioctl(fd_frontend, DVBFE_GET_INFO, &feinfo)); //switch system
++     }
++  else if (frontendType & DVBFE_DELSYS_DVBC) {
++     Frontend.delivery = DVBFE_DELSYS_DVBC;
++     Frontend.frequency = FrequencyToHz(channel.Frequency());
++     Frontend.inversion = fe_spectral_inversion_t(channel.Inversion());
++     Frontend.delsys.dvbc.symbol_rate = channel.Srate() * 1000UL;
++     Frontend.delsys.dvbc.fec = dvbfe_fec(channel.CoderateH());
++     Frontend.delsys.dvbc.modulation = dvbfe_modulation(channel.Modulation());
++
++     tuneTimeout = DVBC_TUNE_TIMEOUT;
++     lockTimeout = DVBC_LOCK_TIMEOUT;
++
++     dvbfe_info feinfo;
++     feinfo.delivery = Frontend.delivery;
++     CHECK(ioctl(fd_frontend, DVBFE_GET_INFO, &feinfo)); //switch system
++     }
++  else if (frontendType & DVBFE_DELSYS_DVBT) {
++     Frontend.delivery = DVBFE_DELSYS_DVBT;
++     Frontend.frequency = FrequencyToHz(channel.Frequency());
++     Frontend.inversion = fe_spectral_inversion_t(channel.Inversion());
++     Frontend.delsys.dvbt.bandwidth = dvbfe_bandwidth(channel.Bandwidth());
++     Frontend.delsys.dvbt.code_rate_HP = dvbfe_fec(channel.CoderateH());
++     Frontend.delsys.dvbt.code_rate_LP = dvbfe_fec(channel.CoderateL());
++     Frontend.delsys.dvbt.constellation = dvbfe_modulation(channel.Modulation());
++     Frontend.delsys.dvbt.transmission_mode = dvbfe_transmission_mode(channel.Transmission());
++     Frontend.delsys.dvbt.guard_interval = dvbfe_guard_interval(channel.Guard());
++     Frontend.delsys.dvbt.hierarchy = dvbfe_hierarchy(channel.Hierarchy());
++     Frontend.delsys.dvbt.alpha = dvbfe_alpha(channel.Alpha());
++     Frontend.delsys.dvbt.priority = dvbfe_stream_priority(channel.Priority());
++
++     tuneTimeout = DVBT_TUNE_TIMEOUT;
++     lockTimeout = DVBT_LOCK_TIMEOUT;
++
++     dvbfe_info feinfo;
++     feinfo.delivery = Frontend.delivery;
++     CHECK(ioctl(fd_frontend, DVBFE_GET_INFO, &feinfo)); //switch system
++     }
++  else {
++     esyslog("ERROR: attempt to set channel with unknown DVB frontend type");
++     return false;
+     }
+-  if (ioctl(fd_frontend, FE_SET_FRONTEND, &Frontend) < 0) {
++  if (ioctl(fd_frontend, DVBFE_SET_PARAMS, &Frontend) < 0) {
+      esyslog("ERROR: frontend %d: %m", cardIndex);
+      return false;
+      }
+@@ -351,11 +382,23 @@
+ int cDvbDevice::devVideoOffset = -1;
+ int cDvbDevice::setTransferModeForDolbyDigital = 1;
+ 
++const char *DeliverySystems[] = {
++  "DVBS",
++  "DSS",
++  "DVBS2",
++  "DVBC",
++  "DVBT",
++  "DVBH",
++  "ATSC",
++  NULL
++  };
++
+ cDvbDevice::cDvbDevice(int n)
+ {
+   ciAdapter = NULL;
+   dvbTuner = NULL;
+-  frontendType = fe_type_t(-1); // don't know how else to initialize this - there is no FE_UNKNOWN
++  frontendType = DVBFE_DELSYS_DUMMY;
++  numProvidedSystems = 0;
+   spuDecoder = NULL;
+   digitalAudio = false;
+   playMode = pmNone;
+@@ -417,9 +460,22 @@
+   // We only check the devices that must be present - the others will be checked before accessing them://XXX
+ 
+   if (fd_frontend >= 0) {
+-     dvb_frontend_info feinfo;
+-     if (ioctl(fd_frontend, FE_GET_INFO, &feinfo) >= 0) {
+-        frontendType = feinfo.type;
++     if (ioctl(fd_frontend, DVBFE_GET_DELSYS, &frontendType) >= 0) {
++        const char **DeliverySystem = DeliverySystems;
++        cString ds;
++        for (int i = 0; i < 32; i++) {
++            if (frontendType & (1u << i)) {
++               numProvidedSystems++;
++               if (*DeliverySystem)
++                  ds = cString::sprintf("%s %s", *ds ? *ds : "", *DeliverySystem);
++               else
++                  esyslog("ERROR: unknown delivery system %d", i);
++               }
++            if (*DeliverySystem)
++               DeliverySystem++;
++            }
++        if (*ds)
++           isyslog("device %d provides:%s", CardIndex() + 1, *ds);
+         dvbTuner = new cDvbTuner(fd_frontend, CardIndex(), frontendType);
+         }
+      else
+@@ -743,14 +799,20 @@
+ {
+   int type = Source & cSource::st_Mask;
+   return type == cSource::stNone
+-      || type == cSource::stCable && frontendType == FE_QAM
+-      || type == cSource::stSat   && frontendType == FE_QPSK
+-      || type == cSource::stTerr  && frontendType == FE_OFDM;
++      || type == cSource::stCable && (frontendType & DVBFE_DELSYS_DVBC)
++      || type == cSource::stSat   && (frontendType & (DVBFE_DELSYS_DVBS | DVBFE_DELSYS_DVBS2))
++      || type == cSource::stTerr  && (frontendType & DVBFE_DELSYS_DVBT);
+ }
+ 
+ bool cDvbDevice::ProvidesTransponder(const cChannel *Channel) const
+ {
+-  return ProvidesSource(Channel->Source()) && (!cSource::IsSat(Channel->Source()) || !Setup.DiSEqC || Diseqcs.Get(Channel->Source(), Channel->Frequency(), Channel->Polarization()));
++  if (!ProvidesSource(Channel->Source()))
++     return false; // doesn't provide source
++  if (!cSource::IsSat(Channel->Source()))
++     return true; // source is sufficient for non sat
++  if (!(frontendType & Channel->System()))
++     return false; // requires modulation system which frontend doesn't provide
++  return !Setup.DiSEqC || Diseqcs.Get(Channel->Source(), Channel->Frequency(), Channel->Polarization());
+ }
+ 
+ bool cDvbDevice::ProvidesChannel(const cChannel *Channel, int Priority, bool *NeedsDetachReceivers) const
+@@ -759,7 +821,7 @@
+   bool hasPriority = Priority < 0 || Priority > this->Priority();
+   bool needsDetachReceivers = false;
+ 
+-  if (ProvidesSource(Channel->Source())) {
++  if (ProvidesTransponder(Channel)) {
+      result = hasPriority;
+      if (Priority >= 0 && Receiving(true)) {
+         if (dvbTuner->IsTunedTo(Channel)) {
+@@ -791,6 +853,11 @@
+   return result;
+ }
+ 
++int cDvbDevice::NumProvidedSystems(void) const
++{
++  return numProvidedSystems;
++}
++
+ bool cDvbDevice::IsTunedToTransponder(const cChannel *Channel)
+ {
+   return dvbTuner->IsTunedTo(Channel);
+diff -ruN vdr-1.5.13/dvbdevice.h vdr-1.5.14/dvbdevice.h
+--- vdr-1.5.13/dvbdevice.h	2007-10-14 15:01:25.000000000 +0200
++++ vdr-1.5.14/dvbdevice.h	2008-01-27 11:21:02.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 1.45 2007/10/14 13:01:25 kls Exp $
++ * $Id: dvbdevice.h 1.46 2008/01/27 10:21:02 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -15,8 +15,8 @@
+ #include "device.h"
+ #include "dvbspu.h"
+ 
+-#if DVB_API_VERSION != 3
+-#error VDR requires Linux DVB driver API version 3!
++#if DVB_API_VERSION != 3 || DVB_API_VERSION_MINOR != 3
++#error VDR requires Linux DVB driver API version 3.3!
+ #endif
+ 
+ #define MAXDVBDEVICES  8
+@@ -35,7 +35,8 @@
+          ///< Must be called before accessing any DVB functions.
+          ///< \return True if any devices are available.
+ private:
+-  fe_type_t frontendType;
++  dvbfe_delsys frontendType;
++  int numProvidedSystems;
+   int fd_osd, fd_audio, fd_video, fd_dvr, fd_stc, fd_ca;
+ protected:
+   virtual void MakePrimaryDevice(bool On);
+@@ -66,6 +67,7 @@
+   virtual bool ProvidesSource(int Source) const;
+   virtual bool ProvidesTransponder(const cChannel *Channel) const;
+   virtual bool ProvidesChannel(const cChannel *Channel, int Priority = -1, bool *NeedsDetachReceivers = NULL) const;
++  virtual int NumProvidedSystems(void) const;
+   virtual bool IsTunedToTransponder(const cChannel *Channel);
+ protected:
+   virtual bool SetChannelDevice(const cChannel *Channel, bool LiveView);
+diff -ruN vdr-1.5.13/i18n.c vdr-1.5.14/i18n.c
+--- vdr-1.5.13/i18n.c	2007-11-01 11:38:27.000000000 +0100
++++ vdr-1.5.14/i18n.c	2008-01-19 13:07:11.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.318 2007/11/01 10:38:27 kls Exp $
++ * $Id: i18n.c 1.319 2008/01/19 12:07:11 kls Exp $
+  *
+  *
+  */
+@@ -100,8 +100,10 @@
+   ++_nl_msg_cat_cntr;
+ }
+ 
+-void I18nInitialize(void)
++void I18nInitialize(const char *LocaleDir)
+ {
++  if (LocaleDir)
++     I18nLocaleDir = LocaleDir;
+   LanguageLocales.Append(strdup(I18N_DEFAULT_LOCALE));
+   LanguageNames.Append(strdup(SkipContext(LanguageName)));
+   LanguageCodes.Append(strdup(LanguageCodeList[0]));
+diff -ruN vdr-1.5.13/i18n.h vdr-1.5.14/i18n.h
+--- vdr-1.5.13/i18n.h	2007-08-24 15:35:18.000000000 +0200
++++ vdr-1.5.14/i18n.h	2008-01-19 12:56:19.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.h 1.24 2007/08/24 13:35:18 kls Exp $
++ * $Id: i18n.h 1.25 2008/01/19 11:56:19 kls Exp $
+  */
+ 
+ #ifndef __I18N_H
+@@ -19,8 +19,10 @@
+ #define I18N_MAX_LOCALE_LEN 16       // for buffers that hold en_US etc.
+ #define I18N_MAX_LANGUAGES  256      // for buffers that hold all available languages
+ 
+-void I18nInitialize(void);
++void I18nInitialize(const char *LocaleDir = NULL);
+    ///< Detects all available locales and loads the language names and codes.
++   ///< If LocaleDir is given, it must point to a static string that lives
++   ///< for the entire lifetime of the program.
+ void I18nRegister(const char *Plugin);
+    ///< Registers the named plugin, so that it can use internationalized texts.
+ void I18nSetLocale(const char *Locale);
+diff -ruN vdr-1.5.13/menu.c vdr-1.5.14/menu.c
+--- vdr-1.5.13/menu.c	2008-01-13 14:59:33.000000000 +0100
++++ vdr-1.5.14/menu.c	2008-01-26 17:29:05.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.469 2008/01/13 13:59:33 kls Exp $
++ * $Id: menu.c 1.470 2008/01/26 16:29:05 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -148,70 +148,6 @@
+   return state;
+ }
+ 
+-// --- cMenuEditMapItem ------------------------------------------------------
+-
+-class cMenuEditMapItem : public cMenuEditItem {
+-protected:
+-  int *value;
+-  const tChannelParameterMap *map;
+-  const char *zeroString;
+-  virtual void Set(void);
+-public:
+-  cMenuEditMapItem(const char *Name, int *Value, const tChannelParameterMap *Map, const char *ZeroString = NULL);
+-  virtual eOSState ProcessKey(eKeys Key);
+-  };
+-
+-cMenuEditMapItem::cMenuEditMapItem(const char *Name, int *Value, const tChannelParameterMap *Map, const char *ZeroString)
+-:cMenuEditItem(Name)
+-{
+-  value = Value;
+-  map = Map;
+-  zeroString = ZeroString;
+-  Set();
+-}
+-
+-void cMenuEditMapItem::Set(void)
+-{
+-  int n = MapToUser(*value, map);
+-  if (n == 999)
+-     SetValue(tr("auto"));
+-  else if (n == 0 && zeroString)
+-     SetValue(zeroString);
+-  else if (n >= 0) {
+-     char buf[16];
+-     snprintf(buf, sizeof(buf), "%d", n);
+-     SetValue(buf);
+-     }
+-  else
+-     SetValue("???");
+-}
+-
+-eOSState cMenuEditMapItem::ProcessKey(eKeys Key)
+-{
+-  eOSState state = cMenuEditItem::ProcessKey(Key);
+-
+-  if (state == osUnknown) {
+-     int newValue = *value;
+-     int n = DriverIndex(*value, map);
+-     if (NORMALKEY(Key) == kLeft) { // TODO might want to increase the delta if repeated quickly?
+-        if (n-- > 0)
+-           newValue = map[n].driverValue;
+-        }
+-     else if (NORMALKEY(Key) == kRight) {
+-        if (map[++n].userValue >= 0)
+-           newValue = map[n].driverValue;
+-        }
+-     else
+-        return state;
+-     if (newValue != *value) {
+-        *value = newValue;
+-        Set();
+-        }
+-     state = osContinue;
+-     }
+-  return state;
+-}
+-
+ // --- cMenuEditChannel ------------------------------------------------------
+ 
+ class cMenuEditChannel : public cOsdMenu {
+@@ -272,15 +208,19 @@
+   XXX*/
+   // Parameters for specific types of sources:
+   ST(" S ")  Add(new cMenuEditChrItem( tr("Polarization"), &data.polarization, "hvlr"));
++  ST(" S ")  Add(new cMenuEditMapItem( tr("System"),       &data.system,       SystemValues));
+   ST("CS ")  Add(new cMenuEditIntItem( tr("Srate"),        &data.srate));
+-  ST("CST")  Add(new cMenuEditMapItem( tr("Inversion"),    &data.inversion,    InversionValues, tr("off")));
+-  ST("CST")  Add(new cMenuEditMapItem( tr("CoderateH"),    &data.coderateH,    CoderateValues, tr("none")));
+-  ST("  T")  Add(new cMenuEditMapItem( tr("CoderateL"),    &data.coderateL,    CoderateValues, tr("none")));
+-  ST("C T")  Add(new cMenuEditMapItem( tr("Modulation"),   &data.modulation,   ModulationValues, "QPSK"));
++  ST("CST")  Add(new cMenuEditMapItem( tr("Inversion"),    &data.inversion,    InversionValues));
++  ST("CST")  Add(new cMenuEditMapItem( tr("CoderateH"),    &data.coderateH,    CoderateValues));
++  ST("  T")  Add(new cMenuEditMapItem( tr("CoderateL"),    &data.coderateL,    CoderateValues));
++  ST("CST")  Add(new cMenuEditMapItem( tr("Modulation"),   &data.modulation,   ModulationValues));
+   ST("  T")  Add(new cMenuEditMapItem( tr("Bandwidth"),    &data.bandwidth,    BandwidthValues));
+   ST("  T")  Add(new cMenuEditMapItem( tr("Transmission"), &data.transmission, TransmissionValues));
+   ST("  T")  Add(new cMenuEditMapItem( tr("Guard"),        &data.guard,        GuardValues));
+-  ST("  T")  Add(new cMenuEditMapItem( tr("Hierarchy"),    &data.hierarchy,    HierarchyValues, tr("none")));
++  ST("  T")  Add(new cMenuEditMapItem( tr("Hierarchy"),    &data.hierarchy,    HierarchyValues));
++  ST("  T")  Add(new cMenuEditMapItem( tr("Alpha"),        &data.alpha,        AlphaValues));
++  ST("  T")  Add(new cMenuEditMapItem( tr("Priority"),     &data.priority,     PriorityValues));
++  ST(" S ")  Add(new cMenuEditMapItem( tr("Rolloff"),      &data.rollOff,      RollOffValues));
+ 
+   SetCurrent(Get(current));
+   Display();
+diff -ruN vdr-1.5.13/menuitems.c vdr-1.5.14/menuitems.c
+--- vdr-1.5.13/menuitems.c	2007-11-03 16:01:01.000000000 +0100
++++ vdr-1.5.14/menuitems.c	2008-01-26 17:07:07.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.c 1.55 2007/11/03 15:01:01 kls Exp $
++ * $Id: menuitems.c 1.56 2008/01/26 16:07:07 kls Exp $
+  */
+ 
+ #include "menuitems.h"
+@@ -937,6 +937,64 @@
+   return state;
+ }
+ 
++// --- cMenuEditMapItem ------------------------------------------------------
++
++cMenuEditMapItem::cMenuEditMapItem(const char *Name, int *Value, const tChannelParameterMap *Map, const char *ZeroString)
++:cMenuEditItem(Name)
++{
++  value = Value;
++  map = Map;
++  zeroString = ZeroString;
++  Set();
++}
++
++void cMenuEditMapItem::Set(void)
++{
++  const char *s = NULL;
++  int n = MapToUser(*value, map, &s);
++  if (n == 999)
++     SetValue(tr("auto"));
++  else if (n == 0 && zeroString)
++     SetValue(zeroString);
++  else if (n >= 0) {
++     if (s)
++        SetValue(s);
++     else {
++        char buf[16];
++        snprintf(buf, sizeof(buf), "%d", n);
++        SetValue(buf);
++        }
++     }
++  else
++     SetValue("???");
++}
++
++eOSState cMenuEditMapItem::ProcessKey(eKeys Key)
++{
++  eOSState state = cMenuEditItem::ProcessKey(Key);
++
++  if (state == osUnknown) {
++     int newValue = *value;
++     int n = DriverIndex(*value, map);
++     if (NORMALKEY(Key) == kLeft) { // TODO might want to increase the delta if repeated quickly?
++        if (n-- > 0)
++           newValue = map[n].driverValue;
++        }
++     else if (NORMALKEY(Key) == kRight) {
++        if (map[++n].userValue >= 0)
++           newValue = map[n].driverValue;
++        }
++     else
++        return state;
++     if (newValue != *value) {
++        *value = newValue;
++        Set();
++        }
++     state = osContinue;
++     }
++  return state;
++}
++
+ // --- cMenuSetupPage --------------------------------------------------------
+ 
+ cMenuSetupPage::cMenuSetupPage(void)
+diff -ruN vdr-1.5.13/menuitems.h vdr-1.5.14/menuitems.h
+--- vdr-1.5.13/menuitems.h	2007-11-03 15:59:47.000000000 +0100
++++ vdr-1.5.14/menuitems.h	2008-01-26 16:52:53.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.h 1.22 2007/11/03 14:59:47 kls Exp $
++ * $Id: menuitems.h 1.23 2008/01/26 15:52:53 kls Exp $
+  */
+ 
+ #ifndef __MENUITEMS_H
+@@ -159,6 +159,17 @@
+   virtual eOSState ProcessKey(eKeys Key);
+   };
+ 
++class cMenuEditMapItem : public cMenuEditItem {
++protected:
++  int *value;
++  const tChannelParameterMap *map;
++  const char *zeroString;
++  virtual void Set(void);
++public:
++  cMenuEditMapItem(const char *Name, int *Value, const tChannelParameterMap *Map, const char *ZeroString = NULL);
++  virtual eOSState ProcessKey(eKeys Key);
++  };
++
+ class cPlugin;
+ 
+ class cMenuSetupPage : public cOsdMenu {
+diff -ruN vdr-1.5.13/nit.c vdr-1.5.14/nit.c
+--- vdr-1.5.13/nit.c	2007-08-17 16:02:45.000000000 +0200
++++ vdr-1.5.14/nit.c	2008-01-26 16:08:01.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: nit.c 1.15 2007/08/17 14:02:45 kls Exp $
++ * $Id: nit.c 1.17 2008/01/26 15:08:01 kls Exp $
+  */
+ 
+ #include "nit.h"
+@@ -127,8 +127,13 @@
+                  int Frequency = Frequencies[0] = BCD2INT(sd->getFrequency()) / 100;
+                  static char Polarizations[] = { 'h', 'v', 'l', 'r' };
+                  char Polarization = Polarizations[sd->getPolarization()];
+-                 static int CodeRates[] = { FEC_NONE, FEC_1_2, FEC_2_3, FEC_3_4, FEC_5_6, FEC_7_8, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_NONE };
++                 static int CodeRates[] = { DVBFE_FEC_NONE, DVBFE_FEC_1_2, DVBFE_FEC_2_3, DVBFE_FEC_3_4, DVBFE_FEC_5_6, DVBFE_FEC_7_8, DVBFE_FEC_8_9, DVBFE_FEC_3_5, DVBFE_FEC_4_5, DVBFE_FEC_9_10, DVBFE_FEC_AUTO, DVBFE_FEC_AUTO, DVBFE_FEC_AUTO, DVBFE_FEC_AUTO, DVBFE_FEC_AUTO, DVBFE_FEC_NONE };
+                  int CodeRate = CodeRates[sd->getFecInner()];
++                 static int Modulations[] = { DVBFE_MOD_AUTO, DVBFE_MOD_QPSK, DVBFE_MOD_8PSK, DVBFE_MOD_QAM16 };
++                 int Modulation = Modulations[sd->getModulationType()];
++                 int System = sd->getModulationSystem() ? DVBFE_DELSYS_DVBS2 : DVBFE_DELSYS_DVBS;
++                 static int RollOffs[] = { DVBFE_ROLLOFF_35, DVBFE_ROLLOFF_25, DVBFE_ROLLOFF_20, DVBFE_ROLLOFF_UNKNOWN };
++                 int RollOff = sd->getModulationSystem() ? RollOffs[sd->getRollOff()] : DVBFE_ROLLOFF_UNKNOWN;
+                  int SymbolRate = BCD2INT(sd->getSymbolRate()) / 10;
+                  if (ThisNIT >= 0) {
+                     for (int n = 0; n < NumFrequencies; n++) {
+@@ -145,6 +150,7 @@
+                     for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+                         if (!Channel->GroupSep() && Channel->Source() == Source && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+                            int transponder = Channel->Transponder();
++                           found = true;
+                            if (!ISTRANSPONDER(cChannel::Transponder(Frequency, Polarization), transponder)) {
+                               for (int n = 0; n < NumFrequencies; n++) {
+                                   if (ISTRANSPONDER(cChannel::Transponder(Frequencies[n], Polarization), transponder)) {
+@@ -154,15 +160,14 @@
+                                   }
+                               }
+                            if (ISTRANSPONDER(cChannel::Transponder(Frequency, Polarization), Transponder())) // only modify channels if we're actually receiving this transponder
+-                              Channel->SetSatTransponderData(Source, Frequency, Polarization, SymbolRate, CodeRate);
++                              Channel->SetSatTransponderData(Source, Frequency, Polarization, SymbolRate, CodeRate, Modulation, System, RollOff);
+                            }
+-                        found = true;
+                         }
+                     if (!found) {
+                        for (int n = 0; n < NumFrequencies; n++) {
+                            cChannel *Channel = new cChannel;
+                            Channel->SetId(ts.getOriginalNetworkId(), ts.getTransportStreamId(), 0, 0);
+-                           if (Channel->SetSatTransponderData(Source, Frequencies[n], Polarization, SymbolRate, CodeRate))
++                           if (Channel->SetSatTransponderData(Source, Frequencies[n], Polarization, SymbolRate, CodeRate, Modulation, System, RollOff))
+                               EITScanner.AddTransponder(Channel);
+                            else
+                               delete Channel;
+@@ -176,9 +181,9 @@
+                  int Source = cSource::FromData(cSource::stCable);
+                  int Frequency = Frequencies[0] = BCD2INT(sd->getFrequency()) / 10;
+                  //XXX FEC_outer???
+-                 static int CodeRates[] = { FEC_NONE, FEC_1_2, FEC_2_3, FEC_3_4, FEC_5_6, FEC_7_8, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_AUTO, FEC_NONE };
++                 static int CodeRates[] = { DVBFE_FEC_NONE, DVBFE_FEC_1_2, DVBFE_FEC_2_3, DVBFE_FEC_3_4, DVBFE_FEC_5_6, DVBFE_FEC_7_8, DVBFE_FEC_8_9, DVBFE_FEC_3_5, DVBFE_FEC_4_5, DVBFE_FEC_9_10, DVBFE_FEC_AUTO, DVBFE_FEC_AUTO, DVBFE_FEC_AUTO, DVBFE_FEC_AUTO, DVBFE_FEC_AUTO, DVBFE_FEC_NONE };
+                  int CodeRate = CodeRates[sd->getFecInner()];
+-                 static int Modulations[] = { QPSK, QAM_16, QAM_32, QAM_64, QAM_128, QAM_256, QAM_AUTO };
++                 static int Modulations[] = { DVBFE_MOD_NONE, DVBFE_MOD_QAM16, DVBFE_MOD_QAM32, DVBFE_MOD_QAM64, DVBFE_MOD_QAM128, DVBFE_MOD_QAM256, QAM_AUTO };
+                  int Modulation = Modulations[min(sd->getModulation(), 6)];
+                  int SymbolRate = BCD2INT(sd->getSymbolRate()) / 10;
+                  if (ThisNIT >= 0) {
+@@ -196,6 +201,7 @@
+                     for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+                         if (!Channel->GroupSep() && Channel->Source() == Source && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+                            int transponder = Channel->Transponder();
++                           found = true;
+                            if (!ISTRANSPONDER(Frequency / 1000, transponder)) {
+                               for (int n = 0; n < NumFrequencies; n++) {
+                                   if (ISTRANSPONDER(Frequencies[n] / 1000, transponder)) {
+@@ -207,7 +213,6 @@
+                            if (ISTRANSPONDER(Frequency / 1000, Transponder())) // only modify channels if we're actually receiving this transponder
+                               Channel->SetCableTransponderData(Source, Frequency, Modulation, SymbolRate, CodeRate);
+                            }
+-                        found = true;
+                         }
+                     if (!found) {
+                         for (int n = 0; n < NumFrequencies; n++) {
+@@ -226,19 +231,22 @@
+                  SI::TerrestrialDeliverySystemDescriptor *sd = (SI::TerrestrialDeliverySystemDescriptor *)d;
+                  int Source = cSource::FromData(cSource::stTerr);
+                  int Frequency = Frequencies[0] = sd->getFrequency() * 10;
+-                 static int Bandwidths[] = { BANDWIDTH_8_MHZ, BANDWIDTH_7_MHZ, BANDWIDTH_6_MHZ, BANDWIDTH_AUTO, BANDWIDTH_AUTO, BANDWIDTH_AUTO, BANDWIDTH_AUTO, BANDWIDTH_AUTO };
++                 static int Bandwidths[] = { DVBFE_BANDWIDTH_8_MHZ, DVBFE_BANDWIDTH_7_MHZ, DVBFE_BANDWIDTH_6_MHZ, DVBFE_BANDWIDTH_5_MHZ, DVBFE_BANDWIDTH_AUTO, DVBFE_BANDWIDTH_AUTO, DVBFE_BANDWIDTH_AUTO, DVBFE_BANDWIDTH_AUTO };
+                  int Bandwidth = Bandwidths[sd->getBandwidth()];
+-                 static int Constellations[] = { QPSK, QAM_16, QAM_64, QAM_AUTO };
++                 static int Constellations[] = { DVBFE_MOD_QPSK, DVBFE_MOD_QAM16, DVBFE_MOD_QAM64, DVBFE_MOD_AUTO };
+                  int Constellation = Constellations[sd->getConstellation()];
+-                 static int Hierarchies[] = { HIERARCHY_NONE, HIERARCHY_1, HIERARCHY_2, HIERARCHY_4, HIERARCHY_AUTO, HIERARCHY_AUTO, HIERARCHY_AUTO, HIERARCHY_AUTO };
+-                 int Hierarchy = Hierarchies[sd->getHierarchy()];
+-                 static int CodeRates[] = { FEC_1_2, FEC_2_3, FEC_3_4, FEC_5_6, FEC_7_8, FEC_AUTO, FEC_AUTO, FEC_AUTO };
++                 static int CodeRates[] = { DVBFE_FEC_1_2, DVBFE_FEC_2_3, DVBFE_FEC_3_4, DVBFE_FEC_5_6, DVBFE_FEC_7_8, DVBFE_FEC_AUTO, DVBFE_FEC_AUTO, DVBFE_FEC_AUTO };
+                  int CodeRateHP = CodeRates[sd->getCodeRateHP()];
+                  int CodeRateLP = CodeRates[sd->getCodeRateLP()];
+-                 static int GuardIntervals[] = { GUARD_INTERVAL_1_32, GUARD_INTERVAL_1_16, GUARD_INTERVAL_1_8, GUARD_INTERVAL_1_4 };
++                 static int GuardIntervals[] = { DVBFE_GUARD_INTERVAL_1_32, DVBFE_GUARD_INTERVAL_1_16, DVBFE_GUARD_INTERVAL_1_8, DVBFE_GUARD_INTERVAL_1_4 };
+                  int GuardInterval = GuardIntervals[sd->getGuardInterval()];
+-                 static int TransmissionModes[] = { TRANSMISSION_MODE_2K, TRANSMISSION_MODE_8K, TRANSMISSION_MODE_AUTO, TRANSMISSION_MODE_AUTO };
++                 static int TransmissionModes[] = { DVBFE_TRANSMISSION_MODE_2K, DVBFE_TRANSMISSION_MODE_8K, DVBFE_TRANSMISSION_MODE_4K, DVBFE_TRANSMISSION_MODE_AUTO };
+                  int TransmissionMode = TransmissionModes[sd->getTransmissionMode()];
++                 static int Priorities[] = { DVBFE_STREAM_PRIORITY_LP, DVBFE_STREAM_PRIORITY_HP };
++                 int Priority = Priorities[sd->getPriority()];
++                 static int Alphas[] = { 0, DVBFE_ALPHA_1, DVBFE_ALPHA_2, DVBFE_ALPHA_4 };
++                 int Alpha = Alphas[sd->getHierarchy() & 3];
++                 int Hierarchy = Alpha ? DVBFE_HIERARCHY_ON : DVBFE_HIERARCHY_OFF;
+                  if (ThisNIT >= 0) {
+                     for (int n = 0; n < NumFrequencies; n++) {
+                         if (ISTRANSPONDER(Frequencies[n] / 1000000, Transponder())) {
+@@ -254,6 +262,7 @@
+                     for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+                         if (!Channel->GroupSep() && Channel->Source() == Source && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+                            int transponder = Channel->Transponder();
++                           found = true;
+                            if (!ISTRANSPONDER(Frequency / 1000000, transponder)) {
+                               for (int n = 0; n < NumFrequencies; n++) {
+                                   if (ISTRANSPONDER(Frequencies[n] / 1000000, transponder)) {
+@@ -263,15 +272,14 @@
+                                   }
+                               }
+                            if (ISTRANSPONDER(Frequency / 1000000, Transponder())) // only modify channels if we're actually receiving this transponder
+-                              Channel->SetTerrTransponderData(Source, Frequency, Bandwidth, Constellation, Hierarchy, CodeRateHP, CodeRateLP, GuardInterval, TransmissionMode);
++                              Channel->SetTerrTransponderData(Source, Frequency, Bandwidth, Constellation, Hierarchy, CodeRateHP, CodeRateLP, GuardInterval, TransmissionMode, Alpha, Priority);
+                            }
+-                        found = true;
+                         }
+                     if (!found) {
+                        for (int n = 0; n < NumFrequencies; n++) {
+                            cChannel *Channel = new cChannel;
+                            Channel->SetId(ts.getOriginalNetworkId(), ts.getTransportStreamId(), 0, 0);
+-                           if (Channel->SetTerrTransponderData(Source, Frequencies[n], Bandwidth, Constellation, Hierarchy, CodeRateHP, CodeRateLP, GuardInterval, TransmissionMode))
++                           if (Channel->SetTerrTransponderData(Source, Frequencies[n], Bandwidth, Constellation, Hierarchy, CodeRateHP, CodeRateLP, GuardInterval, TransmissionMode, Alpha, Priority))
+                               EITScanner.AddTransponder(Channel);
+                            else
+                               delete Channel;
+diff -ruN vdr-1.5.13/pat.c vdr-1.5.14/pat.c
+--- vdr-1.5.13/pat.c	2007-09-02 12:44:19.000000000 +0200
++++ vdr-1.5.14/pat.c	2008-01-27 14:53:43.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.c 1.18 2007/09/02 10:44:19 kls Exp $
++ * $Id: pat.c 1.19 2008/01/27 13:53:43 kls Exp $
+  */
+ 
+ #include "pat.h"
+@@ -343,6 +343,7 @@
+             switch (stream.getStreamType()) {
+               case 1: // STREAMTYPE_11172_VIDEO
+               case 2: // STREAMTYPE_13818_VIDEO
++//TODO        case 0x1B: // MPEG4
+                       Vpid = stream.getPid();
+                       break;
+               case 3: // STREAMTYPE_11172_AUDIO
+diff -ruN vdr-1.5.13/po/ca_ES.po vdr-1.5.14/po/ca_ES.po
+--- vdr-1.5.13/po/ca_ES.po	2008-01-13 16:06:32.000000000 +0100
++++ vdr-1.5.14/po/ca_ES.po	2008-01-27 15:15:24.000000000 +0100
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Jordi Vilà <jvila@tinet.org>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -17,6 +17,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "off"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "cap"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Canal incorrecte ***"
+ 
+@@ -221,9 +236,6 @@
+ msgid "encrypted"
+ msgstr ""
+ 
+-msgid "auto"
+-msgstr "auto"
+-
+ msgid "Edit channel"
+ msgstr "Editar canal"
+ 
+@@ -272,21 +284,18 @@
+ msgid "Polarization"
+ msgstr "Polarització"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Srate"
+ 
+ msgid "Inversion"
+ msgstr "Inversió"
+ 
+-msgid "off"
+-msgstr "off"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "cap"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -305,6 +314,15 @@
+ msgid "Hierarchy"
+ msgstr "Jerarquia"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Prioritat"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Propietats del canal duplicades!"
+ 
+@@ -350,9 +368,6 @@
+ msgid "VPS"
+ msgstr ""
+ 
+-msgid "Priority"
+-msgstr "Prioritat"
+-
+ msgid "Lifetime"
+ msgstr "Durada"
+ 
+@@ -893,6 +908,9 @@
+ msgid "Button$Insert"
+ msgstr "Inserir"
+ 
++msgid "auto"
++msgstr "auto"
++
+ msgid "Plugin"
+ msgstr "Plugin"
+ 
+diff -ruN vdr-1.5.13/po/cs_CZ.po vdr-1.5.14/po/cs_CZ.po
+--- vdr-1.5.13/po/cs_CZ.po	2008-01-13 16:06:32.000000000 +0100
++++ vdr-1.5.14/po/cs_CZ.po	2008-01-27 15:15:42.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Vladimír Bárta <vladimir.barta@k2atmitec.cz>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -15,6 +15,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "vyp."
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "¾ádný"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Neplatný kanál ***"
+ 
+@@ -219,9 +234,6 @@
+ msgid "encrypted"
+ msgstr "kódovaný"
+ 
+-msgid "auto"
+-msgstr "auto"
+-
+ msgid "Edit channel"
+ msgstr "Editace kanálu"
+ 
+@@ -270,21 +282,18 @@
+ msgid "Polarization"
+ msgstr "Polarizace"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Srate"
+ 
+ msgid "Inversion"
+ msgstr "Inversion"
+ 
+-msgid "off"
+-msgstr "vyp."
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "¾ádný"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -303,6 +312,15 @@
+ msgid "Hierarchy"
+ msgstr "Hierarchy"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Priorita"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Nastavení kanálù nejsou unikátní!"
+ 
+@@ -348,9 +366,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Priorita"
+-
+ msgid "Lifetime"
+ msgstr "®ivotnost"
+ 
+@@ -891,6 +906,9 @@
+ msgid "Button$Insert"
+ msgstr "Vlo¾it"
+ 
++msgid "auto"
++msgstr "auto"
++
+ msgid "Plugin"
+ msgstr "Modul"
+ 
+diff -ruN vdr-1.5.13/po/da_DK.po vdr-1.5.14/po/da_DK.po
+--- vdr-1.5.13/po/da_DK.po	2008-01-13 16:06:32.000000000 +0100
++++ vdr-1.5.14/po/da_DK.po	2008-01-27 15:16:11.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -15,6 +15,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "fra"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "ingen"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Ugyldig kanal! ***"
+ 
+@@ -219,9 +234,6 @@
+ msgid "encrypted"
+ msgstr "kodet"
+ 
+-msgid "auto"
+-msgstr "automatisk"
+-
+ msgid "Edit channel"
+ msgstr "Rediger kanal"
+ 
+@@ -270,21 +282,18 @@
+ msgid "Polarization"
+ msgstr "Polarisation"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Srate"
+ 
+ msgid "Inversion"
+ msgstr "Inversion"
+ 
+-msgid "off"
+-msgstr "fra"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "ingen"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -303,6 +312,15 @@
+ msgid "Hierarchy"
+ msgstr "Hierarki"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Prioritet"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Kanalindstillinger er ikke entydige!"
+ 
+@@ -348,9 +366,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Prioritet"
+-
+ msgid "Lifetime"
+ msgstr "Levetid"
+ 
+@@ -891,6 +906,9 @@
+ msgid "Button$Insert"
+ msgstr "Indsæt"
+ 
++msgid "auto"
++msgstr "automatisk"
++
+ msgid "Plugin"
+ msgstr "Plugin"
+ 
+diff -ruN vdr-1.5.13/po/de_DE.po vdr-1.5.14/po/de_DE.po
+--- vdr-1.5.13/po/de_DE.po	2008-01-13 16:06:32.000000000 +0100
++++ vdr-1.5.14/po/de_DE.po	2008-01-27 15:16:13.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-11-25 15:19+0200\n"
+ "Last-Translator: Klaus Schmidinger <kls@cadsoft.de>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -15,6 +15,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "aus"
++
++msgid "on"
++msgstr "ein"
++
++msgid "none"
++msgstr "keine"
++
++msgid "high"
++msgstr "hoch"
++
++msgid "low"
++msgstr "niedrig"
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Ungültiger Kanal ***"
+ 
+@@ -219,9 +234,6 @@
+ msgid "encrypted"
+ msgstr "verschlüsselt"
+ 
+-msgid "auto"
+-msgstr "auto"
+-
+ msgid "Edit channel"
+ msgstr "Kanal editieren"
+ 
+@@ -270,21 +282,18 @@
+ msgid "Polarization"
+ msgstr "Polarisation"
+ 
++msgid "System"
++msgstr "System"
++
+ msgid "Srate"
+ msgstr "Srate"
+ 
+ msgid "Inversion"
+ msgstr "Inversion"
+ 
+-msgid "off"
+-msgstr "aus"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "keine"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -303,6 +312,15 @@
+ msgid "Hierarchy"
+ msgstr "Hierarchie"
+ 
++msgid "Alpha"
++msgstr "Alpha"
++
++msgid "Priority"
++msgstr "Priorität"
++
++msgid "Rolloff"
++msgstr "Rolloff"
++
+ msgid "Channel settings are not unique!"
+ msgstr "Kanaleinstellungen sind nicht eindeutig!"
+ 
+@@ -348,9 +366,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Priorität"
+-
+ msgid "Lifetime"
+ msgstr "Lebensdauer"
+ 
+@@ -891,6 +906,9 @@
+ msgid "Button$Insert"
+ msgstr "Einfügen"
+ 
++msgid "auto"
++msgstr "auto"
++
+ msgid "Plugin"
+ msgstr "Plugin"
+ 
+diff -ruN vdr-1.5.13/po/el_GR.po vdr-1.5.14/po/el_GR.po
+--- vdr-1.5.13/po/el_GR.po	2008-01-13 16:06:32.000000000 +0100
++++ vdr-1.5.14/po/el_GR.po	2008-01-27 15:16:23.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -15,6 +15,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-7\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "êëåéóôü"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "êáíÝíá"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Áêõñï êáíÜëç ***"
+ 
+@@ -219,9 +234,6 @@
+ msgid "encrypted"
+ msgstr ""
+ 
+-msgid "auto"
+-msgstr "áõôüìáôï"
+-
+ msgid "Edit channel"
+ msgstr "Ôñïðïðïßçóç Êáíáëéïý"
+ 
+@@ -270,21 +282,18 @@
+ msgid "Polarization"
+ msgstr "Ðüëùóç"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Srate"
+ 
+ msgid "Inversion"
+ msgstr "ÁíôéóôñïöÞ"
+ 
+-msgid "off"
+-msgstr "êëåéóôü"
+-
+ msgid "CoderateH"
+ msgstr "Ñõèìüò Êþäéêá H"
+ 
+-msgid "none"
+-msgstr "êáíÝíá"
+-
+ msgid "CoderateL"
+ msgstr "Ñõèìüò Êþäéêá L"
+ 
+@@ -303,6 +312,15 @@
+ msgid "Hierarchy"
+ msgstr "Éåñáñ÷åßá"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Ðñïôåñáéüôçôá"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Ïé ñéèìýóåéò ôïí êáíáëéþí áëëõëïóõìðßðôïõí!"
+ 
+@@ -348,9 +366,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Ðñïôåñáéüôçôá"
+-
+ msgid "Lifetime"
+ msgstr "ÄéÝñêåéá ÐáñáìïíÞò"
+ 
+@@ -891,6 +906,9 @@
+ msgid "Button$Insert"
+ msgstr "ÅéóáãùãÞ"
+ 
++msgid "auto"
++msgstr "áõôüìáôï"
++
+ msgid "Plugin"
+ msgstr "ÅðÝêôáóç"
+ 
+diff -ruN vdr-1.5.13/po/es_ES.po vdr-1.5.14/po/es_ES.po
+--- vdr-1.5.13/po/es_ES.po	2008-01-13 16:06:32.000000000 +0100
++++ vdr-1.5.14/po/es_ES.po	2008-01-27 15:16:34.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Ruben Nunez Francisco <ruben.nunez@tang-it.com>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -15,6 +15,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "off"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "ninguno"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Canal no válido ***"
+ 
+@@ -219,9 +234,6 @@
+ msgid "encrypted"
+ msgstr "cifrado"
+ 
+-msgid "auto"
+-msgstr "auto"
+-
+ msgid "Edit channel"
+ msgstr "Modificar canal"
+ 
+@@ -270,21 +282,18 @@
+ msgid "Polarization"
+ msgstr "Polarización"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "T.símbolos"
+ 
+ msgid "Inversion"
+ msgstr "Inversion"
+ 
+-msgid "off"
+-msgstr "off"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "ninguno"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -303,6 +312,15 @@
+ msgid "Hierarchy"
+ msgstr "Jerarquía"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Prioridad"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "!Propiedades de canal duplicadas!"
+ 
+@@ -348,9 +366,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Prioridad"
+-
+ msgid "Lifetime"
+ msgstr "Duración"
+ 
+@@ -891,6 +906,9 @@
+ msgid "Button$Insert"
+ msgstr "Insertar"
+ 
++msgid "auto"
++msgstr "auto"
++
+ msgid "Plugin"
+ msgstr "Plugin"
+ 
+diff -ruN vdr-1.5.13/po/et_EE.po vdr-1.5.14/po/et_EE.po
+--- vdr-1.5.13/po/et_EE.po	2008-01-13 16:06:32.000000000 +0100
++++ vdr-1.5.14/po/et_EE.po	2008-01-27 15:16:43.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <kasjas@hot.ee>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -15,6 +15,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-13\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "väljas"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "puudu"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Vigane kanal ***"
+ 
+@@ -219,9 +234,6 @@
+ msgid "encrypted"
+ msgstr "krüptitud"
+ 
+-msgid "auto"
+-msgstr "automaatne"
+-
+ msgid "Edit channel"
+ msgstr "Kanali muutmine"
+ 
+@@ -270,21 +282,18 @@
+ msgid "Polarization"
+ msgstr "Polarisatsioon"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Srate"
+ 
+ msgid "Inversion"
+ msgstr "Inversioon"
+ 
+-msgid "off"
+-msgstr "väljas"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "puudu"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -303,6 +312,15 @@
+ msgid "Hierarchy"
+ msgstr "Hierarhia"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Prioriteet"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Kanaliseaded ei ole unikaalsed!"
+ 
+@@ -348,9 +366,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Prioriteet"
+-
+ msgid "Lifetime"
+ msgstr "Eluiga"
+ 
+@@ -891,6 +906,9 @@
+ msgid "Button$Insert"
+ msgstr "Lisa (INS)"
+ 
++msgid "auto"
++msgstr "automaatne"
++
+ msgid "Plugin"
+ msgstr "Laiendusmoodul"
+ 
+diff -ruN vdr-1.5.13/po/fi_FI.po vdr-1.5.14/po/fi_FI.po
+--- vdr-1.5.13/po/fi_FI.po	2008-01-13 16:06:32.000000000 +0100
++++ vdr-1.5.14/po/fi_FI.po	2008-01-27 15:16:56.000000000 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -18,6 +18,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "pois"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "tyhjä"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Virheellinen kanavavalinta ***"
+ 
+@@ -222,9 +237,6 @@
+ msgid "encrypted"
+ msgstr "salattu"
+ 
+-msgid "auto"
+-msgstr "auto"
+-
+ msgid "Edit channel"
+ msgstr "Muokkaa kanavaa"
+ 
+@@ -273,21 +285,18 @@
+ msgid "Polarization"
+ msgstr "Polarisaatio"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Symbolinopeus"
+ 
+ msgid "Inversion"
+ msgstr "Inversio"
+ 
+-msgid "off"
+-msgstr "pois"
+-
+ msgid "CoderateH"
+ msgstr "Suojaustaso (HP)"
+ 
+-msgid "none"
+-msgstr "tyhjä"
+-
+ msgid "CoderateL"
+ msgstr "Suojaustaso (LP)"
+ 
+@@ -306,6 +315,15 @@
+ msgid "Hierarchy"
+ msgstr "Hierarkia"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Prioriteetti"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Kanava-asetukset eivät ole yksilölliset!"
+ 
+@@ -351,9 +369,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Prioriteetti"
+-
+ msgid "Lifetime"
+ msgstr "Elinikä"
+ 
+@@ -780,7 +795,7 @@
+ msgstr "Äänenvoimakkuus käynnistettäessä"
+ 
+ msgid "Setup.Miscellaneous$Emergency exit"
+-msgstr ""
++msgstr "Käytä hätäsammutusta"
+ 
+ msgid "Plugins"
+ msgstr "Laajennokset"
+@@ -894,6 +909,9 @@
+ msgid "Button$Insert"
+ msgstr "Lisää"
+ 
++msgid "auto"
++msgstr "auto"
++
+ msgid "Plugin"
+ msgstr "Laajennos"
+ 
+diff -ruN vdr-1.5.13/po/fr_FR.po vdr-1.5.14/po/fr_FR.po
+--- vdr-1.5.13/po/fr_FR.po	2008-01-13 16:06:32.000000000 +0100
++++ vdr-1.5.14/po/fr_FR.po	2008-01-27 15:17:06.000000000 +0100
+@@ -13,7 +13,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-10-18 16:12+0100\n"
+ "Last-Translator: Michael Nival <mnival@club-internet.fr>\n"
+ "Language-Team:  <vdr@linuxtv.org>\n"
+@@ -21,6 +21,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "off"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "aucun"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Chaîne invalide ! ***"
+ 
+@@ -225,9 +240,6 @@
+ msgid "encrypted"
+ msgstr "Crypté"
+ 
+-msgid "auto"
+-msgstr "auto"
+-
+ msgid "Edit channel"
+ msgstr "Modifier une chaîne"
+ 
+@@ -276,21 +288,18 @@
+ msgid "Polarization"
+ msgstr "Polarisation"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Fréq. Symbole"
+ 
+ msgid "Inversion"
+ msgstr "Inversion"
+ 
+-msgid "off"
+-msgstr "off"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "aucun"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -309,6 +318,15 @@
+ msgid "Hierarchy"
+ msgstr "Hiérarchie"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Priorité"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Caractéristiques des chaînes non uniques"
+ 
+@@ -354,9 +372,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Priorité"
+-
+ msgid "Lifetime"
+ msgstr "Durée de vie"
+ 
+@@ -897,6 +912,9 @@
+ msgid "Button$Insert"
+ msgstr "Insérer"
+ 
++msgid "auto"
++msgstr "auto"
++
+ msgid "Plugin"
+ msgstr "Plugin"
+ 
+diff -ruN vdr-1.5.13/po/hr_HR.po vdr-1.5.14/po/hr_HR.po
+--- vdr-1.5.13/po/hr_HR.po	2008-01-13 16:06:32.000000000 +0100
++++ vdr-1.5.14/po/hr_HR.po	2008-01-27 15:17:19.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Drazen Dupor <drazen.dupor@dupor.com>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -16,6 +16,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "ugasi"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "nijedan"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Neispravan program ***"
+ 
+@@ -220,9 +235,6 @@
+ msgid "encrypted"
+ msgstr ""
+ 
+-msgid "auto"
+-msgstr "automatski"
+-
+ msgid "Edit channel"
+ msgstr "Ureðivanje programa"
+ 
+@@ -271,21 +283,18 @@
+ msgid "Polarization"
+ msgstr "Polarizacija"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Srate"
+ 
+ msgid "Inversion"
+ msgstr "Inverzija"
+ 
+-msgid "off"
+-msgstr "ugasi"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "nijedan"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -304,6 +313,15 @@
+ msgid "Hierarchy"
+ msgstr "Hijerarhija"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Prioritet"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Parametri programa nisu jednoznaèni!"
+ 
+@@ -349,9 +367,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Prioritet"
+-
+ msgid "Lifetime"
+ msgstr "Trajanje"
+ 
+@@ -892,6 +907,9 @@
+ msgid "Button$Insert"
+ msgstr "Umetni"
+ 
++msgid "auto"
++msgstr "automatski"
++
+ msgid "Plugin"
+ msgstr "Plugin"
+ 
+diff -ruN vdr-1.5.13/po/hu_HU.po vdr-1.5.14/po/hu_HU.po
+--- vdr-1.5.13/po/hu_HU.po	2008-01-13 16:06:32.000000000 +0100
++++ vdr-1.5.14/po/hu_HU.po	2008-01-27 15:17:31.000000000 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2008-01-13 14:21+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-12-01 21:42+0200\n"
+ "Last-Translator: István Füley <ifuley@tigercomp.ro>\n"
+ "Language-Team:  <vdr@linuxtv.org>\n"
+@@ -18,6 +18,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "ki"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "semmi"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Érvénytelen csatorna ***"
+ 
+@@ -222,9 +237,6 @@
+ msgid "encrypted"
+ msgstr "Kódolt"
+ 
+-msgid "auto"
+-msgstr "auto"
+-
+ msgid "Edit channel"
+ msgstr "Csatornák beállítása"
+ 
+@@ -273,21 +285,18 @@
+ msgid "Polarization"
+ msgstr "Polarizáció"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Srate"
+ 
+ msgid "Inversion"
+ msgstr "Inversion"
+ 
+-msgid "off"
+-msgstr "ki"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "semmi"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -306,6 +315,15 @@
+ msgid "Hierarchy"
+ msgstr "Hierarhia"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Prioritás"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Az adóbeállítások nem egyértelmûek"
+ 
+@@ -351,9 +369,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Prioritás"
+-
+ msgid "Lifetime"
+ msgstr "Élettartam"
+ 
+@@ -895,6 +910,9 @@
+ msgid "Button$Insert"
+ msgstr "Beilleszteni"
+ 
++msgid "auto"
++msgstr "auto"
++
+ msgid "Plugin"
+ msgstr "Plugin"
+ 
+diff -ruN vdr-1.5.13/po/it_IT.po vdr-1.5.14/po/it_IT.po
+--- vdr-1.5.13/po/it_IT.po	2008-01-13 16:06:32.000000000 +0100
++++ vdr-1.5.14/po/it_IT.po	2008-01-27 15:17:40.000000000 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-10-16 02:15+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team:  <vdr@linuxtv.org>\n"
+@@ -18,6 +18,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "off"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "nessuno"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Canale NON valido ***"
+ 
+@@ -222,9 +237,6 @@
+ msgid "encrypted"
+ msgstr "criptato"
+ 
+-msgid "auto"
+-msgstr "automatico"
+-
+ msgid "Edit channel"
+ msgstr "Modifica canale"
+ 
+@@ -273,21 +285,18 @@
+ msgid "Polarization"
+ msgstr "Polarizzazione"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "SymbolRate"
+ 
+ msgid "Inversion"
+ msgstr "Inversion"
+ 
+-msgid "off"
+-msgstr "off"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "nessuno"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -306,6 +315,15 @@
+ msgid "Hierarchy"
+ msgstr "Hierarchy"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Priorità"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Parametri canale non univoci!"
+ 
+@@ -351,9 +369,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Priorità"
+-
+ msgid "Lifetime"
+ msgstr "Durata"
+ 
+@@ -894,6 +909,9 @@
+ msgid "Button$Insert"
+ msgstr "Inserisci"
+ 
++msgid "auto"
++msgstr "automatico"
++
+ msgid "Plugin"
+ msgstr "Plugin"
+ 
+diff -ruN vdr-1.5.13/po/nl_NL.po vdr-1.5.14/po/nl_NL.po
+--- vdr-1.5.13/po/nl_NL.po	2008-01-13 16:06:32.000000000 +0100
++++ vdr-1.5.14/po/nl_NL.po	2008-01-27 15:17:49.000000000 +0100
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Maarten Wisse <Maarten.Wisse@urz.uni-hd.de>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -17,6 +17,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "uit"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "geen"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Ongeldig kanaal ***"
+ 
+@@ -221,9 +236,6 @@
+ msgid "encrypted"
+ msgstr ""
+ 
+-msgid "auto"
+-msgstr "auto"
+-
+ msgid "Edit channel"
+ msgstr "Kanaal aanpassen"
+ 
+@@ -272,21 +284,18 @@
+ msgid "Polarization"
+ msgstr "Polarisatie"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Srate"
+ 
+ msgid "Inversion"
+ msgstr "Inversion"
+ 
+-msgid "off"
+-msgstr "uit"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "geen"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -305,6 +314,15 @@
+ msgid "Hierarchy"
+ msgstr "Hierarchy"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Prioriteit"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Kanaalinstellingen zijn niet uniek!"
+ 
+@@ -350,9 +368,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Prioriteit"
+-
+ msgid "Lifetime"
+ msgstr "Bewaarduur"
+ 
+@@ -893,6 +908,9 @@
+ msgid "Button$Insert"
+ msgstr "Invoegen"
+ 
++msgid "auto"
++msgstr "auto"
++
+ msgid "Plugin"
+ msgstr "Plugin"
+ 
+diff -ruN vdr-1.5.13/po/nn_NO.po vdr-1.5.14/po/nn_NO.po
+--- vdr-1.5.13/po/nn_NO.po	2008-01-13 16:06:32.000000000 +0100
++++ vdr-1.5.14/po/nn_NO.po	2008-01-27 15:17:52.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -16,6 +16,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr ""
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr ""
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Ugyldig Kanal! ***"
+ 
+@@ -220,9 +235,6 @@
+ msgid "encrypted"
+ msgstr ""
+ 
+-msgid "auto"
+-msgstr ""
+-
+ msgid "Edit channel"
+ msgstr "Editer kanal"
+ 
+@@ -271,21 +283,18 @@
+ msgid "Polarization"
+ msgstr "Polarisasjon"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Srate"
+ 
+ msgid "Inversion"
+ msgstr "Inversion"
+ 
+-msgid "off"
+-msgstr ""
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr ""
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -304,6 +313,15 @@
+ msgid "Hierarchy"
+ msgstr "Hierarchy"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Prioritet"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr ""
+ 
+@@ -349,9 +367,6 @@
+ msgid "VPS"
+ msgstr ""
+ 
+-msgid "Priority"
+-msgstr "Prioritet"
+-
+ msgid "Lifetime"
+ msgstr "Levetid"
+ 
+@@ -892,6 +907,9 @@
+ msgid "Button$Insert"
+ msgstr ""
+ 
++msgid "auto"
++msgstr ""
++
+ msgid "Plugin"
+ msgstr "Plugin"
+ 
+diff -ruN vdr-1.5.13/po/pl_PL.po vdr-1.5.14/po/pl_PL.po
+--- vdr-1.5.13/po/pl_PL.po	2008-01-13 16:06:33.000000000 +0100
++++ vdr-1.5.14/po/pl_PL.po	2008-01-27 15:18:01.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Michael Rakowski <mrak@gmx.de>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -15,6 +15,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "wy³±cz"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "brak"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Niepoprawny kana³ ***"
+ 
+@@ -219,9 +234,6 @@
+ msgid "encrypted"
+ msgstr "szyfrowany"
+ 
+-msgid "auto"
+-msgstr "auto"
+-
+ msgid "Edit channel"
+ msgstr "Edycja kana³u"
+ 
+@@ -270,21 +282,18 @@
+ msgid "Polarization"
+ msgstr "Polaryzacja"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Srate"
+ 
+ msgid "Inversion"
+ msgstr "Inwersja"
+ 
+-msgid "off"
+-msgstr "wy³±cz"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "brak"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -303,6 +312,15 @@
+ msgid "Hierarchy"
+ msgstr "Hierarchia"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Priorytet"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Ustawienia kana³u nie s± unikalne!"
+ 
+@@ -348,9 +366,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Priorytet"
+-
+ msgid "Lifetime"
+ msgstr "Czas ¿ycia"
+ 
+@@ -891,6 +906,9 @@
+ msgid "Button$Insert"
+ msgstr "Wstaw"
+ 
++msgid "auto"
++msgstr "auto"
++
+ msgid "Plugin"
+ msgstr "Wtyczka"
+ 
+diff -ruN vdr-1.5.13/po/pt_PT.po vdr-1.5.14/po/pt_PT.po
+--- vdr-1.5.13/po/pt_PT.po	2008-01-13 16:06:33.000000000 +0100
++++ vdr-1.5.14/po/pt_PT.po	2008-01-27 15:18:19.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Paulo Lopes <pmml@netvita.pt>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -15,6 +15,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "off"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr ""
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Canal Inválido! ***"
+ 
+@@ -219,9 +234,6 @@
+ msgid "encrypted"
+ msgstr ""
+ 
+-msgid "auto"
+-msgstr ""
+-
+ msgid "Edit channel"
+ msgstr "Modificar canal"
+ 
+@@ -270,21 +282,18 @@
+ msgid "Polarization"
+ msgstr "Polarização"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Srate"
+ 
+ msgid "Inversion"
+ msgstr "Inversion"
+ 
+-msgid "off"
+-msgstr "off"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr ""
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -303,6 +312,15 @@
+ msgid "Hierarchy"
+ msgstr "Hierarchy"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Prioridade"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr ""
+ 
+@@ -348,9 +366,6 @@
+ msgid "VPS"
+ msgstr ""
+ 
+-msgid "Priority"
+-msgstr "Prioridade"
+-
+ msgid "Lifetime"
+ msgstr "Duração"
+ 
+@@ -891,6 +906,9 @@
+ msgid "Button$Insert"
+ msgstr ""
+ 
++msgid "auto"
++msgstr ""
++
+ msgid "Plugin"
+ msgstr "Plugin"
+ 
+diff -ruN vdr-1.5.13/po/ro_RO.po vdr-1.5.14/po/ro_RO.po
+--- vdr-1.5.13/po/ro_RO.po	2008-01-13 16:06:33.000000000 +0100
++++ vdr-1.5.14/po/ro_RO.po	2008-01-27 15:18:31.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -16,6 +16,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "inactiv"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "niciuna(ul)"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Canal invalid ***"
+ 
+@@ -220,9 +235,6 @@
+ msgid "encrypted"
+ msgstr "criptat"
+ 
+-msgid "auto"
+-msgstr "automat"
+-
+ msgid "Edit channel"
+ msgstr "Modificare canal"
+ 
+@@ -271,21 +283,18 @@
+ msgid "Polarization"
+ msgstr "Polarizare"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Ratã simboluri"
+ 
+ msgid "Inversion"
+ msgstr "Inversiune"
+ 
+-msgid "off"
+-msgstr "inactiv"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "niciuna(ul)"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -304,6 +313,15 @@
+ msgid "Hierarchy"
+ msgstr "Ierarhie"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Prioritate"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Parametrii canalului nu sunt univoci!"
+ 
+@@ -349,9 +367,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Prioritate"
+-
+ msgid "Lifetime"
+ msgstr "Timp de pãstrare"
+ 
+@@ -892,6 +907,9 @@
+ msgid "Button$Insert"
+ msgstr "Insereazã"
+ 
++msgid "auto"
++msgstr "automat"
++
+ msgid "Plugin"
+ msgstr "Plugin (modul adiþional)"
+ 
+diff -ruN vdr-1.5.13/po/ru_RU.po vdr-1.5.14/po/ru_RU.po
+--- vdr-1.5.13/po/ru_RU.po	2008-01-13 16:06:33.000000000 +0100
++++ vdr-1.5.14/po/ru_RU.po	2008-01-27 15:18:41.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-11-05 14:24+0100\n"
+ "Last-Translator: Oleg Roitburd <oleg@roitburd.de>\n"
+ "Language-Team:  <vdr@linuxtv.org>\n"
+@@ -16,6 +16,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-5\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "ÒëÚÛ"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "ÝØçÕÓÞ"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** ½ÕßàÐÒØÛìÝëÙ ÚÐÝÐÛ ***"
+ 
+@@ -220,9 +235,6 @@
+ msgid "encrypted"
+ msgstr "×ÐÚÞÔØàÞÒÐÝÞ"
+ 
+-msgid "auto"
+-msgstr "ÐÒâÞ"
+-
+ msgid "Edit channel"
+ msgstr "ÀÕÔÐÚâØàÞÒÐÝØÕ ÚÐÝÐÛÐ"
+ 
+@@ -271,21 +283,18 @@
+ msgid "Polarization"
+ msgstr "¿ÞÛïàØ×ÐæØï"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "ÁØÜÒ. áÚÞàÞáâì"
+ 
+ msgid "Inversion"
+ msgstr "¸ÝÒÕàáØï"
+ 
+-msgid "off"
+-msgstr "ÒëÚÛ"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "ÝØçÕÓÞ"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -304,6 +313,15 @@
+ msgid "Hierarchy"
+ msgstr "¸ÕàÐàåØï"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "¿àØÞàØâÕâ"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "½ÐáâàÞÙÚØ ÚÐÝÐÛÐ ÝÕ ãÝØÚÐÛìÝë!"
+ 
+@@ -349,9 +367,6 @@
+ msgid "VPS"
+ msgstr "VPS ßÞßàÐÒÚÐ"
+ 
+-msgid "Priority"
+-msgstr "¿àØÞàØâÕâ"
+-
+ msgid "Lifetime"
+ msgstr "ÁàÞÚ åàÐÝÕÝØï"
+ 
+@@ -892,6 +907,9 @@
+ msgid "Button$Insert"
+ msgstr "²áâÐÒÚÐ"
+ 
++msgid "auto"
++msgstr "ÐÒâÞ"
++
+ msgid "Plugin"
+ msgstr "¼ÞÔãÛì"
+ 
+diff -ruN vdr-1.5.13/po/sl_SI.po vdr-1.5.14/po/sl_SI.po
+--- vdr-1.5.13/po/sl_SI.po	2008-01-13 16:06:33.000000000 +0100
++++ vdr-1.5.14/po/sl_SI.po	2008-01-27 15:18:50.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -16,6 +16,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "izklop"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "nobeden"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Neznan kanal ***"
+ 
+@@ -220,9 +235,6 @@
+ msgid "encrypted"
+ msgstr "kodiran"
+ 
+-msgid "auto"
+-msgstr "avtomatsko"
+-
+ msgid "Edit channel"
+ msgstr "Uredi kanal"
+ 
+@@ -271,21 +283,18 @@
+ msgid "Polarization"
+ msgstr "Polarizacija"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Srate"
+ 
+ msgid "Inversion"
+ msgstr "Inverzija"
+ 
+-msgid "off"
+-msgstr "izklop"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "nobeden"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -304,6 +313,15 @@
+ msgid "Hierarchy"
+ msgstr "Hierarhija"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Prioriteta"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Nastavitve kanala niso edinstvene!"
+ 
+@@ -349,9 +367,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Prioriteta"
+-
+ msgid "Lifetime"
+ msgstr "Veljavnost"
+ 
+@@ -892,6 +907,9 @@
+ msgid "Button$Insert"
+ msgstr "Vstavi"
+ 
++msgid "auto"
++msgstr "avtomatsko"
++
+ msgid "Plugin"
+ msgstr "Vstavek"
+ 
+diff -ruN vdr-1.5.13/po/sv_SE.po vdr-1.5.14/po/sv_SE.po
+--- vdr-1.5.13/po/sv_SE.po	2008-01-13 16:06:33.000000000 +0100
++++ vdr-1.5.14/po/sv_SE.po	2008-01-27 15:19:01.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Tomas Prybil <tomas@prybil.se>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -16,6 +16,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "av"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "ingen"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Felaktig kanal ***"
+ 
+@@ -220,9 +235,6 @@
+ msgid "encrypted"
+ msgstr "krypterad"
+ 
+-msgid "auto"
+-msgstr "automatisk"
+-
+ msgid "Edit channel"
+ msgstr "Ändra kanal"
+ 
+@@ -271,21 +283,18 @@
+ msgid "Polarization"
+ msgstr "Polarisation"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Srate"
+ 
+ msgid "Inversion"
+ msgstr "Inversion"
+ 
+-msgid "off"
+-msgstr "av"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "ingen"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -304,6 +313,15 @@
+ msgid "Hierarchy"
+ msgstr "Hierarchy"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Prioritet"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Kanalinställningarna är ej unika!"
+ 
+@@ -349,9 +367,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Prioritet"
+-
+ msgid "Lifetime"
+ msgstr "Livstid"
+ 
+@@ -892,6 +907,9 @@
+ msgid "Button$Insert"
+ msgstr "Infoga"
+ 
++msgid "auto"
++msgstr "automatisk"
++
+ msgid "Plugin"
+ msgstr "Modul"
+ 
+diff -ruN vdr-1.5.13/po/tr_TR.po vdr-1.5.14/po/tr_TR.po
+--- vdr-1.5.13/po/tr_TR.po	2008-01-13 16:06:33.000000000 +0100
++++ vdr-1.5.14/po/tr_TR.po	2008-01-27 15:19:10.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-24 14:37+0200\n"
+ "Last-Translator: Oktay Yolgeçen <oktay_73@yahoo.de>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -15,6 +15,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-9\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "kapalý"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "hiç"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Geçersiz kanal ***"
+ 
+@@ -219,9 +234,6 @@
+ msgid "encrypted"
+ msgstr "Þifreli"
+ 
+-msgid "auto"
+-msgstr "otomatik"
+-
+ msgid "Edit channel"
+ msgstr "Kanal ayarlarýný deðiþtir"
+ 
+@@ -270,21 +282,18 @@
+ msgid "Polarization"
+ msgstr "Kutuplaþma"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "Srate"
+ 
+ msgid "Inversion"
+ msgstr "Ýnversiyon"
+ 
+-msgid "off"
+-msgstr "kapalý"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "hiç"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -303,6 +312,15 @@
+ msgid "Hierarchy"
+ msgstr "Hiyerarþi"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "Öncelik"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "Kanal ayarlarý belli deðýl!"
+ 
+@@ -348,9 +366,6 @@
+ msgid "VPS"
+ msgstr "VPS"
+ 
+-msgid "Priority"
+-msgstr "Öncelik"
+-
+ msgid "Lifetime"
+ msgstr "Ömrü"
+ 
+@@ -891,6 +906,9 @@
+ msgid "Button$Insert"
+ msgstr "Ekle"
+ 
++msgid "auto"
++msgstr "otomatik"
++
+ msgid "Plugin"
+ msgstr "Eklenti"
+ 
+diff -ruN vdr-1.5.13/po/uk_UA.po vdr-1.5.14/po/uk_UA.po
+--- vdr-1.5.13/po/uk_UA.po	2008-01-13 16:06:33.000000000 +0100
++++ vdr-1.5.14/po/uk_UA.po	2008-01-27 15:19:21.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.5.10\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2007-11-25 14:59+0100\n"
++"POT-Creation-Date: 2008-01-27 15:00+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Yarema Aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: <vdr@linuxtv.org>\n"
+@@ -15,6 +15,21 @@
+ "Content-Type: text/plain; charset=ISO-8859-5\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "off"
++msgstr "ÒØÚÛ"
++
++msgid "on"
++msgstr ""
++
++msgid "none"
++msgstr "ÝöçÞÓÞ"
++
++msgid "high"
++msgstr ""
++
++msgid "low"
++msgstr ""
++
+ msgid "*** Invalid Channel ***"
+ msgstr "*** ½ÕßàÐÒØÛìÝØÙ ÚÐÝÐÛ ***"
+ 
+@@ -219,9 +234,6 @@
+ msgid "encrypted"
+ msgstr "×ÐÚÞÔÞÒÐÝÞ"
+ 
+-msgid "auto"
+-msgstr "ÐÒâÞ"
+-
+ msgid "Edit channel"
+ msgstr "ÀÕÔÐÚâãÒÐÝÝï ÚÐÝÐÛã"
+ 
+@@ -270,21 +282,18 @@
+ msgid "Polarization"
+ msgstr "¿ÞÛïàØ×Ðæöï"
+ 
++msgid "System"
++msgstr ""
++
+ msgid "Srate"
+ msgstr "ÁØÜÒ. èÒØÔÚöáâì"
+ 
+ msgid "Inversion"
+ msgstr "¦ÝÒÕàáöï"
+ 
+-msgid "off"
+-msgstr "ÒØÚÛ"
+-
+ msgid "CoderateH"
+ msgstr "CoderateH"
+ 
+-msgid "none"
+-msgstr "ÝöçÞÓÞ"
+-
+ msgid "CoderateL"
+ msgstr "CoderateL"
+ 
+@@ -303,6 +312,15 @@
+ msgid "Hierarchy"
+ msgstr "¦ôàÐàåöï"
+ 
++msgid "Alpha"
++msgstr ""
++
++msgid "Priority"
++msgstr "¿àöÞàØâÕâ"
++
++msgid "Rolloff"
++msgstr ""
++
+ msgid "Channel settings are not unique!"
+ msgstr "½ÐáâàÞÙÚØ ÚÐÝÐÛã ÝÕ ôÔØÝö!"
+ 
+@@ -348,9 +366,6 @@
+ msgid "VPS"
+ msgstr "VPS ßÞßàÐÒÚÐ"
+ 
+-msgid "Priority"
+-msgstr "¿àöÞàØâÕâ"
+-
+ msgid "Lifetime"
+ msgstr "ÁâàÞÚ ×ÑÕàöÓÐÝÝï"
+ 
+@@ -893,6 +908,9 @@
+ msgid "Button$Insert"
+ msgstr "²áâÐÒÚÐ"
+ 
++msgid "auto"
++msgstr "ÐÒâÞ"
++
+ msgid "Plugin"
+ msgstr "¼ÞÔãÛì"
+ 
+diff -ruN vdr-1.5.13/sdt.c vdr-1.5.14/sdt.c
+--- vdr-1.5.13/sdt.c	2007-06-10 10:50:49.000000000 +0200
++++ vdr-1.5.14/sdt.c	2008-01-27 14:24:25.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sdt.c 1.17 2007/06/10 08:50:49 kls Exp $
++ * $Id: sdt.c 1.18 2008/01/27 13:24:25 kls Exp $
+  */
+ 
+ #include "sdt.h"
+@@ -55,6 +55,7 @@
+                    case 0x02: // digital radio sound service
+                    case 0x04: // NVOD reference service
+                    case 0x05: // NVOD time-shifted service
++                   case 0x19: // digital HD television service
+                         {
+                         char NameBuf[Utf8BufSize(1024)];
+                         char ShortNameBuf[Utf8BufSize(1024)];
+diff -ruN vdr-1.5.13/vdr.5 vdr-1.5.14/vdr.5
+--- vdr-1.5.13/vdr.5	2007-08-26 12:57:08.000000000 +0200
++++ vdr-1.5.14/vdr.5	2008-01-26 15:16:51.000000000 +0100
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 1.64 2007/08/26 10:57:08 kls Exp $
++.\" $Id: vdr.5 1.65 2008/01/26 14:16:51 kls Exp $
+ .\"
+ .TH vdr 5 "07 Jan 2007" "1.4.5" "Video Disk Recorder Files"
+ .SH NAME
+@@ -83,19 +83,23 @@
+ .TS
+ tab (@);
+ l l.
+-\fBB\fR@Bandwidth (6, 7, 8)
+-\fBC\fR@Code rate high priority (0, 12, 23, 34, 45, 56, 67, 78, 89)
+-\fBD\fR@Code rate low priority (0, 12, 23, 34, 45, 56, 67, 78, 89)
++\fBA\fR@Alpha (0, 1, 2, 4)
++\fBB\fR@Bandwidth (5, 6, 7, 8)
++\fBC\fR@Code rate high priority (0, 12, 13, 14, 23, 25, 34, 35, 45, 56, 67, 78, 89, 910)
++\fBD\fR@coDe rate low priority (0, 12, 13, 14, 23, 25, 34, 35, 45, 56, 67, 78, 89, 910)
+ \fBG\fR@Guard interval (4, 8, 16, 32)
+ \fBH\fR@Horizontal polarization
+ \fBI\fR@Inversion (0, 1)
+ \fBL\fR@Left circular polarization
+-\fBM\fR@Modulation (0, 16, 32, 64, 128, 256)
++\fBM\fR@Modulation (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 16, 32, 64, 128, 256, 512, 998, 1024)
++\fBO\fR@rollOff (0, 20, 25, 35)
++\fBP\fR@Priority (0, 1)
+ \fBR\fR@Right circular polarization
+-\fBT\fR@Transmission mode (2, 8)
++\fBT\fR@Transmission mode (2, 4, 8)
+ \fBV\fR@Vertical polarization
+-\fBY\fR@Hierarchy (0, 1, 2, 4)
++\fBY\fR@hierarchY (0, 1)
+ .TE
++
+ The polarization parameters have no integer numbers following them. This is for
+ compatibility with files from older versions and also to keep the DVB-S entries
+ as simple as possible.
+diff -ruN vdr-1.5.13/vdr.c vdr-1.5.14/vdr.c
+--- vdr-1.5.13/vdr.c	2008-01-13 12:51:53.000000000 +0100
++++ vdr-1.5.14/vdr.c	2008-01-27 15:38:45.000000000 +0100
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.305 2008/01/13 11:51:53 kls Exp $
++ * $Id: vdr.c 1.307 2008/01/27 14:38:45 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -198,6 +198,7 @@
+   bool MuteAudio = false;
+   int WatchdogTimeout = DEFAULTWATCHDOG;
+   const char *Terminal = NULL;
++  const char *LocaleDir = NULL;
+ 
+   bool UseKbd = true;
+   const char *LircDevice = NULL;
+@@ -229,6 +230,7 @@
+       { "help",     no_argument,       NULL, 'h' },
+       { "lib",      required_argument, NULL, 'L' },
+       { "lirc",     optional_argument, NULL, 'l' | 0x100 },
++      { "localedir",required_argument, NULL, 'l' | 0x200 },
+       { "log",      required_argument, NULL, 'l' },
+       { "mute",     no_argument,       NULL, 'm' },
+       { "no-kbd",   no_argument,       NULL, 'n' | 0x100 },
+@@ -306,6 +308,14 @@
+           case 'l' | 0x100:
+                     LircDevice = optarg ? optarg : LIRC_DEVICE;
+                     break;
++          case 'l' | 0x200:
++                    if (access(optarg, R_OK | X_OK) == 0)
++                       LocaleDir = optarg;
++                    else {
++                       fprintf(stderr, "vdr: can't access locale directory: %s\n", optarg);
++                       return 2;
++                       }
++                    break;
+           case 'm': MuteAudio = true;
+                     break;
+           case 'n' | 0x100:
+@@ -407,6 +417,8 @@
+                "  -L DIR,   --lib=DIR      search for plugins in DIR (default is %s)\n"
+                "            --lirc[=PATH]  use a LIRC remote control device, attached to PATH\n"
+                "                           (default: %s)\n"
++               "            --localedir=DIR search for locale files in DIR (default is\n"
++               "                           %s)\n"
+                "  -m,       --mute         mute audio of the primary DVB device at startup\n"
+                "            --no-kbd       don't use the keyboard as an input device\n"
+                "  -p PORT,  --port=PORT    use PORT for SVDRP (default: %d)\n"
+@@ -430,6 +442,7 @@
+                DEFAULTEPGDATAFILENAME,
+                DEFAULTPLUGINDIR,
+                LIRC_DEVICE,
++               LOCDIR,
+                DEFAULTSVDRPPORT,
+                RCU_DEVICE,
+                VideoDirectory,
+@@ -515,7 +528,7 @@
+ 
+   // Initialize internationalization:
+ 
+-  I18nInitialize();
++  I18nInitialize(LocaleDir);
+ 
+   // Main program loop variables - need to be here to have them initialized before any EXIT():
+ 
+@@ -717,9 +730,7 @@
+               cChannel *Channel = Channels.GetByNumber(cDevice::CurrentChannel());
+               if (Channel && (Channel->Vpid() || Channel->Apid(0))) {
+                  if (!Channels.SwitchTo(cDevice::CurrentChannel()) // try to switch to the original channel...
+-                     && !(LastTimerChannel > 0 && Channels.SwitchTo(LastTimerChannel)) // ...or the one used by the last timer...
+-                     && !cDevice::SwitchChannel(1) // ...or the next higher available one...
+-                     && !cDevice::SwitchChannel(-1)) // ...or the next lower available one
++                     && !(LastTimerChannel > 0 && Channels.SwitchTo(LastTimerChannel))) // ...or the one used by the last timer...
+                     ;
+                  }
+               lastTime = Now; // don't do this too often

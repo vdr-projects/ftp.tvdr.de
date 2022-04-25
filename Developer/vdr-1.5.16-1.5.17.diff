@@ -1,0 +1,2705 @@
+diff -ruN vdr-1.5.16/CONTRIBUTORS vdr-1.5.17/CONTRIBUTORS
+--- vdr-1.5.16/CONTRIBUTORS	2008-02-24 11:30:49.000000000 +0100
++++ vdr-1.5.17/CONTRIBUTORS	2008-03-01 11:21:12.000000000 +0100
+@@ -957,6 +957,7 @@
+  not NULL
+  for making the SVDRP command LSTC list the channels with group separators if the
+  option ':groups' is given
++ for fixing handling 3 and 4 byte UTF-8 symbols in Utf8CharGet()
+ 
+ Olivier Jacques <jacquesolivier@hotmail.com>)
+  for translating OSD texts to the French language
+@@ -2093,12 +2094,16 @@
+ Richard Lithvall <richard@lithvall.se>
+  for adding a tolerance for symbol rate values that are off by one
+ 
+-Tobias Grimm <listaccount@e-tobi.net>
++Tobias Grimm <tobias.grimm@e-tobi.net>
+  for suggesting to use geteuid() to check whether VDR is running as user 'root'
+  for fixing a memory leak in handling external EPG data
+  for fixing a memory leak in closing the video file during replay
+  for fixing deleting the 'skinDescriptions' in cMenuSetupOSD::~cMenuSetupOSD()
+  for reporting that GCC 4.3 issues a silly warning for expressions like 'a || b && c'
++ for fixing a crash in cFreetypeFont::DrawText() if an unknown symbol is encountered
++ for suggesting that the 'plugins' target in the Makefile should return an error exit
++ code if one of the plugins failed to compile
++ for making the non-breaking space symbol be rendered as a blank
+ 
+ Helge Lenz <h.lenz@gmx.de>
+  for reporting a bug in setting the 'Delta' parameter when calling the shutdown
+@@ -2310,3 +2315,9 @@
+ 
+ Carel Willemse <ca_willemse@planet.nl>
+  for translating OSD texts to the Dutch language
++
++Tomas Berglund <tomber@telia.com>
++ for translating OSD texts to the Swedish language
++
++Johan Schuring <johan.schuring@vetteblei.nl>
++ for translating OSD texts to the Dutch language
+diff -ruN vdr-1.5.16/HISTORY vdr-1.5.17/HISTORY
+--- vdr-1.5.16/HISTORY	2008-02-24 11:29:50.000000000 +0100
++++ vdr-1.5.17/HISTORY	2008-03-02 11:25:13.000000000 +0100
+@@ -531,7 +531,7 @@
+ 2001-06-26: Version 0.83
+ 
+ - Avoiding "Device or resource busy" error message when setting PIDs.
+-- Added Portugese language texts (thanks to Paulo Lopes).
++- Added Portuguese language texts (thanks to Paulo Lopes).
+ - Recording and replaying Dolby Digital (AC3) sound.
+ - No longer getting stuck when a channel doesn't sync while switching
+   with the 'Up' and 'Down' keys.
+@@ -5670,3 +5670,26 @@
+   (thanks to Rolf Ahrenberg).
+ - Added the backslash ('\') to the list of characters that need to be escaped
+   when executing external commands (thanks to Peter Bieringer for reporting this one).
++
++2008-03-02: Version 1.5.17
++
++- Updated the Swedish OSD texts (thanks to Tomas Berglund).
++- Made the 'pic2mpg' script of the 'pictures' plugin work with uppercase filename
++  extensions and relative paths (thanks to Stefan Wagner for reporting this one).
++- Updated the Romanian OSD texts (thanks to Lucian Muresan).
++- Updated the Dutch OSD texts (thanks to Johan Schuring).
++- Stripping control codes 0x86 and 0x87 from SI strings.
++- Updated French language texts (thanks to Jean-Claude Repetto).
++- Fixed handling 3 and 4 byte UTF-8 symbols in Utf8CharGet() (thanks to Andreas
++  Mair).
++- Fixed a crash in cFreetypeFont::DrawText() if an unknown symbol is encountered
++  (thanks to Tobias Grimm). Unknown symbols are replaced with a '?'.
++- Updated the Slovenian OSD texts (thanks to Matjaz Thaler).
++- Updated the Czech OSD texts (thanks to Vladimír Bárta and Jiri Dobry).
++- Updated the Turkish OSD texts (thanks to Oktay Yolgeçen).
++- The 'plugins' target in the Makefile now returns an error exit code if one of the
++  plugins failed to compile (suggested by Tobias Grimm).
++- Rendering the non-breaking space symbol as a blank (thanks to Tobias Grimm).
++- Changed the default character set for SI data from ISO6937 (as required by the DVB
++  standard ETSI EN 300 468) to ISO-8859-9, in order to work around the stupidity of
++  some providers, who actually use ISO-8859-9, but fail to correctly announce that.
+diff -ruN vdr-1.5.16/Makefile vdr-1.5.17/Makefile
+--- vdr-1.5.16/Makefile	2008-01-13 13:53:17.000000000 +0100
++++ vdr-1.5.17/Makefile	2008-02-29 22:43:03.000000000 +0100
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 1.112 2008/01/13 12:53:17 kls Exp $
++# $Id: Makefile 1.113 2008/02/29 21:43:03 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -153,7 +153,7 @@
+ 	    $(MAKE) -C "$(PLUGINDIR)/src/$$i" all || failed="$$failed $$i";\
+ 	    done;\
+ 	if [ -n "$$noapiv" ] ; then echo; echo "*** plugins without APIVERSION:$$noapiv"; echo; fi;\
+-	if [ -n "$$failed" ] ; then echo; echo "*** failed plugins:$$failed"; echo; fi
++	if [ -n "$$failed" ] ; then echo; echo "*** failed plugins:$$failed"; echo; exit 1; fi
+ 
+ clean-plugins:
+ 	@for i in `ls $(PLUGINDIR)/src | grep -v '[^a-z0-9]'`; do $(MAKE) -C "$(PLUGINDIR)/src/$$i" clean; done
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/ca_ES.po vdr-1.5.17/PLUGINS/src/hello/po/ca_ES.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/ca_ES.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/ca_ES.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Marc Rovira Vall <tm05462@salleURL.edu>, 2003
+ # Ramon Roca <ramon.roca@xcombo.com>, 2003
+@@ -7,12 +7,12 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Jordi Vilà <jvila@tinet.org>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Catalanian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/cs_CZ.po vdr-1.5.17/PLUGINS/src/hello/po/cs_CZ.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/cs_CZ.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/cs_CZ.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Vladimír Bárta <vladimir.barta@k2atmitec.cz>, 2006
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Vladimír Bárta <vladimir.barta@k2atmitec.cz>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Czech\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/da_DK.po vdr-1.5.17/PLUGINS/src/hello/po/da_DK.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/da_DK.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/da_DK.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Mogens Elneff <mogens@elneff.dk>, 2004
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Danish\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/de_DE.po vdr-1.5.17/PLUGINS/src/hello/po/de_DE.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/de_DE.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/de_DE.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Klaus Schmidinger <kls@cadsoft.de>, 2000
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Klaus Schmidinger <kls@cadsoft.de>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: German\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/el_GR.po vdr-1.5.17/PLUGINS/src/hello/po/el_GR.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/el_GR.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/el_GR.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Dimitrios Dimitrakos <mail@dimitrios.de>, 2002
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Greek\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-7\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/es_ES.po vdr-1.5.17/PLUGINS/src/hello/po/es_ES.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/es_ES.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/es_ES.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Ruben Nunez Francisco <ruben.nunez@tang-it.com>, 2002
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Ruben Nunez Francisco <ruben.nunez@tang-it.com>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Spanish\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/et_EE.po vdr-1.5.17/PLUGINS/src/hello/po/et_EE.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/et_EE.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/et_EE.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arthur Konovalov <kasjas@hot.ee>, 2004
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Arthur Konovalov <kasjas@hot.ee>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Estonian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-13\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/fi_FI.po vdr-1.5.17/PLUGINS/src/hello/po/fi_FI.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/fi_FI.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/fi_FI.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Hannu Savolainen <hannu@opensound.com>, 2002
+ # Jaakko Hyvätti <jaakko@hyvatti.iki.fi>, 2002
+@@ -8,12 +8,12 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Finnish\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/fr_FR.po vdr-1.5.17/PLUGINS/src/hello/po/fr_FR.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/fr_FR.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/fr_FR.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Jean-Claude Repetto <jc@repetto.org>, 2001
+ # Olivier Jacques <jacquesolivier@hotmail.com>, 2003
+@@ -8,12 +8,12 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Nicolas Huillard <nhuillard@e-dition.fr>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: French\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/hr_HR.po vdr-1.5.17/PLUGINS/src/hello/po/hr_HR.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/hr_HR.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/hr_HR.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,17 +1,17 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Drazen Dupor <drazen.dupor@dupor.com>, 2004
+ # Dino Ravnic <dino.ravnic@fer.hr>, 2004
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Drazen Dupor <drazen.dupor@dupor.com>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Croatian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/hu_HU.po vdr-1.5.17/PLUGINS/src/hello/po/hu_HU.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/hu_HU.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/hu_HU.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,17 +1,17 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Istvan Koenigsberger <istvnko@hotmail.com>, 2002
+ # Guido Josten <guido.josten@t-online.de>, 2002
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Istvan Koenigsberger <istvnko@hotmail.com>, Guido Josten <guido.josten@t-online.de>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Hungarian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/it_IT.po vdr-1.5.17/PLUGINS/src/hello/po/it_IT.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/it_IT.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/it_IT.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Diego Pierotto <vdr-italian@tiscali.it>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2008-01-27 20:11+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+-"Language-Team:  <vdr@linuxtv.org>\n"
++"Language-Team: Italian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/nl_NL.po vdr-1.5.17/PLUGINS/src/hello/po/nl_NL.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/nl_NL.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/nl_NL.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arnold Niessen <niessen@iae.nl> <arnold.niessen@philips.com>, 2001
+ # Hans Dingemans <hans.dingemans@tacticalops.nl>, 2003
+@@ -7,12 +7,12 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Maarten Wisse <Maarten.Wisse@urz.uni-hd.de>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Dutch\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/nn_NO.po vdr-1.5.17/PLUGINS/src/hello/po/nn_NO.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/nn_NO.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/nn_NO.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,17 +1,17 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Jørgen Tvedt <pjtvedt@online.no>, 2001
+ # Truls Slevigen <truls@slevigen.no>, 2002
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Norwegian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/pl_PL.po vdr-1.5.17/PLUGINS/src/hello/po/pl_PL.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/pl_PL.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/pl_PL.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Michael Rakowski <mrak@gmx.de>, 2002
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Michael Rakowski <mrak@gmx.de>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Polish\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/pt_PT.po vdr-1.5.17/PLUGINS/src/hello/po/pt_PT.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/pt_PT.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/pt_PT.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paulo Lopes <pmml@netvita.pt>, 2001
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Paulo Lopes <pmml@netvita.pt>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Portuguese\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/ro_RO.po vdr-1.5.17/PLUGINS/src/hello/po/ro_RO.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/ro_RO.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/ro_RO.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,17 +1,17 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paul Lacatus <paul@campina.iiruc.ro>, 2002
+ # Lucian Muresan <lucianm@users.sourceforge.net>, 2004
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Romanian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/ru_RU.po vdr-1.5.17/PLUGINS/src/hello/po/ru_RU.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/ru_RU.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/ru_RU.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Vyacheslav Dikonov <sdiconov@mail.ru>, 2004
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Vyacheslav Dikonov <sdiconov@mail.ru>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Russian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-5\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/sl_SI.po vdr-1.5.17/PLUGINS/src/hello/po/sl_SI.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/sl_SI.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/sl_SI.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,17 +1,17 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Miha Setina <mihasetina@softhome.net>, 2000
+ # Matjaz Thaler <matjaz.thaler@guest.arnes.si>, 2003
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Slovenian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/sv_SE.po vdr-1.5.17/PLUGINS/src/hello/po/sv_SE.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/sv_SE.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/sv_SE.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,17 +1,17 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Tomas Prybil <tomas@prybil.se>, 2002
+ # Jan Ekholm <chakie@infa.abo.fi>, 2003
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Tomas Prybil <tomas@prybil.se>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Swedish\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/hello/po/tr_TR.po vdr-1.5.17/PLUGINS/src/hello/po/tr_TR.po
+--- vdr-1.5.16/PLUGINS/src/hello/po/tr_TR.po	2008-02-24 11:18:16.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/hello/po/tr_TR.po	2008-03-01 17:51:01.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Oktay Yolgeçen <oktay_73@yahoo.de>, 2007
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Oktay Yolgeçen <oktay_73@yahoo.de>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Turkish\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-9\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/pictures/HISTORY vdr-1.5.17/PLUGINS/src/pictures/HISTORY
+--- vdr-1.5.16/PLUGINS/src/pictures/HISTORY	2008-02-17 14:47:12.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/pictures/HISTORY	2008-02-29 15:38:44.000000000 +0100
+@@ -24,3 +24,8 @@
+ - Fixed setting the OSD area.
+ - Introduced 'operator const void * ()' in cString to catch cases where operator*()
+   should be used.
++
++2008-02-29: Version 0.0.6
++
++- Made the 'pic2mpg' script of the 'pictures' plugin work with uppercase filename
++  extensions and relative paths (reported by Stefan Wagner <stefanwag@gmx.at>).
+diff -ruN vdr-1.5.16/PLUGINS/src/pictures/pic2mpg vdr-1.5.17/PLUGINS/src/pictures/pic2mpg
+--- vdr-1.5.16/PLUGINS/src/pictures/pic2mpg	2008-02-02 12:34:43.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/pictures/pic2mpg	2008-02-29 15:34:22.000000000 +0100
+@@ -7,11 +7,12 @@
+ #
+ # See the README file for copyright information and how to reach the author.
+ #
+-# $Id: pic2mpg 1.2 2008/02/02 11:34:43 kls Exp $
++# $Id: pic2mpg 1.4 2008/02/29 14:34:22 kls Exp $
+ 
+ ## TODO implement HDTV (1920 x 1080)
+ 
+ use File::Path;
++use File::Spec;
+ use Getopt::Std;
+ use Image::Size;
+ 
+@@ -87,8 +88,8 @@
+ 
+ die "$0: mixed directory and file ('$ARGV[0]' <-> '$ARGV[1]')\n" unless !-e $ARGV[1] || -d $ARGV[1];
+ 
+-$PICDIR = $ARGV[0];
+-$MPGDIR = $ARGV[1];
++$PICDIR = File::Spec->rel2abs($ARGV[0]);
++$MPGDIR = File::Spec->rel2abs($ARGV[1]);
+ 
+ # Convert pictures to mpegs:
+ 
+@@ -143,7 +144,7 @@
+ sub ConvertFile
+ {
+   my ($Pict, $Mpeg) = @_;
+-  (my $Type) = $Pict =~ /\.([^\.]*)$/;
++  (my $Type) = lc($Pict) =~ /\.([^\.]*)$/;
+   if (!defined $PNMCONV{$Type}) {
+      return if ($Ignore);
+      die "unknown file type '$Type': '$Pict'\n";
+diff -ruN vdr-1.5.16/PLUGINS/src/pictures/pictures.c vdr-1.5.17/PLUGINS/src/pictures/pictures.c
+--- vdr-1.5.16/PLUGINS/src/pictures/pictures.c	2008-02-09 13:15:52.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/pictures/pictures.c	2008-02-29 15:38:31.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: pictures.c 1.5 2008/02/09 12:15:52 kls Exp $
++ * $Id: pictures.c 1.6 2008/02/29 14:38:31 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -11,7 +11,7 @@
+ #include "menu.h"
+ #include "player.h"
+ 
+-static const char *VERSION       = "0.0.5";
++static const char *VERSION       = "0.0.6";
+ static const char *DESCRIPTION   = trNOOP("A simple picture viewer");
+ static const char *MAINMENUENTRY = trNOOP("Pictures");
+ 
+diff -ruN vdr-1.5.16/PLUGINS/src/pictures/po/de_DE.po vdr-1.5.17/PLUGINS/src/pictures/po/de_DE.po
+--- vdr-1.5.16/PLUGINS/src/pictures/po/de_DE.po	2008-02-24 11:18:19.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/pictures/po/de_DE.po	2008-03-01 17:51:04.000000000 +0100
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+ # Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Klaus Schmidinger <kls@cadsoft.de>, 2008.
++# Klaus Schmidinger <kls@cadsoft.de>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: pictures 0.0.1\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-01-12 17:38+0100\n"
+ "PO-Revision-Date: 2008-01-12 17:41+0100\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/pictures/po/fi_FI.po vdr-1.5.17/PLUGINS/src/pictures/po/fi_FI.po
+--- vdr-1.5.16/PLUGINS/src/pictures/po/fi_FI.po	2008-02-24 11:18:19.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/pictures/po/fi_FI.po	2008-03-01 17:51:04.000000000 +0100
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+ # Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Rolf Ahrenberg <rahrenbe@cc.hut.fi>, 2008.
++# Rolf Ahrenberg <rahrenbe@cc.hut.fi>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: pictures 0.0.1\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-01-12 17:38+0100\n"
+ "PO-Revision-Date: 2008-01-12 17:41+0100\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/pictures/po/fr_FR.po vdr-1.5.17/PLUGINS/src/pictures/po/fr_FR.po
+--- vdr-1.5.16/PLUGINS/src/pictures/po/fr_FR.po	2008-02-24 11:18:19.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/pictures/po/fr_FR.po	2008-03-01 17:51:04.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR plugin language source file.
+ # Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Patrice Staudt <patrice.staudt@laposte.net>, 2008."
++# Patrice Staudt <ipatrice.staudt@laposte.net>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: pictures 0.0.1\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-01-12 17:38+0100\n"
+ "PO-Revision-Date: 2008-01-12 17:41+0100\n"
+-"Last-Translator: Patrice Staudt <patrice.staudt@laposte.net>\n"
+-"Language-Team: France\n"
++"Last-Translator: Patrice Staudt <ipatrice.staudt@laposte.net>\n"
++"Language-Team: French\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/pictures/po/it_IT.po vdr-1.5.17/PLUGINS/src/pictures/po/it_IT.po
+--- vdr-1.5.16/PLUGINS/src/pictures/po/it_IT.po	2008-02-24 11:18:19.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/pictures/po/it_IT.po	2008-03-01 17:51:04.000000000 +0100
+@@ -5,7 +5,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: pictures 0.0.1\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-01-12 17:38+0100\n"
+ "PO-Revision-Date: 2008-01-27 20:22+0100\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/skincurses/po/de_DE.po vdr-1.5.17/PLUGINS/src/skincurses/po/de_DE.po
+--- vdr-1.5.16/PLUGINS/src/skincurses/po/de_DE.po	2008-02-24 11:18:22.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/skincurses/po/de_DE.po	2008-03-01 17:51:07.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Klaus Schmidinger <kls@cadsoft.de>, 2007
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-08-15 16:04+0200\n"
+ "PO-Revision-Date: 2007-08-15 16:07+0200\n"
+ "Last-Translator: Klaus Schmidinger <kls@cadsoft.de>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: German\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/skincurses/po/fi_FI.po vdr-1.5.17/PLUGINS/src/skincurses/po/fi_FI.po
+--- vdr-1.5.16/PLUGINS/src/skincurses/po/fi_FI.po	2008-02-24 11:18:22.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/skincurses/po/fi_FI.po	2008-03-01 17:51:07.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Rolf Ahrenberg <rahrenbe@cc.hut.fi>, 2007
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-08-14 20:54+0300\n"
+ "PO-Revision-Date: 2007-08-14 20:48+0300\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Finnish\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/PLUGINS/src/skincurses/po/it_IT.po vdr-1.5.17/PLUGINS/src/skincurses/po/it_IT.po
+--- vdr-1.5.16/PLUGINS/src/skincurses/po/it_IT.po	2008-02-24 11:18:22.000000000 +0100
++++ vdr-1.5.17/PLUGINS/src/skincurses/po/it_IT.po	2008-03-01 17:51:07.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Diego Pierotto <vdr-italian@tiscali.it>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2007-08-15 16:04+0200\n"
+ "PO-Revision-Date: 2008-01-27 20:35+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+-"Language-Team:  <vdr@linuxtv.org>\n"
++"Language-Team: Italian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/config.h vdr-1.5.17/config.h
+--- vdr-1.5.16/config.h	2008-02-17 17:04:52.000000000 +0100
++++ vdr-1.5.17/config.h	2008-02-24 13:29:54.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.306 2008/02/17 16:04:52 kls Exp $
++ * $Id: config.h 1.307 2008/02/24 12:29:54 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,8 +22,8 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.5.16"
+-#define VDRVERSNUM   10516  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.5.17"
++#define VDRVERSNUM   10517  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+diff -ruN vdr-1.5.16/font.c vdr-1.5.17/font.c
+--- vdr-1.5.16/font.c	2008-02-09 12:52:25.000000000 +0100
++++ vdr-1.5.17/font.c	2008-03-01 11:19:41.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: font.c 1.23 2008/02/09 11:52:25 kls Exp $
++ * $Id: font.c 1.25 2008/03/01 10:19:41 kls Exp $
+  */
+ 
+ #include "font.h"
+@@ -184,6 +184,10 @@
+ 
+ cGlyph* cFreetypeFont::Glyph(uint CharCode, bool AntiAliased) const
+ {
++  // Non-breaking space:
++  if (CharCode == 0xA0)
++     CharCode = 0x20;
++
+   // Lookup in cache:
+   cList<cGlyph> *glyphCache = AntiAliased ? &glyphCacheAntiAliased : &glyphCacheMonochrome;
+   for (cGlyph *g = glyphCache->First(); g; g = glyphCache->Next(g)) {
+@@ -214,6 +218,9 @@
+         return Glyph;
+         }
+      }
++#define UNKNOWN_GLYPH_INDICATOR '?'
++  if (CharCode != UNKNOWN_GLYPH_INDICATOR)
++     return Glyph(UNKNOWN_GLYPH_INDICATOR, AntiAliased);
+   return NULL;
+ }
+ 
+@@ -258,6 +265,8 @@
+            uint sym = Utf8CharGet(s, sl);
+            s += sl;
+            cGlyph *g = Glyph(sym, AntiAliased);
++           if (!g)
++              continue;
+            int kerning = Kerning(g, prevSym);
+            prevSym = sym;
+            uchar *buffer = g->Bitmap();
+diff -ruN vdr-1.5.16/libsi/si.c vdr-1.5.17/libsi/si.c
+--- vdr-1.5.16/libsi/si.c	2007-07-21 15:49:48.000000000 +0200
++++ vdr-1.5.17/libsi/si.c	2008-03-01 13:02:01.000000000 +0100
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.c 1.22 2007/07/21 13:49:48 kls Exp $
++ *   $Id: si.c 1.24 2008/03/01 12:02:01 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -340,6 +340,9 @@
+ // and length are adjusted accordingly.
+ static const char *getCharacterTable(const unsigned char *&buffer, int &length, bool *isSingleByte = NULL) {
+    const char *cs = "ISO6937";
++   cs = "ISO-8859-9"; // Workaround for broadcaster stupidity: according to
++   // "ETSI EN 300 468" the default character set is ISO6937. But unfortunately some
++   // broadcasters actually use ISO-8859-9, but fail to correctly announce that.
+    if (isSingleByte)
+       *isSingleByte = false;
+    if (length <= 0)
+@@ -415,7 +418,6 @@
+       if (    ((' ' <= *from) && (*from <= '~'))
+            || (*from == '\n')
+            || (0xA0 <= *from)
+-           || (*from == 0x86 || *from == 0x87)
+          )
+          *to++ = *from;
+       else if (*from == 0x8A)
+diff -ruN vdr-1.5.16/po/ca_ES.po vdr-1.5.17/po/ca_ES.po
+--- vdr-1.5.16/po/ca_ES.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/ca_ES.po	2008-03-01 17:50:59.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Marc Rovira Vall <tm05462@salleURL.edu>, 2003
+ # Ramon Roca <ramon.roca@xcombo.com>, 2003
+@@ -7,12 +7,12 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Jordi Vilà <jvila@tinet.org>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Catalanian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/po/cs_CZ.po vdr-1.5.17/po/cs_CZ.po
+--- vdr-1.5.16/po/cs_CZ.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/cs_CZ.po	2008-03-01 17:50:59.000000000 +0100
+@@ -1,16 +1,17 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Vladimír Bárta <vladimir.barta@k2atmitec.cz>, 2006
++# Vladimír Bárta <vladimir.barta@k2atmitec.cz>, 2006, 2008
++# Jiøí Dobrý <jdobry@centrum.cz>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+-"PO-Revision-Date: 2007-08-12 14:17+0200\n"
+-"Last-Translator: Vladimír Bárta <vladimir.barta@k2atmitec.cz>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"PO-Revision-Date: 2008-02-28 15:00+0200\n"
++"Last-Translator: Vladimír Bárta <vladimir.barta@k2atmitec.cz>, Jiøí Dobrý <jdobry@centrum.cz>\n"
++"Language-Team: Czech\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+@@ -166,7 +167,7 @@
+ msgstr "Zvuk"
+ 
+ msgid "Key$Subtitles"
+-msgstr ""
++msgstr "Titulky"
+ 
+ msgid "Key$Schedule"
+ msgstr "Program (EPG)"
+@@ -187,31 +188,31 @@
+ msgstr "Pøíkazy"
+ 
+ msgid "Key$User1"
+-msgstr ""
++msgstr "U¾ivatel1"
+ 
+ msgid "Key$User2"
+-msgstr ""
++msgstr "U¾ivatel2"
+ 
+ msgid "Key$User3"
+-msgstr ""
++msgstr "U¾ivatel3"
+ 
+ msgid "Key$User4"
+-msgstr ""
++msgstr "U¾ivatel4"
+ 
+ msgid "Key$User5"
+-msgstr ""
++msgstr "U¾ivatel5"
+ 
+ msgid "Key$User6"
+-msgstr ""
++msgstr "U¾ivatel6"
+ 
+ msgid "Key$User7"
+-msgstr ""
++msgstr "U¾ivatel7"
+ 
+ msgid "Key$User8"
+-msgstr ""
++msgstr "U¾ivatel8"
+ 
+ msgid "Key$User9"
+-msgstr ""
++msgstr "U¾ivatel9"
+ 
+ msgid "Disk"
+ msgstr "Disk"
+@@ -259,10 +260,10 @@
+ msgstr "Dpid2"
+ 
+ msgid "Spid1"
+-msgstr ""
++msgstr "Spid1"
+ 
+ msgid "Spid2"
+-msgstr ""
++msgstr "Spid2"
+ 
+ msgid "Tpid"
+ msgstr "Tpid"
+@@ -430,7 +431,7 @@
+ msgstr "Prosím vlo¾te %d znakù!"
+ 
+ msgid "CAM not responding!"
+-msgstr ""
++msgstr "CAM neodpovídá!"
+ 
+ msgid "Recording info"
+ msgstr "Detail nahrávky"
+@@ -502,25 +503,25 @@
+ msgstr "Pou¾ívat malé písmo"
+ 
+ msgid "Setup.OSD$Anti-alias"
+-msgstr ""
++msgstr "Vyhladit písmo"
+ 
+ msgid "Setup.OSD$Default font"
+-msgstr ""
++msgstr "Výchozí písmo"
+ 
+ msgid "Setup.OSD$Small font"
+-msgstr ""
++msgstr "Malé písmo"
+ 
+ msgid "Setup.OSD$Fixed font"
+-msgstr ""
++msgstr "Fixní písmo"
+ 
+ msgid "Setup.OSD$Default font size (pixel)"
+-msgstr ""
++msgstr "Velikost výchozího písma (pixely)"
+ 
+ msgid "Setup.OSD$Small font size (pixel)"
+-msgstr ""
++msgstr "Velikost malého písma (pixely)"
+ 
+ msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr ""
++msgstr "Velikost fixního písma (pixely)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Pozice informace o kanálu"
+@@ -633,22 +634,22 @@
+ msgstr "Jazyk zvuku"
+ 
+ msgid "Setup.DVB$Display subtitles"
+-msgstr ""
++msgstr "Zobrazovat titulky"
+ 
+ msgid "Setup.DVB$Subtitle languages"
+-msgstr ""
++msgstr "Jazyky titulkù"
+ 
+ msgid "Setup.DVB$Subtitle language"
+-msgstr ""
++msgstr "Jazyk titulkù"
+ 
+ msgid "Setup.DVB$Subtitle offset"
+-msgstr ""
++msgstr "Posunutí titulkù"
+ 
+ msgid "Setup.DVB$Subtitle foreground transparency"
+-msgstr ""
++msgstr "Prùhlednost písma titulkù"
+ 
+ msgid "Setup.DVB$Subtitle background transparency"
+-msgstr ""
++msgstr "Prùhlednost pozadí titulkù"
+ 
+ msgid "LNB"
+ msgstr "LNB"
+@@ -666,13 +667,13 @@
+ msgstr "Horní frekvence LNB (MHz)"
+ 
+ msgid "CAM reset"
+-msgstr ""
++msgstr "Reset CAMu"
+ 
+ msgid "CAM present"
+-msgstr ""
++msgstr "CAM pøítomen"
+ 
+ msgid "CAM ready"
+-msgstr ""
++msgstr "CAM pøipraven"
+ 
+ msgid "CAM"
+ msgstr "CAM"
+@@ -690,7 +691,7 @@
+ msgstr "Menu CAM není dostupné"
+ 
+ msgid "CAM is in use - really reset?"
+-msgstr ""
++msgstr "CAM se pou¾ívá - opravdu restartovat?"
+ 
+ msgid "Can't reset CAM!"
+ msgstr "CAM modul nelze restartovat!"
+@@ -771,7 +772,7 @@
+ msgstr "Èasový limit Zap (s)"
+ 
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+-msgstr ""
++msgstr "Prodleva pøi volbì kanálu (ms)"
+ 
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Kanál po spu¹tìní"
+@@ -783,7 +784,7 @@
+ msgstr "Hlasitost po spu¹tìní"
+ 
+ msgid "Setup.Miscellaneous$Emergency exit"
+-msgstr ""
++msgstr "Nouzové ukonèení"
+ 
+ msgid "Plugins"
+ msgstr "Moduly"
+@@ -840,13 +841,13 @@
+ msgstr "Zvuk není dostupný!"
+ 
+ msgid "No subtitles"
+-msgstr ""
++msgstr "Bez titulkù"
+ 
+ msgid "Button$Subtitles"
+-msgstr ""
++msgstr "Titulky"
+ 
+ msgid "No subtitles available!"
+-msgstr ""
++msgstr "®ádné dostupné titulky!"
+ 
+ msgid "Not enough disk space to start recording!"
+ msgstr "Nedostatek volného místa k zapoèetí nahrávání!"
+@@ -904,10 +905,10 @@
+ msgstr "Disk bude brzy zaplnìn!"
+ 
+ msgid "Can't shutdown - option '-s' not given!"
+-msgstr "Vypnutí není mo¾né - chbí volba '-s'!"
++msgstr "Vypnutí není mo¾né - chybí volba '-s'!"
+ 
+ msgid "Editing - shut down anyway?"
+-msgstr ""
++msgstr "Edituji - pøesto vypnout?"
+ 
+ msgid "Recording - shut down anyway?"
+ msgstr "Systém je zaneprázdnìn - pøesto vypnout?"
+@@ -921,10 +922,10 @@
+ 
+ #, c-format
+ msgid "Plugin %s wakes up in %ld min, continue?"
+-msgstr ""
++msgstr "Modul %s startuje za %ld min., pokraèovat?"
+ 
+ msgid "Editing - restart anyway?"
+-msgstr ""
++msgstr "Edituji - pøesto restartovat?"
+ 
+ msgid "Recording - restart anyway?"
+ msgstr "Systém je zaneprázdnìn - pøesto restartovat?"
+@@ -944,7 +945,7 @@
+ 
+ #. TRANSLATORS: the first character of each weekday, beginning with monday
+ msgid "MTWTFSS"
+-msgstr "PUSÈPSN"
++msgstr "PÚSÈPSN"
+ 
+ #. TRANSLATORS: abbreviated weekdays, beginning with monday (must all be 3 letters!)
+ msgid "MonTueWedThuFriSatSun"
+@@ -978,7 +979,7 @@
+ msgstr "Zaèalo nahrávání"
+ 
+ msgid "VDR will shut down later - press Power to force"
+-msgstr ""
++msgstr "Vypnutí VDR bude odlo¾eno - vypnete klávesou Power"
+ 
+ msgid "Press any key to cancel shutdown"
+ msgstr "Jakákoliv klávesa zru¹í vypnutí"
+@@ -993,8 +994,8 @@
+ msgstr "Editaèní proces skonèil"
+ 
+ msgid "Press any key to cancel restart"
+-msgstr ""
++msgstr "Jakákoliv klávesa zru¹í restart"
+ 
+ #, c-format
+ msgid "VDR will shut down in %s minutes"
+-msgstr ""
++msgstr "VDR se vypne za %s minut"
+diff -ruN vdr-1.5.16/po/da_DK.po vdr-1.5.17/po/da_DK.po
+--- vdr-1.5.16/po/da_DK.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/da_DK.po	2008-03-01 17:50:59.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Mogens Elneff <mogens@elneff.dk>, 2004
++# Mogens Elneff <mogens@elneff.dk>, 2004, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Danish\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/po/de_DE.po vdr-1.5.17/po/de_DE.po
+--- vdr-1.5.16/po/de_DE.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/de_DE.po	2008-03-01 17:50:59.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Klaus Schmidinger <kls@cadsoft.de>, 2000
++# Klaus Schmidinger <kls@cadsoft.de>, 2000-2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+ "PO-Revision-Date: 2007-11-25 15:19+0200\n"
+ "Last-Translator: Klaus Schmidinger <kls@cadsoft.de>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: German\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/po/el_GR.po vdr-1.5.17/po/el_GR.po
+--- vdr-1.5.16/po/el_GR.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/el_GR.po	2008-03-01 17:50:59.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Dimitrios Dimitrakos <mail@dimitrios.de>, 2002
++# Dimitrios Dimitrakos <mail@dimitrios.de>, 2002, 2006
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Greek\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-7\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/po/es_ES.po vdr-1.5.17/po/es_ES.po
+--- vdr-1.5.16/po/es_ES.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/es_ES.po	2008-03-01 17:50:59.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Ruben Nunez Francisco <ruben.nunez@tang-it.com>, 2002
++# Ruben Nunez Francisco <ruben.nunez@tang-it.com>, 2002, 2006
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Ruben Nunez Francisco <ruben.nunez@tang-it.com>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Spanish\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/po/et_EE.po vdr-1.5.17/po/et_EE.po
+--- vdr-1.5.16/po/et_EE.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/et_EE.po	2008-03-01 17:50:59.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Arthur Konovalov <kasjas@hot.ee>, 2004
++# Arthur Konovalov <kasjas@hot.ee>, 2004, 2005, 2006, 2007
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <kasjas@hot.ee>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Estonian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-13\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/po/fi_FI.po vdr-1.5.17/po/fi_FI.po
+--- vdr-1.5.16/po/fi_FI.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/fi_FI.po	2008-03-01 17:50:59.000000000 +0100
+@@ -1,19 +1,19 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Hannu Savolainen <hannu@opensound.com>, 2002
+-# Jaakko Hyvätti <jaakko@hyvatti.iki.fi>, 2002
++# Jaakko Hyvätti <jaakko@hyvatti.iki.fi>, 2002, 2003
+ # Niko Tarnanen <niko.tarnanen@hut.fi>, 2003
+-# Rolf Ahrenberg <rahrenbe@cc.hut.fi>, 2003
++# Rolf Ahrenberg <rahrenbe@cc.hut.fi>, 2003, 2004, 2005, 2006, 2007, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Finnish\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/po/fr_FR.po vdr-1.5.17/po/fr_FR.po
+--- vdr-1.5.16/po/fr_FR.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/fr_FR.po	2008-03-01 17:50:59.000000000 +0100
+@@ -1,8 +1,8 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Jean-Claude Repetto <jc@repetto.org>, 2001
+-# Olivier Jacques <jacquesolivier@hotmail.com>, 2003
++# Jean-Claude Repetto <jc@repetto.org>, 2001, 2002, 2008
++# Olivier Jacques <jacquesolivier@hotmail.com>, 2003, 2005
+ # Gregoire Favre <greg@magma.unil.ch>, 2003
+ # Nicolas Huillard <nhuillard@e-dition.fr>, 2005
+ # Pierre Briec <pbriec@free.fr>, 2006
+@@ -11,12 +11,12 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+-"PO-Revision-Date: 2007-10-18 16:12+0100\n"
+-"Last-Translator: Michael Nival <mnival@club-internet.fr>\n"
+-"Language-Team:  <vdr@linuxtv.org>\n"
++"PO-Revision-Date: 2008-02-27 18:14+0100\n"
++"Last-Translator: Jean-Claude Repetto <jc@repetto.org>\n"
++"Language-Team: French\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+@@ -172,7 +172,7 @@
+ msgstr "Audio"
+ 
+ msgid "Key$Subtitles"
+-msgstr "Sous-Titres"
++msgstr "Sous-titres"
+ 
+ msgid "Key$Schedule"
+ msgstr "Programmes"
+@@ -226,7 +226,7 @@
+ msgstr "restant"
+ 
+ msgid "Free To Air"
+-msgstr "Aucun cryptage"
++msgstr "En clair"
+ 
+ msgid "encrypted"
+ msgstr "Crypté"
+@@ -265,16 +265,16 @@
+ msgstr "PID AC3 (2)"
+ 
+ msgid "Spid1"
+-msgstr "Sous-Titre (1)"
++msgstr "Sous-titre (1)"
+ 
+ msgid "Spid2"
+-msgstr "Sous-Titre (2)"
++msgstr "Sous-titre (2)"
+ 
+ msgid "Tpid"
+-msgstr "PID Télétexte"
++msgstr "PID télétexte"
+ 
+ msgid "CA"
+-msgstr "Cryptage"
++msgstr "Accès conditionnel"
+ 
+ msgid "Sid"
+ msgstr "Sid"
+@@ -283,7 +283,7 @@
+ msgstr "Polarisation"
+ 
+ msgid "Srate"
+-msgstr "Fréq. Symbole"
++msgstr "Fréq. symbole"
+ 
+ msgid "Inversion"
+ msgstr "Inversion"
+@@ -310,7 +310,7 @@
+ msgstr "Transmission"
+ 
+ msgid "Guard"
+-msgstr "Guard"
++msgstr "Intervalle de garde"
+ 
+ msgid "Hierarchy"
+ msgstr "Hiérarchie"
+@@ -394,7 +394,7 @@
+ msgstr "Programmation"
+ 
+ msgid "Button$Record"
+-msgstr "Enregistre"
++msgstr "Enregistrer"
+ 
+ msgid "Button$Switch"
+ msgstr "Regarder"
+@@ -406,7 +406,7 @@
+ msgstr "Prochains programmes"
+ 
+ msgid "Button$Next"
+-msgstr "Aprés"
++msgstr "Après"
+ 
+ msgid "Button$Now"
+ msgstr "Maintenant"
+@@ -436,7 +436,7 @@
+ msgstr "Veuillez entrer %d chiffres !"
+ 
+ msgid "CAM not responding!"
+-msgstr "Pas de réponse de la CAM"
++msgstr "Pas de réponse du CAM"
+ 
+ msgid "Recording info"
+ msgstr "Infos sur l'enregistrement"
+@@ -508,7 +508,7 @@
+ msgstr "Utiliser les petites polices"
+ 
+ msgid "Setup.OSD$Anti-alias"
+-msgstr "Anti-aliasing"
++msgstr "Anti-crénelage"
+ 
+ msgid "Setup.OSD$Default font"
+ msgstr "Police par défaut"
+@@ -639,16 +639,16 @@
+ msgstr "Langue audio"
+ 
+ msgid "Setup.DVB$Display subtitles"
+-msgstr "Afficher les Sous-Titres"
++msgstr "Afficher les sous-titres"
+ 
+ msgid "Setup.DVB$Subtitle languages"
+-msgstr "Langues des Sous-Titres"
++msgstr "Langues des sous-titres"
+ 
+ msgid "Setup.DVB$Subtitle language"
+-msgstr "Langue de Sous-Titre"
++msgstr "Langue des sous-titres"
+ 
+ msgid "Setup.DVB$Subtitle offset"
+-msgstr "Offset du Sous-Titre"
++msgstr "Offset des sous-titres"
+ 
+ msgid "Setup.DVB$Subtitle foreground transparency"
+ msgstr "Transparence de l'avant-plan"
+@@ -672,13 +672,13 @@
+ msgstr "Fréquence haute LNB (MHz)"
+ 
+ msgid "CAM reset"
+-msgstr "CAM remise à zéro"
++msgstr "CAM remis à zéro"
+ 
+ msgid "CAM present"
+-msgstr "CAM présente"
++msgstr "CAM présent"
+ 
+ msgid "CAM ready"
+-msgstr "CAM prête"
++msgstr "CAM prêt"
+ 
+ msgid "CAM"
+ msgstr "Accés conditionnel"
+@@ -699,7 +699,7 @@
+ msgstr "CAM en cours d'utilisation - Remettre à zéro ?"
+ 
+ msgid "Can't reset CAM!"
+-msgstr "Impossible de réinitialiser la CAM !"
++msgstr "Impossible de réinitialiser le CAM !"
+ 
+ msgid "Recording"
+ msgstr "Enregistrement"
+@@ -744,7 +744,7 @@
+ msgstr "Durée enregistr. immédiat (min)"
+ 
+ msgid "Setup.Recording$Max. video file size (MB)"
+-msgstr "Taille maxi des fichiers (MB)"
++msgstr "Taille maxi des fichiers (Mo)"
+ 
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Séparer les séquences éditées"
+@@ -789,13 +789,13 @@
+ msgstr "Volume initial"
+ 
+ msgid "Setup.Miscellaneous$Emergency exit"
+-msgstr ""
++msgstr "Arrêt d'urgence"
+ 
+ msgid "Plugins"
+-msgstr "Plugins"
++msgstr "Greffons"
+ 
+ msgid "This plugin has no setup parameters!"
+-msgstr "Ce plugin n'a pas de paramètres!"
++msgstr "Ce greffon n'a pas de paramètres!"
+ 
+ msgid "Setup"
+ msgstr "Configuration"
+@@ -843,16 +843,16 @@
+ msgstr "Annuler les modifications ?"
+ 
+ msgid "No audio available!"
+-msgstr "Pas d'audio disponible !"
++msgstr "Pas de son disponible !"
+ 
+ msgid "No subtitles"
+-msgstr "Pas de Sous-Titres"
++msgstr "Pas de sous-titres"
+ 
+ msgid "Button$Subtitles"
+-msgstr "Sous-Titres"
++msgstr "Sous-titres"
+ 
+ msgid "No subtitles available!"
+-msgstr "Pas de Sous-Titres disponible !"
++msgstr "Pas de sous-titres disponible !"
+ 
+ msgid "Not enough disk space to start recording!"
+ msgstr "Espace disque insuffisant pour démarrer l'enregistrement !"
+@@ -943,7 +943,7 @@
+ msgstr "Volume "
+ 
+ msgid "Classic VDR"
+-msgstr "VDR Classique"
++msgstr "VDR classique"
+ 
+ msgid "ST:TNG Panels"
+ msgstr "Consoles ST:TNG"
+@@ -978,10 +978,10 @@
+ msgstr "Dimanche"
+ 
+ msgid "Upcoming recording!"
+-msgstr "Enregistrement commence prochaînement"
++msgstr "L'enregistrement va commencer !"
+ 
+ msgid "Recording started"
+-msgstr "Enregistrement a commencé"
++msgstr "L'enregistrement a commencé"
+ 
+ msgid "VDR will shut down later - press Power to force"
+ msgstr "VDR doit s'arrêter plus tard - Appuyer sur Power pour forcer"
+diff -ruN vdr-1.5.16/po/hr_HR.po vdr-1.5.17/po/hr_HR.po
+--- vdr-1.5.16/po/hr_HR.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/hr_HR.po	2008-03-01 17:50:59.000000000 +0100
+@@ -1,17 +1,17 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Drazen Dupor <drazen.dupor@dupor.com>, 2004
++# Drazen Dupor <drazen.dupor@dupor.com>, 2004, 2005
+ # Dino Ravnic <dino.ravnic@fer.hr>, 2004
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Drazen Dupor <drazen.dupor@dupor.com>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Croatian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/po/hu_HU.po vdr-1.5.17/po/hu_HU.po
+--- vdr-1.5.16/po/hu_HU.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/hu_HU.po	2008-03-01 17:51:00.000000000 +0100
+@@ -1,19 +1,19 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Istvan Koenigsberger <istvnko@hotmail.com>, 2002
+-# Guido Josten <guido.josten@t-online.de>, 2002
++# Istvan Koenigsberger <istvnko@hotmail.com>, 2002, 2003, 2006
++# Guido Josten <guido.josten@t-online.de>, 2002, 2003, 2006
+ # Thomas Günther <tom@toms-cafe.de>, 2007
+ # István Füley <ifuley@tigercomp.ro>, 2007
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+ "PO-Revision-Date: 2007-12-01 21:42+0200\n"
+ "Last-Translator: István Füley <ifuley@tigercomp.ro>\n"
+-"Language-Team:  <vdr@linuxtv.org>\n"
++"Language-Team: Hungarian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/po/it_IT.po vdr-1.5.17/po/it_IT.po
+--- vdr-1.5.16/po/it_IT.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/it_IT.po	2008-03-01 17:51:00.000000000 +0100
+@@ -1,19 +1,20 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Alberto Carraro <bertocar@tin.it>, 2001
+-# Antonio Ospite <ospite@studenti.unina.it>, 2003
++# Antonio Ospite <ospite@studenti.unina.it>, 2003, 2006
+ # Sean Carlos <seanc@libero.it>, 2005
+-# Diego Pierotto <vdr-italian@tiscali.it>, 2007
++# Nino Gerbino <ngerb@interfree.it>, 2006
++# Diego Pierotto <vdr-italian@tiscali.it>, 2007, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+ "PO-Revision-Date: 2008-02-21 20:29+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+-"Language-Team:  <vdr@linuxtv.org>\n"
++"Language-Team: Italian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/po/nl_NL.po vdr-1.5.17/po/nl_NL.po
+--- vdr-1.5.16/po/nl_NL.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/nl_NL.po	2008-03-01 17:51:00.000000000 +0100
+@@ -1,19 +1,20 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arnold Niessen <niessen@iae.nl> <arnold.niessen@philips.com>, 2001
+-# Hans Dingemans <hans.dingemans@tacticalops.nl>, 2003
++# Hans Dingemans <hans.dingemans@tacticalops.nl>, 2003, 2005
+ # Maarten Wisse <Maarten.Wisse@urz.uni-hd.de>, 2005
+ # Carel Willemse <ca_willemse@planet.nl>, 2008
++# Johan Schuring <johan.schuring@vetteblei.nl>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+-"PO-Revision-Date: 2008-02-18 17:50+0200\n"
+-"Last-Translator: Carel Willemse <ca_willemse@planet.nl>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"PO-Revision-Date: 2008-02-26 17:20+0100\n"
++"Last-Translator: Johan Schuring <johan.schuring@vetteblei.nl>\n"
++"Language-Team: Dutch\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+@@ -877,13 +878,13 @@
+ msgstr "Bewerken is al actief!"
+ 
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+-msgstr " abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&áäàïóöòúüù"
++msgstr " abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+ msgid "yes"
+ msgstr "ja"
+ 
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+-msgstr ""
++msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ 
+ msgid "Button$ABC/abc"
+ msgstr "ABC/abc"
+diff -ruN vdr-1.5.16/po/nn_NO.po vdr-1.5.17/po/nn_NO.po
+--- vdr-1.5.16/po/nn_NO.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/nn_NO.po	2008-03-01 17:51:00.000000000 +0100
+@@ -1,17 +1,17 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Jørgen Tvedt <pjtvedt@online.no>, 2001
+ # Truls Slevigen <truls@slevigen.no>, 2002
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Norwegian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/po/pl_PL.po vdr-1.5.17/po/pl_PL.po
+--- vdr-1.5.16/po/pl_PL.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/pl_PL.po	2008-03-01 17:51:00.000000000 +0100
+@@ -1,16 +1,17 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Michael Rakowski <mrak@gmx.de>, 2002
++# Michael Rakowski <mrak@gmx.de>, 2002, 2003
++# Jaroslaw Swierczynski <swiergot@gmail.com>, 2006
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+-"Last-Translator: Michael Rakowski <mrak@gmx.de>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Last-Translator: Jaroslaw Swierczynski <swiergot@gmail.com>\n"
++"Language-Team: Polish\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/po/pt_PT.po vdr-1.5.17/po/pt_PT.po
+--- vdr-1.5.16/po/pt_PT.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/pt_PT.po	2008-03-01 17:51:00.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paulo Lopes <pmml@netvita.pt>, 2001
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Paulo Lopes <pmml@netvita.pt>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Portuguese\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/po/ro_RO.po vdr-1.5.17/po/ro_RO.po
+--- vdr-1.5.16/po/ro_RO.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/ro_RO.po	2008-03-01 17:51:00.000000000 +0100
+@@ -1,20 +1,22 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paul Lacatus <paul@campina.iiruc.ro>, 2002
+-# Lucian Muresan <lucianm@users.sourceforge.net>, 2004
++# Lucian Muresan <lucianm@users.sourceforge.net>, 2004, 2005, 2006, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+-"PO-Revision-Date: 2007-08-12 14:17+0200\n"
++"PO-Revision-Date: 2008-02-25 00:39+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Romanian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
++"X-Poedit-Language: Romanian\n"
++"X-Poedit-Country: ROMANIA\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Canal invalid ***"
+@@ -167,7 +169,7 @@
+ msgstr "Sunet"
+ 
+ msgid "Key$Subtitles"
+-msgstr ""
++msgstr "Subtitrare"
+ 
+ msgid "Key$Schedule"
+ msgstr "Program (EPG)"
+@@ -188,31 +190,31 @@
+ msgstr "Comenzi"
+ 
+ msgid "Key$User1"
+-msgstr ""
++msgstr "Utilizator1"
+ 
+ msgid "Key$User2"
+-msgstr ""
++msgstr "Utilizator2"
+ 
+ msgid "Key$User3"
+-msgstr ""
++msgstr "Utilizator3"
+ 
+ msgid "Key$User4"
+-msgstr ""
++msgstr "Utilizator4"
+ 
+ msgid "Key$User5"
+-msgstr ""
++msgstr "Utilizator5"
+ 
+ msgid "Key$User6"
+-msgstr ""
++msgstr "Utilizator6"
+ 
+ msgid "Key$User7"
+-msgstr ""
++msgstr "Utilizator7"
+ 
+ msgid "Key$User8"
+-msgstr ""
++msgstr "Utilizator8"
+ 
+ msgid "Key$User9"
+-msgstr ""
++msgstr "Utilizator9"
+ 
+ msgid "Disk"
+ msgstr "Disc"
+@@ -260,10 +262,10 @@
+ msgstr "PID AC3 (2)"
+ 
+ msgid "Spid1"
+-msgstr ""
++msgstr "Spid1"
+ 
+ msgid "Spid2"
+-msgstr ""
++msgstr "Spid2"
+ 
+ msgid "Tpid"
+ msgstr "PID Teletext"
+@@ -431,7 +433,7 @@
+ msgstr "Vã rog introduceþi %d cifre!"
+ 
+ msgid "CAM not responding!"
+-msgstr ""
++msgstr "CAM-ul nu reacþioneazã!"
+ 
+ msgid "Recording info"
+ msgstr "Detaliile înregistrãrii"
+@@ -503,25 +505,25 @@
+ msgstr "Utilizare fonturi mici"
+ 
+ msgid "Setup.OSD$Anti-alias"
+-msgstr ""
++msgstr "Antialiere"
+ 
+ msgid "Setup.OSD$Default font"
+-msgstr ""
++msgstr "Font implicit"
+ 
+ msgid "Setup.OSD$Small font"
+-msgstr ""
++msgstr "Font mic"
+ 
+ msgid "Setup.OSD$Fixed font"
+-msgstr ""
++msgstr "Font cu lãþime fixã"
+ 
+ msgid "Setup.OSD$Default font size (pixel)"
+-msgstr ""
++msgstr "Mãrimea implicitã a fontului (pixeli)"
+ 
+ msgid "Setup.OSD$Small font size (pixel)"
+-msgstr ""
++msgstr "Mãrimea 'micã' a fontului (pixeli)"
+ 
+ msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr ""
++msgstr "Mãrimea 'fixã' a fontului (pixeli)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Poziþia informaþiilor despre canal"
+@@ -634,22 +636,22 @@
+ msgstr "Limba sunetului"
+ 
+ msgid "Setup.DVB$Display subtitles"
+-msgstr ""
++msgstr "Afiºeazã subtitrare"
+ 
+ msgid "Setup.DVB$Subtitle languages"
+-msgstr ""
++msgstr "Limbi subtitrare"
+ 
+ msgid "Setup.DVB$Subtitle language"
+-msgstr ""
++msgstr "Limbã subtitrare"
+ 
+ msgid "Setup.DVB$Subtitle offset"
+-msgstr ""
++msgstr "Offset subtitrare"
+ 
+ msgid "Setup.DVB$Subtitle foreground transparency"
+-msgstr ""
++msgstr "Transparenþa prim-planului subtitrãrii"
+ 
+ msgid "Setup.DVB$Subtitle background transparency"
+-msgstr ""
++msgstr "Transparenþa fundalului subtitrãrii"
+ 
+ msgid "LNB"
+ msgstr "LNB"
+@@ -667,13 +669,13 @@
+ msgstr "Frecvnþã LNB superioarã (MHz)"
+ 
+ msgid "CAM reset"
+-msgstr ""
++msgstr "Resetare CAM"
+ 
+ msgid "CAM present"
+-msgstr ""
++msgstr "CAM preyent"
+ 
+ msgid "CAM ready"
+-msgstr ""
++msgstr "CAM pregãtit"
+ 
+ msgid "CAM"
+ msgstr "CAM"
+@@ -691,7 +693,7 @@
+ msgstr "Nu pot deschide meniul CAM"
+ 
+ msgid "CAM is in use - really reset?"
+-msgstr ""
++msgstr "CAM-ul este in folosinþã - totuºi resetez?"
+ 
+ msgid "Can't reset CAM!"
+ msgstr "Nu pot reseta CAM"
+@@ -772,7 +774,7 @@
+ msgstr "Interval zapping (s)"
+ 
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+-msgstr ""
++msgstr "Timeout la introducerea canalului (ms)"
+ 
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Canalul de pornire"
+@@ -784,7 +786,7 @@
+ msgstr "Volumul la pornire"
+ 
+ msgid "Setup.Miscellaneous$Emergency exit"
+-msgstr ""
++msgstr "Oprire de urgenþã"
+ 
+ msgid "Plugins"
+ msgstr "Plugin-uri"
+@@ -841,13 +843,13 @@
+ msgstr "Lipseºte sunetul!"
+ 
+ msgid "No subtitles"
+-msgstr ""
++msgstr "Nu afiºeazã subtirare"
+ 
+ msgid "Button$Subtitles"
+-msgstr ""
++msgstr "Subtitrare"
+ 
+ msgid "No subtitles available!"
+-msgstr ""
++msgstr "Subtitrare indisponibilã!"
+ 
+ msgid "Not enough disk space to start recording!"
+ msgstr "Insuficient spaþiul pe disc pentru înregistrare!"
+@@ -908,7 +910,7 @@
+ msgstr "Nu pot închide - vezi opþiunea '-s'"
+ 
+ msgid "Editing - shut down anyway?"
+-msgstr ""
++msgstr "Montajul tocmai se efectueazã - închid, totuºi?"
+ 
+ msgid "Recording - shut down anyway?"
+ msgstr "Tocmai se înregistreazã - închid, totuºi?"
+@@ -922,10 +924,10 @@
+ 
+ #, c-format
+ msgid "Plugin %s wakes up in %ld min, continue?"
+-msgstr ""
++msgstr "Plugin-ul %s se va trezi +n %ld min, continui?"
+ 
+ msgid "Editing - restart anyway?"
+-msgstr ""
++msgstr "Montajul tocmai se efectueazã - repornesc, totuºi?"
+ 
+ msgid "Recording - restart anyway?"
+ msgstr "Tocmai se înregistreazã - repornesc, totuºi?"
+@@ -979,7 +981,7 @@
+ msgstr "A început înregistrarea"
+ 
+ msgid "VDR will shut down later - press Power to force"
+-msgstr ""
++msgstr "VDR se va închide mai târziu - apãsaþi 'Power' pentru a forþa"
+ 
+ msgid "Press any key to cancel shutdown"
+ msgstr "Apasã orice tastã pentru a anula închiderea"
+@@ -994,8 +996,8 @@
+ msgstr "Montajul înregistrãrii s-a terminat"
+ 
+ msgid "Press any key to cancel restart"
+-msgstr ""
++msgstr "Apãsaþi orice tastã pentru a anula repornirea"
+ 
+ #, c-format
+ msgid "VDR will shut down in %s minutes"
+-msgstr ""
++msgstr "VDR se va închide în %s minute"
+diff -ruN vdr-1.5.16/po/ru_RU.po vdr-1.5.17/po/ru_RU.po
+--- vdr-1.5.16/po/ru_RU.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/ru_RU.po	2008-03-01 17:51:00.000000000 +0100
+@@ -1,17 +1,17 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Vyacheslav Dikonov <sdiconov@mail.ru>, 2004
+-# Oleg Roitburd <oleg@roitburd.de>, 2007
++# Vyacheslav Dikonov <sdiconov@mail.ru>, 2004, 2005
++# Oleg Roitburd <oleg@roitburd.de>, 2005, 2006, 2007, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+ "PO-Revision-Date: 2008-02-15 16:37+0100\n"
+ "Last-Translator: Oleg Roitburd <oleg@roitburd.de>\n"
+-"Language-Team:  <vdr@linuxtv.org>\n"
++"Language-Team: Russian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-5\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/po/sl_SI.po vdr-1.5.17/po/sl_SI.po
+--- vdr-1.5.16/po/sl_SI.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/sl_SI.po	2008-03-01 17:51:00.000000000 +0100
+@@ -1,17 +1,17 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Miha Setina <mihasetina@softhome.net>, 2000
+-# Matjaz Thaler <matjaz.thaler@guest.arnes.si>, 2003
++# Matjaz Thaler <matjaz.thaler@guest.arnes.si>, 2003, 2005, 2006, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+-"PO-Revision-Date: 2007-08-12 14:17+0200\n"
++"PO-Revision-Date: 2008-02-28 19:44+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Slovenian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+@@ -167,7 +167,7 @@
+ msgstr "Zvok"
+ 
+ msgid "Key$Subtitles"
+-msgstr ""
++msgstr "Podnapisi"
+ 
+ msgid "Key$Schedule"
+ msgstr "Program"
+@@ -188,31 +188,31 @@
+ msgstr "Ukazi"
+ 
+ msgid "Key$User1"
+-msgstr ""
++msgstr "Uporabnik1"
+ 
+ msgid "Key$User2"
+-msgstr ""
++msgstr "Uporabnik2"
+ 
+ msgid "Key$User3"
+-msgstr ""
++msgstr "Uporabnik3"
+ 
+ msgid "Key$User4"
+-msgstr ""
++msgstr "Uporabnik4"
+ 
+ msgid "Key$User5"
+-msgstr ""
++msgstr "Uporabnik5"
+ 
+ msgid "Key$User6"
+-msgstr ""
++msgstr "Uporabnik6"
+ 
+ msgid "Key$User7"
+-msgstr ""
++msgstr "Uporabnik7"
+ 
+ msgid "Key$User8"
+-msgstr ""
++msgstr "Uporabnik8"
+ 
+ msgid "Key$User9"
+-msgstr ""
++msgstr "Uporabnik9"
+ 
+ msgid "Disk"
+ msgstr "Disk"
+@@ -260,10 +260,10 @@
+ msgstr "Dpid2"
+ 
+ msgid "Spid1"
+-msgstr ""
++msgstr "Spid1"
+ 
+ msgid "Spid2"
+-msgstr ""
++msgstr "Spid2"
+ 
+ msgid "Tpid"
+ msgstr "Tpid"
+@@ -431,7 +431,7 @@
+ msgstr "Prosim vnesite %d ¹tevilk!"
+ 
+ msgid "CAM not responding!"
+-msgstr ""
++msgstr "CAM se ne odziva!"
+ 
+ msgid "Recording info"
+ msgstr "Podatki o snemanju"
+@@ -503,25 +503,25 @@
+ msgstr "Uporabi male èrke"
+ 
+ msgid "Setup.OSD$Anti-alias"
+-msgstr ""
++msgstr "Anti-alias"
+ 
+ msgid "Setup.OSD$Default font"
+-msgstr ""
++msgstr "Privzeteta pisava"
+ 
+ msgid "Setup.OSD$Small font"
+-msgstr ""
++msgstr "Mala pisava"
+ 
+ msgid "Setup.OSD$Fixed font"
+-msgstr ""
++msgstr "Fiksna pisava"
+ 
+ msgid "Setup.OSD$Default font size (pixel)"
+-msgstr ""
++msgstr "Privzeta velikost pisave (pixel)"
+ 
+ msgid "Setup.OSD$Small font size (pixel)"
+-msgstr ""
++msgstr "Majhna velikost pisave (pixel)"
+ 
+ msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr ""
++msgstr "Pozicija informacije o kanalu"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Pozicija informacije o kanalu"
+@@ -634,22 +634,22 @@
+ msgstr "Jezik za zvok"
+ 
+ msgid "Setup.DVB$Display subtitles"
+-msgstr ""
++msgstr "Prika¾i podnapise"
+ 
+ msgid "Setup.DVB$Subtitle languages"
+-msgstr ""
++msgstr "Jeziki za podnapise"
+ 
+ msgid "Setup.DVB$Subtitle language"
+-msgstr ""
++msgstr "Jezik za podnapise"
+ 
+ msgid "Setup.DVB$Subtitle offset"
+-msgstr ""
++msgstr "Izravnava podnapisov"
+ 
+ msgid "Setup.DVB$Subtitle foreground transparency"
+-msgstr ""
++msgstr "Transparentnost podnapisov"
+ 
+ msgid "Setup.DVB$Subtitle background transparency"
+-msgstr ""
++msgstr "Transparentnost ozadja podnapisov"
+ 
+ msgid "LNB"
+ msgstr "LNB"
+@@ -667,13 +667,13 @@
+ msgstr "Zgornja LNB-frek. (MHz)"
+ 
+ msgid "CAM reset"
+-msgstr ""
++msgstr "Reset CAM-a"
+ 
+ msgid "CAM present"
+-msgstr ""
++msgstr "CAM prisoten"
+ 
+ msgid "CAM ready"
+-msgstr ""
++msgstr "CAM pripravljen"
+ 
+ msgid "CAM"
+ msgstr "CAM"
+@@ -691,7 +691,7 @@
+ msgstr "Ne morem odpreti CAM menija!"
+ 
+ msgid "CAM is in use - really reset?"
+-msgstr ""
++msgstr "CAM je v uporabi - zares resetiraj?"
+ 
+ msgid "Can't reset CAM!"
+ msgstr "Ne morem resetirati CAM-a!"
+@@ -772,7 +772,7 @@
+ msgstr "Èas ugla¹evanja (s)"
+ 
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+-msgstr ""
++msgstr "Timeout za vnos kanala (ms)"
+ 
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Privzeti kanal"
+@@ -784,7 +784,7 @@
+ msgstr "Privzeta glasnost"
+ 
+ msgid "Setup.Miscellaneous$Emergency exit"
+-msgstr ""
++msgstr "Izhod v sili"
+ 
+ msgid "Plugins"
+ msgstr "Vstavki"
+@@ -841,13 +841,13 @@
+ msgstr "Zvok ni dosegljiv!"
+ 
+ msgid "No subtitles"
+-msgstr ""
++msgstr "Ni podnapisov"
+ 
+ msgid "Button$Subtitles"
+-msgstr ""
++msgstr "Podnapisi"
+ 
+ msgid "No subtitles available!"
+-msgstr ""
++msgstr "Podnapisi niso dosegljivi!"
+ 
+ msgid "Not enough disk space to start recording!"
+ msgstr "Premalo prostora na disku za snemanje!"
+@@ -908,7 +908,7 @@
+ msgstr "Zaustavitev ni izvedljiva - opcija '-s' ni podana!"
+ 
+ msgid "Editing - shut down anyway?"
+-msgstr ""
++msgstr "Urejanje - zares izklopi?"
+ 
+ msgid "Recording - shut down anyway?"
+ msgstr "Snemanje - zares izklopi?"
+@@ -922,10 +922,10 @@
+ 
+ #, c-format
+ msgid "Plugin %s wakes up in %ld min, continue?"
+-msgstr ""
++msgstr "Vstavek %s se zbudi v %ld min, nadaljuj?"
+ 
+ msgid "Editing - restart anyway?"
+-msgstr ""
++msgstr "Urejanje - zares ponoven zagon?"
+ 
+ msgid "Recording - restart anyway?"
+ msgstr "Snemanje - zares ponoven zagon?"
+@@ -979,7 +979,7 @@
+ msgstr "Snemanje se je prièelo"
+ 
+ msgid "VDR will shut down later - press Power to force"
+-msgstr ""
++msgstr "VDR se bo zaustavil kasneje - pritisni Power za takoj¹en izklop"
+ 
+ msgid "Press any key to cancel shutdown"
+ msgstr "Pritisnite katerikoli gumb za preklic izklopa"
+@@ -994,8 +994,8 @@
+ msgstr "Proces urejanja je konèan"
+ 
+ msgid "Press any key to cancel restart"
+-msgstr ""
++msgstr "Pritisni katerokoli tipko za preklic ponovnega zagona"
+ 
+ #, c-format
+ msgid "VDR will shut down in %s minutes"
+-msgstr ""
++msgstr "VDR se bo zaustavil v %s minutah"
+diff -ruN vdr-1.5.16/po/sv_SE.po vdr-1.5.17/po/sv_SE.po
+--- vdr-1.5.16/po/sv_SE.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/sv_SE.po	2008-03-01 17:51:00.000000000 +0100
+@@ -1,17 +1,18 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Tomas Prybil <tomas@prybil.se>, 2002
++# Tomas Prybil <tomas@prybil.se>, 2002, 2003, 2005, 2006
+ # Jan Ekholm <chakie@infa.abo.fi>, 2003
++# Tomas Berglund <tomber@telia.com>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+-"PO-Revision-Date: 2007-08-12 14:17+0200\n"
+-"Last-Translator: Tomas Prybil <tomas@prybil.se>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"PO-Revision-Date: 2008-02-24 13:27+0200\n"
++"Last-Translator: Tomas Berglund <tomber@telia.com>\n"
++"Language-Team: Swedish\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+@@ -167,7 +168,7 @@
+ msgstr "Ljud"
+ 
+ msgid "Key$Subtitles"
+-msgstr ""
++msgstr "Textning"
+ 
+ msgid "Key$Schedule"
+ msgstr "Program"
+@@ -260,10 +261,10 @@
+ msgstr "DPID2"
+ 
+ msgid "Spid1"
+-msgstr ""
++msgstr "SPID1"
+ 
+ msgid "Spid2"
+-msgstr ""
++msgstr "SPID2"
+ 
+ msgid "Tpid"
+ msgstr "TPID"
+@@ -503,25 +504,25 @@
+ msgstr "Använd liten font"
+ 
+ msgid "Setup.OSD$Anti-alias"
+-msgstr ""
++msgstr "Kantutjämning OSD"
+ 
+ msgid "Setup.OSD$Default font"
+-msgstr ""
++msgstr "Standard typsnitt"
+ 
+ msgid "Setup.OSD$Small font"
+-msgstr ""
++msgstr "Små typsnitt"
+ 
+ msgid "Setup.OSD$Fixed font"
+-msgstr ""
++msgstr "Fast typsnitt"
+ 
+ msgid "Setup.OSD$Default font size (pixel)"
+-msgstr ""
++msgstr "Fontstorlek standard (pixel)"
+ 
+ msgid "Setup.OSD$Small font size (pixel)"
+-msgstr ""
++msgstr "Fontstorlek liten text (pixel)"
+ 
+ msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr ""
++msgstr "Fast fontstorlek (pixel)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Placering av kanalinformation"
+@@ -634,22 +635,22 @@
+ msgstr "Ljudspråk"
+ 
+ msgid "Setup.DVB$Display subtitles"
+-msgstr ""
++msgstr "Visa textning"
+ 
+ msgid "Setup.DVB$Subtitle languages"
+-msgstr ""
++msgstr "Textningsspråk"
+ 
+ msgid "Setup.DVB$Subtitle language"
+-msgstr ""
++msgstr "Textningsspråk"
+ 
+ msgid "Setup.DVB$Subtitle offset"
+-msgstr ""
++msgstr "Sidoförskjutning textremsa"
+ 
+ msgid "Setup.DVB$Subtitle foreground transparency"
+-msgstr ""
++msgstr "Transparent förgrund textremsa"
+ 
+ msgid "Setup.DVB$Subtitle background transparency"
+-msgstr ""
++msgstr "Transparent bakgrund textremsa"
+ 
+ msgid "LNB"
+ msgstr "LNB"
+@@ -667,13 +668,13 @@
+ msgstr "Övre LNB frekvens (MHz)"
+ 
+ msgid "CAM reset"
+-msgstr ""
++msgstr "CAM omstart"
+ 
+ msgid "CAM present"
+-msgstr ""
++msgstr "CAM närvarande"
+ 
+ msgid "CAM ready"
+-msgstr ""
++msgstr "CAM klar"
+ 
+ msgid "CAM"
+ msgstr "CAM"
+@@ -691,7 +692,7 @@
+ msgstr "Det går inte att öppna CAM menyn!"
+ 
+ msgid "CAM is in use - really reset?"
+-msgstr ""
++msgstr "CAM upptagen, vill du verkligen starta om?"
+ 
+ msgid "Can't reset CAM!"
+ msgstr "Kan inte återställa CAM!"
+@@ -772,7 +773,7 @@
+ msgstr "Zap timeout(s)"
+ 
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+-msgstr ""
++msgstr "Timeout kanal (ms)"
+ 
+ msgid "Setup.Miscellaneous$Initial channel"
+ msgstr "Kanal vid uppstart"
+@@ -841,13 +842,13 @@
+ msgstr "Ljud saknas!"
+ 
+ msgid "No subtitles"
+-msgstr ""
++msgstr "Ingen textning"
+ 
+ msgid "Button$Subtitles"
+-msgstr ""
++msgstr "Knapp$Textning"
+ 
+ msgid "No subtitles available!"
+-msgstr ""
++msgstr "Ingen textning tillgänglig!"
+ 
+ msgid "Not enough disk space to start recording!"
+ msgstr "Otillräcklingt diskutrymme för inspelning!"
+@@ -908,7 +909,7 @@
+ msgstr "Kan inte avsluta, måste använda parameter '-s'"
+ 
+ msgid "Editing - shut down anyway?"
+-msgstr ""
++msgstr "Editering pågår, vill du avsluta ändå?"
+ 
+ msgid "Recording - shut down anyway?"
+ msgstr "Inspelning pågår, vill du ändå avbryta?"
+@@ -922,10 +923,10 @@
+ 
+ #, c-format
+ msgid "Plugin %s wakes up in %ld min, continue?"
+-msgstr ""
++msgstr "Plugin %s aktiv om %ld min, vill du fortsätta?"
+ 
+ msgid "Editing - restart anyway?"
+-msgstr ""
++msgstr "Editering pågår, vill du ändå starta om?"
+ 
+ msgid "Recording - restart anyway?"
+ msgstr "Inspelning pågår, vill du ändå starta om?"
+@@ -979,7 +980,7 @@
+ msgstr "Inspelningen har startat"
+ 
+ msgid "VDR will shut down later - press Power to force"
+-msgstr ""
++msgstr "VDR kommer att stängas av senare - tryck på/av för att stänga av nu"
+ 
+ msgid "Press any key to cancel shutdown"
+ msgstr "Tryck valfri knapp för att återkalla avstängningen"
+@@ -994,8 +995,8 @@
+ msgstr "Redigering avslutad"
+ 
+ msgid "Press any key to cancel restart"
+-msgstr ""
++msgstr "Tryck valfri knapp för att återkalla omstart"
+ 
+ #, c-format
+ msgid "VDR will shut down in %s minutes"
+-msgstr ""
++msgstr "VDR kommer att stängas ned om %s minuter"
+diff -ruN vdr-1.5.16/po/tr_TR.po vdr-1.5.17/po/tr_TR.po
+--- vdr-1.5.16/po/tr_TR.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/tr_TR.po	2008-03-01 17:51:00.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+-# Oktay Yolgeçen <oktay_73@yahoo.de>, 2007
++# Oktay Yolgeçen <oktay_73@yahoo.de>, 2007, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.7\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+-"PO-Revision-Date: 2007-08-24 14:37+0200\n"
++"PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay Yolgeçen <oktay_73@yahoo.de>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Turkish\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-9\n"
+ "Content-Transfer-Encoding: 8bit\n"
+@@ -166,7 +166,7 @@
+ msgstr "Audio"
+ 
+ msgid "Key$Subtitles"
+-msgstr ""
++msgstr "Altyazý"
+ 
+ msgid "Key$Schedule"
+ msgstr "Program"
+@@ -259,10 +259,10 @@
+ msgstr "Dpid2"
+ 
+ msgid "Spid1"
+-msgstr ""
++msgstr "Spid1"
+ 
+ msgid "Spid2"
+-msgstr ""
++msgstr "Spid2"
+ 
+ msgid "Tpid"
+ msgstr "Tpid"
+@@ -633,22 +633,22 @@
+ msgstr "Audio dili"
+ 
+ msgid "Setup.DVB$Display subtitles"
+-msgstr ""
++msgstr "Altyazý gÃster"
+ 
+ msgid "Setup.DVB$Subtitle languages"
+-msgstr ""
++msgstr "Altyazý dilleri"
+ 
+ msgid "Setup.DVB$Subtitle language"
+-msgstr ""
++msgstr "Altyazý dili"
+ 
+ msgid "Setup.DVB$Subtitle offset"
+-msgstr ""
++msgstr "Altyazý ofset"
+ 
+ msgid "Setup.DVB$Subtitle foreground transparency"
+-msgstr ""
++msgstr "Altyazý Ãn þeffaflýk"
+ 
+ msgid "Setup.DVB$Subtitle background transparency"
+-msgstr ""
++msgstr "Altyazý arka þeffaflýk"
+ 
+ msgid "LNB"
+ msgstr "LNB"
+@@ -783,7 +783,7 @@
+ msgstr "Açýlýþdaki ses"
+ 
+ msgid "Setup.Miscellaneous$Emergency exit"
+-msgstr ""
++msgstr "Acil cýkýþ"
+ 
+ msgid "Plugins"
+ msgstr "Eklentiler"
+@@ -840,13 +840,13 @@
+ msgstr "Audio yok!"
+ 
+ msgid "No subtitles"
+-msgstr ""
++msgstr "Altyazý yok"
+ 
+ msgid "Button$Subtitles"
+-msgstr ""
++msgstr "Altyazý"
+ 
+ msgid "No subtitles available!"
+-msgstr ""
++msgstr "Altyazý bulunamadý"
+ 
+ msgid "Not enough disk space to start recording!"
+ msgstr "Kayýt için yeterince kapasite yok!"
+diff -ruN vdr-1.5.16/po/uk_UA.po vdr-1.5.17/po/uk_UA.po
+--- vdr-1.5.16/po/uk_UA.po	2008-02-24 11:18:14.000000000 +0100
++++ vdr-1.5.17/po/uk_UA.po	2008-03-01 17:51:00.000000000 +0100
+@@ -1,16 +1,16 @@
+ # VDR language source file.
+-# Copyright (C) 2007 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
+ # This file is distributed under the same license as the VDR package.
+ # Yarema Aka Knedlyk <yupadmin@gmail.com>, 2007
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.5.10\n"
++"Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-02-10 12:22+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Yarema Aka Knedlyk <yupadmin@gmail.com>\n"
+-"Language-Team: <vdr@linuxtv.org>\n"
++"Language-Team: Ukrainian\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-5\n"
+ "Content-Transfer-Encoding: 8bit\n"
+diff -ruN vdr-1.5.16/tools.c vdr-1.5.17/tools.c
+--- vdr-1.5.16/tools.c	2008-02-16 14:38:22.000000000 +0100
++++ vdr-1.5.17/tools.c	2008-02-29 14:16:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 1.143 2008/02/16 13:38:22 kls Exp $
++ * $Id: tools.c 1.144 2008/02/29 13:16:39 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -630,9 +630,9 @@
+   if (!Length)
+      Length = Utf8CharLen(s);
+   switch (Length) {
+-    case 2: return ((*s & 0x1F) << 6) |  (*(s + 1) & 0x3F);
+-    case 3: return ((*s & 0x0F) << 4) | ((*(s + 1) & 0x3F) << 6) |  (*(s + 2) & 0x3F);
+-    case 4: return ((*s & 0x07) << 2) | ((*(s + 1) & 0x3F) << 4) | ((*(s + 2) & 0x3F) << 6) | (*(s + 3) & 0x3F);
++    case 2: return ((*s & 0x1F) <<  6) |  (*(s + 1) & 0x3F);
++    case 3: return ((*s & 0x0F) << 12) | ((*(s + 1) & 0x3F) <<  6) |  (*(s + 2) & 0x3F);
++    case 4: return ((*s & 0x07) << 18) | ((*(s + 1) & 0x3F) << 12) | ((*(s + 2) & 0x3F) << 6) | (*(s + 3) & 0x3F);
+     }
+   return *s;
+ }

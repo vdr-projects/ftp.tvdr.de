@@ -1,0 +1,290 @@
+diff -ruNbw vdr-1.2.6pre4/CONTRIBUTORS vdr-1.2.6pre5/CONTRIBUTORS
+--- vdr-1.2.6pre4/CONTRIBUTORS	Sun Oct 26 14:32:45 2003
++++ vdr-1.2.6pre5/CONTRIBUTORS	Sat Nov  8 16:36:59 2003
+@@ -606,6 +606,7 @@
+ Sven Goethel <sgoethel@jausoft.com>
+  for making switching audio channels work without stopping/restarting the DMX
+  for fixing initializing the highlight area in cDvbSpuDecoder
++ for suggesting to add cDevice::GetSTC()
+ 
+ Jan Rieger <jan@ricomp.de>
+  for suggestions and testing raw keyboard input
+@@ -849,3 +850,13 @@
+ Thomas v. Keller <v.keller@neckarufer.de>
+  for reporting a crash in case the CAM connection fails while a CAM menu
+  is being presented
++
++Richard Scobie <r.scobie@clear.net.nz>
++ for adding Asia-Pacific satellites to 'sources.conf'
++
++Luke Jenkins <a@xmission.com>
++ for adding North American satellites to 'sources.conf'
++
++Dirk Mueller <dmuell@gmx.net>
++ for fixing getting the list of recordings in case VDR is started from a directory
++ where it doesn't have access to
+diff -ruNbw vdr-1.2.6pre4/HISTORY vdr-1.2.6pre5/HISTORY
+--- vdr-1.2.6pre4/HISTORY	Sun Oct 26 14:49:59 2003
++++ vdr-1.2.6pre5/HISTORY	Sat Nov  8 16:45:59 2003
+@@ -2451,3 +2451,11 @@
+   is being presented (thanks to Thomas v. Keller for reportign this one).
+ - Added missing 'const' to some cChannel member functions (thanks to Torsten
+   Herz).
++
++2003-11-08: Version 1.2.6pre5
++
++- Added cDevice::GetSTC() (suggested by Sven Goethel).
++- Added Asia-Pacific satellites to 'sources.conf' (thanks to Richard Scobie).
++- Added North American satellites to 'sources.conf' (thanks to Luke Jenkins).
++- Fixed getting the list of recordings in case VDR is started from a directory
++  where it doesn't have access to (thanks to Dirk Mueller).
+diff -ruNbw vdr-1.2.6pre4/PLUGINS.html vdr-1.2.6pre5/PLUGINS.html
+--- vdr-1.2.6pre4/PLUGINS.html	Thu May 29 14:12:32 2003
++++ vdr-1.2.6pre5/PLUGINS.html	Fri Nov  7 14:52:57 2003
+@@ -6,7 +6,7 @@
+ 
+ <center><h1>The VDR Plugin System</h1></center>
+ 
+-<center><b>Version 1.2</b></center>
++<center><b>Version 1.2.6</b></center>
+ <p>
+ <center>
+ Copyright &copy; 2003 Klaus Schmidinger<br>
+@@ -14,6 +14,10 @@
+ <a href="http://www.cadsoft.de/vdr">www.cadsoft.de/vdr</a>
+ </center>
+ <p>
++<!--X1.1.32--><table width=100%><tr><td bgcolor=#FF0000>&nbsp;</td><td width=100%>
++Important modifications introduced in version 1.2.6 are marked like this.
++<!--X1.1.32--></td></tr></table>
++<p>
+ VDR provides an easy to use plugin interface that allows additional functionality
+ to be added to the program by implementing a dynamically loadable library file.
+ This interface allows programmers to develop additional functionality for VDR completely
+@@ -1318,6 +1322,9 @@
+ virtual bool HasDecoder(void) const;
+ virtual bool CanReplay(void) const;
+ virtual bool SetPlayMode(ePlayMode PlayMode);
++<!--X1.1.32--><table width=100%><tr><td bgcolor=#FF0000>&nbsp;</td><td width=100%>
++virtual int64_t GetSTC(void);
++<!--X1.1.32--></td></tr></table>
+ virtual void TrickSpeed(int Speed);
+ virtual void Clear(void);
+ virtual void Play(void);
+diff -ruNbw vdr-1.2.6pre4/config.h vdr-1.2.6pre5/config.h
+--- vdr-1.2.6pre4/config.h	Sun Oct 26 14:30:36 2003
++++ vdr-1.2.6pre5/config.h	Fri Nov  7 16:12:42 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.176.1.3 2003/10/26 13:30:36 kls Exp $
++ * $Id: config.h 1.176.1.4 2003/11/07 15:12:42 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -19,7 +19,7 @@
+ #include "device.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.2.6pre4"
++#define VDRVERSION  "1.2.6pre5"
+ #define VDRVERSNUM   10206  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+diff -ruNbw vdr-1.2.6pre4/device.c vdr-1.2.6pre5/device.c
+--- vdr-1.2.6pre4/device.c	Fri Aug 15 14:34:36 2003
++++ vdr-1.2.6pre5/device.c	Fri Nov  7 14:16:12 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 1.47 2003/08/15 12:34:36 kls Exp $
++ * $Id: device.c 1.47.1.1 2003/11/07 13:16:12 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -496,6 +496,11 @@
+ bool cDevice::SetPlayMode(ePlayMode PlayMode)
+ {
+   return false;
++}
++
++int64_t cDevice::GetSTC(void)
++{
++  return -1;
+ }
+ 
+ void cDevice::TrickSpeed(int Speed)
+diff -ruNbw vdr-1.2.6pre4/device.h vdr-1.2.6pre5/device.h
+--- vdr-1.2.6pre4/device.h	Fri Aug 15 15:05:50 2003
++++ vdr-1.2.6pre5/device.h	Fri Nov  7 14:15:45 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 1.34 2003/08/15 13:05:50 kls Exp $
++ * $Id: device.h 1.35 2003/11/07 13:15:45 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -320,6 +320,10 @@
+        ///< Sets the device into the given play mode.
+        ///< \return true if the operation was successful.
+ public:
++  virtual int64_t GetSTC(void);
++       ///< Gets the current System Time Counter, which can be used to
++       ///< synchronize audio and video. If this device is unable to
++       ///< provide the STC, -1 will be returned.
+   virtual void TrickSpeed(int Speed);
+        ///< Sets the device into a mode where replay is done slower.
+        ///< Every single frame shall then be displayed the given number of
+diff -ruNbw vdr-1.2.6pre4/dvbdevice.c vdr-1.2.6pre5/dvbdevice.c
+--- vdr-1.2.6pre4/dvbdevice.c	Fri Oct 24 16:32:20 2003
++++ vdr-1.2.6pre5/dvbdevice.c	Fri Nov  7 14:24:49 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.67.1.2 2003/10/24 14:32:20 kls Exp $
++ * $Id: dvbdevice.c 1.67.1.3 2003/11/07 13:24:49 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -326,6 +326,7 @@
+   fd_osd      = DvbOpen(DEV_DVB_OSD,    n, O_RDWR);
+   fd_video    = DvbOpen(DEV_DVB_VIDEO,  n, O_RDWR | O_NONBLOCK);
+   fd_audio    = DvbOpen(DEV_DVB_AUDIO,  n, O_RDWR | O_NONBLOCK);
++  fd_stc      = DvbOpen(DEV_DVB_DEMUX,  n, O_RDWR);
+ 
+   // The DVR device (will be opened and closed as needed):
+ 
+@@ -867,6 +868,20 @@
+     }
+   playMode = PlayMode;
+   return true;
++}
++
++int64_t cDvbDevice::GetSTC(void)
++{
++  if (fd_stc >= 0) {
++     struct dmx_stc stc;
++     stc.num = 0;
++     if (ioctl(fd_stc, DMX_GET_STC, &stc) == -1) {
++        esyslog("ERROR: stc %d: %m", CardIndex() + 1);
++        return -1;
++        }
++     return stc.stc / stc.base;
++     }
++  return -1;
+ }
+ 
+ void cDvbDevice::TrickSpeed(int Speed)
+diff -ruNbw vdr-1.2.6pre4/dvbdevice.h vdr-1.2.6pre5/dvbdevice.h
+--- vdr-1.2.6pre4/dvbdevice.h	Sat Oct  4 13:54:50 2003
++++ vdr-1.2.6pre5/dvbdevice.h	Fri Nov  7 14:17:13 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 1.23 2003/10/04 11:54:50 kls Exp $
++ * $Id: dvbdevice.h 1.24 2003/11/07 13:17:13 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -38,7 +38,7 @@
+          ///< \return True if any devices are available.
+ private:
+   fe_type_t frontendType;
+-  int fd_osd, fd_audio, fd_video, fd_dvr;
++  int fd_osd, fd_audio, fd_video, fd_dvr, fd_stc;
+   int OsdDeviceHandle(void) const { return fd_osd; }
+ protected:
+   virtual void MakePrimaryDevice(bool On);
+@@ -107,6 +107,7 @@
+   virtual bool CanReplay(void) const;
+   virtual bool SetPlayMode(ePlayMode PlayMode);
+ public:
++  virtual int64_t GetSTC(void);
+   virtual void TrickSpeed(int Speed);
+   virtual void Clear(void);
+   virtual void Play(void);
+diff -ruNbw vdr-1.2.6pre4/newplugin vdr-1.2.6pre5/newplugin
+--- vdr-1.2.6pre4/newplugin	Fri May  9 16:59:28 2003
++++ vdr-1.2.6pre5/newplugin	Fri May  9 16:59:28 2003
+@@ -261,7 +261,7 @@
+ sub CreateFile
+ {
+   my ($Name, $Content) = @_;
+-  open(FILE, ">$PLUGINDIR/$Name") || die "$Name:  $!\n";
++  open(FILE, ">$PLUGINDIR/$Name") || die "$Name: V126pre5 $!\n";
+   print FILE $Content;
+   close(FILE);
+ }
+diff -ruNbw vdr-1.2.6pre4/recording.c vdr-1.2.6pre5/recording.c
+--- vdr-1.2.6pre4/recording.c	Fri Oct 24 16:47:14 2003
++++ vdr-1.2.6pre5/recording.c	Sat Nov  8 16:25:35 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 1.85 2003/10/24 14:47:14 kls Exp $
++ * $Id: recording.c 1.86 2003/11/08 15:25:35 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -46,7 +46,7 @@
+ #define SUMMARYFILESUFFIX "/summary.vdr"
+ #define MARKSFILESUFFIX   "/marks.vdr"
+ 
+-#define FINDCMD      "find %s -follow -type d -name '%s' 2> /dev/null"
++#define FINDCMD      "cd '%s' && find '%s' -follow -type d -name '%s' 2> /dev/null"
+ 
+ #define MINDISKSPACE 1024 // MB
+ 
+@@ -621,7 +621,7 @@
+   Clear();
+   bool result = false;
+   char *cmd = NULL;
+-  asprintf(&cmd, FINDCMD, VideoDirectory, Deleted ? "*" DELEXT : "*" RECEXT);
++  asprintf(&cmd, FINDCMD, VideoDirectory, VideoDirectory, Deleted ? "*" DELEXT : "*" RECEXT);
+   FILE *p = popen(cmd, "r");
+   if (p) {
+      char *s;
+diff -ruNbw vdr-1.2.6pre4/sources.conf vdr-1.2.6pre5/sources.conf
+--- vdr-1.2.6pre4/sources.conf	Sun Oct 20 15:12:51 2002
++++ vdr-1.2.6pre5/sources.conf	Fri Nov  7 17:19:18 2003
+@@ -55,6 +55,15 @@
+ S78.5E  Thaicom 2/3
+ S80E    Express 6A
+ S83E    Insat 2E/3B
++S100.5E Asiasat 2
++S105.5E Asiasat 3S
++S113E   Palapa C2
++S152E   Optus B3
++S156E   Optus C1
++S160E   Optus B1
++S166E   PAS 8
++S169E   PAS 2
++S180E   Intelsat 701
+ 
+ S1W     Thor 2/3 & Intelsat 707
+ S4W     Amos 1
+@@ -80,6 +89,17 @@
+ S55.5W  Intelsat 805
+ S58W    PAS 9
+ S61.5W  Echostar 3
++S79W    AMC5
++S82W    Nimiq 2
++S87W    AMC3
++S91W    Nimiq 1
++S97W    Telestar 5
++S105W   AMC2
++S110W   Echostar 6/8
++S119W   Echostar 7
++S121W   Echostar 9
++S148W   Echostar 1/2
++S157W   Echostar 4
+ 
+ # Cable
+ 

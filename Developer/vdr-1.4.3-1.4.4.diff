@@ -1,0 +1,830 @@
+diff -ruN vdr-1.4.3/CONTRIBUTORS vdr-1.4.4/CONTRIBUTORS
+--- vdr-1.4.3/CONTRIBUTORS	2006-09-16 14:14:06.000000000 +0200
++++ vdr-1.4.4/CONTRIBUTORS	2006-11-04 14:18:43.000000000 +0100
+@@ -1382,6 +1382,10 @@
+  files than VDR itself
+  for adding a missing initialization of 'mutex' in cCiMenu::cCiMenu() and removing
+  some superfluous semicolons in ci.c
++ for pointing out what caused the problem with audio track descriptions after a
++ replay has been stopped
++ for reporting a problem with displaying the replay mode symbol in case of "Multi
++ speed mode"
+ 
+ Jürgen Schmitz <j.schmitz@web.de>
+  for reporting a bug in displaying the current channel when switching via the SVDRP
+@@ -1468,6 +1472,8 @@
+  for reporting a problem with cPlugin::ConfigDirectory() in case a plugin calls it
+  from a separate thread
+  for reporting that an assignment in svdrp.c didn't use the cTimer::operator=())
++ for suggesting that the function cThread::Cancel() should only set 'running' to
++ false and not actually kill the thread if the special value -1 is given
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -1821,6 +1827,17 @@
+  the Makefile to avoid a crash in case a new version is installed on a running system
+  for fixing handling video directory updates in case the timestamp of the .update
+  file is in the future
++ for fixing handling video directory updates in case an other process has touched the
++ .update file after the last NeedsUpdate() check
++ for fixing a possible crash if cPluginManager::GetPlugin() is called with a NULL
++ pointer
++ for fixing displaying the error log message in case an unknown plugin was requested
++ in a key macro
++ for pointing out that keys from expanded key macros should be put into the front of
++ the key queue to avoid problems if the queue is not empty at that time
++ for making cRemote::PutMacro() set a lock while it expands the macro
++ for pointing out that plugins from cRemote::PutMacro() and cRemote::CallPlugin()
++ need to be handled separately
+ 
+ Marcel Schaeben <mts280@gmx.de>
+  for his "Easy Input" patch
+@@ -2003,3 +2020,15 @@
+ 
+ Martin Ostermann <martin@familie-ostermann.de>
+  for fixing processing the PDCDescriptor in 'libsi' on big endian systems
++
++Boguslaw Juza <bogdan@uci.agh.edu.pl>
++ for reporting that there are stations that use blanks in the language codes
++ for reporting that events without an ExtendedEventDescriptor may get duplicate
++ information in their ShortText through the EPG bugfixes in case they are received
++ again
++ for reporting a problem with language codes of recorded audio tracks on channels with
++ multiple tracks
++
++Ulf Kiener <webmaster@ulf-kiener.de>
++ for reporting a problem with audio track descriptions in the DVD plugin after a
++ replay has been stopped
+diff -ruN vdr-1.4.3/HISTORY vdr-1.4.4/HISTORY
+--- vdr-1.4.3/HISTORY	2006-09-23 15:57:19.000000000 +0200
++++ vdr-1.4.4/HISTORY	2006-11-04 14:18:10.000000000 +0100
+@@ -4930,3 +4930,58 @@
+ 2006-09-23: Version 1.4.3
+ 
+ - Official release.
++
++2006-10-08: Version 1.4.3-1
++
++- The function cThread::Cancel() now only sets 'running' to false and does not
++  actually kill the thread if the special value -1 is given (suggested by Udo Richter).
++- Changed the I18nNormalizeLanguageCode() check to also allow blanks (and all other
++  printable characters) in the language codes (thanks to Boguslaw Juza for reporting
++  that there are stations that use blanks in these codes). Blanks are replaced with
++  underlines, so that all parts of VDR that rely on language codes to be one word
++  (without blanks) work as expected.
++- Now clearing an event's Title, ShortText and Description if there is no
++  ShortEventDescriptor or ExtendedEventDescriptor, respectively (thanks to Boguslaw
++  Juza for reporting that events without an ExtendedEventDescriptor may get
++  duplicate information in their ShortText through the EPG bugfixes in case they
++  are received again).
++- Fixed handling video directory updates in case an other process has touched the
++  .update file after the last NeedsUpdate() check (thanks to Petri Hintukainen).
++- Fixed handling language codes and descriptions of recorded audio tracks on channels
++  with multiple tracks where not all of them appear in the event data (reported by
++  Boguslaw Juza).
++
++2006-10-15: Version 1.4.3-2
++
++- Fixed clearing an event's Title, ShortText and Description in case the data comes
++  from an external source.
++- Updated the Hungarian language texts (thanks to Guido Josten).
++- Fixed a possible crash if cPluginManager::GetPlugin() is called with a NULL
++  pointer (thanks to Petri Hintukainen).
++- Fixed displaying the error log message in case an unknown plugin was requested
++  in a key macro (thanks to Petri Hintukainen).
++- Keys from expanded key macros are now put into the front of the key queue to
++  avoid problems if the queue is not empty at that time (based on a patch from
++  Petri Hintukainen).
++- cKeyMacro now has an explicit counter for the number of keys it contains.
++- cRemote::PutMacro() now sets a lock while it expands the macro (thanks to
++  Petri Hintukainen).
++- Fixed handling plugins from cRemote::PutMacro() and cRemote::CallPlugin()
++  (based on a patch from Petri Hintukainen).
++- Increased the size of the key queue to avoid problems with long key macros.
++
++2006-10-22: Version 1.4.3-3
++
++- Fixed setting audio track descriptions after a replay has been stopped (reported
++  by Ulf Kiener, thanks to Marco Schlüßler for pointing out what caused the problem).
++
++2006-10-29: Version 1.4.3-4
++
++- Fixed deleting EPG events that have a running status of "pausing" or higher.
++- Fixed handling NITs with more than one delivery system descriptor tag for the
++  same transponder.
++
++2006-11-04: Version 1.4.4
++
++- Fixed displaying the replay mode symbol in case of "Multi speed mode" (reported
++  by Marco Schlüßler).
+diff -ruN vdr-1.4.3/config.h vdr-1.4.4/config.h
+--- vdr-1.4.3/config.h	2006-09-23 15:56:08.000000000 +0200
++++ vdr-1.4.4/config.h	2006-11-04 14:19:31.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.271 2006/09/23 13:56:08 kls Exp $
++ * $Id: config.h 1.277 2006/11/04 13:19:31 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -21,13 +21,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.4.3"
+-#define VDRVERSNUM   10403  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.4.4"
++#define VDRVERSNUM   10404  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.4.3"
+-#define APIVERSNUM   10403  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.4.4"
++#define APIVERSNUM   10404  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-1.4.3/eit.c vdr-1.4.4/eit.c
+--- vdr-1.4.3/eit.c	2006-08-05 12:01:21.000000000 +0200
++++ vdr-1.4.4/eit.c	2006-10-09 18:14:36.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 1.120 2006/08/05 10:01:21 kls Exp $
++ * $Id: eit.c 1.122 2006/10/09 16:14:36 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -234,17 +234,24 @@
+             pEvent->SetTitle(ShortEventDescriptor->name.getText(buffer, sizeof(buffer)));
+             pEvent->SetShortText(ShortEventDescriptor->text.getText(buffer, sizeof(buffer)));
+             }
++         else if (!HasExternalData) {
++            pEvent->SetTitle(NULL);
++            pEvent->SetShortText(NULL);
++            }
+          if (ExtendedEventDescriptors) {
+             char buffer[ExtendedEventDescriptors->getMaximumTextLength(": ") + 1];
+             pEvent->SetDescription(ExtendedEventDescriptors->getText(buffer, sizeof(buffer), ": "));
+             }
++         else if (!HasExternalData)
++            pEvent->SetDescription(NULL);
+          }
+       delete ExtendedEventDescriptors;
+       delete ShortEventDescriptor;
+ 
+       pEvent->SetComponents(Components);
+ 
+-      pEvent->FixEpgBugs();
++      if (!HasExternalData)
++         pEvent->FixEpgBugs();
+       if (LinkChannels)
+          channel->SetLinkChannels(LinkChannels);
+       Modified = true;
+diff -ruN vdr-1.4.3/epg.c vdr-1.4.4/epg.c
+--- vdr-1.4.3/epg.c	2006-08-05 12:04:17.000000000 +0200
++++ vdr-1.4.4/epg.c	2006-10-28 11:12:42.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 1.79 2006/08/05 10:04:17 kls Exp $
++ * $Id: epg.c 1.81 2006/10/28 09:12:42 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -87,7 +87,8 @@
+ tComponent *cComponents::GetComponent(int Index, uchar Stream, uchar Type)
+ {
+   for (int i = 0; i < numComponents; i++) {
+-      if (components[i].stream == Stream && components[i].type == Type) {
++      // In case of an audio stream the 'type' check actually just distinguishes between "normal" and "Dolby Digital":
++      if (components[i].stream == Stream && (Stream != 2 || (components[i].type < 5) == (Type < 5))) {
+          if (!Index--)
+             return &components[i];
+          }
+@@ -663,6 +664,8 @@
+ void cSchedule::DelEvent(cEvent *Event)
+ {
+   if (Event->schedule == this) {
++     if (hasRunning && Event->IsRunning())
++        ClrRunningStatus();
+      UnhashEvent(Event);
+      events.Del(Event);
+      }
+@@ -741,8 +744,10 @@
+   hasRunning = false;
+   for (cEvent *p = events.First(); p; p = events.Next(p)) {
+       if (p == Event) {
+-         if (p->RunningStatus() > SI::RunningStatusNotRunning || RunningStatus > SI::RunningStatusNotRunning)
++         if (p->RunningStatus() > SI::RunningStatusNotRunning || RunningStatus > SI::RunningStatusNotRunning) {
+             p->SetRunningStatus(RunningStatus, Channel);
++            break;
++            }
+          }
+       else if (RunningStatus >= SI::RunningStatusPausing && p->StartTime() < Event->StartTime())
+          p->SetRunningStatus(SI::RunningStatusNotRunning);
+@@ -796,6 +801,8 @@
+                   // We can't delete the event right here because a timer might have
+                   // a pointer to it, so let's set its id and start time to 0 to have it
+                   // "phased out":
++                  if (hasRunning && p->IsRunning())
++                     ClrRunningStatus();
+                   UnhashEvent(p);
+                   p->eventID = 0;
+                   p->startTime = 0;
+diff -ruN vdr-1.4.3/epg.h vdr-1.4.4/epg.h
+--- vdr-1.4.3/epg.h	2006-03-25 13:39:39.000000000 +0100
++++ vdr-1.4.4/epg.h	2006-10-07 15:47:19.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.h 1.34 2006/03/25 12:39:39 kls Exp $
++ * $Id: epg.h 1.35 2006/10/07 13:47:19 kls Exp $
+  */
+ 
+ #ifndef __EPG_H
+@@ -43,6 +43,7 @@
+   void SetComponent(int Index, uchar Stream, uchar Type, const char *Language, const char *Description);
+   tComponent *Component(int Index) const { return (Index < numComponents) ? &components[Index] : NULL; }
+   tComponent *GetComponent(int Index, uchar Stream, uchar Type); // Gets the Index'th component of Stream and Type, skipping other components
++                                                                 // In case of an audio stream the 'type' check actually just distinguishes between "normal" and "Dolby Digital"
+   };
+ 
+ class cSchedule;
+diff -ruN vdr-1.4.3/i18n.c vdr-1.4.4/i18n.c
+--- vdr-1.4.3/i18n.c	2006-09-16 11:08:30.000000000 +0200
++++ vdr-1.4.4/i18n.c	2006-10-14 11:26:41.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.282 2006/09/16 09:08:30 kls Exp $
++ * $Id: i18n.c 1.285 2006/10/14 09:26:41 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -3582,7 +3582,7 @@
+     "ÌïñöÞ áðåéêüíéóçò Âßíôåï",
+     "Format för video display",
+     "Formatul redãrii video",
+-    "",//TODO
++    "Képerny¿formátum",
+     "",//TODO
+     "ÈØàÞÚÞíÚàÐÝÝÞÕ Ø×ÞÑàÐÖÕÝØÕ",
+     "Format video prikaza",
+@@ -4596,7 +4596,7 @@
+     " áÜâãäåÝæçÞèéßêëìíîïüðñóòôõýö÷øùþ0123456789-.#~,/_@abcdefghijklmnopqrstuvwxyz",
+     " abcdefghijklmnopqrstuvwxyzåäö0123456789-.#~,/_@",
+     " aãâbcdefghiîjklmnopqrsºtþuvwxyz0123456789-.#~,/_@",
+-    " aábcdeéfghiíjklmnoóöpqrstuúüvwxyz0123456789-.,#~,/_@",
++    " aábcdeéfghiíjklmnoóö¿pqrstuúü¿vwxyz0123456789-.,#~,/_@",
+     " aàbcçdeéèfghiíjklmnoòpqrstuúvwxyz0123456789-.,#~,/_@·",
+     " abcdefghijklmnopqrstuvwxyzÐÑÒÓÔÕñÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìîï0123456789-.#~,/_@",
+     " abcèædðefghijklmnopqrs¹tuvwxyz¾0123456789-.#~,/_@", // hrv
+@@ -4619,7 +4619,7 @@
+     "",//TODO
+     " 0\t-.#~,/_@1\tabcåä2\tdef3\tghi4\tjkl5\tmnoö6\tpqrs7\ttuv8\twxyz",
+     " 0\t-.#~,/_@1\taãâbc2\tdef3\tghiî4\tjkl5\tmno6\tpqrsº7\ttþuv8\twxyz9",
+-    "",//TODO
++    " 0\t-.#~,/_@1\taábc2\tdeé3\tghií4\tjkl5\tmnoóö¿6\tpqrs7\ttuúü¿v8\twxyz9",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -6243,12 +6243,31 @@
+ 
+ const char *I18nNormalizeLanguageCode(const char *Code)
+ {
+-  if (Code[0] && !isalnum(Code[0]) || Code[1] && !isalnum(Code[1]) || Code[2] && !isalnum(Code[2])) {
+-     // ISO 639 language codes are defined as alphabetical characters, but digits are apparently
+-     // also used, for instance for "2ch"
+-     //dsyslog("invalid language code: '%s'", Code);
+-     return "???";
+-     }
++  for (int i = 0; i < 3; i++) {
++      if (Code[i]) {
++         // ETSI EN 300 468 defines language codes as consisting of three letters
++         // according to ISO 639-2. This means that they are supposed to always consist
++         // of exactly three letters in the range a-z - no digits, UTF-8 or other
++         // funny characters. However, some broadcasters apparently don't have a
++         // copy of the DVB standard (or they do, but are perhaps unable to read it),
++         // so they put all sorts of non-standard stuff into the language codes,
++         // like nonsense as "2ch" or "A 1" (yes, they even go as far as using
++         // blanks!). Such things should go into the description of the EPG event's
++         // ComponentDescriptor.
++         // So, as a workaround for this broadcaster stupidity, let's ignore
++         // language codes with unprintable characters...
++         if (!isprint(Code[i])) {
++            //dsyslog("invalid language code: '%s'", Code);
++            return "???";
++            }
++         // ...and replace blanks with underlines (ok, this breaks the 'const'
++         // of the Code parameter - but hey, it's them who started this):
++         if (Code[i] == ' ')
++            *((char *)&Code[i]) = '_';
++         }
++      else
++         break;
++      }
+   int n = I18nLanguageIndex(Code);
+   return n >= 0 ? I18nLanguageCode(n) : Code;
+ }
+diff -ruN vdr-1.4.3/keys.c vdr-1.4.4/keys.c
+--- vdr-1.4.3/keys.c	2006-04-15 15:50:43.000000000 +0200
++++ vdr-1.4.4/keys.c	2006-10-14 12:18:05.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: keys.c 1.13 2006/04/15 13:50:43 kls Exp $
++ * $Id: keys.c 1.14 2006/10/14 10:18:05 kls Exp $
+  */
+ 
+ #include "keys.h"
+@@ -186,8 +186,9 @@
+ 
+ cKeyMacro::cKeyMacro(void)
+ {
++  numKeys = 0;
+   for (int i = 0; i < MAXKEYSINMACRO; i++)
+-      macro[i] = kNone;
++      macro[i] = kNone; // for compatibility with old code that doesn't know about NumKeys()
+   plugin = NULL;
+ }
+ 
+@@ -241,9 +242,9 @@
+            return false;
+            }
+         }
+-  if (n < 2) {
+-     esyslog("ERROR: empty key macro");
+-     }
++  if (n < 2)
++     esyslog("ERROR: empty key macro"); // non fatal
++  numKeys = n;
+   return true;
+ }
+ 
+diff -ruN vdr-1.4.3/keys.h vdr-1.4.4/keys.h
+--- vdr-1.4.3/keys.h	2006-04-15 15:56:03.000000000 +0200
++++ vdr-1.4.4/keys.h	2006-10-14 12:41:20.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: keys.h 1.9 2006/04/15 13:56:03 kls Exp $
++ * $Id: keys.h 1.10 2006/10/14 10:41:20 kls Exp $
+  */
+ 
+ #ifndef __KEYS_H
+@@ -117,11 +117,16 @@
+ class cKeyMacro : public cListObject {
+ private:
+   eKeys macro[MAXKEYSINMACRO];
++  int numKeys;
+   char *plugin;
+ public:
+   cKeyMacro(void);
+   ~cKeyMacro();
+   bool Parse(char *s);
++  int NumKeys(void) const { return numKeys; }
++      ///< Returns the number of keys in this macro. The first key (with
++      ///< index 0) is the macro code. The actual macro expansion codes
++      ///< start at index 1 and go to NumKeys() - 1.
+   const eKeys *Macro(void) const { return macro; }
+   const char *Plugin(void) const { return plugin; }
+   };
+diff -ruN vdr-1.4.3/menu.c vdr-1.4.4/menu.c
+--- vdr-1.4.3/menu.c	2006-07-23 11:23:11.000000000 +0200
++++ vdr-1.4.4/menu.c	2006-11-04 14:13:18.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.443 2006/07/23 09:23:11 kls Exp $
++ * $Id: menu.c 1.445 2006/11/04 13:13:18 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -3018,9 +3018,9 @@
+            }
+         }
+      }
+-  else if (cReplayControl::LastReplayed()) {
++  else if (cReplayControl::NowReplaying()) {
+      cThreadLock RecordingsLock(&Recordings);
+-     cRecording *Recording = Recordings.GetByName(cReplayControl::LastReplayed());
++     cRecording *Recording = Recordings.GetByName(cReplayControl::NowReplaying());
+      if (Recording)
+         Components = Recording->Info()->Components();
+      }
+@@ -3806,17 +3806,19 @@
+ 
+ // --- cReplayControl --------------------------------------------------------
+ 
++cReplayControl *cReplayControl::currentReplayControl = NULL;
+ char *cReplayControl::fileName = NULL;
+ char *cReplayControl::title = NULL;
+ 
+ cReplayControl::cReplayControl(void)
+ :cDvbPlayerControl(fileName)
+ {
++  currentReplayControl = this;
+   displayReplay = NULL;
+   visible = modeOnly = shown = displayFrames = false;
+   lastCurrent = lastTotal = -1;
+   lastPlay = lastForward = false;
+-  lastSpeed = -1;
++  lastSpeed = -2; // an invalid value
+   timeoutShow = 0;
+   timeSearchActive = false;
+   marks.Load(fileName);
+@@ -3830,6 +3832,8 @@
+   Hide();
+   cStatus::MsgReplaying(this, NULL, fileName, false);
+   Stop();
++  if (currentReplayControl == this)
++     currentReplayControl = NULL;
+ }
+ 
+ void cReplayControl::SetRecording(const char *FileName, const char *Title)
+@@ -3840,6 +3844,11 @@
+   title = Title ? strdup(Title) : NULL;
+ }
+ 
++const char *cReplayControl::NowReplaying(void)
++{
++  return currentReplayControl ? fileName : NULL;
++}
++
+ const char *cReplayControl::LastReplayed(void)
+ {
+   return fileName;
+@@ -3876,7 +3885,7 @@
+      needsFastResponse = visible = false;
+      modeOnly = false;
+      lastPlay = lastForward = false;
+-     lastSpeed = -1;
++     lastSpeed = -2; // an invalid value
+      timeSearchActive = false;
+      }
+ }
+diff -ruN vdr-1.4.3/menu.h vdr-1.4.4/menu.h
+--- vdr-1.4.3/menu.h	2006-03-25 13:15:19.000000000 +0100
++++ vdr-1.4.4/menu.h	2006-10-20 15:09:57.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 1.85 2006/03/25 12:15:19 kls Exp $
++ * $Id: menu.h 1.86 2006/10/20 13:09:57 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -233,6 +233,7 @@
+   void TimeSearchProcess(eKeys Key);
+   void TimeSearch(void);
+   void ShowTimed(int Seconds = 0);
++  static cReplayControl *currentReplayControl;
+   static char *fileName;
+   static char *title;
+   void ShowMode(void);
+@@ -251,6 +252,7 @@
+   virtual void Hide(void);
+   bool Visible(void) { return visible; }
+   static void SetRecording(const char *FileName, const char *Title);
++  static const char *NowReplaying(void);
+   static const char *LastReplayed(void);
+   static void ClearLastReplayed(const char *FileName);
+   };
+diff -ruN vdr-1.4.3/nit.c vdr-1.4.4/nit.c
+--- vdr-1.4.3/nit.c	2006-05-27 17:35:16.000000000 +0200
++++ vdr-1.4.4/nit.c	2006-10-28 14:31:04.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: nit.c 1.12 2006/05/27 15:35:16 kls Exp $
++ * $Id: nit.c 1.13 2006/10/28 12:31:04 kls Exp $
+  */
+ 
+ #include "nit.h"
+@@ -144,15 +144,17 @@
+                  for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+                      if (!Channel->GroupSep() && Channel->Source() == Source && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+                         if (Setup.UpdateChannels >= 5) {
+-                           if (!ISTRANSPONDER(cChannel::Transponder(Frequency, Polarization), Channel->Transponder())) {
+-                              for (int n = 0; n < NumFrequencies; n++) {
+-                                  if (ISTRANSPONDER(cChannel::Transponder(Frequencies[n], Polarization), Channel->Transponder())) {
+-                                     Frequency = Frequencies[n];
+-                                     break;
++                           if (ISTRANSPONDER(cChannel::Transponder(Frequency, Polarization), Transponder())) { // only modify channels if we're actually receiving this transponder
++                              if (!ISTRANSPONDER(cChannel::Transponder(Frequency, Polarization), Channel->Transponder())) {
++                                 for (int n = 0; n < NumFrequencies; n++) {
++                                     if (ISTRANSPONDER(cChannel::Transponder(Frequencies[n], Polarization), Channel->Transponder())) {
++                                        Frequency = Frequencies[n];
++                                        break;
++                                        }
+                                      }
+-                                  }
++                                 }
++                              Channel->SetSatTransponderData(Source, Frequency, Polarization, SymbolRate, CodeRate);
+                               }
+-                           Channel->SetSatTransponderData(Source, Frequency, Polarization, SymbolRate, CodeRate);
+                            }
+                         found = true;
+                         }
+@@ -193,15 +195,17 @@
+                  for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+                      if (!Channel->GroupSep() && Channel->Source() == Source && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+                         if (Setup.UpdateChannels >= 5) {
+-                           if (!ISTRANSPONDER(Frequency / 1000, Channel->Transponder())) {
+-                              for (int n = 0; n < NumFrequencies; n++) {
+-                                  if (ISTRANSPONDER(Frequencies[n] / 1000, Channel->Transponder())) {
+-                                     Frequency = Frequencies[n];
+-                                     break;
++                           if (ISTRANSPONDER(Frequency / 1000, Transponder())) { // only modify channels if we're actually receiving this transponder
++                              if (!ISTRANSPONDER(Frequency / 1000, Channel->Transponder())) {
++                                 for (int n = 0; n < NumFrequencies; n++) {
++                                     if (ISTRANSPONDER(Frequencies[n] / 1000, Channel->Transponder())) {
++                                        Frequency = Frequencies[n];
++                                        break;
++                                        }
+                                      }
+-                                  }
++                                 }
++                              Channel->SetCableTransponderData(Source, Frequency, Modulation, SymbolRate, CodeRate);
+                               }
+-                           Channel->SetCableTransponderData(Source, Frequency, Modulation, SymbolRate, CodeRate);
+                            }
+                         found = true;
+                         }
+@@ -249,15 +253,17 @@
+                  for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+                      if (!Channel->GroupSep() && Channel->Source() == Source && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+                         if (Setup.UpdateChannels >= 5) {
+-                           if (!ISTRANSPONDER(Frequency / 1000000, Channel->Transponder())) {
+-                              for (int n = 0; n < NumFrequencies; n++) {
+-                                  if (ISTRANSPONDER(Frequencies[n] / 1000000, Channel->Transponder())) {
+-                                     Frequency = Frequencies[n];
+-                                     break;
++                           if (ISTRANSPONDER(Frequency / 1000000, Transponder())) { // only modify channels if we're actually receiving this transponder
++                              if (!ISTRANSPONDER(Frequency / 1000000, Channel->Transponder())) {
++                                 for (int n = 0; n < NumFrequencies; n++) {
++                                     if (ISTRANSPONDER(Frequencies[n] / 1000000, Channel->Transponder())) {
++                                        Frequency = Frequencies[n];
++                                        break;
++                                        }
+                                      }
+-                                  }
++                                 }
++                              Channel->SetTerrTransponderData(Source, Frequency, Bandwidth, Constellation, Hierarchy, CodeRateHP, CodeRateLP, GuardInterval, TransmissionMode);
+                               }
+-                           Channel->SetTerrTransponderData(Source, Frequency, Bandwidth, Constellation, Hierarchy, CodeRateHP, CodeRateLP, GuardInterval, TransmissionMode);
+                            }
+                         found = true;
+                         }
+diff -ruN vdr-1.4.3/plugin.c vdr-1.4.4/plugin.c
+--- vdr-1.4.3/plugin.c	2006-08-13 10:51:44.000000000 +0200
++++ vdr-1.4.4/plugin.c	2006-10-14 11:49:16.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: plugin.c 1.23 2006/08/13 08:51:44 kls Exp $
++ * $Id: plugin.c 1.24 2006/10/14 09:49:16 kls Exp $
+  */
+ 
+ #include "plugin.h"
+@@ -416,7 +416,7 @@
+ 
+ cPlugin *cPluginManager::GetPlugin(const char *Name)
+ {
+-  if (pluginManager) {
++  if (pluginManager && Name) {
+      for (cDll *dll = pluginManager->dlls.First(); dll; dll = pluginManager->dlls.Next(dll)) {
+          cPlugin *p = dll->Plugin();
+          if (p && strcmp(p->Name(), Name) == 0)
+diff -ruN vdr-1.4.3/recording.c vdr-1.4.4/recording.c
+--- vdr-1.4.3/recording.c	2006-09-16 14:12:34.000000000 +0200
++++ vdr-1.4.4/recording.c	2006-10-07 14:46:22.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 1.150 2006/09/16 12:12:34 kls Exp $
++ * $Id: recording.c 1.151 2006/10/07 12:46:22 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -941,8 +941,10 @@
+ 
+ void cRecordings::TouchUpdate(void)
+ {
++  bool needsUpdate = NeedsUpdate();
+   TouchFile(UpdateFileName());
+-  lastUpdate = time(NULL); // make sure we don't tigger ourselves
++  if (!needsUpdate)
++     lastUpdate = time(NULL); // make sure we don't tigger ourselves
+ }
+ 
+ bool cRecordings::NeedsUpdate(void)
+diff -ruN vdr-1.4.3/remote.c vdr-1.4.4/remote.c
+--- vdr-1.4.3/remote.c	2006-05-12 14:40:15.000000000 +0200
++++ vdr-1.4.4/remote.c	2006-10-14 13:05:57.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.c 1.51 2006/05/12 12:40:15 kls Exp $
++ * $Id: remote.c 1.54 2006/10/14 11:05:57 kls Exp $
+  */
+ 
+ #include "remote.h"
+@@ -29,7 +29,8 @@
+ char *cRemote::unknownCode = NULL;
+ cMutex cRemote::mutex;
+ cCondVar cRemote::keyPressed;
+-const char *cRemote::plugin = NULL;
++const char *cRemote::keyMacroPlugin = NULL;
++const char *cRemote::callPlugin = NULL;
+ 
+ cRemote::cRemote(const char *Name)
+ {
+@@ -105,14 +106,11 @@
+ {
+   const cKeyMacro *km = KeyMacros.Get(Key);
+   if (km) {
+-     plugin = km->Plugin();
+-     for (int i = 1; i < MAXKEYSINMACRO; i++) {
+-         if (km->Macro()[i] != kNone) {
+-            if (!Put(km->Macro()[i]))
+-               return false;
+-            }
+-         else
+-            break;
++     keyMacroPlugin = km->Plugin();
++     cMutexLock MutexLock(&mutex);
++     for (int i = km->NumKeys(); --i > 0; ) {
++         if (!Put(km->Macro()[i], true))
++            return false;
+          }
+      }
+   return true;
+@@ -148,8 +146,8 @@
+ bool cRemote::CallPlugin(const char *Plugin)
+ {
+   cMutexLock MutexLock(&mutex);
+-  if (!plugin) {
+-     plugin = Plugin;
++  if (!callPlugin) {
++     callPlugin = Plugin;
+      Put(k_Plugin);
+      return true;
+      }
+@@ -159,8 +157,13 @@
+ const char *cRemote::GetPlugin(void)
+ {
+   cMutexLock MutexLock(&mutex);
+-  const char *p = plugin;
+-  plugin = NULL;
++  const char *p = keyMacroPlugin;
++  if (p)
++     keyMacroPlugin = NULL;
++  else {
++     p = callPlugin;
++     callPlugin = NULL;
++     }
+   return p;
+ }
+ 
+diff -ruN vdr-1.4.3/remote.h vdr-1.4.4/remote.h
+--- vdr-1.4.3/remote.h	2006-04-17 10:59:48.000000000 +0200
++++ vdr-1.4.4/remote.h	2006-10-14 13:46:58.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.h 1.35 2006/04/17 08:59:48 kls Exp $
++ * $Id: remote.h 1.37 2006/10/14 11:46:58 kls Exp $
+  */
+ 
+ #ifndef __REMOTE_H
+@@ -19,7 +19,7 @@
+ 
+ class cRemote : public cListObject {
+ private:
+-  enum { MaxKeys = MAXKEYSINMACRO };
++  enum { MaxKeys = 2 * MAXKEYSINMACRO };
+   static eKeys keys[MaxKeys];
+   static int in;
+   static int out;
+@@ -28,7 +28,8 @@
+   static char *unknownCode;
+   static cMutex mutex;
+   static cCondVar keyPressed;
+-  static const char *plugin;
++  static const char *keyMacroPlugin;
++  static const char *callPlugin;
+   char *name;
+ protected:
+   cRemote(const char *Name);
+@@ -56,7 +57,7 @@
+       ///< false will be returned and the caller should try again later.
+   static const char *GetPlugin(void);
+       ///< Returns the name of the plugin that was set with a previous
+-      ///< call to CallPlugin(). The internally stored pointer to the
++      ///< call to PutMacro() or CallPlugin(). The internally stored pointer to the
+       ///< plugin name will be reset to NULL by this call.
+   static bool HasKeys(void);
+   static eKeys Get(int WaitMs = 1000, char **UnknownCode = NULL);
+diff -ruN vdr-1.4.3/thread.c vdr-1.4.4/thread.c
+--- vdr-1.4.3/thread.c	2006-08-20 12:20:44.000000000 +0200
++++ vdr-1.4.4/thread.c	2006-09-24 14:54:47.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.c 1.57 2006/08/20 10:20:44 kls Exp $
++ * $Id: thread.c 1.58 2006/09/24 12:54:47 kls Exp $
+  */
+ 
+ #include "thread.h"
+@@ -293,7 +293,7 @@
+ void cThread::Cancel(int WaitSeconds)
+ {
+   running = false;
+-  if (active) {
++  if (active && WaitSeconds > -1) {
+      if (WaitSeconds > 0) {
+         for (time_t t0 = time(NULL) + WaitSeconds; time(NULL) < t0; ) {
+             if (!Active())
+diff -ruN vdr-1.4.3/thread.h vdr-1.4.4/thread.h
+--- vdr-1.4.3/thread.h	2006-01-08 12:40:23.000000000 +0100
++++ vdr-1.4.4/thread.h	2006-09-24 12:10:37.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.h 1.36 2006/01/08 11:40:23 kls Exp $
++ * $Id: thread.h 1.37 2006/09/24 10:10:37 kls Exp $
+  */
+ 
+ #ifndef __THREAD_H
+@@ -103,6 +103,8 @@
+        ///< the Action() loop can finish in an orderly fashion and then waiting
+        ///< up to WaitSeconds seconds for the thread to actually end. If the
+        ///< thread doesn't end by itself, it is killed.
++       ///< If WaitSeconds is -1, only 'running' is set to false and Cancel()
++       ///< returns immediately, without killing the thread.
+ public:
+   cThread(const char *Description = NULL);
+        ///< Creates a new thread.
+diff -ruN vdr-1.4.3/vdr.c vdr-1.4.4/vdr.c
+--- vdr-1.4.3/vdr.c	2006-09-01 14:57:44.000000000 +0200
++++ vdr-1.4.4/vdr.c	2006-10-14 12:01:32.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.279 2006/09/01 12:57:44 kls Exp $
++ * $Id: vdr.c 1.280 2006/10/14 10:01:32 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -923,17 +923,20 @@
+           case kCommands:   DirectMainFunction(osCommands); break;
+           case kUser1 ... kUser9: cRemote::PutMacro(key); key = kNone; break;
+           case k_Plugin: {
+-               DELETE_MENU;
+-               if (cControl::Control())
+-                  cControl::Control()->Hide();
+-               cPlugin *plugin = cPluginManager::GetPlugin(cRemote::GetPlugin());
+-               if (plugin) {
+-                  Menu = plugin->MainMenuAction();
+-                  if (Menu)
+-                     Menu->Show();
++               const char *PluginName = cRemote::GetPlugin();
++               if (PluginName) {
++                  DELETE_MENU;
++                  if (cControl::Control())
++                     cControl::Control()->Hide();
++                  cPlugin *plugin = cPluginManager::GetPlugin(PluginName);
++                  if (plugin) {
++                     Menu = plugin->MainMenuAction();
++                     if (Menu)
++                        Menu->Show();
++                     }
++                  else
++                     esyslog("ERROR: unknown plugin '%s'", PluginName);
+                   }
+-               else
+-                  esyslog("ERROR: unknown plugin '%s'", cRemote::GetPlugin());
+                key = kNone; // nobody else needs to see these keys
+                }
+                break;

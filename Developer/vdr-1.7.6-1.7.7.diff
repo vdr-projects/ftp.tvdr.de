@@ -1,0 +1,1949 @@
+diff -ruN vdr-1.7.6/CONTRIBUTORS vdr-1.7.7/CONTRIBUTORS
+--- vdr-1.7.6/CONTRIBUTORS	2009-04-25 16:21:23.000000000 +0200
++++ vdr-1.7.7/CONTRIBUTORS	2009-05-03 16:45:53.000000000 +0200
+@@ -671,6 +671,7 @@
+  for reporting that the video type is unnecessarily written into channels.conf if
+  VPID is 0
+  for reporting chirping sound disturbences at editing points in TS recordings
++ for reporting broken index generation in TS recordings after a buffer overflow
+ 
+ Reinhard Walter Buchner <rw.buchner@freenet.de>
+  for adding some satellites to 'sources.conf'
+diff -ruN vdr-1.7.6/HISTORY vdr-1.7.7/HISTORY
+--- vdr-1.7.6/HISTORY	2009-04-26 11:43:16.000000000 +0200
++++ vdr-1.7.7/HISTORY	2009-05-03 16:45:17.000000000 +0200
+@@ -6060,3 +6060,17 @@
+ - Added a note to the INSTALL file about using subdirectories to split a large
+   disk into separate areas for VDR's video data and other stuff (suggested by
+   Udo Richter).
++
++2009-05-03: Version 1.7.7
++
++- The new function cDevice::GetVideoSize() returns the size and aspect ratio
++  of the video material currently displayed. This function is used to determine
++  the proper size of the OSD. Plugin authors should implement this function in
++  classes derived from cDevice, if they are able to replay video.
++- The OSD and font sizes are now defined in percent of the actual video display
++  size. The maximum OSD size has been raised to 1920x1080, to allow full
++  screen OSD on HD systems.
++- The OSD size is now automatically adjusted to the actual video display
++  (provided the output device implements the GetVideoSize() function).
++- cFrameDetector::Analyze() now syncs on the TS packet sync bytes (thanks to
++  Oliver Endriss for reporting broken index generation after a buffer overflow).
+diff -ruN vdr-1.7.6/MANUAL vdr-1.7.7/MANUAL
+--- vdr-1.7.6/MANUAL	2008-02-24 11:09:17.000000000 +0100
++++ vdr-1.7.7/MANUAL	2009-05-03 16:04:22.000000000 +0200
+@@ -489,12 +489,13 @@
+ 
+   Theme = Default        Defines the "theme" to use with the current skin.
+ 
+-  Left = 54              The top and left offset of the OSD.
+-  Top = 45               The valid ranges are left=0...672, top=0...567.
+-
+-  Width = 624            The width and height of the OSD.
+-  Height = 486           The valid ranges are width=480...672, height=324...567.
+-                         The Width must be a multiple of 8.
++  Left = 8               The left and top offset of the OSD, in percent of the
++  Top = 8                total video display width and height, respectively.
++                         The valid range is 0...50%.
++
++  Width = 87             The width and height of the OSD, in percent of the
++  Height = 84            total video display width and height, respectively.
++                         The valid range is 50...100%.
+ 
+   Message time = 1       The time (in seconds) how long an informational
+                          message shall be displayed on the OSD. The valid range
+@@ -516,11 +517,12 @@
+   Fixed font = Courier:Bold
+                          The names of the various fonts to use.
+ 
+-  Default font size = 22
+-  Small font size = 18
+-  Fixed font size = 20
+-                         The sizes (in pixel) of the various fonts. Valid range is
+-                         10...64.
++  Default font size = 3.8
++  Small font size = 3.5
++  Fixed font size = 3.1
++                         The sizes (in percent of the total video display height)
++                         of the various fonts. The valid range is 1...10%, at
++                         a resolution of 0.1%.
+ 
+   Channel info position = bottom
+                          The position of the channel info window in the OSD
+diff -ruN vdr-1.7.6/PLUGINS.html vdr-1.7.7/PLUGINS.html
+--- vdr-1.7.6/PLUGINS.html	2009-04-18 11:48:33.000000000 +0200
++++ vdr-1.7.7/PLUGINS.html	2009-05-02 13:15:42.000000000 +0200
+@@ -1939,6 +1939,17 @@
+ a "full featured" DVB card) or through a graphics adapter that overlays its
+ output with the video signal, doesn't matter.
+ 
++<div class="modified">
++In order to be able to determine the proper size of the OSD, the device
++should implement the function
++
++<p><table><tr><td class="code"><pre>
++virtual void GetVideoSize(int &amp;Width, int &amp;Height, eVideoAspect &amp;Aspect);
++</pre></td></tr></table><p>
++
++By default, an OSD size of 480x324 with an aspect ratio of 4:3 is assumed.
++</div modified>
++
+ <p>
+ <b>Initializing new devices</b>
+ <p>
+diff -ruN vdr-1.7.6/config.c vdr-1.7.7/config.c
+--- vdr-1.7.6/config.c	2009-01-24 16:05:32.000000000 +0100
++++ vdr-1.7.7/config.c	2009-05-03 15:58:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 2.1 2009/01/24 15:05:32 kls Exp $
++ * $Id: config.c 2.2 2009/05/03 13:58:08 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -262,6 +262,10 @@
+   UseDolbyDigital = 1;
+   ChannelInfoPos = 0;
+   ChannelInfoTime = 5;
++  OSDLeftP = 0.08;
++  OSDTopP = 0.08;
++  OSDWidthP = 0.87;
++  OSDHeightP = 0.84;
+   OSDLeft = 54;
+   OSDTop = 45;
+   OSDWidth = 624;
+@@ -272,6 +276,9 @@
+   strcpy(FontOsd, DefaultFontOsd);
+   strcpy(FontSml, DefaultFontSml);
+   strcpy(FontFix, DefaultFontFix);
++  FontOsdSizeP = 0.038;
++  FontSmlSizeP = 0.035;
++  FontFixSizeP = 0.031;
+   FontOsdSize = 22;
+   FontSmlSize = 18;
+   FontFixSize = 20;
+@@ -324,6 +331,11 @@
+   Store(Name, cString::sprintf("%d", Value), Plugin);
+ }
+ 
++void cSetup::Store(const char *Name, double &Value, const char *Plugin)
++{
++  Store(Name, cString::sprintf("%f", Value), Plugin);
++}
++
+ bool cSetup::Load(const char *FileName)
+ {
+   if (cConfig<cSetupLine>::Load(FileName, true)) {
+@@ -435,16 +447,23 @@
+   else if (!strcasecmp(Name, "UseDolbyDigital"))     UseDolbyDigital    = atoi(Value);
+   else if (!strcasecmp(Name, "ChannelInfoPos"))      ChannelInfoPos     = atoi(Value);
+   else if (!strcasecmp(Name, "ChannelInfoTime"))     ChannelInfoTime    = atoi(Value);
++  else if (!strcasecmp(Name, "OSDLeftP"))            OSDLeftP           = atof(Value);
++  else if (!strcasecmp(Name, "OSDTopP"))             OSDTopP            = atof(Value);
++  else if (!strcasecmp(Name, "OSDWidthP"))           OSDWidthP          = atof(Value);
++  else if (!strcasecmp(Name, "OSDHeightP"))          OSDHeightP         = atof(Value);
+   else if (!strcasecmp(Name, "OSDLeft"))             OSDLeft            = atoi(Value);
+   else if (!strcasecmp(Name, "OSDTop"))              OSDTop             = atoi(Value);
+-  else if (!strcasecmp(Name, "OSDWidth"))          { OSDWidth           = atoi(Value); if (OSDWidth  < 100) OSDWidth  *= 12; OSDWidth &= ~0x07; } // OSD width must be a multiple of 8
+-  else if (!strcasecmp(Name, "OSDHeight"))         { OSDHeight          = atoi(Value); if (OSDHeight < 100) OSDHeight *= 27; }
++  else if (!strcasecmp(Name, "OSDWidth"))          { OSDWidth           = atoi(Value); OSDWidth &= ~0x07; } // OSD width must be a multiple of 8
++  else if (!strcasecmp(Name, "OSDHeight"))           OSDHeight          = atoi(Value);
+   else if (!strcasecmp(Name, "OSDMessageTime"))      OSDMessageTime     = atoi(Value);
+   else if (!strcasecmp(Name, "UseSmallFont"))        UseSmallFont       = atoi(Value);
+   else if (!strcasecmp(Name, "AntiAlias"))           AntiAlias          = atoi(Value);
+   else if (!strcasecmp(Name, "FontOsd"))             Utf8Strn0Cpy(FontOsd, Value, MAXFONTNAME);
+   else if (!strcasecmp(Name, "FontSml"))             Utf8Strn0Cpy(FontSml, Value, MAXFONTNAME);
+   else if (!strcasecmp(Name, "FontFix"))             Utf8Strn0Cpy(FontFix, Value, MAXFONTNAME);
++  else if (!strcasecmp(Name, "FontOsdSizeP"))        FontOsdSizeP       = atof(Value);
++  else if (!strcasecmp(Name, "FontSmlSizeP"))        FontSmlSizeP       = atof(Value);
++  else if (!strcasecmp(Name, "FontFixSizeP"))        FontFixSizeP       = atof(Value);
+   else if (!strcasecmp(Name, "FontOsdSize"))         FontOsdSize        = atoi(Value);
+   else if (!strcasecmp(Name, "FontSmlSize"))         FontSmlSize        = atoi(Value);
+   else if (!strcasecmp(Name, "FontFixSize"))         FontFixSize        = atoi(Value);
+@@ -518,6 +537,10 @@
+   Store("UseDolbyDigital",    UseDolbyDigital);
+   Store("ChannelInfoPos",     ChannelInfoPos);
+   Store("ChannelInfoTime",    ChannelInfoTime);
++  Store("OSDLeftP",           OSDLeftP);
++  Store("OSDTopP",            OSDTopP);
++  Store("OSDWidthP",          OSDWidthP);
++  Store("OSDHeightP",         OSDHeightP);
+   Store("OSDLeft",            OSDLeft);
+   Store("OSDTop",             OSDTop);
+   Store("OSDWidth",           OSDWidth);
+@@ -528,6 +551,9 @@
+   Store("FontOsd",            FontOsd);
+   Store("FontSml",            FontSml);
+   Store("FontFix",            FontFix);
++  Store("FontOsdSizeP",       FontOsdSizeP);
++  Store("FontSmlSizeP",       FontSmlSizeP);
++  Store("FontFixSizeP",       FontFixSizeP);
+   Store("FontOsdSize",        FontOsdSize);
+   Store("FontSmlSize",        FontSmlSize);
+   Store("FontFixSize",        FontFixSize);
+diff -ruN vdr-1.7.6/config.h vdr-1.7.7/config.h
+--- vdr-1.7.6/config.h	2009-04-12 16:20:52.000000000 +0200
++++ vdr-1.7.7/config.h	2009-05-03 15:15:35.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.8 2009/04/12 14:20:52 kls Exp $
++ * $Id: config.h 2.9 2009/05/03 13:15:35 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.6"
+-#define VDRVERSNUM   10706  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.7"
++#define VDRVERSNUM   10707  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.6"
+-#define APIVERSNUM   10706  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.7"
++#define APIVERSNUM   10707  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+@@ -39,10 +39,10 @@
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+ 
+-#define MINOSDWIDTH  480
+-#define MAXOSDWIDTH  672
+-#define MINOSDHEIGHT 324
+-#define MAXOSDHEIGHT 567
++#define MINOSDWIDTH   480
++#define MAXOSDWIDTH  1920
++#define MINOSDHEIGHT  324
++#define MAXOSDHEIGHT 1080
+ 
+ #define MaxFileName 256
+ #define MaxSkinName 16
+@@ -195,6 +195,7 @@
+   cSetupLine *Get(const char *Name, const char *Plugin = NULL);
+   void Store(const char *Name, const char *Value, const char *Plugin = NULL, bool AllowMultiple = false);
+   void Store(const char *Name, int Value, const char *Plugin = NULL);
++  void Store(const char *Name, double &Value, const char *Plugin = NULL);
+ public:
+   // Also adjust cMenuSetup (menu.c) when adding parameters here!
+   int __BeginData__;
+@@ -243,6 +244,7 @@
+   int UseDolbyDigital;
+   int ChannelInfoPos;
+   int ChannelInfoTime;
++  double OSDLeftP, OSDTopP, OSDWidthP, OSDHeightP;
+   int OSDLeft, OSDTop, OSDWidth, OSDHeight;
+   int OSDMessageTime;
+   int UseSmallFont;
+@@ -250,6 +252,9 @@
+   char FontOsd[MAXFONTNAME];
+   char FontSml[MAXFONTNAME];
+   char FontFix[MAXFONTNAME];
++  double FontOsdSizeP;
++  double FontSmlSizeP;
++  double FontFixSizeP;
+   int FontOsdSize;
+   int FontSmlSize;
+   int FontFixSize;
+diff -ruN vdr-1.7.6/device.c vdr-1.7.7/device.c
+--- vdr-1.7.6/device.c	2009-04-18 11:41:00.000000000 +0200
++++ vdr-1.7.7/device.c	2009-05-02 14:17:39.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.16 2009/04/18 09:41:00 kls Exp $
++ * $Id: device.c 2.17 2009/05/02 12:17:39 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -19,6 +19,11 @@
+ #include "status.h"
+ #include "transfer.h"
+ 
++const char *VideoAspectString[] = { "4:3",
++                                    "16:9",
++                                    "2.21:9"
++                                  };
++
+ // --- cLiveSubtitle ---------------------------------------------------------
+ 
+ class cLiveSubtitle : public cReceiver {
+@@ -384,6 +389,13 @@
+   return vsPAL;
+ }
+ 
++void cDevice::GetVideoSize(int &Width, int &Height, eVideoAspect &Aspect)
++{
++  Width = MINOSDWIDTH;
++  Height = MINOSDHEIGHT;
++  Aspect = va4_3;
++}
++
+ //#define PRINTPIDS(s) { char b[500]; char *q = b; q += sprintf(q, "%d %s ", CardIndex(), s); for (int i = 0; i < MAXPIDHANDLES; i++) q += sprintf(q, " %s%4d %d", i == ptOther ? "* " : "", pidHandles[i].pid, pidHandles[i].used); dsyslog(b); }
+ #define PRINTPIDS(s)
+ 
+diff -ruN vdr-1.7.6/device.h vdr-1.7.7/device.h
+--- vdr-1.7.6/device.h	2009-04-05 14:12:44.000000000 +0200
++++ vdr-1.7.7/device.h	2009-05-02 14:16:20.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 2.9 2009/04/05 12:12:44 kls Exp $
++ * $Id: device.h 2.10 2009/05/02 12:16:20 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -56,6 +56,13 @@
+                     vsNTSC
+                   };
+ 
++enum eVideoAspect { va4_3,
++                    va16_9,
++                    va221_9
++                  };
++
++extern const char *VideoAspectString[];
++
+ enum eVideoDisplayFormat { vdfPanAndScan,
+                            vdfLetterBox,
+                            vdfCenterCutOut
+@@ -377,6 +384,9 @@
+   virtual eVideoSystem GetVideoSystem(void);
+          ///< Returns the video system of the currently displayed material
+          ///< (default is PAL).
++  virtual void GetVideoSize(int &Width, int &Height, eVideoAspect &Aspect);
++         ///< Returns the With, Height and Aspect ratio of the currently
++         ///< displayed material.
+ 
+ // Track facilities
+ 
+diff -ruN vdr-1.7.6/dvbdevice.c vdr-1.7.7/dvbdevice.c
+--- vdr-1.7.6/dvbdevice.c	2009-04-10 11:54:24.000000000 +0200
++++ vdr-1.7.7/dvbdevice.c	2009-05-03 15:49:41.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.14 2009/04/10 09:54:24 kls Exp $
++ * $Id: dvbdevice.c 2.15 2009/05/03 13:49:41 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -746,6 +746,23 @@
+   return VideoSystem;
+ }
+ 
++void cDvbDevice::GetVideoSize(int &Width, int &Height, eVideoAspect &Aspect)
++{
++  video_size_t vs;
++  if (ioctl(fd_video, VIDEO_GET_SIZE, &vs) == 0) {
++     Width = vs.w;
++     if (Width < 720) // FIXME: some channels result in a With of, e.g. 544, but the final video *is* 720 wide
++        Width = 720;
++     Height = vs.h;
++     Aspect = eVideoAspect(vs.aspect_ratio);
++     if (Width >= MINOSDWIDTH && Width <= MAXOSDWIDTH && Height >= MINOSDHEIGHT && Height <= MAXOSDHEIGHT)
++        return;
++     }
++  else
++     LOG_ERROR;
++  cDevice::GetVideoSize(Width, Height, Aspect);
++}
++
+ bool cDvbDevice::SetAudioBypass(bool On)
+ {
+   if (setTransferModeForDolbyDigital != 1)
+diff -ruN vdr-1.7.6/dvbdevice.h vdr-1.7.7/dvbdevice.h
+--- vdr-1.7.6/dvbdevice.h	2008-12-06 14:31:12.000000000 +0100
++++ vdr-1.7.7/dvbdevice.h	2009-05-02 12:44:40.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 2.3 2008/12/06 13:31:12 kls Exp $
++ * $Id: dvbdevice.h 2.4 2009/05/02 10:44:40 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -107,6 +107,7 @@
+   virtual void SetVideoDisplayFormat(eVideoDisplayFormat VideoDisplayFormat);
+   virtual void SetVideoFormat(bool VideoFormat16_9);
+   virtual eVideoSystem GetVideoSystem(void);
++  virtual void GetVideoSize(int &Width, int &Height, eVideoAspect &Aspect);
+ 
+ // Track facilities
+ 
+diff -ruN vdr-1.7.6/font.c vdr-1.7.7/font.c
+--- vdr-1.7.6/font.c	2008-05-02 18:16:51.000000000 +0200
++++ vdr-1.7.7/font.c	2009-05-03 13:15:39.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: font.c 2.1 2008/05/02 16:16:51 kls Exp $
++ * $Id: font.c 2.2 2009/05/03 11:15:39 kls Exp $
+  */
+ 
+ #include "font.h"
+@@ -145,7 +145,7 @@
+                                     0,    // horizontal device resolution
+                                     0);   // vertical device resolution
+            if (!error) {
+-              height = ((face->size->metrics.ascender-face->size->metrics.descender) + 63) / 64;
++              height = (face->size->metrics.ascender - face->size->metrics.descender + 63) / 64;
+               bottom = abs((face->size->metrics.descender - 63) / 64);
+               }
+            else
+@@ -328,7 +328,7 @@
+ 
+ void cFont::SetFont(eDvbFont Font, const char *Name, int CharHeight)
+ {
+-  cFont *f = CreateFont(Name, CharHeight);
++  cFont *f = CreateFont(Name, min(max(CharHeight, MINFONTSIZE), MAXFONTSIZE));
+   if (!f || !f->Height())
+      f = new cDummyFont;
+   delete fonts[Font];
+diff -ruN vdr-1.7.6/font.h vdr-1.7.7/font.h
+--- vdr-1.7.6/font.h	2007-06-23 12:09:14.000000000 +0200
++++ vdr-1.7.7/font.h	2009-05-03 13:00:19.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: font.h 2.0 2007/06/23 10:09:14 kls Exp $
++ * $Id: font.h 2.1 2009/05/03 11:00:19 kls Exp $
+  */
+ 
+ #ifndef __FONT_H
+@@ -15,6 +15,7 @@
+ #include "tools.h"
+ 
+ #define MAXFONTNAME 64
++#define MINFONTSIZE 10
+ #define MAXFONTSIZE 64
+ 
+ enum eDvbFont {
+diff -ruN vdr-1.7.6/menu.c vdr-1.7.7/menu.c
+--- vdr-1.7.6/menu.c	2009-01-24 16:05:43.000000000 +0100
++++ vdr-1.7.7/menu.c	2009-05-03 15:30:13.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 2.6 2009/01/24 15:05:43 kls Exp $
++ * $Id: menu.c 2.7 2009/05/03 13:30:13 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -2197,19 +2197,19 @@
+   Add(new cMenuEditStraItem(tr("Setup.OSD$Skin"),                   &skinIndex, numSkins, skinDescriptions));
+   if (themes.NumThemes())
+   Add(new cMenuEditStraItem(tr("Setup.OSD$Theme"),                  &themeIndex, themes.NumThemes(), themes.Descriptions()));
+-  Add(new cMenuEditIntItem( tr("Setup.OSD$Left"),                   &data.OSDLeft, 0, MAXOSDWIDTH));
+-  Add(new cMenuEditIntItem( tr("Setup.OSD$Top"),                    &data.OSDTop, 0, MAXOSDHEIGHT));
+-  Add(new cMenuEditIntItem( tr("Setup.OSD$Width"),                  &data.OSDWidth, MINOSDWIDTH, MAXOSDWIDTH));
+-  Add(new cMenuEditIntItem( tr("Setup.OSD$Height"),                 &data.OSDHeight, MINOSDHEIGHT, MAXOSDHEIGHT));
++  Add(new cMenuEditPrcItem( tr("Setup.OSD$Left (%)"),               &data.OSDLeftP, 0.0, 0.5));
++  Add(new cMenuEditPrcItem( tr("Setup.OSD$Top (%)"),                &data.OSDTopP, 0.0, 0.5));
++  Add(new cMenuEditPrcItem( tr("Setup.OSD$Width (%)"),              &data.OSDWidthP, 0.5, 1.0));
++  Add(new cMenuEditPrcItem( tr("Setup.OSD$Height (%)"),             &data.OSDHeightP, 0.5, 1.0));
+   Add(new cMenuEditIntItem( tr("Setup.OSD$Message time (s)"),       &data.OSDMessageTime, 1, 60));
+   Add(new cMenuEditStraItem(tr("Setup.OSD$Use small font"),         &data.UseSmallFont, 3, useSmallFontTexts));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Anti-alias"),             &data.AntiAlias));
+   Add(new cMenuEditStraItem(tr("Setup.OSD$Default font"),           &fontOsdIndex, fontOsdNames.Size(), &fontOsdNames[0]));
+   Add(new cMenuEditStraItem(tr("Setup.OSD$Small font"),             &fontSmlIndex, fontSmlNames.Size(), &fontSmlNames[0]));
+   Add(new cMenuEditStraItem(tr("Setup.OSD$Fixed font"),             &fontFixIndex, fontFixNames.Size(), &fontFixNames[0]));
+-  Add(new cMenuEditIntItem( tr("Setup.OSD$Default font size (pixel)"), &data.FontOsdSize, 10, MAXFONTSIZE));
+-  Add(new cMenuEditIntItem( tr("Setup.OSD$Small font size (pixel)"),&data.FontSmlSize, 10, MAXFONTSIZE));
+-  Add(new cMenuEditIntItem( tr("Setup.OSD$Fixed font size (pixel)"),&data.FontFixSize, 10, MAXFONTSIZE));
++  Add(new cMenuEditPrcItem( tr("Setup.OSD$Default font size (%)"),  &data.FontOsdSizeP, 0.01, 0.1, 1));
++  Add(new cMenuEditPrcItem( tr("Setup.OSD$Small font size (%)"),    &data.FontSmlSizeP, 0.01, 0.1, 1));
++  Add(new cMenuEditPrcItem( tr("Setup.OSD$Fixed font size (%)"),    &data.FontFixSizeP, 0.01, 0.1, 1));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Channel info position"),  &data.ChannelInfoPos, tr("bottom"), tr("top")));
+   Add(new cMenuEditIntItem( tr("Setup.OSD$Channel info time (s)"),  &data.ChannelInfoTime, 1, 60));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Info on channel switch"), &data.ShowInfoOnChSwitch));
+@@ -2224,7 +2224,7 @@
+ 
+ eOSState cMenuSetupOSD::ProcessKey(eKeys Key)
+ {
+-  bool ModifiedApperance = false;
++  bool ModifiedAppearance = false;
+ 
+   if (Key == kOk) {
+      I18nSetLocale(data.OSDLanguage);
+@@ -2233,43 +2233,37 @@
+         if (Skin) {
+            Utf8Strn0Cpy(data.OSDSkin, Skin->Name(), sizeof(data.OSDSkin));
+            Skins.SetCurrent(Skin->Name());
+-           ModifiedApperance = true;
++           ModifiedAppearance = true;
+            }
+         }
+      if (themes.NumThemes() && Skins.Current()->Theme()) {
+         Skins.Current()->Theme()->Load(themes.FileName(themeIndex));
+         Utf8Strn0Cpy(data.OSDTheme, themes.Name(themeIndex), sizeof(data.OSDTheme));
+-        ModifiedApperance |= themeIndex != originalThemeIndex;
+-        }
+-     if (data.OSDLeft != Setup.OSDLeft || data.OSDTop != Setup.OSDTop || data.OSDWidth != Setup.OSDWidth || data.OSDHeight != Setup.OSDHeight) {
+-        data.OSDWidth &= ~0x07; // OSD width must be a multiple of 8
+-        ModifiedApperance = true;
++        ModifiedAppearance |= themeIndex != originalThemeIndex;
+         }
++     if (data.OSDLeftP != Setup.OSDLeftP || data.OSDTopP != Setup.OSDTopP || data.OSDWidthP != Setup.OSDWidthP || data.OSDHeightP != Setup.OSDHeightP)
++        ModifiedAppearance = true;
+      if (data.UseSmallFont != Setup.UseSmallFont || data.AntiAlias != Setup.AntiAlias)
+-        ModifiedApperance = true;
++        ModifiedAppearance = true;
+      Utf8Strn0Cpy(data.FontOsd, fontOsdNames[fontOsdIndex], sizeof(data.FontOsd));
+      Utf8Strn0Cpy(data.FontSml, fontSmlNames[fontSmlIndex], sizeof(data.FontSml));
+      Utf8Strn0Cpy(data.FontFix, fontFixNames[fontFixIndex], sizeof(data.FontFix));
+-     if (strcmp(data.FontOsd, Setup.FontOsd) || data.FontOsdSize != Setup.FontOsdSize) {
+-        cFont::SetFont(fontOsd, data.FontOsd, data.FontOsdSize);
+-        ModifiedApperance = true;
+-        }
+-     if (strcmp(data.FontSml, Setup.FontSml) || data.FontSmlSize != Setup.FontSmlSize) {
+-        cFont::SetFont(fontSml, data.FontSml, data.FontSmlSize);
+-        ModifiedApperance = true;
+-        }
+-     if (strcmp(data.FontFix, Setup.FontFix) || data.FontFixSize != Setup.FontFixSize) {
+-        cFont::SetFont(fontFix, data.FontFix, data.FontFixSize);
+-        ModifiedApperance = true;
+-        }
++     if (strcmp(data.FontOsd, Setup.FontOsd) || data.FontOsdSizeP != Setup.FontOsdSizeP)
++        ModifiedAppearance = true;
++     if (strcmp(data.FontSml, Setup.FontSml) || data.FontSmlSizeP != Setup.FontSmlSizeP)
++        ModifiedAppearance = true;
++     if (strcmp(data.FontFix, Setup.FontFix) || data.FontFixSizeP != Setup.FontFixSizeP)
++        ModifiedAppearance = true;
+      }
+ 
+   int oldSkinIndex = skinIndex;
+   int oldOsdLanguageIndex = osdLanguageIndex;
+   eOSState state = cMenuSetupBase::ProcessKey(Key);
+ 
+-  if (ModifiedApperance)
++  if (ModifiedAppearance) {
++     cOsdProvider::UpdateOsdSize(true);
+      SetDisplayMenu();
++     }
+ 
+   if (osdLanguageIndex != oldOsdLanguageIndex || skinIndex != oldSkinIndex) {
+      strn0cpy(data.OSDLanguage, I18nLocale(osdLanguageIndex), sizeof(data.OSDLanguage));
+diff -ruN vdr-1.7.6/menuitems.c vdr-1.7.7/menuitems.c
+--- vdr-1.7.6/menuitems.c	2009-04-05 12:15:12.000000000 +0200
++++ vdr-1.7.7/menuitems.c	2009-05-03 15:37:55.000000000 +0200
+@@ -4,11 +4,12 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.c 2.3 2009/04/05 10:15:12 kls Exp $
++ * $Id: menuitems.c 2.4 2009/05/03 13:37:55 kls Exp $
+  */
+ 
+ #include "menuitems.h"
+ #include <ctype.h>
++#include <math.h>
+ #include <wctype.h>
+ #include "i18n.h"
+ #include "plugin.h"
+@@ -198,6 +199,71 @@
+      state = osContinue;
+      }
+   return state;
++}
++
++// --- cMenuEditPrcItem ------------------------------------------------------
++
++cMenuEditPrcItem::cMenuEditPrcItem(const char *Name, double *Value, double Min, double Max, int Decimals)
++:cMenuEditItem(Name)
++{
++  value = Value;
++  min = Min;
++  max = Max;
++  decimals = Decimals;
++  factor = 100;
++  while (Decimals-- > 0)
++        factor *= 10;
++  if (*value < min)
++     *value = min;
++  else if (*value > max)
++     *value = max;
++  Set();
++}
++
++void cMenuEditPrcItem::Set(void)
++{
++  char buf[16];
++  snprintf(buf, sizeof(buf), "%.*f", decimals, *value * 100);
++  SetValue(buf);
++}
++
++eOSState cMenuEditPrcItem::ProcessKey(eKeys Key)
++{
++  eOSState state = cMenuEditItem::ProcessKey(Key);
++
++  if (state == osUnknown) {
++     double newValue = round(*value * factor); // avoids precision problems
++     Key = NORMALKEY(Key);
++     switch (Key) {
++       case kNone: break;
++       case k0 ... k9:
++            if (fresh) {
++               newValue = 0;
++               fresh = false;
++               }
++            newValue = newValue * 10 + (Key - k0);
++            break;
++       case kLeft: // TODO might want to increase the delta if repeated quickly?
++            newValue--;
++            fresh = true;
++            break;
++       case kRight:
++            newValue++;
++            fresh = true;
++            break;
++       default:
++            if (*value < min) { *value = min; Set(); }
++            if (*value > max) { *value = max; Set(); }
++            return state;
++       }
++     newValue /= factor;
++     if (newValue != *value && (!fresh || min <= newValue) && newValue <= max) {
++        *value = newValue;
++        Set();
++        }
++     state = osContinue;
++     }
++  return state;
+ }
+ 
+ // --- cMenuEditChrItem ------------------------------------------------------
+diff -ruN vdr-1.7.6/menuitems.h vdr-1.7.7/menuitems.h
+--- vdr-1.7.6/menuitems.h	2008-04-12 14:03:59.000000000 +0200
++++ vdr-1.7.7/menuitems.h	2009-05-03 14:50:34.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.h 2.1 2008/04/12 12:03:59 kls Exp $
++ * $Id: menuitems.h 2.2 2009/05/03 12:50:34 kls Exp $
+  */
+ 
+ #ifndef __MENUITEMS_H
+@@ -64,6 +64,18 @@
+   virtual eOSState ProcessKey(eKeys Key);
+   };
+ 
++class cMenuEditPrcItem : public cMenuEditItem {
++protected:
++  double *value;
++  double min, max;
++  int decimals;
++  int factor;
++  virtual void Set(void);
++public:
++  cMenuEditPrcItem(const char *Name, double *Value, double Min = 0.0, double Max = 1.0, int Decimals = 0);
++  virtual eOSState ProcessKey(eKeys Key);
++  };
++
+ class cMenuEditChrItem : public cMenuEditItem {
+ private:
+   char *value;
+diff -ruN vdr-1.7.6/osd.c vdr-1.7.7/osd.c
+--- vdr-1.7.6/osd.c	2009-04-05 12:17:25.000000000 +0200
++++ vdr-1.7.7/osd.c	2009-05-03 15:52:47.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 2.2 2009/04/05 10:17:25 kls Exp $
++ * $Id: osd.c 2.3 2009/05/03 13:52:47 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -14,6 +14,7 @@
+ #include <sys/ioctl.h>
+ #include <sys/stat.h>
+ #include <sys/unistd.h>
++#include "device.h"
+ #include "tools.h"
+ 
+ // --- cPalette --------------------------------------------------------------
+@@ -880,6 +881,9 @@
+ // --- cOsdProvider ----------------------------------------------------------
+ 
+ cOsdProvider *cOsdProvider::osdProvider = NULL;
++int cOsdProvider::oldWidth = 0;
++int cOsdProvider::oldHeight = 0;
++int cOsdProvider::oldAspect = va4_3;
+ 
+ cOsdProvider::cOsdProvider(void)
+ {
+@@ -911,6 +915,30 @@
+   return new cOsd(Left, Top, 999); // create a dummy cOsd, so that access won't result in a segfault
+ }
+ 
++void cOsdProvider::UpdateOsdSize(bool Force)
++{
++  int Width;
++  int Height;
++  eVideoAspect Aspect;
++  cDevice::PrimaryDevice()->GetVideoSize(Width, Height, Aspect);
++  if (Width != oldWidth || Height != oldHeight || Aspect != oldAspect || Force) {
++     Setup.OSDLeft = int(round(Width * Setup.OSDLeftP));
++     Setup.OSDTop = int(round(Height * Setup.OSDTopP));
++     Setup.OSDWidth = int(round(Width * Setup.OSDWidthP)) & ~0x07; // OSD width must be a multiple of 8
++     Setup.OSDHeight = int(round(Height * Setup.OSDHeightP));
++     Setup.FontOsdSize = int(round(Height * Setup.FontOsdSizeP));
++     Setup.FontFixSize = int(round(Height * Setup.FontFixSizeP));
++     Setup.FontSmlSize = int(round(Height * Setup.FontSmlSizeP));
++     cFont::SetFont(fontOsd, Setup.FontOsd, Setup.FontOsdSize);
++     cFont::SetFont(fontFix, Setup.FontFix, Setup.FontFixSize);
++     cFont::SetFont(fontSml, Setup.FontSml, Setup.FontSmlSize);
++     oldWidth = Width;
++     oldHeight = Height;
++     oldAspect = Aspect;
++     dsyslog("OSD size changed to %dx%d @ %s", Width, Height, VideoAspectString[Aspect]);
++     }
++}
++
+ void cOsdProvider::Shutdown(void)
+ {
+   delete osdProvider;
+diff -ruN vdr-1.7.6/osd.h vdr-1.7.7/osd.h
+--- vdr-1.7.6/osd.h	2009-04-05 12:16:05.000000000 +0200
++++ vdr-1.7.7/osd.h	2009-05-03 15:52:10.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.h 2.2 2009/04/05 10:16:05 kls Exp $
++ * $Id: osd.h 2.3 2009/05/03 13:52:10 kls Exp $
+  */
+ 
+ #ifndef __OSD_H
+@@ -406,6 +406,9 @@
+ class cOsdProvider {
+ private:
+   static cOsdProvider *osdProvider;
++  static int oldWidth;
++  static int oldHeight;
++  static int oldAspect;
+ protected:
+   virtual cOsd *CreateOsd(int Left, int Top, uint Level) = 0;
+       ///< Returns a pointer to a newly created cOsd object, which will be located
+@@ -420,6 +423,11 @@
+       ///< caller must delete it. If the OSD is already in use, or there is no OSD
+       ///< provider, a dummy OSD is returned so that the caller may always use the
+       ///< returned pointer without having to check it every time it is accessed.
++  static void UpdateOsdSize(bool Force = false);
++      ///< Inquires the actual size of the video display and adjusts the OSD and
++      ///< font sizes accordingly. If Force is true, all settings are recalculated,
++      ///< even if the video resolution hasn't changed since the last call to
++      ///< this funtion.
+   static void Shutdown(void);
+       ///< Shuts down the OSD provider facility by deleting the current OSD provider.
+   };
+diff -ruN vdr-1.7.6/po/ca_ES.po vdr-1.7.7/po/ca_ES.po
+--- vdr-1.7.6/po/ca_ES.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/ca_ES.po	2009-05-03 16:15:20.000000000 +0200
+@@ -495,17 +495,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Tema"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Esquerra"
++msgid "Setup.OSD$Left (%)"
++msgstr "Esquerra (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "A dalt"
++msgid "Setup.OSD$Top (%)"
++msgstr "A dalt (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Amplada"
++msgid "Setup.OSD$Width (%)"
++msgstr "Amplada (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Alçada"
++msgid "Setup.OSD$Height (%)"
++msgstr "Alçada (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Durada dels missatges (s)"
+@@ -525,14 +525,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Font fixa"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Mida font predeterminada (pixel)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Mida font predeterminada (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Mida font petita"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Mida font petita (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Mida font fixa"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Mida font fixa (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Posició de la informació del canal"
+diff -ruN vdr-1.7.6/po/cs_CZ.po vdr-1.7.7/po/cs_CZ.po
+--- vdr-1.7.6/po/cs_CZ.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/cs_CZ.po	2009-05-03 16:15:20.000000000 +0200
+@@ -493,17 +493,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Téma"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Vlevo"
++msgid "Setup.OSD$Left (%)"
++msgstr "Vlevo (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Nahoøe"
++msgid "Setup.OSD$Top (%)"
++msgstr "Nahoøe (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "©íøka"
++msgid "Setup.OSD$Width (%)"
++msgstr "©íøka (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Vý¹ka"
++msgid "Setup.OSD$Height (%)"
++msgstr "Vý¹ka (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Èas zobrazení zpávy (s)"
+@@ -523,14 +523,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Fixní písmo"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Velikost výchozího písma (pixely)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Velikost výchozího písma (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Velikost malého písma (pixely)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Velikost malého písma (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Velikost fixního písma (pixely)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Velikost fixního písma (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Pozice informace o kanálu"
+diff -ruN vdr-1.7.6/po/da_DK.po vdr-1.7.7/po/da_DK.po
+--- vdr-1.7.6/po/da_DK.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/da_DK.po	2009-05-03 16:15:20.000000000 +0200
+@@ -492,17 +492,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Tema"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Venstre"
++msgid "Setup.OSD$Left (%)"
++msgstr "Venstre (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Top"
++msgid "Setup.OSD$Top (%)"
++msgstr "Top (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Bredde"
++msgid "Setup.OSD$Width (%)"
++msgstr "Bredde (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Højde"
++msgid "Setup.OSD$Height (%)"
++msgstr "Højde (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Tid beskeder skal vises (s)"
+@@ -522,14 +522,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Fast skrift"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Standard skrift størrelse (pixel)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Standard skrift størrelse (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Lille skrift størrelse (pixel)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Lille skrift størrelse (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Fast skrift størrelse (pixel)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Fast skrift størrelse (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Placering af kanalinfo"
+diff -ruN vdr-1.7.6/po/de_DE.po vdr-1.7.7/po/de_DE.po
+--- vdr-1.7.6/po/de_DE.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/de_DE.po	2009-05-03 16:15:20.000000000 +0200
+@@ -492,17 +492,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Thema"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Links"
++msgid "Setup.OSD$Left (%)"
++msgstr "Links (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Oben"
++msgid "Setup.OSD$Top (%)"
++msgstr "Oben (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Breite"
++msgid "Setup.OSD$Width (%)"
++msgstr "Breite (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Höhe"
++msgid "Setup.OSD$Height (%)"
++msgstr "Höhe (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Anzeigedauer für Nachrichten (s)"
+@@ -522,14 +522,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Festbreiten-Schriftart"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Standard-Schriftgröße (pixel)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Standard-Schriftgröße (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Kleine Schriftgröße (pixel)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Kleine Schriftgröße (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Festbreiten-Schriftgröße (pixel)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Festbreiten-Schriftgröße (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Kanalinfo-Position"
+diff -ruN vdr-1.7.6/po/el_GR.po vdr-1.7.7/po/el_GR.po
+--- vdr-1.7.6/po/el_GR.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/el_GR.po	2009-05-03 16:15:20.000000000 +0200
+@@ -492,17 +492,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "ÈÝìá"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "ÁñéóôåñÜ"
++msgid "Setup.OSD$Left (%)"
++msgstr "ÁñéóôåñÜ (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "ÅðÜíù"
++msgid "Setup.OSD$Top (%)"
++msgstr "ÅðÜíù (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "ÌÜêñïò"
++msgid "Setup.OSD$Width (%)"
++msgstr "ÌÜêñïò (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "¾øïò"
++msgid "Setup.OSD$Height (%)"
++msgstr "¾øïò (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "×ñüíïò Ýíäåéîçò ìõíçìÜôùí (ä)"
+@@ -522,13 +522,13 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr ""
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
++msgid "Setup.OSD$Default font size (%)"
+ msgstr ""
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
++msgid "Setup.OSD$Small font size (%)"
+ msgstr ""
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
++msgid "Setup.OSD$Fixed font size (%)"
+ msgstr ""
+ 
+ msgid "Setup.OSD$Channel info position"
+diff -ruN vdr-1.7.6/po/es_ES.po vdr-1.7.7/po/es_ES.po
+--- vdr-1.7.6/po/es_ES.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/es_ES.po	2009-05-03 16:15:20.000000000 +0200
+@@ -493,17 +493,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Tema"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Izquierda"
++msgid "Setup.OSD$Left (%)"
++msgstr "Izquierda (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Arriba"
++msgid "Setup.OSD$Top (%)"
++msgstr "Arriba (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Anchura"
++msgid "Setup.OSD$Width (%)"
++msgstr "Anchura (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Altura"
++msgid "Setup.OSD$Height (%)"
++msgstr "Altura (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Duración de los mensajes (sg)"
+@@ -523,14 +523,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Fuente fija"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Tamaño fuente por defecto (pixel)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Tamaño fuente por defecto (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Tamaño fuente pequeña (pixel)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Tamaño fuente pequeña (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Tamaño fuente fija (pixel)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Tamaño fuente fija (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Posición para información de canal"
+diff -ruN vdr-1.7.6/po/et_EE.po vdr-1.7.7/po/et_EE.po
+--- vdr-1.7.6/po/et_EE.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/et_EE.po	2009-05-03 16:15:20.000000000 +0200
+@@ -492,17 +492,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Teema"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Vasakule"
++msgid "Setup.OSD$Left (%)"
++msgstr "Vasakule (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Ülesse"
++msgid "Setup.OSD$Top (%)"
++msgstr "Ülesse (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Laius"
++msgid "Setup.OSD$Width (%)"
++msgstr "Laius (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Kõrgus"
++msgid "Setup.OSD$Height (%)"
++msgstr "Kõrgus (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Teate esitusaeg (s)"
+@@ -522,14 +522,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Fikseeritud font"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Vaikefondi suurus (px)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Vaikefondi suurus (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Väikese fondi suurus (px)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Väikese fondi suurus (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Fiks. fondi suurus (px)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Fiks. fondi suurus (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Kanaliinfo asukoht"
+diff -ruN vdr-1.7.6/po/fi_FI.po vdr-1.7.7/po/fi_FI.po
+--- vdr-1.7.6/po/fi_FI.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/fi_FI.po	2009-05-03 16:15:20.000000000 +0200
+@@ -495,17 +495,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Teema"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Vaakakeskitys"
++msgid "Setup.OSD$Left (%)"
++msgstr "Vaakakeskitys (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Pystykeskitys"
++msgid "Setup.OSD$Top (%)"
++msgstr "Pystykeskitys (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Leveys"
++msgid "Setup.OSD$Width (%)"
++msgstr "Leveys (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Korkeus"
++msgid "Setup.OSD$Height (%)"
++msgstr "Korkeus (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Viestien esitysaika (s)"
+@@ -525,14 +525,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Tasavälinen kirjasintyyppi"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Oletuskirjasintyypin koko (px)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Oletuskirjasintyypin koko (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Pienen kirjasintyypin koko (px)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Pienen kirjasintyypin koko (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Tasavälisen kirjasintyypin koko (px)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Tasavälisen kirjasintyypin koko (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Kanavatiedon sijainti"
+diff -ruN vdr-1.7.6/po/fr_FR.po vdr-1.7.7/po/fr_FR.po
+--- vdr-1.7.6/po/fr_FR.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/fr_FR.po	2009-05-03 16:15:20.000000000 +0200
+@@ -498,17 +498,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Thème"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Gauche"
++msgid "Setup.OSD$Left (%)"
++msgstr "Gauche (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Haut"
++msgid "Setup.OSD$Top (%)"
++msgstr "Haut (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Largeur"
++msgid "Setup.OSD$Width (%)"
++msgstr "Largeur (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Hauteur"
++msgid "Setup.OSD$Height (%)"
++msgstr "Hauteur (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Durée affichage message (s)"
+@@ -528,14 +528,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Police taille fixe"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Taille police par défaut (pixel)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Taille police par défaut (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Taille petite police par défaut (pixel)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Taille petite police par défaut (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Taille police fixe par défaut (pixel)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Taille police fixe par défaut (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Position infos chaînes"
+diff -ruN vdr-1.7.6/po/hr_HR.po vdr-1.7.7/po/hr_HR.po
+--- vdr-1.7.6/po/hr_HR.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/hr_HR.po	2009-05-03 16:15:21.000000000 +0200
+@@ -494,17 +494,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Tema"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Lijevo"
++msgid "Setup.OSD$Left (%)"
++msgstr "Lijevo (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Gore"
++msgid "Setup.OSD$Top (%)"
++msgstr "Gore (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "©irina"
++msgid "Setup.OSD$Width (%)"
++msgstr "©irina (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Visina"
++msgid "Setup.OSD$Height (%)"
++msgstr "Visina (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Vrijeme prikaza poruka (s)"
+@@ -524,14 +524,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Nepromjenjiv font"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Velièina zadanog fonta (piksel)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Velièina zadanog fonta (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Velièina malenog fonta (piksel)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Velièina malenog fonta (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Velièina nepromjenjivog fonta (piksel)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Velièina nepromjenjivog fonta (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Pozicija informacija o programu"
+diff -ruN vdr-1.7.6/po/hu_HU.po vdr-1.7.7/po/hu_HU.po
+--- vdr-1.7.6/po/hu_HU.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/hu_HU.po	2009-05-03 16:15:21.000000000 +0200
+@@ -495,17 +495,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Téma"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Balra"
++msgid "Setup.OSD$Left (%)"
++msgstr "Balra (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Fent"
++msgid "Setup.OSD$Top (%)"
++msgstr "Fent (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Szélesség"
++msgid "Setup.OSD$Width (%)"
++msgstr "Szélesség (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Magasság"
++msgid "Setup.OSD$Height (%)"
++msgstr "Magasság (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Információ feltûntetésének idõtartama"
+@@ -525,14 +525,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Kötött betûtipus"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Alapértelmezett betûtipus méret (pixel)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Alapértelmezett betûtipus méret (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Kis betûtipus méret (pixel)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Kis betûtipus méret (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Kötött betûtipus méret (pixel)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Kötött betûtipus méret (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Adásinformáció poziciója"
+diff -ruN vdr-1.7.6/po/it_IT.po vdr-1.7.7/po/it_IT.po
+--- vdr-1.7.6/po/it_IT.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/it_IT.po	2009-05-03 16:15:21.000000000 +0200
+@@ -499,17 +499,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Tema colori"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Sinistra"
++msgid "Setup.OSD$Left (%)"
++msgstr "Sinistra (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "In alto"
++msgid "Setup.OSD$Top (%)"
++msgstr "In alto (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Larghezza OSD"
++msgid "Setup.OSD$Width (%)"
++msgstr "Larghezza OSD (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Altezza OSD"
++msgid "Setup.OSD$Height (%)"
++msgstr "Altezza OSD (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Durata del messaggio (s)"
+@@ -529,14 +529,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Caratteri fissi"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Dim. caratteri pred. (pixel)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Dim. caratteri pred. (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Dim. caratteri piccoli (pixel)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Dim. caratteri piccoli (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Dim. caratteri fissi (pixel)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Dim. caratteri fissi (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Posizione info canale"
+diff -ruN vdr-1.7.6/po/nl_NL.po vdr-1.7.7/po/nl_NL.po
+--- vdr-1.7.6/po/nl_NL.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/nl_NL.po	2009-05-03 16:15:21.000000000 +0200
+@@ -496,17 +496,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Thema"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Links"
++msgid "Setup.OSD$Left (%)"
++msgstr "Links (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Boven"
++msgid "Setup.OSD$Top (%)"
++msgstr "Boven (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Breedte"
++msgid "Setup.OSD$Width (%)"
++msgstr "Breedte (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Hoogte"
++msgid "Setup.OSD$Height (%)"
++msgstr "Hoogte (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Weergave duur van berichten (s)"
+@@ -526,14 +526,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Letter met vaste breedte"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Afmetingen standaard lettertype (pixel)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Afmetingen standaard lettertype (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Afmetingen klein lettertype (pixel)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Afmetingen klein lettertype (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Afmetingen lettertype met vaste breedte (pixel)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Afmetingen lettertype met vaste breedte (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Kanaal info positie"
+diff -ruN vdr-1.7.6/po/nn_NO.po vdr-1.7.7/po/nn_NO.po
+--- vdr-1.7.6/po/nn_NO.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/nn_NO.po	2009-05-03 16:15:21.000000000 +0200
+@@ -493,17 +493,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr ""
+ 
+-msgid "Setup.OSD$Left"
++msgid "Setup.OSD$Left (%)"
+ msgstr ""
+ 
+-msgid "Setup.OSD$Top"
++msgid "Setup.OSD$Top (%)"
+ msgstr ""
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Bredde"
++msgid "Setup.OSD$Width (%)"
++msgstr "Bredde (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Høyde"
++msgid "Setup.OSD$Height (%)"
++msgstr "Høyde (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Tid meldinger skal vises (s)"
+@@ -523,13 +523,13 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr ""
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
++msgid "Setup.OSD$Default font size (%)"
+ msgstr ""
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
++msgid "Setup.OSD$Small font size (%)"
+ msgstr ""
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
++msgid "Setup.OSD$Fixed font size (%)"
+ msgstr ""
+ 
+ msgid "Setup.OSD$Channel info position"
+diff -ruN vdr-1.7.6/po/pl_PL.po vdr-1.7.7/po/pl_PL.po
+--- vdr-1.7.6/po/pl_PL.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/pl_PL.po	2009-05-03 16:15:21.000000000 +0200
+@@ -493,17 +493,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Motyw"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Od lewej"
++msgid "Setup.OSD$Left (%)"
++msgstr "Od lewej (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Od góry"
++msgid "Setup.OSD$Top (%)"
++msgstr "Od góry (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Szeroko¶æ"
++msgid "Setup.OSD$Width (%)"
++msgstr "Szeroko¶æ (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Wysoko¶æ"
++msgid "Setup.OSD$Height (%)"
++msgstr "Wysoko¶æ (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Czas trwania wiadomo¶ci (s)"
+@@ -523,14 +523,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Sta³a czcionka"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Standardowa czcionka wyj¶ciowa (pixle)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Standardowa czcionka wyj¶ciowa (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Ma³a czcionka wyj¶ciowa (pixle)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Ma³a czcionka wyj¶ciowa (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Ustalona czcionka wyj¶ciowa (pixle)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Ustalona czcionka wyj¶ciowa (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Pozycja informacji o kanale"
+diff -ruN vdr-1.7.6/po/pt_PT.po vdr-1.7.7/po/pt_PT.po
+--- vdr-1.7.6/po/pt_PT.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/pt_PT.po	2009-05-03 16:15:21.000000000 +0200
+@@ -492,17 +492,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Tema"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Esquerda"
++msgid "Setup.OSD$Left (%)"
++msgstr "Esquerda (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Topo"
++msgid "Setup.OSD$Top (%)"
++msgstr "Topo (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Largura"
++msgid "Setup.OSD$Width (%)"
++msgstr "Largura (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Altura"
++msgid "Setup.OSD$Height (%)"
++msgstr "Altura (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Duração das mensagem (s)"
+@@ -522,14 +522,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Fonte Fixa"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Tamanho por defeito de fonte (pixel)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Tamanho por defeito de fonte (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Tamanho da fonte pequena (pixel)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Tamanho da fonte pequena (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Tamanho da fonte fixa (pixel)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Tamanho da fonte fixa (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Posição de info dos canais"
+diff -ruN vdr-1.7.6/po/ro_RO.po vdr-1.7.7/po/ro_RO.po
+--- vdr-1.7.6/po/ro_RO.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/ro_RO.po	2009-05-03 16:15:21.000000000 +0200
+@@ -495,17 +495,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Temã"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Stânga"
++msgid "Setup.OSD$Left (%)"
++msgstr "Stânga (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Sus"
++msgid "Setup.OSD$Top (%)"
++msgstr "Sus (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Lãþime OSD"
++msgid "Setup.OSD$Width (%)"
++msgstr "Lãþime OSD (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Înãlþime OSD"
++msgid "Setup.OSD$Height (%)"
++msgstr "Înãlþime OSD (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Timp afiºare mesaje (sec)"
+@@ -525,14 +525,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Font cu lãþime fixã"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Mãrimea implicitã a fontului (pixeli)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Mãrimea implicitã a fontului (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Mãrimea 'micã' a fontului (pixeli)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Mãrimea 'micã' a fontului (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Mãrimea 'fixã' a fontului (pixeli)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Mãrimea 'fixã' a fontului (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Poziþia informaþiilor despre canal"
+diff -ruN vdr-1.7.6/po/ru_RU.po vdr-1.7.7/po/ru_RU.po
+--- vdr-1.7.6/po/ru_RU.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/ru_RU.po	2009-05-03 16:15:21.000000000 +0200
+@@ -493,17 +493,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "ÂÕÜÐ"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "¾âáâãß áÛÕÒÐ"
++msgid "Setup.OSD$Left (%)"
++msgstr "¾âáâãß áÛÕÒÐ (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "¾âáâãß áÒÕàåã"
++msgid "Setup.OSD$Top (%)"
++msgstr "¾âáâãß áÒÕàåã (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "ÈØàØÝÐ"
++msgid "Setup.OSD$Width (%)"
++msgstr "ÈØàØÝÐ (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "²ëáÞâÐ"
++msgid "Setup.OSD$Height (%)"
++msgstr "²ëáÞâÐ (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "´ÛØâÕÛìÝÞáâì ßÞÚÐ×Ð áÞÞÑéÕÝØÙ (áÕÚ)"
+@@ -523,14 +523,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "ÄØÚáØàÞÒÐÝÝëÙ äÞÝâ"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "ÀÐ×ÜÕà äÞÝâÐ ÔÛï ÜÕÝî (pixel)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "ÀÐ×ÜÕà äÞÝâÐ ÔÛï ÜÕÝî (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "ÀÐ×ÜÕà ÜÕÛÚÞÓÞ äÞÝâÐ (pixel)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "ÀÐ×ÜÕà ÜÕÛÚÞÓÞ äÞÝâÐ (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "ÀÐ×ÜÕà äØÚáØàÞÒÐÝÝÞÓÞ äÞÝâÐ (pixel)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "ÀÐ×ÜÕà äØÚáØàÞÒÐÝÝÞÓÞ äÞÝâÐ (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "¿ÞÛÞÖÕÝØÕ ÞÚÝÐ ØÝäÞàÜÐæØØ Þ ÚÐÝÐÛÕ"
+diff -ruN vdr-1.7.6/po/sl_SI.po vdr-1.7.7/po/sl_SI.po
+--- vdr-1.7.6/po/sl_SI.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/sl_SI.po	2009-05-03 16:15:21.000000000 +0200
+@@ -493,17 +493,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Tema"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Levo"
++msgid "Setup.OSD$Left (%)"
++msgstr "Levo (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Zgoraj"
++msgid "Setup.OSD$Top (%)"
++msgstr "Zgoraj (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "©irina"
++msgid "Setup.OSD$Width (%)"
++msgstr "©irina (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Vi¹ina"
++msgid "Setup.OSD$Height (%)"
++msgstr "Vi¹ina (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Èas prikaza sporoèila (s)"
+@@ -523,14 +523,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Fiksna pisava"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Privzeta velikost pisave (pixel)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Privzeta velikost pisave (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Majhna velikost pisave (pixel)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Majhna velikost pisave (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Pozicija informacije o kanalu"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr ""
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Pozicija informacije o kanalu"
+diff -ruN vdr-1.7.6/po/sv_SE.po vdr-1.7.7/po/sv_SE.po
+--- vdr-1.7.6/po/sv_SE.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/sv_SE.po	2009-05-03 16:15:21.000000000 +0200
+@@ -495,17 +495,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Tema"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Vänster"
++msgid "Setup.OSD$Left (%)"
++msgstr "Vänster (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Övre"
++msgid "Setup.OSD$Top (%)"
++msgstr "Övre (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Bredd"
++msgid "Setup.OSD$Width (%)"
++msgstr "Bredd (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Höjd"
++msgid "Setup.OSD$Height (%)"
++msgstr "Höjd (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Tid för meddelanden (sek)"
+@@ -525,14 +525,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Fast typsnitt"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Fontstorlek standard (pixel)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Fontstorlek standard (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Fontstorlek liten text (pixel)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Fontstorlek liten text (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Fast fontstorlek (pixel)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Fast fontstorlek (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Placering av kanalinformation"
+diff -ruN vdr-1.7.6/po/tr_TR.po vdr-1.7.7/po/tr_TR.po
+--- vdr-1.7.6/po/tr_TR.po	2009-04-18 17:24:48.000000000 +0200
++++ vdr-1.7.7/po/tr_TR.po	2009-05-03 16:15:21.000000000 +0200
+@@ -492,17 +492,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "Tema"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "Sol"
++msgid "Setup.OSD$Left (%)"
++msgstr "Sol (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "Üst"
++msgid "Setup.OSD$Top (%)"
++msgstr "Üst (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "Geniþlik"
++msgid "Setup.OSD$Width (%)"
++msgstr "Geniþlik (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "Yükseklik"
++msgid "Setup.OSD$Height (%)"
++msgstr "Yükseklik (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "Mesaj gösterme zamaný (sn)"
+@@ -522,14 +522,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "Çakýlý font"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "Olaðan font boyutu (pixel)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Olaðan font boyutu (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "Küçük font boyutu (pixel)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Küçük font boyutu (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "Çakýlý font boyutu (pixel)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Çakýlý font boyutu (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Kanal bilgi pozisyonu"
+diff -ruN vdr-1.7.6/po/uk_UA.po vdr-1.7.7/po/uk_UA.po
+--- vdr-1.7.6/po/uk_UA.po	2009-04-18 17:24:49.000000000 +0200
++++ vdr-1.7.7/po/uk_UA.po	2009-05-03 16:15:21.000000000 +0200
+@@ -492,17 +492,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "ÂÕÜÐ"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "²öÔáâãß ×ÛöÒÐ"
++msgid "Setup.OSD$Left (%)"
++msgstr "²öÔáâãß ×ÛöÒÐ (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "²öÔáâãß ×ÒÕàåã"
++msgid "Setup.OSD$Top (%)"
++msgstr "²öÔáâãß ×ÒÕàåã (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "ÈØàØÝÐ"
++msgid "Setup.OSD$Width (%)"
++msgstr "ÈØàØÝÐ (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "²ØáÞâÐ"
++msgid "Setup.OSD$Height (%)"
++msgstr "²ØáÞâÐ (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "ÂàØÒÐÛöáâì ßÞÚÐ×ã ßÞÒöÔÞÜÛÕÝì (áÕÚ)"
+@@ -522,14 +522,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "ÄöÚáÞÒÐÝØÙ äÞÝâ"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "ÀÐ×Üöà äÞÝâÐ ÔÛï ÜÕÝî (pixel)"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "ÀÐ×Üöà äÞÝâÐ ÔÛï ÜÕÝî (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "ÀÐ×Üöà ÜÐÛÞÓÞ äÞÝâÐ (pixel)"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "ÀÐ×Üöà ÜÐÛÞÓÞ äÞÝâÐ (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "ÀÐ×Üöà äöÚáÞÒÐÝÞÓÞ äÞÝâÐ (pixel)"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "ÀÐ×Üöà äöÚáÞÒÐÝÞÓÞ äÞÝâÐ (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "¿ÞÛÞÖÕÝÝï ÒöÚÝÐ öÝäÞàÜÐæö÷ ßàÞ ÚÐÝÐÛ"
+diff -ruN vdr-1.7.6/po/zh_CN.po vdr-1.7.7/po/zh_CN.po
+--- vdr-1.7.6/po/zh_CN.po	2009-04-18 17:24:49.000000000 +0200
++++ vdr-1.7.7/po/zh_CN.po	2009-05-03 16:15:21.000000000 +0200
+@@ -495,17 +495,17 @@
+ msgid "Setup.OSD$Theme"
+ msgstr "ä¸»é¢˜"
+ 
+-msgid "Setup.OSD$Left"
+-msgstr "å·¦"
++msgid "Setup.OSD$Left (%)"
++msgstr "å·¦ (%)"
+ 
+-msgid "Setup.OSD$Top"
+-msgstr "é¡¶éƒ¨"
++msgid "Setup.OSD$Top (%)"
++msgstr "é¡¶éƒ¨ (%)"
+ 
+-msgid "Setup.OSD$Width"
+-msgstr "å®½"
++msgid "Setup.OSD$Width (%)"
++msgstr "å®½ (%)"
+ 
+-msgid "Setup.OSD$Height"
+-msgstr "é«˜"
++msgid "Setup.OSD$Height (%)"
++msgstr "é«˜ (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+ msgstr "æ—¶é—´ä¿¡æ¯ (s)"
+@@ -525,14 +525,14 @@
+ msgid "Setup.OSD$Fixed font"
+ msgstr "å›ºå®šå­—ä½“"
+ 
+-msgid "Setup.OSD$Default font size (pixel)"
+-msgstr "é»˜è®¤å­—ä½“å¤§å° (åƒç´ )"
++msgid "Setup.OSD$Default font size (%)"
++msgstr "é»˜è®¤å­—ä½“å¤§å° (%)"
+ 
+-msgid "Setup.OSD$Small font size (pixel)"
+-msgstr "å°å­—ä½“ (åƒç´ )"
++msgid "Setup.OSD$Small font size (%)"
++msgstr "å°å­—ä½“ (%)"
+ 
+-msgid "Setup.OSD$Fixed font size (pixel)"
+-msgstr "å›ºå®šçš„å­—ä½“ (åƒç´ )"
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "å›ºå®šçš„å­—ä½“ (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "é¢‘é“ä¿¡æ¯ä½ç½®"
+diff -ruN vdr-1.7.6/remux.c vdr-1.7.7/remux.c
+--- vdr-1.7.6/remux.c	2009-04-19 12:59:56.000000000 +0200
++++ vdr-1.7.7/remux.c	2009-05-03 16:43:25.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 2.19 2009/04/19 10:59:56 kls Exp $
++ * $Id: remux.c 2.20 2009/05/03 14:43:25 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -722,6 +722,13 @@
+   int Processed = 0;
+   newFrame = independentFrame = false;
+   while (Length >= TS_SIZE) {
++        if (Data[0] != TS_SYNC_BYTE) {
++           int Skipped = 1;
++           while (Skipped < Length && (Data[Skipped] != TS_SYNC_BYTE || Length - Skipped > TS_SIZE && Data[Skipped + TS_SIZE] != TS_SYNC_BYTE))
++                 Skipped++;
++           esyslog("ERROR: skipped %d bytes to sync on start of TS packet", Skipped);
++           return Processed + Skipped;
++           }
+         if (TsHasPayload(Data) && !TsIsScrambled(Data) && TsPid(Data) == pid) {
+            if (TsPayloadStart(Data)) {
+               if (!frameDuration) {
+diff -ruN vdr-1.7.6/vdr.c vdr-1.7.7/vdr.c
+--- vdr-1.7.6/vdr.c	2009-04-05 15:21:46.000000000 +0200
++++ vdr-1.7.7/vdr.c	2009-05-03 12:33:06.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 2.7 2009/04/05 13:21:46 kls Exp $
++ * $Id: vdr.c 2.8 2009/05/03 10:33:06 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -747,6 +747,12 @@
+               CheckHasProgramme = false;
+               }
+            }
++        // Update the OSD size:
++        {
++          static time_t lastOsdSizeUpdate = 0;
++          if (Now != lastOsdSizeUpdate) // once per second
++             cOsdProvider::UpdateOsdSize();
++        }
+         // Restart the Watchdog timer:
+         if (WatchdogTimeout > 0) {
+            int LatencyTime = WatchdogTimeout - alarm(WatchdogTimeout);

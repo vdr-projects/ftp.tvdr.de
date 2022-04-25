@@ -1,0 +1,978 @@
+diff -ruN vdr-1.5.4/CONTRIBUTORS vdr-1.5.5/CONTRIBUTORS
+--- vdr-1.5.4/CONTRIBUTORS	2007-06-17 16:02:02.000000000 +0200
++++ vdr-1.5.5/CONTRIBUTORS	2007-06-23 12:54:31.000000000 +0200
+@@ -939,6 +939,7 @@
+  is started through a user defined key macro
+  for reporting a problem with extremely long summary fields in timers
+  for reporting a bug in handling the tfRecording flag when reading timers
++ for enabling fonts to be created with a width that overwrites the default width
+ 
+ Olivier Jacques <jacquesolivier@hotmail.com>)
+  for translating OSD texts to the French language
+@@ -2048,6 +2049,7 @@
+  for fixing assigning schedules to channels in case there is no initial EPG information
+  for making entering text via the numeric keys check the characters against the
+  allowed characters
++ for fixing handling address masks in SVDRP host settings
+ 
+ Jörn Reder <joern@zyn.de>
+  for reporting that a recording may unnecessarily block a device with a CAM, while
+@@ -2099,3 +2101,6 @@
+ 
+ Jose Alberto Reguero <jareguero@telefonica.net>
+  for a patch that fixed part of a crash in i18n character set conversion
++
++Patrice Staudt <staudt@engsystem.net>
++ for adding full weekday names to i18n.c for plugins to use
+diff -ruN vdr-1.5.4/HISTORY vdr-1.5.5/HISTORY
+--- vdr-1.5.4/HISTORY	2007-06-17 16:00:00.000000000 +0200
++++ vdr-1.5.5/HISTORY	2007-06-23 15:40:04.000000000 +0200
+@@ -5260,3 +5260,18 @@
+   Plugins that implement skins should no longer use Setup.OSDWidth etc. directly,
+   but should rather use cOsd::OsdWidth() etc. instead.
+   Currently a change to the OSD position will only apply to newly opened OSDs.
++
++2007-06-23: Version 1.5.5
++
++- Fixed a name clash between skincurses.c and the new cOsd position functions.
++- Updated the Finnish OSD texts (thanks to Rolf Ahrenberg).
++- Changed the parameter "OSD font size" to "Default font size" in "Setup/OSD".
++- Fixed handling address masks in SVDRP host settings (thanks to Frank Schmirler).
++- Fonts can now be created with a width that overwrites the default width (thanks
++  to Andreas Mair).
++- Added full weekday names to i18n.c for plugins to use (thanks to Patrice Staudt).
++  The new function WeekDayNameFull() can be used to get these names from integer
++  values (just like the abbreviated weekday names).
++- Fixed stripping i18n stuff from font names (reported by Anssi Hannula).
++- Improved performance of the SVDRP commands LSTC and CHAN when used with a
++  channel name.
+diff -ruN vdr-1.5.4/MANUAL vdr-1.5.5/MANUAL
+--- vdr-1.5.4/MANUAL	2007-06-17 14:33:53.000000000 +0200
++++ vdr-1.5.5/MANUAL	2007-06-23 11:28:05.000000000 +0200
+@@ -514,7 +514,7 @@
+   Fixed font = Courier:Bold
+                          The names of the various fonts to use.
+ 
+-  OSD font size = 22
++  Default font size = 22
+   Small font size = 18
+   Fixed font size = 20
+                          The sizes (in pixel) of the various fonts. Valid range is
+diff -ruN vdr-1.5.4/PLUGINS/src/skincurses/HISTORY vdr-1.5.5/PLUGINS/src/skincurses/HISTORY
+--- vdr-1.5.4/PLUGINS/src/skincurses/HISTORY	2007-06-15 14:24:06.000000000 +0200
++++ vdr-1.5.5/PLUGINS/src/skincurses/HISTORY	2007-06-23 11:08:21.000000000 +0200
+@@ -43,3 +43,7 @@
+ 2007-06-15: Version 0.1.0
+ 
+ - Implemented UTF-8 handling.
++
++2007-06-23: Version 0.1.1
++
++- Fixed a name clash with the new cOsd position functions.
+diff -ruN vdr-1.5.4/PLUGINS/src/skincurses/skincurses.c vdr-1.5.5/PLUGINS/src/skincurses/skincurses.c
+--- vdr-1.5.4/PLUGINS/src/skincurses/skincurses.c	2007-06-16 11:05:04.000000000 +0200
++++ vdr-1.5.5/PLUGINS/src/skincurses/skincurses.c	2007-06-23 11:08:01.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: skincurses.c 1.13 2007/06/16 09:05:04 kls Exp $
++ * $Id: skincurses.c 1.14 2007/06/23 09:08:01 kls Exp $
+  */
+ 
+ #include <ncurses.h>
+@@ -11,7 +11,7 @@
+ #include <vdr/plugin.h>
+ #include <vdr/skins.h>
+ 
+-static const char *VERSION        = "0.1.0";
++static const char *VERSION        = "0.1.1";
+ static const char *DESCRIPTION    = "A text only skin";
+ static const char *MAINMENUENTRY  = NULL;
+ 
+@@ -51,8 +51,8 @@
+   clrRed
+   };
+ 
+-static int OsdWidth = 50;
+-static int OsdHeight = 20;
++static int ScOsdWidth = 50;
++static int ScOsdHeight = 20;
+ 
+ class cCursesOsd : public cOsd {
+ private:
+@@ -80,7 +80,7 @@
+   start_color();
+   leaveok(stdscr, true);
+ 
+-  window = subwin(stdscr, OsdHeight, OsdWidth, 0, 0);
++  window = subwin(stdscr, ScOsdHeight, ScOsdWidth, 0, 0);
+   syncok(window, true);
+ }
+ 
+@@ -168,7 +168,7 @@
+      }
+   SetColor(ColorFg, ColorBg);
+   wmove(window, y, x); // ncurses wants 'y' before 'x'!
+-  waddnstr(window, s, OsdWidth - x);
++  waddnstr(window, s, ScOsdWidth - x);
+ }
+ 
+ void cCursesOsd::DrawRectangle(int x1, int y1, int x2, int y2, tColor Color)
+@@ -206,9 +206,9 @@
+ {
+   int Lines = WithInfo ? 5 : 1;
+   message = false;
+-  osd = new cCursesOsd(0, Setup.ChannelInfoPos ? 0 : OsdHeight - Lines);
++  osd = new cCursesOsd(0, Setup.ChannelInfoPos ? 0 : ScOsdHeight - Lines);
+   timeWidth = strlen("00:00");
+-  osd->DrawRectangle(0, 0, OsdWidth - 1, Lines - 1, clrBackground);
++  osd->DrawRectangle(0, 0, ScOsdWidth - 1, Lines - 1, clrBackground);
+ }
+ 
+ cSkinCursesDisplayChannel::~cSkinCursesDisplayChannel()
+@@ -218,14 +218,14 @@
+ 
+ void cSkinCursesDisplayChannel::SetChannel(const cChannel *Channel, int Number)
+ {
+-  osd->DrawRectangle(0, 0, OsdWidth - 1, 0, clrBackground);
++  osd->DrawRectangle(0, 0, ScOsdWidth - 1, 0, clrBackground);
+   osd->DrawText(0, 0, ChannelString(Channel, Number), clrWhite, clrBackground, &Font);
+ }
+ 
+ void cSkinCursesDisplayChannel::SetEvents(const cEvent *Present, const cEvent *Following)
+ {
+   osd->DrawRectangle(0, 1, timeWidth - 1, 4, clrRed);
+-  osd->DrawRectangle(timeWidth, 1, OsdWidth - 1, 4, clrBackground);
++  osd->DrawRectangle(timeWidth, 1, ScOsdWidth - 1, 4, clrBackground);
+   for (int i = 0; i < 2; i++) {
+       const cEvent *e = !i ? Present : Following;
+       if (e) {
+@@ -239,8 +239,8 @@
+ void cSkinCursesDisplayChannel::SetMessage(eMessageType Type, const char *Text)
+ {
+   if (Text) {
+-     osd->SaveRegion(0, 0, OsdWidth - 1, 0);
+-     osd->DrawText(0, 0, Text, clrMessage[2 * Type], clrMessage[2 * Type + 1], &Font, OsdWidth, 0, taCenter);
++     osd->SaveRegion(0, 0, ScOsdWidth - 1, 0);
++     osd->DrawText(0, 0, Text, clrMessage[2 * Type], clrMessage[2 * Type + 1], &Font, ScOsdWidth, 0, taCenter);
+      message = true;
+      }
+   else {
+@@ -253,7 +253,7 @@
+ {
+   if (!message) {
+      cString date = DayDateTime();
+-     osd->DrawText(OsdWidth - Utf8StrLen(date), 0, date, clrWhite, clrBackground, &Font);
++     osd->DrawText(ScOsdWidth - Utf8StrLen(date), 0, date, clrWhite, clrBackground, &Font);
+      }
+   osd->Flush();
+ }
+@@ -284,7 +284,7 @@
+ cSkinCursesDisplayMenu::cSkinCursesDisplayMenu(void)
+ {
+   osd = new cCursesOsd(0, 0);
+-  osd->DrawRectangle(0, 0, OsdWidth - 1, OsdHeight - 1, clrBackground);
++  osd->DrawRectangle(0, 0, ScOsdWidth - 1, ScOsdHeight - 1, clrBackground);
+ }
+ 
+ cSkinCursesDisplayMenu::~cSkinCursesDisplayMenu()
+@@ -301,7 +301,7 @@
+      int sb = yb;
+      int tt = st + (sb - st) * textScroller.Offset() / textScroller.Total();
+      int tb = tt + (sb - st) * textScroller.Shown() / textScroller.Total();
+-     int xl = OsdWidth - 1;
++     int xl = ScOsdWidth - 1;
+      osd->DrawRectangle(xl, st, xl, sb, clrCyan);
+      osd->DrawRectangle(xl, tt, xl, tb, clrWhite);
+      }
+@@ -315,29 +315,29 @@
+ 
+ int cSkinCursesDisplayMenu::MaxItems(void)
+ {
+-  return OsdHeight - 4;
++  return ScOsdHeight - 4;
+ }
+ 
+ void cSkinCursesDisplayMenu::Clear(void)
+ {
+-  osd->DrawRectangle(0, 1, OsdWidth - 1, OsdHeight - 2, clrBackground);
++  osd->DrawRectangle(0, 1, ScOsdWidth - 1, ScOsdHeight - 2, clrBackground);
+   textScroller.Reset();
+ }
+ 
+ void cSkinCursesDisplayMenu::SetTitle(const char *Title)
+ {
+-  osd->DrawText(0, 0, Title, clrBlack, clrCyan, &Font, OsdWidth);
++  osd->DrawText(0, 0, Title, clrBlack, clrCyan, &Font, ScOsdWidth);
+ }
+ 
+ void cSkinCursesDisplayMenu::SetButtons(const char *Red, const char *Green, const char *Yellow, const char *Blue)
+ {
+-  int w = OsdWidth;
++  int w = ScOsdWidth;
+   int t0 = 0;
+   int t1 = 0 + w / 4;
+   int t2 = 0 + w / 2;
+   int t3 = w - w / 4;
+   int t4 = w;
+-  int y = OsdHeight - 1;
++  int y = ScOsdHeight - 1;
+   osd->DrawText(t0, y, Red,    clrWhite, Red    ? clrRed    : clrBackground, &Font, t1 - t0, 0, taCenter);
+   osd->DrawText(t1, y, Green,  clrBlack, Green  ? clrGreen  : clrBackground, &Font, t2 - t1, 0, taCenter);
+   osd->DrawText(t2, y, Yellow, clrBlack, Yellow ? clrYellow : clrBackground, &Font, t3 - t2, 0, taCenter);
+@@ -347,9 +347,9 @@
+ void cSkinCursesDisplayMenu::SetMessage(eMessageType Type, const char *Text)
+ {
+   if (Text)
+-     osd->DrawText(0, OsdHeight - 2, Text, clrMessage[2 * Type], clrMessage[2 * Type + 1], &Font, OsdWidth, 0, taCenter);
++     osd->DrawText(0, ScOsdHeight - 2, Text, clrMessage[2 * Type], clrMessage[2 * Type + 1], &Font, ScOsdWidth, 0, taCenter);
+   else
+-     osd->DrawRectangle(0, OsdHeight - 2, OsdWidth - 1, OsdHeight - 2, clrBackground);
++     osd->DrawRectangle(0, ScOsdHeight - 2, ScOsdWidth - 1, ScOsdHeight - 2, clrBackground);
+ }
+ 
+ void cSkinCursesDisplayMenu::SetItem(const char *Text, int Index, bool Current, bool Selectable)
+@@ -368,12 +368,12 @@
+       const char *s = GetTabbedText(Text, i);
+       if (s) {
+          int xt = Tab(i) / 12;// Tab() is in "pixel" - see also skins.c!!!
+-         osd->DrawText(xt, y, s, ColorFg, ColorBg, &Font, OsdWidth - xt);
++         osd->DrawText(xt, y, s, ColorFg, ColorBg, &Font, ScOsdWidth - xt);
+          }
+       if (!Tab(i + 1))
+          break;
+       }
+-  SetEditableWidth(OsdWidth - Tab(1) / 12); // Tab() is in "pixel" - see also skins.c!!!
++  SetEditableWidth(ScOsdWidth - Tab(1) / 12); // Tab() is in "pixel" - see also skins.c!!!
+ }
+ 
+ void cSkinCursesDisplayMenu::SetEvent(const cEvent *Event)
+@@ -384,24 +384,24 @@
+   cTextScroller ts;
+   char t[32];
+   snprintf(t, sizeof(t), "%s  %s - %s", *Event->GetDateString(), *Event->GetTimeString(), *Event->GetEndTimeString());
+-  ts.Set(osd, 0, y, OsdWidth, OsdHeight - y - 2, t, &Font, clrYellow, clrBackground);
++  ts.Set(osd, 0, y, ScOsdWidth, ScOsdHeight - y - 2, t, &Font, clrYellow, clrBackground);
+   if (Event->Vps() && Event->Vps() != Event->StartTime()) {
+      char *buffer;
+      asprintf(&buffer, " VPS: %s", *Event->GetVpsString());
+-     osd->DrawText(OsdWidth - Utf8StrLen(buffer), y, buffer, clrBlack, clrYellow, &Font);
++     osd->DrawText(ScOsdWidth - Utf8StrLen(buffer), y, buffer, clrBlack, clrYellow, &Font);
+      free(buffer);
+      }
+   y += ts.Height();
+   y += 1;
+-  ts.Set(osd, 0, y, OsdWidth, OsdHeight - y - 2, Event->Title(), &Font, clrCyan, clrBackground);
++  ts.Set(osd, 0, y, ScOsdWidth, ScOsdHeight - y - 2, Event->Title(), &Font, clrCyan, clrBackground);
+   y += ts.Height();
+   if (!isempty(Event->ShortText())) {
+-     ts.Set(osd, 0, y, OsdWidth, OsdHeight - y - 2, Event->ShortText(), &Font, clrYellow, clrBackground);
++     ts.Set(osd, 0, y, ScOsdWidth, ScOsdHeight - y - 2, Event->ShortText(), &Font, clrYellow, clrBackground);
+      y += ts.Height();
+      }
+   y += 1;
+   if (!isempty(Event->Description())) {
+-     textScroller.Set(osd, 0, y, OsdWidth - 2, OsdHeight - y - 2, Event->Description(), &Font, clrCyan, clrBackground);
++     textScroller.Set(osd, 0, y, ScOsdWidth - 2, ScOsdHeight - y - 2, Event->Description(), &Font, clrCyan, clrBackground);
+      SetScrollbar();
+      }
+ }
+@@ -415,35 +415,35 @@
+   cTextScroller ts;
+   char t[32];
+   snprintf(t, sizeof(t), "%s  %s", *DateString(Recording->start), *TimeString(Recording->start));
+-  ts.Set(osd, 0, y, OsdWidth, OsdHeight - y - 2, t, &Font, clrYellow, clrBackground);
++  ts.Set(osd, 0, y, ScOsdWidth, ScOsdHeight - y - 2, t, &Font, clrYellow, clrBackground);
+   y += ts.Height();
+   y += 1;
+   const char *Title = Info->Title();
+   if (isempty(Title))
+      Title = Recording->Name();
+-  ts.Set(osd, 0, y, OsdWidth, OsdHeight - y - 2, Title, &Font, clrCyan, clrBackground);
++  ts.Set(osd, 0, y, ScOsdWidth, ScOsdHeight - y - 2, Title, &Font, clrCyan, clrBackground);
+   y += ts.Height();
+   if (!isempty(Info->ShortText())) {
+-     ts.Set(osd, 0, y, OsdWidth, OsdHeight - y - 2, Info->ShortText(), &Font, clrYellow, clrBackground);
++     ts.Set(osd, 0, y, ScOsdWidth, ScOsdHeight - y - 2, Info->ShortText(), &Font, clrYellow, clrBackground);
+      y += ts.Height();
+      }
+   y += 1;
+   if (!isempty(Info->Description())) {
+-     textScroller.Set(osd, 0, y, OsdWidth - 2, OsdHeight - y - 2, Info->Description(), &Font, clrCyan, clrBackground);
++     textScroller.Set(osd, 0, y, ScOsdWidth - 2, ScOsdHeight - y - 2, Info->Description(), &Font, clrCyan, clrBackground);
+      SetScrollbar();
+      }
+ }
+ 
+ void cSkinCursesDisplayMenu::SetText(const char *Text, bool FixedFont)
+ {
+-  textScroller.Set(osd, 0, 2, OsdWidth - 2, OsdHeight - 4, Text, &Font, clrWhite, clrBackground);
++  textScroller.Set(osd, 0, 2, ScOsdWidth - 2, ScOsdHeight - 4, Text, &Font, clrWhite, clrBackground);
+   SetScrollbar();
+ }
+ 
+ void cSkinCursesDisplayMenu::Flush(void)
+ {
+   cString date = DayDateTime();
+-  osd->DrawText(OsdWidth - Utf8StrLen(date) - 2, 0, date, clrBlack, clrCyan, &Font);
++  osd->DrawText(ScOsdWidth - Utf8StrLen(date) - 2, 0, date, clrBlack, clrCyan, &Font);
+   osd->Flush();
+ }
+ 
+@@ -469,8 +469,8 @@
+ cSkinCursesDisplayReplay::cSkinCursesDisplayReplay(bool ModeOnly)
+ {
+   message = false;
+-  osd = new cCursesOsd(0, OsdHeight - 3);
+-  osd->DrawRectangle(0, 0, OsdWidth - 1, 2, ModeOnly ? clrTransparent : clrBackground);
++  osd = new cCursesOsd(0, ScOsdHeight - 3);
++  osd->DrawRectangle(0, 0, ScOsdWidth - 1, 2, ModeOnly ? clrTransparent : clrBackground);
+ }
+ 
+ cSkinCursesDisplayReplay::~cSkinCursesDisplayReplay()
+@@ -480,7 +480,7 @@
+ 
+ void cSkinCursesDisplayReplay::SetTitle(const char *Title)
+ {
+-  osd->DrawText(0, 0, Title, clrWhite, clrBackground, &Font, OsdWidth);
++  osd->DrawText(0, 0, Title, clrWhite, clrBackground, &Font, ScOsdWidth);
+ }
+ 
+ void cSkinCursesDisplayReplay::SetMode(bool Play, bool Forward, int Speed)
+@@ -501,9 +501,9 @@
+ 
+ void cSkinCursesDisplayReplay::SetProgress(int Current, int Total)
+ {
+-  int p = Total > 0 ? OsdWidth * Current / Total : 0;
++  int p = Total > 0 ? ScOsdWidth * Current / Total : 0;
+   osd->DrawRectangle(0, 1, p, 1, clrGreen);
+-  osd->DrawRectangle(p, 1, OsdWidth, 1, clrWhite);
++  osd->DrawRectangle(p, 1, ScOsdWidth, 1, clrWhite);
+ }
+ 
+ void cSkinCursesDisplayReplay::SetCurrent(const char *Current)
+@@ -513,19 +513,19 @@
+ 
+ void cSkinCursesDisplayReplay::SetTotal(const char *Total)
+ {
+-  osd->DrawText(OsdWidth - Utf8StrLen(Total), 2, Total, clrWhite, clrBackground, &Font);
++  osd->DrawText(ScOsdWidth - Utf8StrLen(Total), 2, Total, clrWhite, clrBackground, &Font);
+ }
+ 
+ void cSkinCursesDisplayReplay::SetJump(const char *Jump)
+ {
+-  osd->DrawText(OsdWidth / 4, 2, Jump, clrWhite, clrBackground, &Font, OsdWidth / 2, 0, taCenter);
++  osd->DrawText(ScOsdWidth / 4, 2, Jump, clrWhite, clrBackground, &Font, ScOsdWidth / 2, 0, taCenter);
+ }
+ 
+ void cSkinCursesDisplayReplay::SetMessage(eMessageType Type, const char *Text)
+ {
+   if (Text) {
+-     osd->SaveRegion(0, 2, OsdWidth - 1, 2);
+-     osd->DrawText(0, 2, Text, clrMessage[2 * Type], clrMessage[2 * Type + 1], &Font, OsdWidth, 0, taCenter);
++     osd->SaveRegion(0, 2, ScOsdWidth - 1, 2);
++     osd->DrawText(0, 2, Text, clrMessage[2 * Type], clrMessage[2 * Type + 1], &Font, ScOsdWidth, 0, taCenter);
+      message = true;
+      }
+   else {
+@@ -553,7 +553,7 @@
+ 
+ cSkinCursesDisplayVolume::cSkinCursesDisplayVolume(void)
+ {
+-  osd = new cCursesOsd(0, OsdHeight - 1);
++  osd = new cCursesOsd(0, ScOsdHeight - 1);
+ }
+ 
+ cSkinCursesDisplayVolume::~cSkinCursesDisplayVolume()
+@@ -564,16 +564,16 @@
+ void cSkinCursesDisplayVolume::SetVolume(int Current, int Total, bool Mute)
+ {
+   if (Mute) {
+-     osd->DrawRectangle(0, 0, OsdWidth - 1, 0, clrTransparent);
++     osd->DrawRectangle(0, 0, ScOsdWidth - 1, 0, clrTransparent);
+      osd->DrawText(0, 0, tr("Key$Mute"), clrGreen, clrBackground, &Font);
+      }
+   else {
+      const char *Prompt = tr("Volume ");
+      int l = Utf8StrLen(Prompt);
+-     int p = (OsdWidth - l) * Current / Total;
++     int p = (ScOsdWidth - l) * Current / Total;
+      osd->DrawText(0, 0, Prompt, clrGreen, clrBackground, &Font);
+      osd->DrawRectangle(l, 0, l + p - 1, 0, clrGreen);
+-     osd->DrawRectangle(l + p, 0, OsdWidth - 1, 0, clrWhite);
++     osd->DrawRectangle(l + p, 0, ScOsdWidth - 1, 0, clrWhite);
+      }
+ }
+ 
+@@ -604,9 +604,9 @@
+   itemsWidth = Font.Width(Title);
+   for (int i = 0; i < NumTracks; i++)
+       itemsWidth = max(itemsWidth, Font.Width(Tracks[i]));
+-  itemsWidth = min(itemsWidth, OsdWidth);
++  itemsWidth = min(itemsWidth, ScOsdWidth);
+   osd = new cCursesOsd(0, 0);
+-  osd->DrawRectangle(0, 0, OsdWidth - 1, OsdHeight - 1, clrBackground);
++  osd->DrawRectangle(0, 0, ScOsdWidth - 1, ScOsdHeight - 1, clrBackground);
+   osd->DrawText(0, 0, Title, clrBlack, clrCyan, &Font, itemsWidth);
+   for (int i = 0; i < NumTracks; i++)
+       SetItem(Tracks[i], i, false);
+@@ -659,7 +659,7 @@
+ 
+ cSkinCursesDisplayMessage::cSkinCursesDisplayMessage(void)
+ {
+-  osd = new cCursesOsd(0, OsdHeight - 1);
++  osd = new cCursesOsd(0, ScOsdHeight - 1);
+ }
+ 
+ cSkinCursesDisplayMessage::~cSkinCursesDisplayMessage()
+@@ -669,7 +669,7 @@
+ 
+ void cSkinCursesDisplayMessage::SetMessage(eMessageType Type, const char *Text)
+ {
+-  osd->DrawText(0, 0, Text, clrMessage[2 * Type], clrMessage[2 * Type + 1], &Font, OsdWidth, 0, taCenter);
++  osd->DrawText(0, 0, Text, clrMessage[2 * Type], clrMessage[2 * Type + 1], &Font, ScOsdWidth, 0, taCenter);
+ }
+ 
+ void cSkinCursesDisplayMessage::Flush(void)
+@@ -782,8 +782,8 @@
+   // Initialize any background activities the plugin shall perform.
+   WINDOW *w = initscr();
+   if (w) {
+-     OsdWidth  = w->_maxx - w->_begx + 1;
+-     OsdHeight = w->_maxy - w->_begy + 1;
++     ScOsdWidth  = w->_maxx - w->_begx + 1;
++     ScOsdHeight = w->_maxy - w->_begy + 1;
+      return true;
+      }
+   return false;
+diff -ruN vdr-1.5.4/config.c vdr-1.5.5/config.c
+--- vdr-1.5.4/config.c	2007-06-17 13:54:54.000000000 +0200
++++ vdr-1.5.5/config.c	2007-06-23 11:42:49.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 1.153 2007/06/17 11:54:54 kls Exp $
++ * $Id: config.c 1.154 2007/06/23 09:42:49 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -119,7 +119,7 @@
+ 
+ bool cSVDRPhost::Accepts(in_addr_t Address)
+ {
+-  return (Address & mask) == addr.s_addr;
++  return (Address & mask) == (addr.s_addr & mask);
+ }
+ 
+ // -- cCommands --------------------------------------------------------------
+diff -ruN vdr-1.5.4/config.h vdr-1.5.5/config.h
+--- vdr-1.5.4/config.h	2007-06-13 08:38:33.000000000 +0200
++++ vdr-1.5.5/config.h	2007-06-23 11:06:24.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.291 2007/06/13 06:38:33 kls Exp $
++ * $Id: config.h 1.292 2007/06/23 09:06:24 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.5.4"
+-#define VDRVERSNUM   10504  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.5.5"
++#define VDRVERSNUM   10505  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.5.4"
+-#define APIVERSNUM   10504  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.5.5"
++#define APIVERSNUM   10505  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-1.5.4/font.c vdr-1.5.5/font.c
+--- vdr-1.5.4/font.c	2007-06-17 14:13:49.000000000 +0200
++++ vdr-1.5.5/font.c	2007-06-23 13:25:42.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: font.c 1.19 2007/06/17 12:13:49 kls Exp $
++ * $Id: font.c 1.21 2007/06/23 11:25:42 kls Exp $
+  */
+ 
+ #include "font.h"
+@@ -103,7 +103,7 @@
+   int Kerning(cGlyph *Glyph, uint PrevSym) const;
+   cGlyph* Glyph(uint CharCode, bool AntiAliased = false) const;
+ public:
+-  cFreetypeFont(const char *Name, int CharHeight);
++  cFreetypeFont(const char *Name, int CharHeight, int CharWidth = 0);
+   virtual ~cFreetypeFont();
+   virtual int Width(uint c) const;
+   virtual int Width(const char *s) const;
+@@ -111,7 +111,7 @@
+   virtual void DrawText(cBitmap *Bitmap, int x, int y, const char *s, tColor ColorFg, tColor ColorBg, int Width) const;
+   };
+ 
+-cFreetypeFont::cFreetypeFont(const char *Name, int CharHeight)
++cFreetypeFont::cFreetypeFont(const char *Name, int CharHeight, int CharWidth)
+ {
+   height = 0;
+   bottom = 0;
+@@ -140,7 +140,7 @@
+            }
+         else {
+            error = FT_Set_Char_Size(face, // handle to face object
+-                                    0,    // char_width in 1/64th of points
++                                    CharWidth * 64,  // CharWidth in 1/64th of points
+                                     CharHeight * 64, // CharHeight in 1/64th of points
+                                     0,    // horizontal device resolution
+                                     0);   // vertical device resolution
+@@ -332,11 +332,11 @@
+   return fonts[Font];
+ }
+ 
+-cFont *cFont::CreateFont(const char *Name, int CharHeight)
++cFont *cFont::CreateFont(const char *Name, int CharHeight, int CharWidth)
+ {
+   cString fn = GetFontFileName(Name);
+   if (*fn)
+-     return new cFreetypeFont(fn, CharHeight);
++     return new cFreetypeFont(fn, CharHeight, CharWidth);
+   return NULL;
+ }
+ 
+@@ -354,9 +354,19 @@
+          char *s = (char *)FcNameUnparse(fontset->fonts[i]);
+          if (s) {
+             // Strip i18n stuff:
++            char *c = strchr(s, ':');
++            if (c) {
++               char *p = strchr(c + 1, ',');
++               if (p)
++                  *p = 0;
++               }
+             char *p = strchr(s, ',');
+-            if (p)
+-               *p = 0;
++            if (p) {
++               if (c)
++                  memmove(p, c, strlen(c) + 1);
++               else
++                  *p = 0;
++               }
+             // Make it user presentable:
+             s = strreplace(s, "\\", ""); // '-' is escaped
+             s = strreplace(s, "style=", "");
+diff -ruN vdr-1.5.4/font.h vdr-1.5.5/font.h
+--- vdr-1.5.4/font.h	2007-06-17 14:11:31.000000000 +0200
++++ vdr-1.5.5/font.h	2007-06-23 12:09:14.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: font.h 1.19 2007/06/17 12:11:31 kls Exp $
++ * $Id: font.h 1.20 2007/06/23 10:09:14 kls Exp $
+  */
+ 
+ #ifndef __FONT_H
+@@ -57,9 +57,10 @@
+           ///< The caller must not use the returned font outside the scope in which
+           ///< it was retrieved by the call to GetFont(), because a call to SetFont()
+           ///< may delete an existing font.
+-  static cFont *CreateFont(const char *Name, int CharHeight);
++  static cFont *CreateFont(const char *Name, int CharHeight, int CharWidth = 0);
+           ///< Creates a new font object with the given Name and makes its characters
+-          ///< CharHeight pixels high. Name is of the form "Family:Style", for instance
++          ///< CharHeight pixels high. If CharWidth is given, it overwrites the font's
++          ///< default width. Name is of the form "Family:Style", for instance
+           ///< "Verdana:Bold Italic" or "Times New Roman". See GetAvailableFontNames()
+           ///< for how to get a list of all available font names.
+           ///< If the requested font can't be created, NULL is returned.
+diff -ruN vdr-1.5.4/i18n.c vdr-1.5.5/i18n.c
+--- vdr-1.5.4/i18n.c	2007-06-17 14:31:02.000000000 +0200
++++ vdr-1.5.5/i18n.c	2007-06-23 15:28:32.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.297 2007/06/17 12:31:02 kls Exp $
++ * $Id: i18n.c 1.300 2007/06/23 13:28:32 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -3563,7 +3563,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "Käytä antialiasointia",
++    "Käytä reunan pehmennystä",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -3609,7 +3609,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "Pienikirjasintyyppi",
++    "Pieni kirjasintyyppi",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -3647,8 +3647,8 @@
+     "",// TODO
+     "",// TODO
+   },
+-  { "Setup.OSD$OSD font size (pixel)",
+-    "OSD Schriftgröße (pixel)",
++  { "Setup.OSD$Default font size (pixel)",
++    "Standard-Schriftgröße (pixel)",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -5142,6 +5142,167 @@
+     "Po Út St Èt Pá So Ne ",
+     "PztSalÇarPerCumCmtPaz",
+   },
++  { "Monday",
++    "Montag",
++    "ponedeljek",
++    "Lunedì",
++    "maandag",
++    "Segunda",
++    "Lundi",
++    "Manday",
++    "maanantai",
++    "poniedzia³ek",
++    "Lunes",
++    "ÄåõôÝñá",
++    "Måndag",
++    "Luni",
++    "Hétfõ",
++    "Dilluns",
++    "¿ÞÝÕÔÕÛìÝØÚ",
++    "Ponedjeljak",
++    "Esmaspäev",
++    "Mandag",
++    "Pondìlí",
++    "Pazartesi",
++  },
++  { "Tuesday",
++    "Dienstag",
++    "Torek",
++    "Martedì",
++    "Dinsdag",
++    "Terça",
++    "Mardi",
++    "Tirsday",
++    "Tiistai",
++    "Wtorek",
++    "Martes",
++    "Ôñßôç",
++    "Tisdag",
++    "Marþi",
++    "Kedd",
++    "Dimarts",
++    "²âÞàÝØÚ",
++    "Utorak",
++    "Teisipäev",
++    "Tirsdag",
++    "Úterý",
++    "Salý",
++  },
++  { "Wednesday",
++    "Mittwoch",
++    "sreda",
++    "mercoledì",
++    "woensdag",
++    "Quarta",
++    "Mercredi",
++    "Onsday",
++    "Keskiviikko",
++    "¶roda",
++    "Miércoles",
++    "ÔåôÜñôç",
++    "Onsdag",
++    "Miercuri",
++    "Szerda",
++    "Dimecres",
++    "ÁàÕÔÐ",
++    "Srijeda",
++    "Kolmapäev",
++    "Onsdag",
++    "Støeda",
++    "Çarþamba",
++  },
++  { "Thursday",
++    "Donnerstag",
++    "èetrtek",
++    "Giovedì",
++    "Donderdag",
++    "Quinta",
++    "Jeudi",
++    "Torsdag",
++    "Torstai",
++    "Czwartek",
++    "Jueves",
++    "ÐÝìðôç",
++    "Torsdag",
++    "Joi",
++    "Csütörtök",
++    "Dijous",
++    "ÇÕâÒÕàÓ",
++    "Èetvrtak",
++    "Neljapäev",
++    "Torsdag",
++    "Ètvrtek",
++    "Perþembe",
++  },
++  { "Friday",
++    "Freitag",
++    "Petek",
++    "Venerdì",
++    "Vrijdag",
++    "Sexta",
++    "Vendredi",
++    "Fredag",
++    "Perjantai",
++    "Pi±tek",
++    "Viernes",
++    "ÐáñáóêåõÞ",
++    "Fredag",
++    "Vineri",
++    "Péntek",
++    "Divendres",
++    "¿ïâÝØæÐ",
++    "Petak",
++    "Reede",
++    "Fredag",
++    "Pátek",
++    "Cuma",
++  },
++  { "Saturday",
++    "Samstag",
++    "Sobota",
++    "Sabato",
++    "Zaterdag",
++    "Sábado",
++    "Samedi",
++    "Lørdag",
++    "Lauantai",
++    "Sobota",
++    "Sábado",
++    "ÓÜââáôï",
++    "Lördag",
++    "Sâmbãtã",
++    "Szombat",
++    "Dissabte",
++    "ÁãÑÑÞâÐ",
++    "Subota",
++    "Laupäev",
++    "Lørdag",
++    "Sobota",
++    "Cumartesi",
++  },
++  { "Sunday",
++    "Sonntag",
++    "Nedelja",
++    "Domenica",
++    "Zondag",
++    "Domingo",
++    "Dimanche",
++    "Søndag",
++    "Sunnuntai",
++    "Niedziela",
++    "Domingo",
++    "ÊõñéáêÞ",
++    "Söndag",
++    "Duminicã",
++    "Vasárnap",
++    "Diumenge",
++    "²ÞáÚàÕáÕÝìÕ",
++    "Nedjelja",
++    "Pühapäev",
++    "Søndag",
++    "Nedìle",
++    "Pazar",
++  },
+   // The allowed characters in strings:
+   { " abcdefghijklmnopqrstuvwxyz0123456789-.#~,/_@",
+     " aäbcdefghijklmnoöpqrstuüvwxyz0123456789-.#~,/_@",
+diff -ruN vdr-1.5.4/menu.c vdr-1.5.5/menu.c
+--- vdr-1.5.4/menu.c	2007-06-17 14:33:01.000000000 +0200
++++ vdr-1.5.5/menu.c	2007-06-23 11:27:13.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.455 2007/06/17 12:33:01 kls Exp $
++ * $Id: menu.c 1.456 2007/06/23 09:27:13 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -2217,7 +2217,7 @@
+   Add(new cMenuEditStraItem(tr("Setup.OSD$Default font"),           &fontOsdIndex, fontOsdNames.Size(), &fontOsdNames[0]));
+   Add(new cMenuEditStraItem(tr("Setup.OSD$Small font"),             &fontSmlIndex, fontSmlNames.Size(), &fontSmlNames[0]));
+   Add(new cMenuEditStraItem(tr("Setup.OSD$Fixed font"),             &fontFixIndex, fontFixNames.Size(), &fontFixNames[0]));
+-  Add(new cMenuEditIntItem( tr("Setup.OSD$OSD font size (pixel)"),  &data.FontOsdSize, 10, MAXFONTSIZE));
++  Add(new cMenuEditIntItem( tr("Setup.OSD$Default font size (pixel)"), &data.FontOsdSize, 10, MAXFONTSIZE));
+   Add(new cMenuEditIntItem( tr("Setup.OSD$Small font size (pixel)"),&data.FontSmlSize, 10, MAXFONTSIZE));
+   Add(new cMenuEditIntItem( tr("Setup.OSD$Fixed font size (pixel)"),&data.FontFixSize, 10, MAXFONTSIZE));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Channel info position"),  &data.ChannelInfoPos, tr("bottom"), tr("top")));
+diff -ruN vdr-1.5.4/svdrp.c vdr-1.5.5/svdrp.c
+--- vdr-1.5.4/svdrp.c	2007-04-30 14:41:07.000000000 +0200
++++ vdr-1.5.5/svdrp.c	2007-06-23 15:14:59.000000000 +0200
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 1.101 2007/04/30 12:41:07 kls Exp $
++ * $Id: svdrp.c 1.102 2007/06/23 13:14:59 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -497,14 +497,14 @@
+         if (channel)
+            n = channel->Number();
+         else {
+-           int i = 1;
+-           while ((channel = Channels.GetByNumber(i, 1)) != NULL) {
+-                 if (strcasecmp(channel->Name(), Option) == 0) {
+-                    n = channel->Number();
+-                    break;
+-                    }
+-                 i = channel->Number() + 1;
+-                 }
++           for (cChannel *channel = Channels.First(); channel; channel = Channels.Next(channel)) {
++               if (!channel->GroupSep()) {
++                  if (strcasecmp(channel->Name(), Option) == 0) {
++                     n = channel->Number();
++                     break;
++                     }
++                  }
++               }
+            }
+         }
+      if (n < 0) {
+@@ -871,23 +871,16 @@
+            Reply(501, "Channel \"%s\" not defined", Option);
+         }
+      else {
+-        int i = 1;
+         cChannel *next = NULL;
+-        while (i <= Channels.MaxNumber()) {
+-              cChannel *channel = Channels.GetByNumber(i, 1);
+-              if (channel) {
+-                 if (strcasestr(channel->Name(), Option)) {
+-                    if (next)
+-                       Reply(-250, "%d %s", next->Number(), *next->ToText());
+-                    next = channel;
+-                    }
+-                 }
+-              else {
+-                 Reply(501, "Channel \"%d\" not found", i);
+-                 return;
+-                 }
+-              i = channel->Number() + 1;
+-              }
++        for (cChannel *channel = Channels.First(); channel; channel = Channels.Next(channel)) {
++            if (!channel->GroupSep()) {
++               if (strcasestr(channel->Name(), Option)) {
++                  if (next)
++                     Reply(-250, "%d %s", next->Number(), *next->ToText());
++                  next = channel;
++                  }
++               }
++            }
+         if (next)
+            Reply(250, "%d %s", next->Number(), *next->ToText());
+         else
+@@ -895,15 +888,10 @@
+         }
+      }
+   else if (Channels.MaxNumber() >= 1) {
+-     int i = 1;
+-     while (i <= Channels.MaxNumber()) {
+-           cChannel *channel = Channels.GetByNumber(i, 1);
+-           if (channel)
+-              Reply(channel->Number() < Channels.MaxNumber() ? -250 : 250, "%d %s", channel->Number(), *channel->ToText());
+-           else
+-              Reply(501, "Channel \"%d\" not found", i);
+-           i = channel->Number() + 1;
+-           }
++     for (cChannel *channel = Channels.First(); channel; channel = Channels.Next(channel)) {
++         if (!channel->GroupSep())
++            Reply(channel->Number() < Channels.MaxNumber() ? -250 : 250, "%d %s", channel->Number(), *channel->ToText());
++         }
+      }
+   else
+      Reply(550, "No channels defined");
+diff -ruN vdr-1.5.4/tools.c vdr-1.5.5/tools.c
+--- vdr-1.5.4/tools.c	2007-06-17 13:02:34.000000000 +0200
++++ vdr-1.5.5/tools.c	2007-06-23 15:38:30.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 1.129 2007/06/17 11:02:34 kls Exp $
++ * $Id: tools.c 1.130 2007/06/23 13:38:30 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -871,6 +871,27 @@
+   return WeekDayName(localtime_r(&t, &tm_r)->tm_wday);
+ }
+ 
++cString WeekDayNameFull(int WeekDay)
++{
++  WeekDay = WeekDay == 0 ? 6 : WeekDay - 1; // we start with Monday==0!
++  switch (WeekDay) {
++    case 0: return tr("Monday");
++    case 1: return tr("Tuesday");
++    case 2: return tr("Wednesday");
++    case 3: return tr("Thursday");
++    case 4: return tr("Friday");
++    case 5: return tr("Saturday");
++    case 6: return tr("Sunday");
++    }
++  return "???";
++}
++
++cString WeekDayNameFull(time_t t)
++{
++  struct tm tm_r;
++  return WeekDayNameFull(localtime_r(&t, &tm_r)->tm_wday);
++}
++
+ cString DayDateTime(time_t t)
+ {
+   char buffer[32];
+diff -ruN vdr-1.5.4/tools.h vdr-1.5.5/tools.h
+--- vdr-1.5.4/tools.h	2007-06-17 13:00:20.000000000 +0200
++++ vdr-1.5.5/tools.h	2007-06-23 15:34:28.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 1.102 2007/06/17 11:00:20 kls Exp $
++ * $Id: tools.h 1.103 2007/06/23 13:34:28 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -196,6 +196,8 @@
+ time_t LastModifiedTime(const char *FileName);
+ cString WeekDayName(int WeekDay);
+ cString WeekDayName(time_t t);
++cString WeekDayNameFull(int WeekDay);
++cString WeekDayNameFull(time_t t);
+ cString DayDateTime(time_t t = 0);
+ cString TimeToString(time_t t);
+ cString DateString(time_t t);

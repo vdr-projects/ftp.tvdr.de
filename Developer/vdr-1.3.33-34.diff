@@ -1,0 +1,980 @@
+diff -ruN vdr-1.3.33/CONTRIBUTORS vdr-1.3.34/CONTRIBUTORS
+--- vdr-1.3.33/CONTRIBUTORS	2005-09-25 16:31:23.000000000 +0200
++++ vdr-1.3.34/CONTRIBUTORS	2005-10-02 10:49:05.000000000 +0200
+@@ -791,6 +791,7 @@
+  for reporting a bug in timeout handling in cRwLock::Lock()
+  for pointing out that the SVDRP command DELR deleted recordings that are currently
+  being written to by a timer
++ for fixing a crash in cConfig::Load() when compiling on the PPC
+ 
+ Malcolm Caldwell <malcolm.caldwell@ntu.edu.au>
+  for modifying LOF handling to allow for C-band reception
+@@ -918,6 +919,7 @@
+ Peter Bieringer <pb@bieringer.de>
+  for reporting a problem with duplicate recordings with the same file name
+  for suggesting to implement the command line option '--vfat'
++ for reporting a leftover 'summary.vdr' in vdr.5
+ 
+ Alexander Damhuis <ad@phonedation.de>
+  for reporting problems when deleting a timer that is currently recording
+@@ -933,6 +935,8 @@
+  for pointing out a problem with NPTL ("Native Posix Thread Library")
+  for changing thread handling to make it work with NPTL ("Native Posix Thread Library")
+  for fixing a memory leak in thread handling when using NPTL
++ for reporting a bug in handling the '.update' file in case the video directory is
++ not at the default location
+ 
+ Thomas Schmidt <thomas.schmidt@in.stud.tu-ilmenau.de>
+  for reporting a crash when canceling a newly created timer
+@@ -1229,6 +1233,7 @@
+  for improving resetting CAM connections
+  for fixing handling EPG data for time shifted events
+  for fixing detecting short channel names for "Kabel Deutschland"
++ for reporting that the FATALERRNO macro needs to check for a non-zero errno value
+ 
+ Jürgen Schmitz <j.schmitz@web.de>
+  for reporting a bug in displaying the current channel when switching via the SVDRP
+@@ -1281,6 +1286,9 @@
+  for reporting a problem with cRemux in a single thread
+  for adding 'Service' functions to the plugin interface
+  for reporting an unused MAINMENUENTRY in svdrpdemo.c
++ for reporting a bug in opening recording folders in case the last replayed recording
++ no longer exists
++ for reporting a missing check against MAXOSDAREAS in cOsd::CanHandleAreas()
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+diff -ruN vdr-1.3.33/HISTORY vdr-1.3.34/HISTORY
+--- vdr-1.3.33/HISTORY	2005-09-25 16:30:58.000000000 +0200
++++ vdr-1.3.34/HISTORY	2005-10-03 14:31:33.000000000 +0200
+@@ -45,7 +45,7 @@
+   a prepended '@' character.
+ - If an instant recording is currently active, the "Main" menu now contains
+   an option to stop that recording.
+-- Timers are now only processed when the Menu is not active. So after editing
++- Timers are now only processed when the menu is not active. So after editing
+   a timer the effect will take place only after the menu has been closed.
+   In order to avoid missing a timer event by inadvertently leaving the menu
+   open, the menu will be closed automatically after about two minutes of
+@@ -3849,3 +3849,39 @@
+   added or deleted, so that other VDR instances can update their lists (thanks to
+   Alexander Rieger).
+ - Made the function ExchangeChars() public (suggested by Lucian Muresan).
++
++2005-10-03: Version 1.3.34
++
++- Fixed a leftover 'summary.vdr' in vdr.5 (thanks to Peter Bieringer for reporting
++  this one).
++- Fixed opening recording folders in case the last replayed recording no longer
++  exists (reported by Udo Richter).
++- Fixed an unjustified "Error while accessing recording!" after deleting a recording
++  from a subfolder.
++- Fixed handling the '.update' file in case the video directory is not at the default
++  location (reported by Jon Burgess).
++- Fixed a crash in cConfig::Load() when compiling on the PPC (thanks to Sascha
++  Volkenandt).
++- Fixed the FATALERRNO macro to check for a non-zero errno value (reported by Marco
++  Schlüßler).
++- Added a check against MAXOSDAREAS in cOsd::CanHandleAreas() (reported by Udo
++  Richter).
++- Fixed setting current menu item if the first one is non-selectable.
++- cOsdItem::cOsdItem() now has a 'Selectable' parameter.
++- Improved displaying 'sub-title' and 'bottom text' in the CAM menu.
++- Added status message "Resetting CAM..." for an immediate feedback when the CAM
++  reset has been triggered.
++- The CAM menu now automatically updates itself in case of a progress display (as
++  used, for instance, when updating the firmware via satellite).
++- Now skipping some funny characters sent by some CAMs at the beginning of strings.
++- The CAM menu is now completely closed when pressing the Menu key while inside
++  a sub menu.
++- Reduced MAX_CONNECT_RETRIES in ci.c to 2 (waiting too long made the whole thing
++  appear hanging).
++- Added status message "Opening CAM menu..." for an immediate feedback when the CAM
++  menu has been requested.
++- Speeded up initial opening of the CAM menu.
++- Fixed handling of menus with no selectable items.
++- The character 0x8A in CAM menu strings is now mapped to a real newline.
++- The 'sub-title' and 'bottom text' in the CAM menu can now consist of several lines.
++- Improved the CAM enquiry menu.
+diff -ruN vdr-1.3.33/PLUGINS/src/skincurses/HISTORY vdr-1.3.34/PLUGINS/src/skincurses/HISTORY
+--- vdr-1.3.33/PLUGINS/src/skincurses/HISTORY	2005-05-16 12:41:07.000000000 +0200
++++ vdr-1.3.34/PLUGINS/src/skincurses/HISTORY	2005-10-01 14:20:25.000000000 +0200
+@@ -17,3 +17,7 @@
+ 2005-05-16: Version 0.0.4
+ 
+ - New "recording info" display.
++
++2005-10-01:
++
++- Added a note about using this skin to the README file.
+diff -ruN vdr-1.3.33/PLUGINS/src/skincurses/README vdr-1.3.34/PLUGINS/src/skincurses/README
+--- vdr-1.3.33/PLUGINS/src/skincurses/README	2004-05-29 15:38:04.000000000 +0200
++++ vdr-1.3.34/PLUGINS/src/skincurses/README	2005-10-01 14:19:49.000000000 +0200
+@@ -14,3 +14,11 @@
+ shell window, using only plain text output. It re-implements
+ what used to be available by compiling VDR versions before 1.3.7
+ with the DEBUG_OSD macro set.
++
++To activate this skin you can either select it in the Setup/OSD
++menu, or put the line
++
++OSDSkin = curses
++
++into your 'setup.conf' file before starting VDR. Make sure this
++is the only OSDSkin line in that file.
+diff -ruN vdr-1.3.33/channels.conf vdr-1.3.34/channels.conf
+--- vdr-1.3.33/channels.conf	2005-09-25 16:32:26.000000000 +0200
++++ vdr-1.3.34/channels.conf	2005-10-03 15:17:04.000000000 +0200
+@@ -8,26 +8,27 @@
+ NDR FS MV;ARD:12109:hC34:S19.2E:27500:2401:2402=deu:2404:0:28224:1:1073:0
+ SR SÜDWEST Fernsehen;ARD:12265:hC34:S19.2E:27500:1301:1302=deu:1304:0:28486:1:1093:0
+ WDR Köln;ARD:11836:hC34:S19.2E:27500:601:602=deu:604:0:28111:1:1101:0
+-BR-alpha;ARD:11836:hC34:S19.2E:27500:701:702=deu:704:0:28112:1:1101:0
++BR-alpha;ARD:11836:hC34:S19.2E:27500:701:702=deu;703:704:0:28112:1:1101:0
+ SÜDWEST Ferns. BW;ARD:11836:hC34:S19.2E:27500:801:802=deu:804:0:28113:1:1101:0
+ Phoenix;ARD:11836:hC34:S19.2E:27500:901:902=deu:904:0:28114:1:1101:0
+ ZDF;ZDFvision:11953:hC34:S19.2E:27500:110:120=deu,121=2ch;125=dd:130:0:28006:1:1079:0
+ 3sat;ZDFvision:11953:hC34:S19.2E:27500:210:220=deu,221=2ch;225=dd:230:0:28007:1:1079:0
+-KiKa;ZDFvision:11953:hC34:S19.2E:27500:310:320=deu:330:0:28008:1:1079:0
++KiKa;ZDFvision:11953:hC34:S19.2E:27500:310:320:330:0:28008:1:1079:0
+ arte;ARD:11836:hC34:S19.2E:27500:401:402=deu,403=fra:404:0:28109:1:1101:0
+ ORF1;ORF:12692:hC56:S19.2E:22000:160:161=deu;163=deu:165:1762,D05,1702,1801:13001:1:1117:0
+-ORF2;ORF:12692:hC56:S19.2E:22000:500:501=deu;503=deu:505:3:13002:1:1117:0
++ORF2;ORF:12692:hC56:S19.2E:22000:500:501=deu;503=deu:505:1762,D05,1702,1801:13002:1:1117:0
+ ZDFinfokanal;ZDFvision:11953:hC34:S19.2E:27500:610:620=deu:130:0:28011:1:1079:0
+ CNN Int.;CNN:11778:vC34:S19.2E:27500:165:100=eng:47:0:28522:1:1068:0
+ Super RTL,S RTL;RTL World:12187:hC34:S19.2E:27500:165:120=deu:65:0:12040:1:1089:0
+ VOX;RTL World:12187:hC34:S19.2E:27500:167:136=deu:71:0:12060:1:1089:0
+ KABEL1;ProSiebenSat.1:12480:vC34:S19.2E:27500:511:512=deu:33:0:899:133:33:0
++DAS VIERTE,D VIERTE;BetaDigital:12460:hC34:S19.2E:27500:2047:2048=deu:36:0:1793:133:5:0
+ NEUN LIVE Television,NEUN LIVE;BetaDigital:12480:vC34:S19.2E:27500:767:768=deu:35:0:897:133:33:0
+ DSF;BetaDigital:12480:vC34:S19.2E:27500:1023:1024=deu:39:0:900:133:33:0
+ HSE24,HSE24;BetaDigital:12480:vC34:S19.2E:27500:1279:1280=deu:37:0:40:133:33:0
+ Bloomberg TV Germany;Bloomberg:12551:vC56:S19.2E:22000:162:99=deu:0:0:12160:1:1108:0
+-EURONEWS;CSAT:11817:vC34:S19.2E:27500:163:92=fra,93=eng,94=ita,95=esl,91=rus,98=por,99=deu:0:0:8004:1:1070:0
+-rbb Brandenburg;ARD:12109:hC34:S19.2E:27500:601:602=deu:604:0:28205:1:1073:0
++EURONEWS;CSAT:11817:vC34:S19.2E:27500:163:92=fra,93=eng,94=ita,95=esl,98=por,99=deu,91=rus:0:0:8004:1:1070:0
++rbb Brandenburg;ARD:12109:hC34:S19.2E:27500:501:502=deu:504:0:28205:1:1073:0
+ Sky News:11597:vC56:S19.2E:22000:305+131:306=eng:0:0:28707:1:1026:0
+ Veronica/JETIX;CANALDIGITAAL:12574:hC56:S19.2E:22000:518+8190:92=dut:38:622,100:5020:53:1109:0
+ BVN;CANALDIGITAAL:12574:hC56:S19.2E:22000:515+8190:96=dut:36:0:5025:53:1109:0
+@@ -44,22 +45,22 @@
+ rbb Berlin;ARD:12109:hC34:S19.2E:27500:601:602=deu:604:0:28206:1:1073:0
+ :Premiere World
+ PREMIERE START,START;PREMIERE:11797:hC34:S19.2E:27500:255:256=deu:32:1:8:133:2:0
+-PREMIERE 1,PREM 1;PREMIERE:11797:hC34:S19.2E:27500:511:512=deu,513=deu;515=deu:32:1:10:133:2:0
+-PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu,1793=deu;1795=deu:32:1:11:133:2:0
++PREMIERE 1,PREM 1;PREMIERE:11797:hC34:S19.2E:27500:511:512=deu;515=deu:32:1:10:133:2:0
++PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu;1795=deu:32:1:11:133:2:0
+ PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu,2305=deu:32:1:43:133:2:0
+ PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu,769=deu:32:1801,1722,1702:9:133:2:0
+-PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu:32:1702,1801,1722:29:133:2:0
++PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu,1281=deu:32:1722,1702,1801:29:133:2:0
+ PREMIERE 6,PREM 6;PREMIERE:11797:hC34:S19.2E:27500:1535:1536=deu:32:1:41:133:2:0
+-PREMIERE 7,PREM 7;PREMIERE:11797:hC34:S19.2E:27500:1023:1024=deu:32:1702,1801,1722:20:133:2:0
++PREMIERE 7,PREM 7;PREMIERE:11797:hC34:S19.2E:27500:1023:1024=deu:32:1801,1722,1702:20:133:2:0
+ DISNEY CHANNEL,DISNEY;PREMIERE:11758:hC34:S19.2E:27500:2559:2560=deu:32:1722,1801,1702:34:133:17:0
+ :Premiere Direkt
+ PREMIERE DIREKT,DIREKT;PREMIERE:12031:hC34:S19.2E:27500:2815:2816=deu,2817=deu;2819=deu:0:0:18:133:4:0
+ :PW Erotic
+-BEATE-UHSE.TV,B-UHSE;PREMIERE:11758:hC34:S19.2E:27500:1791:1792=deu:32:1801,1722,1702:21:133:17:0
+-DIREKT EROTIK,EROTIK;PREMIERE:12031:hC34:S19.2E:27500:1279:1280=deu:0:1722,1801,1702:513:133:4:0
++BEATE-UHSE.TV,B-UHSE;PREMIERE:11758:hC34:S19.2E:27500:1791:1792=deu:32:1722,1702,1801:21:133:17:0
++DIREKT EROTIK,EROTIK;PREMIERE:12031:hC34:S19.2E:27500:1279:1280=deu:0:1801,1722,1702:513:133:4:0
+ :Sportsworld
+-PREMIERE SPORT PORTAL,SPORT PORTAL;PREMIERE:11719:hC34:S19.2E:27500:255:256=deu,257=deu:32:1702,1801,1722:17:133:3:0
+-PREMIERE WIN,WIN;PREMIERE:12031:hC34:S19.2E:27500:3839:3840=deu:32:1722,1801,1702:27:133:4:0
++PREMIERE SPORT PORTAL,SPORT PORTAL;PREMIERE:11719:hC34:S19.2E:27500:255:256=deu,257=deu:32:1722,1702,1801:17:133:3:0
++PREMIERE WIN,WIN;PREMIERE:12031:hC34:S19.2E:27500:3839:3840=deu:32:1801,1702,1722:27:133:4:0
+ :Beta Digital
+ N24;ProSiebenSat.1:12480:vC34:S19.2E:27500:2047:2048=deu:36:0:47:133:33:0
+ LibertyTV FR;LibertyTV.com:12610:vC56:S19.2E:22000:941:943=deu:0:0:12199:1:1112:0
+@@ -89,9 +90,9 @@
+ :@201 Sky
+ Sky One;BSkyB:12226:hC23:S28.2E:27500:515+8190:643=eng:579:960,961:4705:2:2027:0
+ Sky Mix;BSkyB:12226:hC23:S28.2E:27500:514+8190:642=eng,662=NAR:578:960,961:5104:2:2027:0
+-ITV2;BSkyB:10758:vC56:S28.2E:22000:2314:2315=eng:2317:960,961:10070:2:2044:0
++ITV2;BSkyB:10758:vC56:S28.2E:22000:2314:2315=eng,2363=NAR:2317:960,961:10070:2:2044:0
+ Sci-Fi;BSkyB:12148:hC23:S28.2E:27500:512+8190:640=eng:576:960,961:4905:2:2023:0
+-Paramount;BSkyB:12187:hC23:S28.2E:27500:2313+2304:2317=eng,2318=NAR:2315:960,961:5904:2:2025:0
++Paramount;BSkyB:12187:hC23:S28.2E:27500:2313+2304:2326=eng,2327=NAR:2315:960,961:5904:2:2025:0
+ Paramount;BSkyB:11526:vC23:S28.2E:27500:2317+2306:2318=eng:2319:960,961:50305:2:2404:0
+ Paramount 2;BSkyB:11914:hC23:S28.2E:27500:514+8190:642=eng,662=NAR:578:960,961:4504:2:2011:0
+ Discovery;BSkyB:11875:hC23:S28.2E:27500:2304:2306=eng,2307=NAR:2305:960,961:6201:2:2009:0
+@@ -108,7 +109,7 @@
+ Sky Cinema 2;BSkyB:12285:vC23:S28.2E:27500:517+8190:645=eng,665=NAR:581:960,961:4802:2:2030:0
+ :@900 Some 'seed' channels
+ Chelsea TV;BskyB:11778:vC23:S28.2E:27500:2308+2304:2309=eng:0:960,961:9307:2:2004:0
+-WDR Münster;ARD:12421:hC34:S19.2E:27500:701:702=deu:104:0:28310:1:1201:0
++WDR Münster;ARD:12421:hC34:S19.2E:27500:101:102=deu:104:0:28310:1:1201:0
+ Animal Plnt+;BSkyB:12070:hC23:S28.2E:27500:2314+2307:2315=eng:0:960,961:50002:2:2019:0
+ S1T;BSkyB:12285:vC23:S28.2E:27500:513+8190:641=eng,661=NAR:577:960,961:4409:2:2030:0
+ CNN;BSkyB:12051:vC23:S28.2E:27500:2313:2315=eng:2314:0:7140:2:2018:0
+@@ -117,4 +118,5 @@
+ Euro1080;EURO1080:12168:vC34:S19.2E:27500:308:256:0:FF:21100:1:1088:0
+ Astra HD:12441:vC34:S19.2E:27500:133+80:134=eng:0:FF:29700:0:0:0
+ eng-WRN-multi;WRN:12597:vC34:S13.0E:27500:0:2132:0:0:8230:318:9400:0
++TVS Teleport Bonn;DMV:11535:vC34:S1.0W:5632:308+8190:256=eng,257=eng:0:2:1:65535:1:0
+ :@1000 New channels
+diff -ruN vdr-1.3.33/ci.c vdr-1.3.34/ci.c
+--- vdr-1.3.33/ci.c	2005-09-17 13:43:08.000000000 +0200
++++ vdr-1.3.34/ci.c	2005-10-03 14:58:22.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 1.28 2005/09/17 11:43:08 kls Exp $
++ * $Id: ci.c 1.36 2005/10/03 12:58:22 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -92,9 +92,17 @@
+ ///< Copies the string at Data.
+ ///< \return Returns a pointer to a newly allocated string.
+ {
++  // Some CAMs send funny characters at the beginning of strings.
++  // Let's just skip them:
++  while (Length > 0 && (*Data == ' ' || *Data == 0x05 || *Data == 0x96 || *Data == 0x97)) {
++        Length--;
++        Data++;
++        }
+   char *s = MALLOC(char, Length + 1);
+   strncpy(s, (char *)Data, Length);
+   s[Length] = 0;
++  // The character 0x8A is used as newline, so let's put a real '\n' in there:
++  strreplace(s, 0x8A, '\n');
+   return s;
+ }
+ 
+@@ -394,7 +402,7 @@
+   return tpdu->Data(Length);
+ }
+ 
+-#define MAX_CONNECT_RETRIES  20
++#define MAX_CONNECT_RETRIES  2
+ 
+ int cCiTransportConnection::CreateConnection(void)
+ {
+@@ -1026,6 +1034,7 @@
+   cCiEnquiry *Enquiry(bool Clear = false);
+   bool SendMenuAnswer(uint8_t Selection);
+   bool SendAnswer(const char *Text);
++  bool SendCloseMMI(void);
+   };
+ 
+ cCiMMI::cCiMMI(int SessionId, cCiTransportConnection *Tc)
+@@ -1198,6 +1207,14 @@
+   return true;
+ }
+ 
++bool cCiMMI::SendCloseMMI(void)
++{
++  dbgprotocol("%d: ==> Close MMI\n", SessionId());
++  SendData(AOT_CLOSE_MMI, 0);
++  //XXX return value of all SendData() calls???
++  return true;
++}
++
+ // --- cCiMenu ---------------------------------------------------------------
+ 
+ cCiMenu::cCiMenu(cCiMMI *MMI, bool Selectable)
+@@ -1229,6 +1246,12 @@
+   return false;
+ }
+ 
++bool cCiMenu::HasUpdate(void)
++{
++  // If the mmi is gone, the menu shall be closed, which also qualifies as 'update'.
++  return !mmi || mmi->HasUserIO();
++}
++
+ bool cCiMenu::Select(int Index)
+ {
+   cMutexLock MutexLock(&mutex);
+@@ -1242,6 +1265,11 @@
+   return Select(-1);
+ }
+ 
++bool cCiMenu::Abort(void)
++{
++  return mmi && mmi->SendCloseMMI();
++}
++
+ // --- cCiEnquiry ------------------------------------------------------------
+ 
+ cCiEnquiry::cCiEnquiry(cCiMMI *MMI)
+@@ -1271,6 +1299,11 @@
+   return Reply(NULL);
+ }
+ 
++bool cCiEnquiry::Abort(void)
++{
++  return mmi && mmi->SendCloseMMI();
++}
++
+ // --- cCiCaPmt --------------------------------------------------------------
+ 
+ // Ca Pmt List Management:
+diff -ruN vdr-1.3.33/ci.h vdr-1.3.34/ci.h
+--- vdr-1.3.33/ci.h	2005-08-20 16:56:11.000000000 +0200
++++ vdr-1.3.34/ci.h	2005-10-03 14:49:52.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.h 1.14 2005/08/20 14:56:11 kls Exp $
++ * $Id: ci.h 1.17 2005/10/03 12:49:52 kls Exp $
+  */
+ 
+ #ifndef __CI_H
+@@ -40,6 +40,8 @@
+   bool Selectable(void) { return selectable; }
+   bool Select(int Index);
+   bool Cancel(void);
++  bool Abort(void);
++  bool HasUpdate(void);
+   };
+ 
+ class cCiEnquiry {
+@@ -58,6 +60,7 @@
+   int ExpectedLength(void) { return expectedLength; }
+   bool Reply(const char *s);
+   bool Cancel(void);
++  bool Abort(void);
+   };
+ 
+ class cCiCaPmt {
+diff -ruN vdr-1.3.33/config.h vdr-1.3.34/config.h
+--- vdr-1.3.33/config.h	2005-09-14 18:04:09.000000000 +0200
++++ vdr-1.3.34/config.h	2005-10-01 12:41:33.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.228 2005/09/14 16:04:09 kls Exp $
++ * $Id: config.h 1.230 2005/10/01 10:41:33 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -19,8 +19,8 @@
+ #include "i18n.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.3.33"
+-#define VDRVERSNUM   10333  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.3.34"
++#define VDRVERSNUM   10334  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+@@ -91,7 +91,7 @@
+   const char *FileName(void) { return fileName; }
+   bool Load(const char *FileName = NULL, bool AllowComments = false, bool MustExist = false)
+   {
+-    Clear();
++    cConfig<T>::Clear();
+     if (FileName) {
+        free(fileName);
+        fileName = strdup(FileName);
+diff -ruN vdr-1.3.33/i18n.c vdr-1.3.34/i18n.c
+--- vdr-1.3.33/i18n.c	2005-09-25 13:57:04.000000000 +0200
++++ vdr-1.3.34/i18n.c	2005-10-03 14:27:15.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.210 2005/09/25 11:57:04 kls Exp $
++ * $Id: i18n.c 1.213 2005/10/03 12:27:15 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -2273,6 +2273,27 @@
+     "Kõvaketas peaaegu täis!",
+     "Kun lidt diskplads tilbage!",
+   },
++  { "Opening CAM menu...",
++    "CAM-Menü wird geöffnet...",
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++  },
+   { "Can't open CAM menu!",
+     "CAM-Menü kann nicht geöffnet werden!",
+     "Ne morem odpreti CAM menija!",
+@@ -2294,6 +2315,27 @@
+     "Ei saa avada CAM menüüd!",
+     "Kan ikke åbne CAM menuen!",
+   },
++  { "Resetting CAM...",
++    "CAM wird zurückgesetzt...",
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++  },
+   { "Can't reset CAM!",
+     "CAM-Reset fehlgeschlagen!",
+     "Ne morem resetirati CAM-a",
+@@ -2316,26 +2358,47 @@
+     "Kan ikke nulstille CAM!",
+   },
+   { "CAM has been reset",
+-    "CAM wurde zurückgesetzt!",
+-    "CAM je resetiran!",
+-    "Modulo CAM reimpostato!",
+-    "CAM is herstart!",
++    "CAM wurde zurückgesetzt",
++    "CAM je resetiran",
++    "Modulo CAM reimpostato",
++    "CAM is herstart",
+     "",//TODO
+     "La CAM a été réinitialisée",
+     "",//TODO
+     "Salausmoduuli alustettu",
+-    "CAM-Reset wykonany!",
++    "CAM-Reset wykonany",
+     "CAM reiniciada",
+     "Óôï CAM Ýãéíå åðáíáöïñÜ",
+     "CA modulen har återställts",
+     "CAM-ul a fost resetat",
+     "A CAM vissza lett állítva",
+     "CAM reiniciada",
+-    "CAM-ÜÞÔãÛì ßÕàÕ×ÐßãéÕÝ!",
+-    "CAM je resetiran!",
++    "CAM-ÜÞÔãÛì ßÕàÕ×ÐßãéÕÝ",
++    "CAM je resetiran",
+     "CAM mooduli taaskäivitus tehtud",
+     "CAM er blevet nulstillet",
+   },
++  { "Please enter %d digits!",
++    "Bitte geben Sie %d Ziffern ein!",
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++    "",//TODO
++  },
+   { "No audio available!",
+     "Kein Audio verfügbar!",
+     "Zvok ni dosegljiv",
+diff -ruN vdr-1.3.33/menu.c vdr-1.3.34/menu.c
+--- vdr-1.3.33/menu.c	2005-09-25 15:37:21.000000000 +0200
++++ vdr-1.3.34/menu.c	2005-10-03 14:53:51.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.362 2005/09/25 13:37:21 kls Exp $
++ * $Id: menu.c 1.374 2005/10/03 12:53:51 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -34,6 +34,7 @@
+ 
+ #define MAXRECORDCONTROLS (MAXDEVICES * MAXRECEIVERS)
+ #define MAXINSTANTRECTIME (24 * 60 - 1) // 23:59 hours
++#define MAXWAITFORCAMMENU 4 // seconds to wait for the CAM menu to open
+ 
+ #define CHNUMWIDTH  (numdigits(Channels.MaxNumber()) + 1)
+ 
+@@ -1287,33 +1288,59 @@
+ cMenuCam::cMenuCam(cCiMenu *CiMenu)
+ :cOsdMenu("")
+ {
++  dsyslog("CAM: Menu ------------------");
+   ciMenu = CiMenu;
+   selected = false;
++  offset = 0;
+   if (ciMenu->Selectable())
+      SetHasHotkeys();
+-  SetTitle(ciMenu->TitleText() ? ciMenu->TitleText() : "CAM");
+-  for (int i = 0; i < ciMenu->NumEntries(); i++)
+-      Add(new cOsdItem(hk(ciMenu->Entry(i))));
+-  //XXX implement a clean way of displaying this:
+-  Add(new cOsdItem(ciMenu->SubTitleText()));
+-  Add(new cOsdItem(ciMenu->BottomText()));
++  SetTitle(*ciMenu->TitleText() ? ciMenu->TitleText() : "CAM");
++  dsyslog("CAM: '%s'", ciMenu->TitleText());
++  if (*ciMenu->SubTitleText()) {
++     dsyslog("CAM: '%s'", ciMenu->SubTitleText());
++     AddMultiLineItem(ciMenu->SubTitleText());
++     offset = Count();
++     }
++  for (int i = 0; i < ciMenu->NumEntries(); i++) {
++      Add(new cOsdItem(hk(ciMenu->Entry(i)), osUnknown, ciMenu->Selectable()));
++      dsyslog("CAM: '%s'", ciMenu->Entry(i));
++      }
++  if (*ciMenu->BottomText()) {
++     AddMultiLineItem(ciMenu->BottomText());
++     dsyslog("CAM: '%s'", ciMenu->BottomText());
++     }
+   Display();
+-  dsyslog("CAM: Menu - %s", ciMenu->TitleText());
+ }
+ 
+ cMenuCam::~cMenuCam()
+ {
+   if (!selected)
+-     ciMenu->Cancel();
++     ciMenu->Abort();
+   delete ciMenu;
+ }
+ 
++void cMenuCam::AddMultiLineItem(const char *s)
++{
++  while (s && *s) {
++        const char *p = strchr(s, '\n');
++        int l = p ? p - s : strlen(s);
++        cOsdItem *item = new cOsdItem;
++        item->SetSelectable(false);
++        item->SetText(strndup(s, l), false);
++        Add(item);
++        s = p ? p + 1 : p;
++        }
++}
++
+ eOSState cMenuCam::Select(void)
+ {
+   if (ciMenu->Selectable()) {
+-     ciMenu->Select(Current());
+-     selected = true;
++     ciMenu->Select(Current() - offset);
++     dsyslog("CAM: select %d", Current() - offset);
+      }
++  else
++     ciMenu->Cancel();
++  selected = true;
+   return osEnd;
+ }
+ 
+@@ -1327,36 +1354,51 @@
+        default: break;
+        }
+      }
++  else if (state == osBack) {
++     ciMenu->Cancel();
++     selected = true;
++     return osEnd;
++     }
++  if (ciMenu->HasUpdate()) {
++     selected = true;
++     return osEnd;
++     }
+   return state;
+ }
+ 
+ // --- cMenuCamEnquiry -------------------------------------------------------
+ 
+-//XXX this is just quick and dirty - make this a separate display object
+ cMenuCamEnquiry::cMenuCamEnquiry(cCiEnquiry *CiEnquiry)
+-:cOsdMenu("", 10)
++:cOsdMenu("", 1)
+ {
+   ciEnquiry = CiEnquiry;
+   int Length = ciEnquiry->ExpectedLength();
+   input = MALLOC(char, Length + 1);
+   *input = 0;
+   replied = false;
+-  SetTitle(ciEnquiry->Text() ? ciEnquiry->Text() : "CAM");
+-  Add(new cMenuEditNumItem("Input", input, Length, ciEnquiry->Blind()));
++  SetTitle("CAM");
++  Add(new cOsdItem(ciEnquiry->Text(), osUnknown, false));
++  Add(new cOsdItem("", osUnknown, false));
++  Add(new cMenuEditNumItem("", input, Length, ciEnquiry->Blind()));
+   Display();
+ }
+ 
+ cMenuCamEnquiry::~cMenuCamEnquiry()
+ {
+   if (!replied)
+-     ciEnquiry->Cancel();
++     ciEnquiry->Abort();
+   free(input);
+   delete ciEnquiry;
+ }
+ 
+ eOSState cMenuCamEnquiry::Reply(void)
+ {
+-  //XXX check length???
++  if (ciEnquiry->ExpectedLength() < 0xFF && int(strlen(input)) != ciEnquiry->ExpectedLength()) {
++     char buffer[64];
++     snprintf(buffer, sizeof(buffer), tr("Please enter %d digits!"), ciEnquiry->ExpectedLength());
++     Skins.Message(mtError, buffer);
++     return osContinue;
++     }
+   ciEnquiry->Reply(input);
+   replied = true;
+   return osEnd;
+@@ -1372,6 +1414,11 @@
+        default: break;
+        }
+      }
++  else if (state == osBack) {
++     ciEnquiry->Cancel();
++     replied = true;
++     return osEnd;
++     }
+   return state;
+ }
+ 
+@@ -1513,6 +1560,7 @@
+      SetCurrent(First());
+   else if (OpenSubMenus && cReplayControl::LastReplayed() && Open(true))
+      return;
++  Display();
+   SetHelpKeys();
+ }
+ 
+@@ -1556,7 +1604,7 @@
+   if (Refresh) {
+      cMenuRecordingItem *ri = (cMenuRecordingItem *)Get(Current());
+      if (ri) {
+-        cRecording *Recording = GetRecording(ri);
++        cRecording *Recording = Recordings.GetByName(ri->FileName());
+         if (Recording)
+            CurrentRecording = Recording->FileName();
+         }
+@@ -1583,7 +1631,8 @@
+          }
+       }
+   free(LastItemText);
+-  Display();
++  if (Refresh)
++     Display();
+ }
+ 
+ cRecording *cMenuRecordings::GetRecording(cMenuRecordingItem *Item)
+@@ -2155,8 +2204,13 @@
+ {
+   cMenuSetupCICAMItem *item = (cMenuSetupCICAMItem *)Get(Current());
+   if (item) {
+-     if (item->CiHandler()->EnterMenu(item->Slot()))
++     if (item->CiHandler()->EnterMenu(item->Slot())) {
++        Skins.Message(mtWarning, tr("Opening CAM menu..."));
++        time_t t = time(NULL);
++        while (time(NULL) - t < MAXWAITFORCAMMENU && !item->CiHandler()->HasUserIO())
++              item->CiHandler()->Process();
+         return osEnd; // the CAM menu will be executed explicitly from the main loop
++        }
+      else
+         Skins.Message(mtError, tr("Can't open CAM menu!"));
+      }
+@@ -2167,6 +2221,7 @@
+ {
+   cMenuSetupCICAMItem *item = (cMenuSetupCICAMItem *)Get(Current());
+   if (item) {
++     Skins.Message(mtWarning, tr("Resetting CAM..."));
+      if (item->CiHandler()->Reset(item->Slot())) {
+         Skins.Message(mtInfo, tr("CAM has been reset"));
+         return osEnd;
+diff -ruN vdr-1.3.33/menu.h vdr-1.3.34/menu.h
+--- vdr-1.3.33/menu.h	2005-09-25 11:03:32.000000000 +0200
++++ vdr-1.3.34/menu.h	2005-10-03 12:39:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 1.74 2005/09/25 09:03:32 kls Exp $
++ * $Id: menu.h 1.76 2005/10/03 10:39:08 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -120,6 +120,8 @@
+ private:
+   cCiMenu *ciMenu;
+   bool selected;
++  int offset;
++  void AddMultiLineItem(const char *s);
+   eOSState Select(void);
+ public:
+   cMenuCam(cCiMenu *CiMenu);
+diff -ruN vdr-1.3.33/osd.c vdr-1.3.34/osd.c
+--- vdr-1.3.33/osd.c	2005-06-19 12:43:04.000000000 +0200
++++ vdr-1.3.34/osd.c	2005-10-02 10:47:13.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 1.62 2005/06/19 10:43:04 kls Exp $
++ * $Id: osd.c 1.63 2005/10/02 08:47:13 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -618,6 +618,8 @@
+ 
+ eOsdError cOsd::CanHandleAreas(const tArea *Areas, int NumAreas)
+ {
++  if (NumAreas > MAXOSDAREAS)
++     return oeTooManyAreas;
+   eOsdError Result = oeOk;
+   for (int i = 0; i < NumAreas; i++) {
+       if (Areas[i].x1 > Areas[i].x2 || Areas[i].y1 > Areas[i].y2 || Areas[i].x1 < 0 || Areas[i].y1 < 0)
+diff -ruN vdr-1.3.33/osdbase.c vdr-1.3.34/osdbase.c
+--- vdr-1.3.33/osdbase.c	2005-06-18 12:30:51.000000000 +0200
++++ vdr-1.3.34/osdbase.c	2005-10-02 17:00:40.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osdbase.c 1.20 2005/06/18 10:30:51 kls Exp $
++ * $Id: osdbase.c 1.22 2005/10/02 15:00:40 kls Exp $
+  */
+ 
+ #include "osdbase.h"
+@@ -25,12 +25,12 @@
+   fresh = true;
+ }
+ 
+-cOsdItem::cOsdItem(const char *Text, eOSState State)
++cOsdItem::cOsdItem(const char *Text, eOSState State, bool Selectable)
+ {
+   text = NULL;
+   offset = -1;
+   state = State;
+-  selectable = true;
++  selectable = Selectable;
+   fresh = true;
+   SetText(Text);
+ }
+@@ -196,8 +196,11 @@
+   int count = Count();
+   if (count > 0) {
+      int ni = 0;
+-     for (cOsdItem *item = First(); item; item = Next(item))
++     for (cOsdItem *item = First(); item; item = Next(item)) {
+          cStatus::MsgOsdItem(item->Text(), ni++);
++         if (current < 0 && item->Selectable())
++            current = item->Index();
++         }
+      if (current < 0)
+         current = 0; // just for safety - there HAS to be a current item!
+      if (current - first >= displayMenuItems || current < first) {
+@@ -210,8 +213,9 @@
+      int i = first;
+      int n = 0;
+      for (cOsdItem *item = Get(first); item; item = Next(item)) {
+-         displayMenu->SetItem(item->Text(), i - first, i == current, item->Selectable());
+-         if (i == current)
++         bool CurrentSelectable = (i == current) && item->Selectable();
++         displayMenu->SetItem(item->Text(), i - first, CurrentSelectable, item->Selectable());
++         if (CurrentSelectable)
+             cStatus::MsgOsdCurrentItem(item->Text());
+          if (++n == displayMenuItems)
+             break;
+diff -ruN vdr-1.3.33/osdbase.h vdr-1.3.34/osdbase.h
+--- vdr-1.3.33/osdbase.h	2005-06-12 12:46:34.000000000 +0200
++++ vdr-1.3.34/osdbase.h	2005-10-02 11:18:20.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osdbase.h 1.11 2005/06/12 10:46:34 kls Exp $
++ * $Id: osdbase.h 1.12 2005/10/02 09:18:20 kls Exp $
+  */
+ 
+ #ifndef __OSDBASE_H
+@@ -56,7 +56,7 @@
+   bool fresh;
+ public:
+   cOsdItem(eOSState State = osUnknown);
+-  cOsdItem(const char *Text, eOSState State = osUnknown);
++  cOsdItem(const char *Text, eOSState State = osUnknown, bool Selectable = true);
+   virtual ~cOsdItem();
+   bool Selectable(void) { return selectable; }
+   void SetText(const char *Text, bool Copy = true);
+diff -ruN vdr-1.3.33/recording.c vdr-1.3.34/recording.c
+--- vdr-1.3.33/recording.c	2005-09-25 16:29:49.000000000 +0200
++++ vdr-1.3.34/recording.c	2005-10-01 12:29:02.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 1.119 2005/09/25 14:29:49 kls Exp $
++ * $Id: recording.c 1.120 2005/10/01 10:29:02 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -743,10 +743,11 @@
+ 
+ cRecordings Recordings;
+ 
++char *cRecordings::updateFileName = NULL;
++
+ cRecordings::cRecordings(bool Deleted)
+ :cThread("video directory scanner")
+ {
+-  updateFileName = strdup(AddDirectory(VideoDirectory, ".update"));
+   deleted = Deleted;
+   lastUpdate = 0;
+   state = 0;
+@@ -755,7 +756,6 @@
+ cRecordings::~cRecordings()
+ {
+   Cancel(3);
+-  free(updateFileName);
+ }
+ 
+ void cRecordings::Action(void)
+@@ -763,6 +763,13 @@
+   Refresh();
+ }
+ 
++const char *cRecordings::UpdateFileName(void)
++{
++  if (!updateFileName)
++     updateFileName = strdup(AddDirectory(VideoDirectory, ".update"));
++  return updateFileName;
++}
++
+ void cRecordings::Refresh(bool Foreground)
+ {
+   lastUpdate = time(NULL); // doing this first to make sure we don't miss anything
+@@ -825,13 +832,13 @@
+ 
+ void cRecordings::TouchUpdate(void)
+ {
+-  TouchFile(updateFileName);
++  TouchFile(UpdateFileName());
+   lastUpdate = time(NULL); // make sure we don't tigger ourselves
+ }
+ 
+ bool cRecordings::NeedsUpdate(void)
+ {
+-  return lastUpdate < LastModifiedTime(updateFileName);
++  return lastUpdate < LastModifiedTime(UpdateFileName());
+ }
+ 
+ bool cRecordings::Update(bool Wait)
+diff -ruN vdr-1.3.33/recording.h vdr-1.3.34/recording.h
+--- vdr-1.3.33/recording.h	2005-09-25 16:30:13.000000000 +0200
++++ vdr-1.3.34/recording.h	2005-10-01 12:24:41.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 1.44 2005/09/25 14:30:13 kls Exp $
++ * $Id: recording.h 1.45 2005/10/01 10:24:41 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -93,10 +93,11 @@
+ 
+ class cRecordings : public cList<cRecording>, public cThread {
+ private:
+-  char *updateFileName;
++  static char *updateFileName;
+   bool deleted;
+   time_t lastUpdate;
+   int state;
++  const char *UpdateFileName(void);
+   void Refresh(bool Foreground = false);
+   void ScanVideoDir(const char *DirName, bool Foreground = false);
+ protected:
+diff -ruN vdr-1.3.33/skins.c vdr-1.3.34/skins.c
+--- vdr-1.3.33/skins.c	2005-01-14 14:07:19.000000000 +0100
++++ vdr-1.3.34/skins.c	2005-10-02 12:12:10.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skins.c 1.4 2005/01/14 13:07:19 kls Exp $
++ * $Id: skins.c 1.5 2005/10/02 10:12:10 kls Exp $
+  */
+ 
+ #include "skins.h"
+@@ -169,8 +169,9 @@
+ eKeys cSkins::Message(eMessageType Type, const char *s, int Seconds)
+ {
+   switch (Type) {
+-    case mtInfo:  isyslog("info: %s", s); break;
+-    case mtError: esyslog("ERROR: %s", s); break;
++    case mtInfo:    isyslog("info: %s", s); break;
++    case mtWarning: isyslog("warning: %s", s); break;
++    case mtError:   esyslog("ERROR: %s", s); break;
+     default: ;
+     }
+   if (!Current())
+diff -ruN vdr-1.3.33/tools.h vdr-1.3.34/tools.h
+--- vdr-1.3.33/tools.h	2005-09-25 14:54:58.000000000 +0200
++++ vdr-1.3.34/tools.h	2005-10-01 14:43:31.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 1.78 2005/09/25 12:54:58 kls Exp $
++ * $Id: tools.h 1.79 2005/10/01 12:43:31 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -45,7 +45,7 @@
+ #define DELETENULL(p) (delete (p), p = NULL)
+ 
+ #define CHECK(s) { if ((s) < 0) LOG_ERROR; } // used for 'ioctl()' calls
+-#define FATALERRNO (errno != EAGAIN && errno != EINTR)
++#define FATALERRNO (errno && errno != EAGAIN && errno != EINTR)
+ 
+ #ifndef __STL_CONFIG_H // in case some plugin needs to use the STL
+ template<class T> inline T min(T a, T b) { return a <= b ? a : b; }
+diff -ruN vdr-1.3.33/vdr.5 vdr-1.3.34/vdr.5
+--- vdr-1.3.33/vdr.5	2005-09-04 16:43:42.000000000 +0200
++++ vdr-1.3.34/vdr.5	2005-09-26 23:38:44.000000000 +0200
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 1.38 2005/09/04 14:43:42 kls Exp $
++.\" $Id: vdr.5 1.39 2005/09/26 21:38:44 kls Exp $
+ .\"
+ .TH vdr 5 "19 Mar 2005" "1.3.23" "Video Disk Recorder Files"
+ .SH NAME
+@@ -325,7 +325,7 @@
+ Arbitrary text that describes the recording made by this timer.
+ Any newline characters in the summary have to be replaced by '|', and
+ the summary may contain ':' characters. If this field is not empty, its
+-contents will be written into the \fIsummary.vdr\fR file of the recording.
++contents will be written into the \fIinfo.vdr\fR file of the recording.
+ .SS SOURCES
+ The file \fIsources.conf\fR defines the codes to be used in the \fBSource\fR field
+ of channels in \fIchannels.conf\fR and assigns descriptive texts to them.

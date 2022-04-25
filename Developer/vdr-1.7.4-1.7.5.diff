@@ -1,0 +1,1861 @@
+diff -ruN vdr-1.7.4/CONTRIBUTORS vdr-1.7.5/CONTRIBUTORS
+--- vdr-1.7.4/CONTRIBUTORS	2009-01-24 16:27:06.000000000 +0100
++++ vdr-1.7.5/CONTRIBUTORS	2009-04-12 11:09:47.000000000 +0200
+@@ -662,6 +662,13 @@
+  Transfer Mode
+  for providing a driver patch that allows direct replaying of TS video on full-featured
+  DVB cards
++ for improving the firmware of FF DVB cards to allow getting the current STC value
++ even in trick modes
++ for pointing out a problem with the decimal point of the F record in the info file of
++ a recording
++ for adding missing AUDIO_PAUSE/AUDIO_CONTINUE calls to cDvbDevice
++ for reporting that the video type is unnecessarily written into channels.conf if
++ VPID is 0
+ 
+ Reinhard Walter Buchner <rw.buchner@freenet.de>
+  for adding some satellites to 'sources.conf'
+@@ -1061,6 +1068,7 @@
+  the last replayed recording was in a subdirectory, and pressing Back
+  for setting the thread name, so that it can be seen in 'top -H'
+  for replacing the Finnish language code "smi" with "suo"
++ for adding cap_sys_nice to the capabilities that are not dropped
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1197,6 +1205,9 @@
+  to cDevice::PlayTs()
+  for reporting that the PAT/PMT is processed too often, even if its version
+  hasn't changed
++ for making sure vdr-xine no longer needs cDvbPlayer::Action() to call DeviceFlush()
++ for fixing the 'VideoOnly' condition in the PlayPes() and PlayTs() calls in
++ cDvbPlayer::Action()
+ 
+ Richard Robson <richard_robson@beeb.net>
+  for reporting freezing replay if a timer starts while in Transfer Mode from the
+@@ -2279,6 +2290,7 @@
+ 
+ Jose Alberto Reguero <jareguero@telefonica.net>
+  for a patch that fixed part of a crash in i18n character set conversion
++ for fixing cDvbPlayer::NextFile() to handle files larger than 2GB
+ 
+ Patrice Staudt <staudt@engsystem.net>
+  for adding full weekday names to i18n.c for plugins to use
+@@ -2290,6 +2302,7 @@
+  for optimizing cMenuEditChrItem::Set()
+  for optimizing cNitFilter::Process()
+  for reducing the number of time(NULL) calls in vdr.c's main loop to a single call
++ for improving efficiency of cEIT::cEIT()
+ 
+ Bruno Roussel <bruno.roussel@free.fr>
+  for translating OSD texts to the French language
+@@ -2412,4 +2425,17 @@
+  for fixing incrementing the continuity counter in cPatPmtGenerator::GetPmt()
+  for pointing out that "DEFINES += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
+  -D_LARGEFILE64_SOURCE" should be added to Make.config.
+-  to Make.config.template (thanks to Johann Friedrichs for pointing this out).
++
++Timo Helkio <timolavi@mbnet.fi>
++ for reporting a hangup when replaying a TS recording with subtitles activated
++
++Derek Kelly (user.vdr@gmail.com)
++ for fixing handling the 'new' indicator in the recordings menu for TS recordings
++ for reporting a problem with HD NTSC broadcasts that split frames over several payload
++ units
++
++Marcel Unbehaun <frostworks@gmx.de>
++ for adding cRecordingInfo::GetEvent()
++
++Günter Niedermeier <linuxtv@ncs-online.de>
++ for reporting a problem with file I/O overhead during recording in TS format
+diff -ruN vdr-1.7.4/HISTORY vdr-1.7.5/HISTORY
+--- vdr-1.7.4/HISTORY	2009-01-25 13:07:29.000000000 +0100
++++ vdr-1.7.5/HISTORY	2009-04-12 11:09:30.000000000 +0200
+@@ -5978,3 +5978,55 @@
+   player whether there is video data in the currently replayed stream. If a derived
+   cDevice class reimplements PlayTs() or PlayPes(), it also needs to make sure this
+   new function works as expected.
++
++2009-04-12: Version 1.7.5
++
++- Fixed a hangup when replaying a TS recording with subtitles activated (reported
++  by Timo Helkio).
++- Fixed handling the 'new' indicator in the recordings menu for TS recordings
++  (thanks to Derek Kelly).
++- Added cap_sys_nice to the capabilities that are not dropped (thanks to Rolf
++  Ahrenberg).
++- Updated the Italian OSD texts (thanks to Diego Pierotto).
++- Added cRecordingInfo::GetEvent() (thanks to Marcel Unbehaun).
++- Improved synchronizing the progress display, trick modes and subtitle display
++  to the actual audio/video. This now works independent of any buffer sizes the
++  output device might use.
++  + The cBackTrace class has been replaced with cPtsIndex, which keeps track
++    of the PTS timestamps of recently played frames.
++  + cDevice::GetSTC() is now required to deliver the STC even in trick modes.
++    It is sufficient if it returns the PTS of the most recently presented
++    audio/video frame.
++  + The full-featured DVB cards need an improved firmware in order to return
++    proper STC values in trick modes (thanks to Oliver Endriss for enhancing the
++    av7110 firmware).
++- Adapted cFrameDetector::Analyze() to HD NTSC broadcasts that split frames over
++  several payload units (thanks to Derek Kelly for reporting this and helping in
++  testing).
++- Modified cFrameDetector::Analyze() to make it process whole frames at once, so
++  that file I/O overhead is minimized during recording (reported by Günter
++  Niedermeier).
++- Added command line help for the '-i' option.
++- Fixed cDvbPlayer::NextFile() to handle files larger than 2GB (thanks to Jose
++  Alberto Reguero).
++- Improved replay at the begin and end of a recording. The very first and very last
++  frame is now sent to the output device repeatedly until GetSTC() reports that it
++  has been played. cDvbPlayer::Action() no longer calls DeviceFlush() (thanks to
++  Reinhard Nissl for making sure vdr-xine no longer needs this).
++- Added missing '[]' to the delete operator in cMenuEditStrItem::~cMenuEditStrItem().
++- Added missing virtual destructor to cPalette.
++- Now freeing configDirectory before setting it to a new value in
++  cPlugin::SetConfigDirectory().
++- Fixed a crash when jumping to an editing mark in an audio recording.
++- Fixed the 'VideoOnly' condition in the PlayPes() and PlayTs() calls in
++  cDvbPlayer::Action() (thanks to Reinhard Nissl).
++- cDevice::PlayTs() now plays as many TS packets as possible in one call.
++- Making sure any floating point numbers written use a decimal point (thanks to
++  Oliver Endriss for pointing out a problem with the F record in the info file of
++  a recording).
++- Fixed detecting the frame rate for radio recordings.
++- Added missing AUDIO_PAUSE/AUDIO_CONTINUE calls to cDvbDevice (thanks to Oliver
++  Endriss).
++- No longer writing the video type into channels.conf if VPID is 0 (thanks to
++  Oliver Endriss for reporting this).
++- Improved efficiency of cEIT::cEIT() (thanks to Tobias Bratfisch).
+diff -ruN vdr-1.7.4/INSTALL vdr-1.7.5/INSTALL
+--- vdr-1.7.4/INSTALL	2008-05-03 12:13:25.000000000 +0200
++++ vdr-1.7.5/INSTALL	2009-04-10 12:29:21.000000000 +0200
+@@ -16,8 +16,7 @@
+ 
+ Refer to http://linuxtv.org for more information about the Linux-DVB driver.
+ 
+-VDR requires the Linux-DVB driver version dated 2003-08-23 or higher
+-to work properly.
++VDR requires the Linux-DVB driver version that supports the S2API interface.
+ 
+ You will also need to install the following libraries, as well as their
+ "devel" packages to get the necessary header files for compiling VDR:
+diff -ruN vdr-1.7.4/channels.c vdr-1.7.5/channels.c
+--- vdr-1.7.4/channels.c	2008-12-13 12:42:15.000000000 +0100
++++ vdr-1.7.5/channels.c	2009-04-10 13:29:55.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 2.4 2008/12/13 11:42:15 kls Exp $
++ * $Id: channels.c 2.5 2009/04/10 11:29:55 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -724,7 +724,7 @@
+      q += snprintf(q, sizeof(vpidbuf), "%d", Channel->vpid);
+      if (Channel->ppid && Channel->ppid != Channel->vpid)
+         q += snprintf(q, sizeof(vpidbuf) - (q - vpidbuf), "+%d", Channel->ppid);
+-     if (Channel->vtype)
++     if (Channel->vpid && Channel->vtype)
+         q += snprintf(q, sizeof(vpidbuf) - (q - vpidbuf), "=%d", Channel->vtype);
+      *q = 0;
+      const int BufferSize = (MAXAPIDS + MAXDPIDS) * (5 + 1 + MAXLANGCODE2) + 10; // 5 digits plus delimiting ',' or ';' plus optional '=cod+cod', +10: paranoia
+diff -ruN vdr-1.7.4/config.h vdr-1.7.5/config.h
+--- vdr-1.7.4/config.h	2009-01-06 17:56:27.000000000 +0100
++++ vdr-1.7.5/config.h	2009-01-30 17:05:34.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.6 2009/01/06 16:56:27 kls Exp $
++ * $Id: config.h 2.7 2009/01/30 16:05:34 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.4"
+-#define VDRVERSNUM   10704  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.5"
++#define VDRVERSNUM   10705  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.4"
+-#define APIVERSNUM   10704  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.5"
++#define APIVERSNUM   10705  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-1.7.4/device.c vdr-1.7.5/device.c
+--- vdr-1.7.4/device.c	2009-01-25 12:10:56.000000000 +0100
++++ vdr-1.7.5/device.c	2009-04-05 14:15:41.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.11 2009/01/25 11:10:56 kls Exp $
++ * $Id: device.c 2.13 2009/04/05 12:15:41 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -1304,8 +1304,9 @@
+   if (!dvbSubtitleConverter)
+      dvbSubtitleConverter = new cDvbSubtitleConverter;
+   tsToPesSubtitle.PutTs(Data, Length);
+-  if (const uchar *p = tsToPesSubtitle.GetPes(Length)) {
+-     dvbSubtitleConverter->Convert(p, Length);
++  int l;
++  if (const uchar *p = tsToPesSubtitle.GetPes(l)) {
++     dvbSubtitleConverter->Convert(p, l);
+      tsToPesSubtitle.Reset();
+      }
+   return Length;
+@@ -1314,43 +1315,54 @@
+ //TODO detect and report continuity errors?
+ int cDevice::PlayTs(const uchar *Data, int Length, bool VideoOnly)
+ {
+-  if (Length == TS_SIZE) {
+-     if (!TsHasPayload(Data))
+-        return Length; // silently ignore TS packets w/o payload
+-     int PayloadOffset = TsPayloadOffset(Data);
+-     if (PayloadOffset < Length) {
+-        cMutexLock MutexLock(&mutexCurrentAudioTrack);
+-        int Pid = TsPid(Data);
+-        if (Pid == 0)
+-           patPmtParser.ParsePat(Data, Length);
+-        else if (Pid == patPmtParser.PmtPid())
+-           patPmtParser.ParsePmt(Data, Length);
+-        else if (Pid == patPmtParser.Vpid()) {
+-           isPlayingVideo = true;
+-           return PlayTsVideo(Data, Length);
+-           }
+-        else if (Pid == availableTracks[currentAudioTrack].id) {
+-           if (!VideoOnly || HasIBPTrickSpeed()) {
+-              int w = PlayTsAudio(Data, Length);
+-              if (w > 0)
+-                 Audios.PlayTsAudio(Data, Length);
+-              return w;
+-              }
+-           }
+-        else if (Pid == availableTracks[currentSubtitleTrack].id) {
+-           if (!VideoOnly || HasIBPTrickSpeed())
+-              return PlayTsSubtitle(Data, Length);
+-           }
+-        return Length;
+-        }
+-     }
+-  else if (Data == NULL) {
++  int Played = 0;
++  if (Data == NULL) {
+      patPmtParser.Reset();
+      tsToPesVideo.Reset();
+      tsToPesAudio.Reset();
+      tsToPesSubtitle.Reset();
+      }
+-  return -1;
++  else {
++     cMutexLock MutexLock(&mutexCurrentAudioTrack);
++     while (Length >= TS_SIZE) {
++           if (TsHasPayload(Data)) { // silently ignore TS packets w/o payload
++              int PayloadOffset = TsPayloadOffset(Data);
++              if (PayloadOffset < TS_SIZE) {
++                 int Pid = TsPid(Data);
++                 if (Pid == 0)
++                    patPmtParser.ParsePat(Data, TS_SIZE);
++                 else if (Pid == patPmtParser.PmtPid())
++                    patPmtParser.ParsePmt(Data, TS_SIZE);
++                 else if (Pid == patPmtParser.Vpid()) {
++                    isPlayingVideo = true;
++                    int w = PlayTsVideo(Data, TS_SIZE);
++                    if (w < 0)
++                       return Played ? Played : w;
++                    if (w == 0)
++                       break;
++                    }
++                 else if (Pid == availableTracks[currentAudioTrack].id) {
++                    if (!VideoOnly || HasIBPTrickSpeed()) {
++                       int w = PlayTsAudio(Data, TS_SIZE);
++                       if (w < 0)
++                          return Played ? Played : w;
++                       if (w == 0)
++                          break;
++                       Audios.PlayTsAudio(Data, TS_SIZE);
++                       }
++                    }
++                 else if (Pid == availableTracks[currentSubtitleTrack].id) {
++                    if (!VideoOnly || HasIBPTrickSpeed())
++                       PlayTsSubtitle(Data, TS_SIZE);
++                    }
++                 }
++              }
++           Played += TS_SIZE;
++           Length -= TS_SIZE;
++           Data += TS_SIZE;
++           }
++     }
++  return Played;
+ }
+ 
+ int cDevice::Priority(void) const
+diff -ruN vdr-1.7.4/device.h vdr-1.7.5/device.h
+--- vdr-1.7.4/device.h	2009-01-25 12:04:39.000000000 +0100
++++ vdr-1.7.5/device.h	2009-04-05 14:12:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 2.6 2009/01/25 11:04:39 kls Exp $
++ * $Id: device.h 2.9 2009/04/05 12:12:44 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -543,6 +543,13 @@
+        ///< Gets the current System Time Counter, which can be used to
+        ///< synchronize audio and video. If this device is unable to
+        ///< provide the STC, -1 will be returned.
++       ///< The value returned doesn't need to be an actual "clock" value,
++       ///< it is sufficient if it holds the PTS (Presentation Time Stamp) of
++       ///< the most recently presented frame. A proper value must be returned
++       ///< in normal replay mode as well as in any trick modes (like slow motion,
++       ///< fast forward/rewind).
++       ///< Only the lower 32 bit of this value are actually used, since some
++       ///< devices can't handle the msb correctly.
+   virtual bool IsPlayingVideo(void) const { return isPlayingVideo; }
+        ///< \return Returns true if the currently attached player has delivered
+        ///< any video packets.
+@@ -588,7 +595,7 @@
+        ///< data which was bufferd so far has been processed.
+        ///< If TimeoutMs is not zero, the device will wait up to the given
+        ///< number of milliseconds before returning in case there is still
+-       ///< data in the buffers..
++       ///< data in the buffers.
+   virtual int PlayPes(const uchar *Data, int Length, bool VideoOnly = false);
+        ///< Plays all valid PES packets in Data with the given Length.
+        ///< If Data is NULL any leftover data from a previous call will be
+@@ -612,9 +619,9 @@
+        ///< must be sent to the base class function. This applies especially
+        ///< to the PAT/PMT packets.
+        ///< Returns -1 in case of error, otherwise the number of actually
+-       ///< processed bytes is returned, which must be Length.
+-       ///< PlayTs() shall process the packet either as a whole (returning
+-       ///< Length) or not at all returning 0 or -1 and setting 'errno' accordingly).
++       ///< processed bytes is returned.
++       ///< PlayTs() shall process the TS packets either as a whole (returning
++       ///< n*TS_SIZE) or not at all, returning 0 or -1 and setting 'errno' accordingly).
+   bool Replaying(void) const;
+        ///< Returns true if we are currently replaying.
+   bool Transferring(void) const;
+diff -ruN vdr-1.7.4/dvbdevice.c vdr-1.7.5/dvbdevice.c
+--- vdr-1.7.4/dvbdevice.c	2009-01-10 11:07:33.000000000 +0100
++++ vdr-1.7.5/dvbdevice.c	2009-04-10 11:54:24.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.12 2009/01/10 10:07:33 kls Exp $
++ * $Id: dvbdevice.c 2.14 2009/04/10 09:54:24 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -1172,8 +1172,10 @@
+         CHECK(ioctl(fd_audio, AUDIO_CONTINUE));
+      }
+   else {
+-     if (fd_audio >= 0)
++     if (fd_audio >= 0) {
+         CHECK(ioctl(fd_audio, AUDIO_SET_AV_SYNC, true));
++        CHECK(ioctl(fd_audio, AUDIO_CONTINUE));
++        }
+      if (fd_video >= 0)
+         CHECK(ioctl(fd_video, VIDEO_CONTINUE));
+      }
+@@ -1187,8 +1189,10 @@
+         CHECK(ioctl(fd_audio, AUDIO_PAUSE));
+      }
+   else {
+-     if (fd_audio >= 0)
++     if (fd_audio >= 0) {
+         CHECK(ioctl(fd_audio, AUDIO_SET_AV_SYNC, false));
++        CHECK(ioctl(fd_audio, AUDIO_PAUSE));
++        }
+      if (fd_video >= 0)
+         CHECK(ioctl(fd_video, VIDEO_FREEZE));
+      }
+@@ -1206,6 +1210,8 @@
+ 
+ void cDvbDevice::StillPicture(const uchar *Data, int Length)
+ {
++  if (!Data || Length < TS_SIZE)
++     return;
+   if (Data[0] == 0x47) {
+      // TS data
+      cDevice::StillPicture(Data, Length);
+diff -ruN vdr-1.7.4/dvbplayer.c vdr-1.7.5/dvbplayer.c
+--- vdr-1.7.4/dvbplayer.c	2009-01-25 12:11:39.000000000 +0100
++++ vdr-1.7.5/dvbplayer.c	2009-04-05 15:04:33.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.c 2.3 2009/01/25 11:11:39 kls Exp $
++ * $Id: dvbplayer.c 2.11 2009/04/05 13:04:33 kls Exp $
+  */
+ 
+ #include "dvbplayer.h"
+@@ -16,59 +16,69 @@
+ #include "thread.h"
+ #include "tools.h"
+ 
+-// --- cBackTrace ------------------------------------------------------------
++// --- cPtsIndex -------------------------------------------------------------
+ 
+-#define AVG_FRAME_SIZE 15000         // an assumption about the average frame size
+-#define DVB_BUF_SIZE   (256 * 1024)  // an assumption about the dvb firmware buffer size
+-#define BACKTRACE_ENTRIES (DVB_BUF_SIZE / AVG_FRAME_SIZE + 20) // how many entries are needed to backtrace buffer contents
++#define PTSINDEX_ENTRIES 500
+ 
+-class cBackTrace {
++class cPtsIndex {
+ private:
+-  int index[BACKTRACE_ENTRIES];
+-  int length[BACKTRACE_ENTRIES];
+-  int pos, num;
++  struct tPtsIndex {
++    uint32_t pts; // no need for 33 bit - some devices don't even supply the msb
++    int index;
++    };
++  tPtsIndex pi[PTSINDEX_ENTRIES];
++  int w, r;
++  int lastFound;
++  cMutex mutex;
+ public:
+-  cBackTrace(void);
++  cPtsIndex(void);
+   void Clear(void);
+-  void Add(int Index, int Length);
+-  int Get(bool Forward);
++  void Put(uint32_t Pts, int Index);
++  int FindIndex(uint32_t Pts);
+   };
+ 
+-cBackTrace::cBackTrace(void)
++cPtsIndex::cPtsIndex(void)
+ {
++  lastFound = 0;
+   Clear();
+ }
+ 
+-void cBackTrace::Clear(void)
++void cPtsIndex::Clear(void)
+ {
+-  pos = num = 0;
++  cMutexLock MutexLock(&mutex);
++  w = r = 0;
+ }
+ 
+-void cBackTrace::Add(int Index, int Length)
++void cPtsIndex::Put(uint32_t Pts, int Index)
+ {
+-  index[pos] = Index;
+-  length[pos] = Length;
+-  if (++pos >= BACKTRACE_ENTRIES)
+-     pos = 0;
+-  if (num < BACKTRACE_ENTRIES)
+-     num++;
+-}
+-
+-int cBackTrace::Get(bool Forward)
+-{
+-  int p = pos;
+-  int n = num;
+-  int l = DVB_BUF_SIZE + (Forward ? 0 : 256 * 1024); //XXX (256 * 1024) == DVB_BUF_SIZE ???
+-  int i = -1;
+-
+-  while (n && l > 0) {
+-        if (--p < 0)
+-           p = BACKTRACE_ENTRIES - 1;
+-        i = index[p] - 1;
+-        l -= length[p];
+-        n--;
+-        }
+-  return i;
++  cMutexLock MutexLock(&mutex);
++  pi[w].pts = Pts;
++  pi[w].index = Index;
++  w = (w + 1) % PTSINDEX_ENTRIES;
++  if (w == r)
++     r = (r + 1) % PTSINDEX_ENTRIES;
++}
++
++int cPtsIndex::FindIndex(uint32_t Pts)
++{
++  cMutexLock MutexLock(&mutex);
++  if (w == r)
++     return lastFound; // list is empty, let's not jump way off the last known position
++  uint32_t Delta = 0xFFFFFFFF;
++  int Index = -1;
++  for (int i = w; i != r; ) {
++      if (--i < 0)
++         i = PTSINDEX_ENTRIES - 1;
++      uint32_t d = pi[i].pts < Pts ? Pts - pi[i].pts : pi[i].pts - Pts;
++      if (d > 0x7FFFFFFF)
++         d = 0xFFFFFFFF - d; // handle rollover
++      if (d < Delta) {
++         Delta = d;
++         Index = pi[i].index;
++         }
++      }
++  lastFound = Index;
++  return Index;
+ }
+ 
+ // --- cNonBlockingFileReader ------------------------------------------------
+@@ -183,8 +193,8 @@
+ 
+ #define PLAYERBUFSIZE  MEGABYTE(1)
+ 
+-// The number of seconds to back up when resuming an interrupted replay session:
+-#define RESUMEBACKUP 10
++#define RESUMEBACKUP 10 // number of seconds to back up when resuming an interrupted replay session
++#define MAXSTUCKATEOF 3 // max. number of seconds to wait in case the device doesn't play the last frame
+ 
+ class cDvbPlayer : public cPlayer, cThread {
+ private:
+@@ -193,7 +203,7 @@
+   static int Speeds[];
+   cNonBlockingFileReader *nonBlockingFileReader;
+   cRingBufferFrame *ringBuffer;
+-  cBackTrace *backTrace;
++  cPtsIndex ptsIndex;
+   cFileName *fileName;
+   cIndexFile *index;
+   cUnbufferedFile *replayFile;
+@@ -204,12 +214,13 @@
+   ePlayModes playMode;
+   ePlayDirs playDir;
+   int trickSpeed;
+-  int readIndex, writeIndex;
++  int readIndex;
++  bool readIndependent;
+   cFrame *readFrame;
+   cFrame *playFrame;
+   void TrickSpeed(int Increment);
+   void Empty(void);
+-  bool NextFile(uchar FileNumber = 0, int FileOffset = -1);
++  bool NextFile(uint16_t FileNumber = 0, off_t FileOffset = -1);
+   int Resume(void);
+   bool Save(void);
+ protected:
+@@ -242,7 +253,6 @@
+ {
+   nonBlockingFileReader = NULL;
+   ringBuffer = NULL;
+-  backTrace = NULL;
+   index = NULL;
+   cRecording Recording(FileName);
+   framesPerSecond = Recording.FramesPerSecond();
+@@ -252,7 +262,8 @@
+   playMode = pmPlay;
+   playDir = pdForward;
+   trickSpeed = NORMAL_SPEED;
+-  readIndex = writeIndex = -1;
++  readIndex = -1;
++  readIndependent = false;
+   readFrame = NULL;
+   playFrame = NULL;
+   isyslog("replay %s", FileName);
+@@ -269,17 +280,15 @@
+      delete index;
+      index = NULL;
+      }
+-  backTrace = new cBackTrace;
+ }
+ 
+ cDvbPlayer::~cDvbPlayer()
+ {
+-  Detach();
+   Save();
++  Detach();
+   delete readFrame; // might not have been stored in the buffer in Action()
+   delete index;
+   delete fileName;
+-  delete backTrace;
+   delete ringBuffer;
+ }
+ 
+@@ -308,18 +317,18 @@
+   LOCK_THREAD;
+   if (nonBlockingFileReader)
+      nonBlockingFileReader->Clear();
+-  if ((readIndex = backTrace->Get(playDir == pdForward)) < 0)
+-     readIndex = writeIndex;
++  if (!firstPacket) // don't set the readIndex twice if Empty() is called more than once
++     readIndex = ptsIndex.FindIndex(DeviceGetSTC());
+   delete readFrame; // might not have been stored in the buffer in Action()
+   readFrame = NULL;
+   playFrame = NULL;
+   ringBuffer->Clear();
+-  backTrace->Clear();
++  ptsIndex.Clear();
+   DeviceClear();
+   firstPacket = true;
+ }
+ 
+-bool cDvbPlayer::NextFile(uchar FileNumber, int FileOffset)
++bool cDvbPlayer::NextFile(uint16_t FileNumber, off_t FileOffset)
+ {
+   if (FileNumber > 0)
+      replayFile = fileName->SetOffset(FileNumber, FileOffset);
+@@ -346,7 +355,7 @@
+ bool cDvbPlayer::Save(void)
+ {
+   if (index) {
+-     int Index = writeIndex;
++     int Index = ptsIndex.FindIndex(DeviceGetSTC());
+      if (Index >= 0) {
+         Index -= int(round(RESUMEBACKUP * framesPerSecond));
+         if (Index > 0)
+@@ -384,8 +393,12 @@
+   int Length = 0;
+   bool Sleep = false;
+   bool WaitingForData = false;
++  time_t StuckAtEof = 0;
++  uint32_t LastStc = 0;
++  int LastReadIFrame = -1;
++  int SwitchToPlayFrame = 0;
+ 
+-  while (Running() && (NextFile() || readIndex >= 0 || ringBuffer->Available() || !DeviceFlush(100))) {
++  while (Running() && (NextFile() || readIndex >= 0 || ringBuffer->Available())) {
+         if (Sleep) {
+            if (WaitingForData)
+               nonBlockingFileReader->WaitForDataMs(3); // this keeps the CPU load low, but reacts immediately on new data
+@@ -403,60 +416,47 @@
+            if (playMode != pmStill && playMode != pmPause) {
+               if (!readFrame && (replayFile || readIndex >= 0)) {
+                  if (!nonBlockingFileReader->Reading()) {
+-                    if (playMode == pmFast || (playMode == pmSlow && playDir == pdBackward)) {
++                    if (!SwitchToPlayFrame && (playMode == pmFast || (playMode == pmSlow && playDir == pdBackward))) {
+                        uint16_t FileNumber;
+                        off_t FileOffset;
+                        bool TimeShiftMode = index->IsStillRecording();
+                        int Index = -1;
++                       readIndependent = false;
+                        if (DeviceHasIBPTrickSpeed() && playDir == pdForward) {
+-                          if (index->Get(readIndex + 1, &FileNumber, &FileOffset, NULL, &Length))
++                          if (index->Get(readIndex + 1, &FileNumber, &FileOffset, &readIndependent, &Length))
+                              Index = readIndex + 1;
+                           }
+                        else {
+                           int d = int(round(0.4 * framesPerSecond));
+                           if (playDir != pdForward)
+                              d = -d;
+-                          Index = index->GetNextIFrame(readIndex + d, playDir == pdForward, &FileNumber, &FileOffset, &Length, TimeShiftMode);
++                          int NewIndex = readIndex + d;
++                          if (NewIndex <= 0 && readIndex > 0)
++                             NewIndex = 1; // make sure the very first frame is delivered
++                          NewIndex = index->GetNextIFrame(NewIndex, playDir == pdForward, &FileNumber, &FileOffset, &Length, TimeShiftMode);
++                          if (NewIndex < 0 && TimeShiftMode && playDir == pdForward)
++                             SwitchToPlayFrame = Index;
++                          Index = NewIndex;
++                          readIndependent = true;
+                           }
+                        if (Index >= 0) {
+-                          if (!NextFile(FileNumber, FileOffset)) {
+-                             readIndex = Index;
+-                             continue;
+-                             }
+-                          }
+-                       else {
+-                          if (!TimeShiftMode && playDir == pdForward) {
+-                             // hit end of recording: signal end of file but don't change playMode
+-                             readIndex = -1;
+-                             eof = true;
++                          readIndex = Index;
++                          if (!NextFile(FileNumber, FileOffset))
+                              continue;
+-                             }
+-                          // hit begin of recording: wait for device buffers to drain
+-                          // before changing play mode:
+-                          if (!DeviceFlush(100))
+-                             continue;
+-                          // can't call Play() here, because those functions may only be
+-                          // called from the foreground thread - and we also don't need
+-                          // to empty the buffer here
+-                          DevicePlay();
+-                          playMode = pmPlay;
+-                          playDir = pdForward;
+-                          continue;
+                           }
+-                       readIndex = Index;
++                       else
++                          eof = true;
+                        }
+                     else if (index) {
+                        uint16_t FileNumber;
+                        off_t FileOffset;
+-                       readIndex++;
+-                       if (!(index->Get(readIndex, &FileNumber, &FileOffset, NULL, &Length) && NextFile(FileNumber, FileOffset))) {
+-                          readIndex = -1;
++                       if (index->Get(readIndex + 1, &FileNumber, &FileOffset, &readIndependent, &Length) && NextFile(FileNumber, FileOffset))
++                          readIndex++;
++                       else
+                           eof = true;
+-                          continue;
+-                          }
+                        }
+                     else // allows replay even if the index file is missing
+-                       Length = MAXFRAMESIZE;
++                       Length = MAXFRAMESIZE / TS_SIZE * TS_SIZE;// FIXME: use a linear ringbuffer in this case, and fix cDevice::PlayPes()
+                     if (Length == -1)
+                        Length = MAXFRAMESIZE; // this means we read up to EOF (see cIndex)
+                     else if (Length > MAXFRAMESIZE) {
+@@ -465,19 +465,26 @@
+                        }
+                     b = MALLOC(uchar, Length);
+                     }
+-                 int r = nonBlockingFileReader->Read(replayFile, b, Length);
+-                 if (r > 0) {
+-                    WaitingForData = false;
+-                    readFrame = new cFrame(b, -r, ftUnknown, readIndex); // hands over b to the ringBuffer
+-                    b = NULL;
+-                    }
+-                 else if (r == 0)
+-                    eof = true;
+-                 else if (r < 0 && errno == EAGAIN)
+-                    WaitingForData = true;
+-                 else if (r < 0 && FATALERRNO) {
+-                    LOG_ERROR;
+-                    break;
++                 if (!eof) {
++                    int r = nonBlockingFileReader->Read(replayFile, b, Length);
++                    if (r > 0) {
++                       WaitingForData = false;
++                       uint32_t Pts = 0;
++                       if (readIndependent) {
++                          Pts = isPesRecording ? PesGetPts(b) : TsGetPts(b, r);
++                          LastReadIFrame = readIndex;
++                          }
++                       readFrame = new cFrame(b, -r, ftUnknown, readIndex, Pts); // hands over b to the ringBuffer
++                       b = NULL;
++                       }
++                    else if (r == 0)
++                       eof = true;
++                    else if (r < 0 && errno == EAGAIN)
++                       WaitingForData = true;
++                    else if (r < 0 && FATALERRNO) {
++                       LOG_ERROR;
++                       break;
++                       }
+                     }
+                  }
+ 
+@@ -506,6 +513,8 @@
+                  p = playFrame->Data();
+                  pc = playFrame->Count();
+                  if (p) {
++                    if (playFrame->Index() >= 0)
++                       ptsIndex.Put(playFrame->Pts(), playFrame->Index());
+                     if (firstPacket) {
+                        if (isPesRecording) {
+                           PlayPes(NULL, 0);
+@@ -520,28 +529,57 @@
+               if (p) {
+                  int w;
+                  if (isPesRecording)
+-                    w = PlayPes(p, pc, playMode != pmPlay && DeviceIsPlayingVideo());
++                    w = PlayPes(p, pc, playMode != pmPlay && !(playMode == pmSlow && playDir == pdForward) && DeviceIsPlayingVideo());
+                  else
+-                    w = PlayTs(p, TS_SIZE, playMode != pmPlay && DeviceIsPlayingVideo());
++                    w = PlayTs(p, pc, playMode != pmPlay && !(playMode == pmSlow && playDir == pdForward) && DeviceIsPlayingVideo());
+                  if (w > 0) {
+                     p += w;
+                     pc -= w;
+                     }
+-                 else if (w < 0 && FATALERRNO) {
++                 else if (w < 0 && FATALERRNO)
+                     LOG_ERROR;
+-                    break;
+-                    }
+                  }
+               if (pc <= 0) {
+-                 writeIndex = playFrame->Index();
+-                 backTrace->Add(playFrame->Index(), playFrame->Count());
+-                 ringBuffer->Drop(playFrame);
++                 if (!eof || (playDir != pdForward && playFrame->Index() > 0) || (playDir == pdForward && playFrame->Index() < readIndex))
++                    ringBuffer->Drop(playFrame); // the very first and last frame are continously repeated to flush data through the device
+                  playFrame = NULL;
+                  p = NULL;
+                  }
+               }
+            else
+               Sleep = true;
++
++           // Handle hitting begin/end of recording:
++
++           if (eof || SwitchToPlayFrame) {
++              bool SwitchToPlay = false;
++              uint32_t Stc = DeviceGetSTC();
++              if (Stc != LastStc)
++                 StuckAtEof = 0;
++              else if (!StuckAtEof)
++                 StuckAtEof = time(NULL);
++              else if (time(NULL) - StuckAtEof > MAXSTUCKATEOF) {
++                 if (playDir == pdForward)
++                    break; // automatically stop at end of recording
++                 SwitchToPlay = true;
++                 }
++              LastStc = Stc;
++              int Index = ptsIndex.FindIndex(Stc);
++              if (playDir == pdForward && !SwitchToPlayFrame) {
++                 if (Index >= LastReadIFrame)
++                    break; // automatically stop at end of recording
++                 }
++              else if (Index <= 0 || SwitchToPlayFrame && Index >= SwitchToPlayFrame)
++                 SwitchToPlay = true;
++              if (SwitchToPlay) {
++                 if (!SwitchToPlayFrame)
++                    Empty();
++                 DevicePlay();
++                 playMode = pmPlay;
++                 playDir = pdForward;
++                 SwitchToPlayFrame = 0;
++                 }
++              }
+            }
+         }
+ 
+@@ -614,6 +652,7 @@
+                Pause();
+                break;
+                }
++            Empty();
+             // run into pmPause
+        case pmStill:
+        case pmPause:
+@@ -661,6 +700,7 @@
+                Pause();
+                break;
+                }
++            Empty();
+             // run into pmPause
+        case pmStill:
+        case pmPause: {
+@@ -696,14 +736,14 @@
+ {
+   if (index && Seconds) {
+      LOCK_THREAD;
++     int Index = ptsIndex.FindIndex(DeviceGetSTC());
+      Empty();
+-     int Index = writeIndex;
+      if (Index >= 0) {
+         Index = max(Index + SecondsToFrames(Seconds, framesPerSecond), 0);
+         if (Index > 0)
+            Index = index->GetNextIFrame(Index, false, NULL, NULL, NULL, true);
+         if (Index >= 0)
+-           readIndex = writeIndex = Index - 1; // Action() will first increment it!
++           readIndex = Index - 1; // Action() will first increment it!
+         }
+      Play();
+      }
+@@ -727,25 +767,22 @@
+            if (playMode == pmPause)
+               DevicePlay();
+            DeviceStillPicture(b, r);
++           ptsIndex.Put(isPesRecording ? PesGetPts(b) : TsGetPts(b, r), Index);
+            }
+         playMode = pmStill;
+         }
+-     readIndex = writeIndex = Index;
++     readIndex = Index;
+      }
+ }
+ 
+ bool cDvbPlayer::GetIndex(int &Current, int &Total, bool SnapToIFrame)
+ {
+   if (index) {
+-     if (playMode == pmStill)
+-        Current = max(readIndex, 0);
+-     else {
+-        Current = max(writeIndex, 0);
+-        if (SnapToIFrame) {
+-           int i1 = index->GetNextIFrame(Current + 1, false);
+-           int i2 = index->GetNextIFrame(Current, true);
+-           Current = (abs(Current - i1) <= abs(Current - i2)) ? i1 : i2;
+-           }
++     Current = ptsIndex.FindIndex(DeviceGetSTC());
++     if (SnapToIFrame) {
++        int i1 = index->GetNextIFrame(Current + 1, false);
++        int i2 = index->GetNextIFrame(Current, true);
++        Current = (abs(Current - i1) <= abs(Current - i2)) ? i1 : i2;
+         }
+      Total = index->Last();
+      return true;
+diff -ruN vdr-1.7.4/eit.c vdr-1.7.5/eit.c
+--- vdr-1.7.4/eit.c	2008-05-01 17:33:27.000000000 +0200
++++ vdr-1.7.5/eit.c	2009-04-11 12:03:24.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 2.2 2008/05/01 15:33:27 kls Exp $
++ * $Id: eit.c 2.3 2009/04/11 10:03:24 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -42,20 +42,25 @@
+   bool HasExternalData = false;
+   time_t SegmentStart = 0;
+   time_t SegmentEnd = 0;
++  time_t Now = time(NULL);
++  struct tm tm_r;
++  struct tm t = *localtime_r(&Now, &tm_r); // this initializes the time zone in 't'
+ 
+   SI::EIT::Event SiEitEvent;
+   for (SI::Loop::Iterator it; eventLoop.getNext(SiEitEvent, it); ) {
+       bool ExternalData = false;
++      int StartTime = SiEitEvent.getStartTime();
++      int Duration = SiEitEvent.getDuration();
+       // Drop bogus events - but keep NVOD reference events, where all bits of the start time field are set to 1, resulting in a negative number.
+-      if (SiEitEvent.getStartTime() == 0 || SiEitEvent.getStartTime() > 0 && SiEitEvent.getDuration() == 0)
++      if (StartTime == 0 || StartTime > 0 && Duration == 0)
+          continue;
+       Empty = false;
+       if (!SegmentStart)
+-         SegmentStart = SiEitEvent.getStartTime();
+-      SegmentEnd = SiEitEvent.getStartTime() + SiEitEvent.getDuration();
++         SegmentStart = StartTime;
++      SegmentEnd = StartTime + Duration;
+       cEvent *newEvent = NULL;
+       cEvent *rEvent = NULL;
+-      cEvent *pEvent = (cEvent *)pSchedule->GetEvent(SiEitEvent.getEventId(), SiEitEvent.getStartTime());
++      cEvent *pEvent = (cEvent *)pSchedule->GetEvent(SiEitEvent.getEventId(), StartTime);
+       if (!pEvent) {
+          if (OnlyRunningStatus)
+             continue;
+@@ -70,14 +75,15 @@
+          pEvent->SetSeen();
+          // If the existing event has a zero table ID it was defined externally and shall
+          // not be overwritten.
+-         if (pEvent->TableID() == 0x00) {
++         uchar TableID = pEvent->TableID();
++         if (TableID == 0x00) {
+             if (pEvent->Version() == getVersionNumber())
+                continue;
+             HasExternalData = ExternalData = true;
+             }
+          // If the new event has a higher table ID, let's skip it.
+          // The lower the table ID, the more "current" the information.
+-         else if (Tid > pEvent->TableID())
++         else if (Tid > TableID)
+             continue;
+          // If the new event comes from the same table and has the same version number
+          // as the existing one, let's skip it to avoid unnecessary work.
+@@ -85,14 +91,14 @@
+          // the actual Premiere transponder and the Sat.1/Pro7 transponder), but use different version numbers on
+          // each of them :-( So if one DVB card is tuned to the Premiere transponder, while an other one is tuned
+          // to the Sat.1/Pro7 transponder, events will keep toggling because of the bogus version numbers.
+-         else if (Tid == pEvent->TableID() && pEvent->Version() == getVersionNumber())
++         else if (Tid == TableID && pEvent->Version() == getVersionNumber())
+             continue;
+          }
+       if (!ExternalData) {
+          pEvent->SetEventID(SiEitEvent.getEventId()); // unfortunately some stations use different event ids for the same event in different tables :-(
+          pEvent->SetTableID(Tid);
+-         pEvent->SetStartTime(SiEitEvent.getStartTime());
+-         pEvent->SetDuration(SiEitEvent.getDuration());
++         pEvent->SetStartTime(StartTime);
++         pEvent->SetDuration(Duration);
+          }
+       if (newEvent)
+          pSchedule->AddEvent(newEvent);
+@@ -148,9 +154,6 @@
+                  break;
+             case SI::PDCDescriptorTag: {
+                  SI::PDCDescriptor *pd = (SI::PDCDescriptor *)d;
+-                 time_t now = time(NULL);
+-                 struct tm tm_r;
+-                 struct tm t = *localtime_r(&now, &tm_r); // this initializes the time zone in 't'
+                  t.tm_isdst = -1; // makes sure mktime() will determine the correct DST setting
+                  int month = t.tm_mon;
+                  t.tm_mon = pd->getMonth() - 1;
+@@ -183,8 +186,7 @@
+                  SI::LinkageDescriptor *ld = (SI::LinkageDescriptor *)d;
+                  tChannelID linkID(Source, ld->getOriginalNetworkId(), ld->getTransportStreamId(), ld->getServiceId());
+                  if (ld->getLinkageType() == 0xB0) { // Premiere World
+-                    time_t now = time(NULL);
+-                    bool hit = SiEitEvent.getStartTime() <= now && now < SiEitEvent.getStartTime() + SiEitEvent.getDuration();
++                    bool hit = StartTime <= Now && Now < StartTime + Duration;
+                     if (hit) {
+                        char linkName[ld->privateData.getLength() + 1];
+                        strn0cpy(linkName, (const char *)ld->privateData.getData(), sizeof(linkName));
+@@ -260,11 +262,12 @@
+          channel->SetLinkChannels(LinkChannels);
+       Modified = true;
+       }
+-  if (Empty && Tid == 0x4E && getSectionNumber() == 0)
+-     // ETR 211: an empty entry in section 0 of table 0x4E means there is currently no event running
+-     pSchedule->ClrRunningStatus(channel);
+-  if (Tid == 0x4E)
++  if (Tid == 0x4E) {
++     if (Empty && getSectionNumber() == 0)
++        // ETR 211: an empty entry in section 0 of table 0x4E means there is currently no event running
++        pSchedule->ClrRunningStatus(channel);
+      pSchedule->SetPresentSeen();
++     }
+   if (OnlyRunningStatus)
+      return;
+   if (Modified) {
+diff -ruN vdr-1.7.4/menuitems.c vdr-1.7.5/menuitems.c
+--- vdr-1.7.4/menuitems.c	2008-12-13 12:35:31.000000000 +0100
++++ vdr-1.7.5/menuitems.c	2009-04-05 12:15:12.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.c 2.2 2008/12/13 11:35:31 kls Exp $
++ * $Id: menuitems.c 2.3 2009/04/05 10:15:12 kls Exp $
+  */
+ 
+ #include "menuitems.h"
+@@ -271,9 +271,9 @@
+ 
+ cMenuEditStrItem::~cMenuEditStrItem()
+ {
+-  delete valueUtf8;
+-  delete allowedUtf8;
+-  delete charMapUtf8;
++  delete[] valueUtf8;
++  delete[] allowedUtf8;
++  delete[] charMapUtf8;
+ }
+ 
+ void cMenuEditStrItem::EnterEditMode(void)
+diff -ruN vdr-1.7.4/osd.c vdr-1.7.5/osd.c
+--- vdr-1.7.4/osd.c	2009-01-16 15:34:32.000000000 +0100
++++ vdr-1.7.5/osd.c	2009-04-05 12:17:25.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 2.1 2009/01/16 14:34:32 kls Exp $
++ * $Id: osd.c 2.2 2009/04/05 10:17:25 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -24,6 +24,10 @@
+   SetAntiAliasGranularity(10, 10);
+ }
+ 
++cPalette::~cPalette()
++{
++}
++
+ void cPalette::SetAntiAliasGranularity(uint FixedColors, uint BlendColors)
+ {
+   if (FixedColors >= MAXNUMCOLORS || BlendColors == 0)
+diff -ruN vdr-1.7.4/osd.h vdr-1.7.5/osd.h
+--- vdr-1.7.4/osd.h	2009-01-16 15:37:03.000000000 +0100
++++ vdr-1.7.5/osd.h	2009-04-05 12:16:05.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.h 2.1 2009/01/16 14:37:03 kls Exp $
++ * $Id: osd.h 2.2 2009/04/05 10:16:05 kls Exp $
+  */
+ 
+ #ifndef __OSD_H
+@@ -62,6 +62,7 @@
+ public:
+   cPalette(int Bpp = 8);
+         ///< Initializes the palette with the given color depth.
++  virtual ~cPalette();
+   void SetAntiAliasGranularity(uint FixedColors, uint BlendColors);
+         ///< Allows the system to optimize utilization of the limited color
+         ///< palette entries when generating blended colors for anti-aliasing.
+diff -ruN vdr-1.7.4/player.h vdr-1.7.5/player.h
+--- vdr-1.7.4/player.h	2009-01-25 12:03:44.000000000 +0100
++++ vdr-1.7.5/player.h	2009-03-08 13:29:10.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: player.h 2.3 2009/01/25 11:03:44 kls Exp $
++ * $Id: player.h 2.4 2009/03/08 12:29:10 kls Exp $
+  */
+ 
+ #ifndef __PLAYER_H
+@@ -34,6 +34,7 @@
+   void DeviceMute(void) { if (device) device->Mute(); }
+   void DeviceSetVideoDisplayFormat(eVideoDisplayFormat VideoDisplayFormat) { if (device) device->SetVideoDisplayFormat(VideoDisplayFormat); }
+   void DeviceStillPicture(const uchar *Data, int Length) { if (device) device->StillPicture(Data, Length); }
++  uint64_t DeviceGetSTC(void) { return device ? device->GetSTC() : -1; }
+   void Detach(void);
+   virtual void Activate(bool On) {}
+        // This function is called right after the cPlayer has been attached to
+diff -ruN vdr-1.7.4/plugin.c vdr-1.7.5/plugin.c
+--- vdr-1.7.4/plugin.c	2008-02-17 14:32:12.000000000 +0100
++++ vdr-1.7.5/plugin.c	2009-04-05 12:16:48.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: plugin.c 2.0 2008/02/17 13:32:12 kls Exp $
++ * $Id: plugin.c 2.1 2009/04/05 10:16:48 kls Exp $
+  */
+ 
+ #include "plugin.h"
+@@ -137,6 +137,7 @@
+ 
+ void cPlugin::SetConfigDirectory(const char *Dir)
+ {
++  free(configDirectory);
+   configDirectory = strdup(Dir);
+ }
+ 
+diff -ruN vdr-1.7.4/po/it_IT.po vdr-1.7.5/po/it_IT.po
+--- vdr-1.7.4/po/it_IT.po	2009-01-06 15:54:43.000000000 +0100
++++ vdr-1.7.5/po/it_IT.po	2009-04-12 11:08:05.000000000 +0200
+@@ -12,18 +12,21 @@
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+ "POT-Creation-Date: 2008-12-14 16:10+0100\n"
+-"PO-Revision-Date: 2008-08-25 02:36+0100\n"
++"PO-Revision-Date: 2009-02-08 18:58+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian\n"
+ "MIME-Version: 1.0\n"
+-"Content-Type: text/plain; charset=ISO-8859-15\n"
++"Content-Type: text/plain; charset=utf-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
++"X-Poedit-Language: Italian\n"
++"X-Poedit-Country: ITALY\n"
++"X-Poedit-SourceCharset: utf-8\n"
+ 
+ msgid "off"
+ msgstr "off"
+ 
+ msgid "on"
+-msgstr ""
++msgstr "on"
+ 
+ msgid "auto"
+ msgstr "automatico"
+@@ -58,7 +61,7 @@
+ msgstr "Fase 1: Rilevamento tipo codice RC"
+ 
+ msgid "Press any key on the RC unit"
+-msgstr "Premi un tasto dell'unità RC"
++msgstr "Premi un tasto dell'unitÃ  RC"
+ 
+ msgid "RC code detected!"
+ msgstr "Codice RC rilevato!"
+@@ -77,13 +80,13 @@
+ msgstr "Premi 'Su' per confermare"
+ 
+ msgid "Press 'Down' to continue"
+-msgstr "Premi 'Giù' per continuare"
++msgstr "Premi 'GiÃ¹' per continuare"
+ 
+ msgid "(press 'Up' to go back)"
+ msgstr "(premi 'Su' per tornare indietro)"
+ 
+ msgid "(press 'Down' to end key definition)"
+-msgstr "(premi 'Giù' per concludere definizione tasti)"
++msgstr "(premi 'GiÃ¹' per concludere definizione tasti)"
+ 
+ msgid "(press 'Menu' to skip this key)"
+ msgstr "(premi 'Menu' per saltare questo tasto)"
+@@ -95,13 +98,13 @@
+ msgstr "Fase 3: Salvataggio codici tasti"
+ 
+ msgid "Press 'Up' to save, 'Down' to cancel"
+-msgstr "Premi 'Su' per salvare, 'Giù' per annullare"
++msgstr "Premi 'Su' per salvare, 'GiÃ¹' per annullare"
+ 
+ msgid "Key$Up"
+ msgstr "Su"
+ 
+ msgid "Key$Down"
+-msgstr "Giù"
++msgstr "GiÃ¹"
+ 
+ msgid "Key$Menu"
+ msgstr "Menu"
+@@ -290,7 +293,7 @@
+ msgstr "Polarizzazione"
+ 
+ msgid "System"
+-msgstr ""
++msgstr "Sistema"
+ 
+ msgid "Srate"
+ msgstr "SymbolRate"
+@@ -320,7 +323,7 @@
+ msgstr "Gerarchia"
+ 
+ msgid "Rolloff"
+-msgstr ""
++msgstr "Rolloff"
+ 
+ msgid "Channel settings are not unique!"
+ msgstr "Parametri canale non univoci!"
+@@ -368,7 +371,7 @@
+ msgstr "VPS"
+ 
+ msgid "Priority"
+-msgstr "Priorità"
++msgstr "PrioritÃ "
+ 
+ msgid "Lifetime"
+ msgstr "Scadenza"
+@@ -377,7 +380,7 @@
+ msgstr "Nome"
+ 
+ msgid "First day"
+-msgstr "1° giorno"
++msgstr "1Â° giorno"
+ 
+ msgid "Timers"
+ msgstr "Timer"
+@@ -682,10 +685,10 @@
+ msgstr "Reimposta la CAM"
+ 
+ msgid "CAM present"
+-msgstr "La CAM è presente"
++msgstr "La CAM Ã¨ presente"
+ 
+ msgid "CAM ready"
+-msgstr "La CAM è pronta"
++msgstr "La CAM Ã¨ pronta"
+ 
+ msgid "CAM"
+ msgstr "Accesso condizionato CAM"
+@@ -703,7 +706,7 @@
+ msgstr "Impossibile aprire il menu CAM!"
+ 
+ msgid "CAM is in use - really reset?"
+-msgstr "La CAM è in uso - vuoi reimpostarla?"
++msgstr "La CAM Ã¨ in uso - vuoi reimpostarla?"
+ 
+ msgid "Can't reset CAM!"
+ msgstr "Impossibile reimpostare il modulo CAM!"
+@@ -721,13 +724,13 @@
+ msgstr "Limite primario"
+ 
+ msgid "Setup.Recording$Default priority"
+-msgstr "Priorità predefinita"
++msgstr "PrioritÃ  predefinita"
+ 
+ msgid "Setup.Recording$Default lifetime (d)"
+ msgstr "Scadenza predefinita (gg)"
+ 
+ msgid "Setup.Recording$Pause priority"
+-msgstr "Priorità di pausa"
++msgstr "PrioritÃ  di pausa"
+ 
+ msgid "Setup.Recording$Pause lifetime (d)"
+ msgstr "Scadenza pausa (gg)"
+@@ -760,10 +763,10 @@
+ msgstr "Riproduzione"
+ 
+ msgid "Setup.Replay$Multi speed mode"
+-msgstr "Modalità multispeed"
++msgstr "ModalitÃ  multispeed"
+ 
+ msgid "Setup.Replay$Show replay mode"
+-msgstr "Mostra modalità riproduzione"
++msgstr "Mostra modalitÃ  riproduzione"
+ 
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ID di ripristino"
+@@ -775,7 +778,7 @@
+ msgstr "Scadenza min. evento (min)"
+ 
+ msgid "Setup.Miscellaneous$Min. user inactivity (min)"
+-msgstr "Periodo min. inattività (min)"
++msgstr "Periodo min. inattivitÃ  (min)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP timeout (s)"
+ msgstr "Scadenza SVDRP (s)"
+@@ -884,16 +887,16 @@
+ msgstr "Processo di modifica avviato"
+ 
+ msgid "Editing process already active!"
+-msgstr "Processo di modifica già attivo!"
++msgstr "Processo di modifica giÃ  attivo!"
+ 
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+-msgstr " aáàbcdeéèfghiìîjklmnoòpqrstuùvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&°"
++msgstr " aÃ¡Ã bcdeÃ©Ã¨fghiÃ¬Ã®jklmnoÃ²pqrstuÃ¹vwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&Â°"
+ 
+ msgid "yes"
+-msgstr "sì"
++msgstr "sÃ¬"
+ 
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+-msgstr " 0\t-.,1#~\\^$[]|()*+°?{}/:%@&\taàbc2\tdeèf3\tghiì4\tjkl5\tmnoò6\tpqrs7\ttuùv8\twxyz9"
++msgstr " 0\t-.,1#~\\^$[]|()*+Â°?{}/:%@&\taÃ bc2\tdeÃ¨f3\tghiÃ¬4\tjkl5\tmnoÃ²6\tpqrs7\ttuÃ¹v8\twxyz9"
+ 
+ msgid "Button$ABC/abc"
+ msgstr "ABC/abc"
+@@ -908,7 +911,7 @@
+ msgstr "Plugin"
+ 
+ msgid "Up/Dn for new location - OK to move"
+-msgstr "Su/Giù per nuova posizione - OK per spostare"
++msgstr "Su/GiÃ¹ per nuova posizione - OK per spostare"
+ 
+ msgid "Channel locked (recording)!"
+ msgstr "Canale bloccato (in registrazione)!"
+@@ -964,19 +967,19 @@
+ msgstr "LunMarMerGioVenSabDom"
+ 
+ msgid "Monday"
+-msgstr "Lunedì"
++msgstr "LunedÃ¬"
+ 
+ msgid "Tuesday"
+-msgstr "Martedì"
++msgstr "MartedÃ¬"
+ 
+ msgid "Wednesday"
+-msgstr "Mercoledì"
++msgstr "MercoledÃ¬"
+ 
+ msgid "Thursday"
+-msgstr "Giovedì"
++msgstr "GiovedÃ¬"
+ 
+ msgid "Friday"
+-msgstr "Venerdì"
++msgstr "VenerdÃ¬"
+ 
+ msgid "Saturday"
+ msgstr "Sabato"
+@@ -991,7 +994,7 @@
+ msgstr "Registrazione avviata"
+ 
+ msgid "VDR will shut down later - press Power to force"
+-msgstr "VDR si spegnerà più tardi - premi Power per forzare"
++msgstr "VDR si spegnerÃ  piÃ¹ tardi - premi Power per forzare"
+ 
+ msgid "Press any key to cancel shutdown"
+ msgstr "Premi un tasto per annullare lo spegnimento"
+@@ -1010,4 +1013,4 @@
+ 
+ #, c-format
+ msgid "VDR will shut down in %s minutes"
+-msgstr "VDR si spegnerà tra %s minuti"
++msgstr "VDR si spegnerÃ  tra %s minuti"
+diff -ruN vdr-1.7.4/recorder.c vdr-1.7.5/recorder.c
+--- vdr-1.7.4/recorder.c	2009-01-23 16:33:37.000000000 +0100
++++ vdr-1.7.5/recorder.c	2009-03-20 16:49:02.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.c 2.2 2009/01/23 15:33:37 kls Exp $
++ * $Id: recorder.c 2.3 2009/03/20 15:49:02 kls Exp $
+  */
+ 
+ #include "recorder.h"
+@@ -113,7 +113,6 @@
+ void cRecorder::Action(void)
+ {
+   time_t t = time(NULL);
+-  bool Synced = false;
+   bool InfoWritten = false;
+   while (Running()) {
+         int r;
+@@ -123,7 +122,7 @@
+            if (Count) {
+               if (!Running() && frameDetector->IndependentFrame()) // finish the recording before the next independent frame
+                  break;
+-              if (Synced |= frameDetector->IndependentFrame()) { // start with first independent frame
++              if (frameDetector->Synced()) {
+                  if (!InfoWritten) {
+                     if (recordingInfo.Read()) {
+                        if (frameDetector->FramesPerSecond() > 0 && recordingInfo.FramesPerSecond() != frameDetector->FramesPerSecond()) {
+diff -ruN vdr-1.7.4/recording.c vdr-1.7.5/recording.c
+--- vdr-1.7.4/recording.c	2009-01-24 14:11:04.000000000 +0100
++++ vdr-1.7.5/recording.c	2009-01-30 17:27:19.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.8 2009/01/24 13:11:04 kls Exp $
++ * $Id: recording.c 2.9 2009/01/30 16:27:19 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -286,6 +286,7 @@
+         if (f) {
+            fprintf(f, "I %d\n", Index);
+            fclose(f);
++           Recordings.ResetResume(fileName);
+            }
+         else
+            LOG_ERROR_STR(fileName);
+diff -ruN vdr-1.7.4/recording.h vdr-1.7.5/recording.h
+--- vdr-1.7.4/recording.h	2009-01-24 16:24:19.000000000 +0100
++++ vdr-1.7.5/recording.h	2009-02-28 11:50:12.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 2.4 2009/01/24 15:24:19 kls Exp $
++ * $Id: recording.h 2.5 2009/02/28 10:50:12 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -60,6 +60,7 @@
+   ~cRecordingInfo();
+   tChannelID ChannelID(void) const { return channelID; }
+   const char *ChannelName(void) const { return channelName; }
++  const cEvent *GetEvent(void) const { return event; }
+   const char *Title(void) const { return event->Title(); }
+   const char *ShortText(void) const { return event->ShortText(); }
+   const char *Description(void) const { return event->Description(); }
+diff -ruN vdr-1.7.4/remux.c vdr-1.7.5/remux.c
+--- vdr-1.7.4/remux.c	2009-01-24 14:44:45.000000000 +0100
++++ vdr-1.7.5/remux.c	2009-04-05 16:07:48.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 2.13 2009/01/24 13:44:45 kls Exp $
++ * $Id: remux.c 2.17 2009/04/05 14:07:48 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -109,6 +109,21 @@
+      dsyslog("SetBrokenLink: no video packet in frame");
+ }
+ 
++// --- Some TS handling tools ------------------------------------------------
++
++int64_t TsGetPts(const uchar *p, int l)
++{
++  // Find the first packet with a PTS and use it:
++  while (l > 0) {
++        const uchar *d = p;
++        if (TsPayloadStart(d) && TsGetPayload(&d) && PesHasPts(d))
++           return PesGetPts(d);
++        p += TS_SIZE;
++        l -= TS_SIZE;
++        }
++  return -1;
++}
++
+ // --- cPatPmtGenerator ------------------------------------------------------
+ 
+ cPatPmtGenerator::cPatPmtGenerator(cChannel *Channel)
+@@ -661,111 +676,163 @@
+ {
+   pid = Pid;
+   type = Type;
++  synced = false;
+   newFrame = independentFrame = false;
+-  lastPts = 0;
++  numPtsValues = 0;
++  numIFrames = 0;
+   isVideo = type == 0x02 || type == 0x1B; // MPEG 2 or MPEG 4
+   frameDuration = 0;
+-  framesPerPayloadUnit = 0;
++  framesInPayloadUnit = framesPerPayloadUnit = 0;
++  payloadUnitOfFrame = 0;
+   scanning = false;
+   scanner = 0;
+ }
+ 
++static int CmpUint32(const void *p1, const void *p2)
++{
++  if (*(uint32_t *)p1 < *(uint32_t *)p2) return -1;
++  if (*(uint32_t *)p1 > *(uint32_t *)p2) return  1;
++  return 0;
++}
++
+ int cFrameDetector::Analyze(const uchar *Data, int Length)
+ {
++  int Processed = 0;
+   newFrame = independentFrame = false;
+-  if (Length >= TS_SIZE) {
+-     if (TsHasPayload(Data) && !TsIsScrambled(Data) && TsPid(Data) == pid) {
+-        if (TsPayloadStart(Data)) {
+-           if (!frameDuration) {
+-              const uchar *Pes = Data + TsPayloadOffset(Data);
+-              if (PesHasPts(Pes)) {
+-                 int64_t Pts = PesGetPts(Pes);
+-                 if (Pts < lastPts) { // avoid wrapping
+-                    lastPts = 0;
+-                    framesPerPayloadUnit = 0;
++  while (Length >= TS_SIZE) {
++        if (TsHasPayload(Data) && !TsIsScrambled(Data) && TsPid(Data) == pid) {
++           if (TsPayloadStart(Data)) {
++              if (!frameDuration) {
++                 // frame duration unknown, so collect a sequenece of PTS values:
++                 if (numPtsValues < MaxPtsValues && numIFrames < 2) { // collect a sequence containing at least two I-frames
++                    const uchar *Pes = Data + TsPayloadOffset(Data);
++                    if (PesHasPts(Pes)) {
++                       ptsValues[numPtsValues] = PesGetPts(Pes);
++                       // check for rollover:
++                       if (numPtsValues && ptsValues[numPtsValues - 1] > 0xF0000000 && ptsValues[numPtsValues] < 0x10000000) {
++                          dbgframes("#");
++                          numPtsValues = 0;
++                          numIFrames = 0;
++                          }
++                       else
++                          numPtsValues++;
++                       }
+                     }
+-                 if ((!lastPts || !framesPerPayloadUnit) && Pts != lastPts)
+-                    lastPts = Pts;
+                  else {
+-                    int64_t Delta = Pts - lastPts;
++                    // find the smallest PTS delta:
++                    qsort(ptsValues, numPtsValues, sizeof(uint32_t), CmpUint32);
++                    numPtsValues--;
++                    for (int i = 0; i < numPtsValues; i++)
++                        ptsValues[i] = ptsValues[i + 1] - ptsValues[i];
++                    qsort(ptsValues, numPtsValues, sizeof(uint32_t), CmpUint32);
++                    uint32_t Delta = ptsValues[0];
++                    // determine frame info:
+                     if (isVideo) {
+                        if (Delta % 3600 == 0)
+                           frameDuration = 3600; // PAL, 25 fps
+                        else if (Delta % 3003 == 0)
+                           frameDuration = 3003; // NTSC, 29.97 fps
++                       else if (Delta == 1501) {
++                          frameDuration = 3003; // NTSC, 29.97 fps
++                          framesPerPayloadUnit = -2;
++                          }
+                        else {
+                           frameDuration = 3600; // unknown, assuming 25 fps
+-                          dsyslog("unknown frame duration, assuming 25 fps (PTS: %lld - %lld = %lld  FPPU = %d)\n", Pts, lastPts, Delta, framesPerPayloadUnit);
++                          dsyslog("unknown frame duration (%d), assuming 25 fps", Delta);
+                           }
+                        }
+                     else // audio
+                        frameDuration = Delta; // PTS of audio frames is always increasing
+-                    dbgframes("PTS: %lld - %lld = %lld -> FD = %d  FPS = %5.2f  FPPU = %d\n", Pts, lastPts, Delta, frameDuration, 90000.0 / frameDuration, framesPerPayloadUnit);
++                    dbgframes("\nframe duration = %d  FPS = %5.2f  FPPU = %d\n", frameDuration, 90000.0 / frameDuration, framesPerPayloadUnit);
+                     }
+                  }
++              scanner = 0;
++              scanning = true;
+               }
+-           scanner = 0;
+-           scanning = true;
+-           }
+-        if (scanning) {
+-           int PayloadOffset = TsPayloadOffset(Data);
+-           if (TsPayloadStart(Data))
+-              PayloadOffset += PesPayloadOffset(Data + PayloadOffset);
+-           for (int i = PayloadOffset; i < TS_SIZE; i++) {
+-               scanner <<= 8;
+-               scanner |= Data[i];
+-               switch (type) {
+-                 case 0x02: // MPEG 2 video
+-                      if (scanner == 0x00000100) { // Picture Start Code
+-                         if (frameDuration) {
++           if (scanning) {
++              int PayloadOffset = TsPayloadOffset(Data);
++              if (TsPayloadStart(Data)) {
++                 PayloadOffset += PesPayloadOffset(Data + PayloadOffset);
++                 if (!framesPerPayloadUnit)
++                    framesPerPayloadUnit = framesInPayloadUnit;
++                 if (DebugFrames && !synced)
++                    dbgframes("/");
++                 }
++              for (int i = PayloadOffset; scanning && i < TS_SIZE; i++) {
++                  scanner <<= 8;
++                  scanner |= Data[i];
++                  switch (type) {
++                    case 0x02: // MPEG 2 video
++                         if (scanner == 0x00000100) { // Picture Start Code
++                            if (synced && Processed)
++                               return Processed;
+                             newFrame = true;
+                             independentFrame = ((Data[i + 2] >> 3) & 0x07) == 1; // I-Frame
+-                            if (framesPerPayloadUnit == 1) {
+-                               scanning = false;
+-                               return TS_SIZE;
++                            if (synced) {
++                               if (framesPerPayloadUnit <= 1)
++                                  scanning = false;
+                                }
++                            else {
++                               framesInPayloadUnit++;
++                               if (independentFrame)
++                                  numIFrames++;
++                               dbgframes("%d ", (Data[i + 2] >> 3) & 0x07);
++                               }
++                            scanner = 0;
+                             }
+-                         else {
+-                            framesPerPayloadUnit++;
+-                            dbgframes("%d ", (Data[i + 2] >> 3) & 0x07);
+-                            }
+-                         scanner = 0;
+-                         }
+-                      break;
+-                 case 0x1B: // MPEG 4 video
+-                      if (scanner == 0x00000109) { // Access Unit Delimiter
+-                         if (frameDuration) {
++                         break;
++                    case 0x1B: // MPEG 4 video
++                         if (scanner == 0x00000109) { // Access Unit Delimiter
++                            if (synced && Processed)
++                               return Processed;
+                             newFrame = true;
+                             independentFrame = Data[i + 1] == 0x10;
+-                            if (framesPerPayloadUnit == 1) {
+-                               scanning = false;
+-                               return TS_SIZE;
++                            if (synced) {
++                               if (framesPerPayloadUnit < 0) {
++                                  payloadUnitOfFrame = (payloadUnitOfFrame + 1) % -framesPerPayloadUnit;
++                                  if (payloadUnitOfFrame != 0 && independentFrame)
++                                     payloadUnitOfFrame = 0;
++                                  if (payloadUnitOfFrame)
++                                     newFrame = false;
++                                  }
++                               if (framesPerPayloadUnit <= 1)
++                                  scanning = false;
+                                }
++                            else {
++                               framesInPayloadUnit++;
++                               if (independentFrame)
++                                  numIFrames++;
++                               dbgframes("%02X ", Data[i + 1]);
++                               }
++                            scanner = 0;
+                             }
+-                         else {
+-                            framesPerPayloadUnit++;
+-                            dbgframes("%02X ", Data[i + 1]);
+-                            }
+-                         scanner = 0;
+-                         }
+-                      break;
+-                 case 0x04: // MPEG audio
+-                 case 0x06: // AC3 audio
+-                      if (frameDuration) {
++                         break;
++                    case 0x04: // MPEG audio
++                    case 0x06: // AC3 audio
++                         if (synced && Processed)
++                            return Processed;
+                          newFrame = true;
+                          independentFrame = true;
++                         if (!synced) {
++                            framesInPayloadUnit = 1;
++                            if (TsPayloadStart(Data))
++                               numIFrames++;
++                            }
+                          scanning = false;
+-                         }
+-                      else
+-                         framesPerPayloadUnit = 1;
+-                      break;
+-                 default: esyslog("ERROR: unknown stream type %d (PID %d) in frame detector", type, pid);
+-                          pid = 0; // let's just ignore any further data
++                         break;
++                    default: esyslog("ERROR: unknown stream type %d (PID %d) in frame detector", type, pid);
++                             pid = 0; // let's just ignore any further data
++                    }
++                  }
++              if (!synced && frameDuration && independentFrame) {
++                 synced = true;
++                 dbgframes("*");
+                  }
+-               }
++              }
+            }
++        Data += TS_SIZE;
++        Length -= TS_SIZE;
++        Processed += TS_SIZE;
+         }
+-     return TS_SIZE;
+-     }
+-  return 0;
++  return Processed;
+ }
+diff -ruN vdr-1.7.4/remux.h vdr-1.7.5/remux.h
+--- vdr-1.7.4/remux.h	2009-01-24 14:38:10.000000000 +0100
++++ vdr-1.7.5/remux.h	2009-03-27 14:38:59.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 2.7 2009/01/24 13:38:10 kls Exp $
++ * $Id: remux.h 2.9 2009/03/27 13:38:59 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+@@ -101,6 +101,10 @@
+   return TsHasAdaptationField(p) ? p[5] : 0x00;
+ }
+ 
++// The following functions all take a pointer to a sequence of complete TS packets.
++
++int64_t TsGetPts(const uchar *p, int l);
++
+ // Some PES handling tools:
+ // The following functions that take a pointer to PES data all assume that
+ // there is enough data so that PesLongEnough() returns true.
+@@ -263,14 +267,22 @@
+ 
+ class cFrameDetector {
+ private:
++  enum { MaxPtsValues = 150 };
+   int pid;
+   int type;
++  bool synced;
+   bool newFrame;
+   bool independentFrame;
+-  int64_t lastPts;
++  uint32_t ptsValues[MaxPtsValues]; // 32 bit is enough - we only need the delta
++  int numPtsValues;
++  int numIFrames;
+   bool isVideo;
+   int frameDuration;
+-  int framesPerPayloadUnit;
++  int framesInPayloadUnit;
++  int framesPerPayloadUnit; // Some broadcasters send one frame per payload unit (== 1),
++                            // some put an entire GOP into one payload unit (> 1), and
++                            // some spread a single frame over several payload units (< 0).
++  int payloadUnitOfFrame;
+   bool scanning;
+   uint32_t scanner;
+ public:
+@@ -278,10 +290,11 @@
+   int Analyze(const uchar *Data, int Length);
+       ///< Analyzes the TS packets pointed to by Data. Length is the number of
+       ///< bytes Data points to, and must be a multiple of 188.
+-      ///< Returns the number of bytes that have been analyzed and may be written
+-      ///< to the recording file. If the return value is 0, the data was not
+-      ///< sufficient for analyzing and Analyze() needs to be called again with
+-      ///< more actual data.
++      ///< Returns the number of bytes that have been analyzed.
++      ///< If the return value is 0, the data was not sufficient for analyzing and
++      ///< Analyze() needs to be called again with more actual data.
++  bool Synced(void) { return synced; }
++      ///< Returns true if the frame detector has synced on the data stream.
+   bool NewFrame(void) { return newFrame; }
+       ///< Returns true if the data given to the last call to Analyze() started a
+       ///< new frame.
+diff -ruN vdr-1.7.4/ringbuffer.c vdr-1.7.5/ringbuffer.c
+--- vdr-1.7.4/ringbuffer.c	2007-11-17 14:49:34.000000000 +0100
++++ vdr-1.7.5/ringbuffer.c	2009-02-24 12:32:14.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Parts of this file were inspired by the 'ringbuffy.c' from the
+  * LinuxDVB driver (see linuxtv.org).
+  *
+- * $Id: ringbuffer.c 2.0 2007/11/17 13:49:34 kls Exp $
++ * $Id: ringbuffer.c 2.1 2009/02/24 11:32:14 kls Exp $
+  */
+ 
+ #include "ringbuffer.h"
+@@ -335,11 +335,12 @@
+ 
+ // --- cFrame ----------------------------------------------------------------
+ 
+-cFrame::cFrame(const uchar *Data, int Count, eFrameType Type, int Index)
++cFrame::cFrame(const uchar *Data, int Count, eFrameType Type, int Index, uint32_t Pts)
+ {
+   count = abs(Count);
+   type = Type;
+   index = Index;
++  pts = Pts;
+   if (Count < 0)
+      data = (uchar *)Data;
+   else {
+diff -ruN vdr-1.7.4/ringbuffer.h vdr-1.7.5/ringbuffer.h
+--- vdr-1.7.4/ringbuffer.h	2007-11-17 14:49:34.000000000 +0100
++++ vdr-1.7.5/ringbuffer.h	2009-02-24 12:31:32.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ringbuffer.h 2.0 2007/11/17 13:49:34 kls Exp $
++ * $Id: ringbuffer.h 2.1 2009/02/24 11:31:32 kls Exp $
+  */
+ 
+ #ifndef __RINGBUFFER_H
+@@ -108,8 +108,9 @@
+   int count;
+   eFrameType type;
+   int index;
++  uint32_t pts;
+ public:
+-  cFrame(const uchar *Data, int Count, eFrameType = ftUnknown, int Index = -1);
++  cFrame(const uchar *Data, int Count, eFrameType = ftUnknown, int Index = -1, uint32_t Pts = 0);
+     ///< Creates a new cFrame object.
+     ///< If Count is negative, the cFrame object will take ownership of the given
+     ///< Data. Otherwise it will allocate Count bytes of memory and copy Data.
+@@ -118,6 +119,7 @@
+   int Count(void) const { return count; }
+   eFrameType Type(void) const { return type; }
+   int Index(void) const { return index; }
++  uint32_t Pts(void) const { return pts; }
+   };
+ 
+ class cRingBufferFrame : public cRingBuffer {
+diff -ruN vdr-1.7.4/vdr.c vdr-1.7.5/vdr.c
+--- vdr-1.7.4/vdr.c	2009-01-18 12:02:37.000000000 +0100
++++ vdr-1.7.5/vdr.c	2009-04-05 15:21:46.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 2.4 2009/01/18 11:02:37 kls Exp $
++ * $Id: vdr.c 2.7 2009/04/05 13:21:46 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -112,10 +112,10 @@
+   return true;
+ }
+ 
+-static bool SetCapSysTime(void)
++static bool DropCaps(void)
+ {
+-  // drop all capabilities except cap_sys_time
+-  cap_t caps = cap_from_text("= cap_sys_time=ep");
++  // drop all capabilities except selected ones
++  cap_t caps = cap_from_text("= cap_sys_nice,cap_sys_time=ep");
+   if (!caps) {
+      fprintf(stderr, "vdr: cap_from_text failed: %s\n", strerror(errno));
+      return false;
+@@ -387,7 +387,7 @@
+            return 2;
+         if (!SetKeepCaps(false))
+            return 2;
+-        if (!SetCapSysTime())
++        if (!DropCaps())
+            return 2;
+         }
+      }
+@@ -416,6 +416,7 @@
+                "                           existing directory, without any \"..\", double '/'\n"
+                "                           or symlinks (default: none, same as -g-)\n"
+                "  -h,       --help         print this help and exit\n"
++               "  -i ID,    --instance=ID  use ID as the id of this VDR instance (default: 0)\n"
+                "  -l LEVEL, --log=LEVEL    set log level (default: 3)\n"
+                "                           0 = no logging, 1 = errors only,\n"
+                "                           2 = errors and info, 3 = errors, info and debug\n"
+@@ -533,6 +534,7 @@
+      isyslog("codeset is '%s' - %s", CodeSet, known ? "known" : "unknown");
+      cCharSetConv::SetSystemCharacterTable(CodeSet);
+      }
++  setlocale(LC_NUMERIC, "C"); // makes sure any floating point numbers written use a decimal point
+ 
+   // Initialize internationalization:
+ 

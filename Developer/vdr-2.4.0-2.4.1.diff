@@ -1,0 +1,2744 @@
+diff -ruN vdr-2.4.0/CONTRIBUTORS vdr-2.4.1/CONTRIBUTORS
+--- vdr-2.4.0/CONTRIBUTORS	2018-04-14 12:24:41.000000000 +0200
++++ vdr-2.4.1/CONTRIBUTORS	2019-05-31 23:47:01.000000000 +0200
+@@ -283,6 +283,8 @@
+  for reporting a problem in handling the PrimaryLimit when requesting a device for
+  live viewing
+  for reporting a black screen while a "Recording started" message is displayed
++ for reporting a problem with the lock on the Channels list in cDisplayChannel still
++ being held when Flush() was called
+ 
+ Matjaz Thaler <matjaz.thaler@guest.arnes.si>
+  for improving AC3 decoding when replaying DVDs
+@@ -2270,6 +2272,7 @@
+  in cKbdRemote
+  for reporting a possible discrepancy of the primary device number in the LSTD and
+  PRIM commands
++ for adding support for EAC3 audio from other sources
+ 
+ Christian Wieninger <cwieninger@gmx.de>
+  for suggesting to add cMenuEditStrItem::InEditMode()
+@@ -2854,6 +2857,7 @@
+  replay has been stopped, but before the replay control has been destroyed
+  for reporting a problem in processing SVDRP client responses in case the caller doesn't
+  want the actual response strings
++ for reporting a bug in handling the tfRecording flag in the SVDRP commands MODT and UPDT
+ 
+ Timo Helkio <timolavi@mbnet.fi>
+  for reporting a hangup when replaying a TS recording with subtitles activated
+@@ -3124,6 +3128,7 @@
+  for updating links in the INSTALL file
+  for reporting double slashes in file names processed with AddDirectory()
+  for using the 'example' macro in vdr.5
++ for fixing the install target in case of multiple jobs
+ 
+ Dominic Evans <oldmanuk@gmail.com>
+  for making the SVDRP command LSTC accepts channel IDs
+@@ -3315,6 +3320,8 @@
+  after starting the editing process
+  for reporting a problem with setting the initial offset of the cursor in a list menu
+  for reporting a high CPU load during replay with active progress display
++ for reporting that the lock on the Channels list in cDisplayChannel was still held
++ when Flush() was called
+ 
+ Marek Nazarko <mnazarko@gmail.com>
+  for translating OSD texts to the Polish language
+@@ -3539,6 +3546,7 @@
+ 
+ Robert Hannebauer <vdr@hannebauer.org>
+  for fixing an overflow of PIDs in a receiver
++ for fixing opening the UDP port in peerdemo
+ 
+ Aitugan Sarbassov <isarbassov@gmail.com>
+  for adding 'S58.5E Kazsat 3' to sources.conf
+@@ -3558,6 +3566,29 @@
+ 
+ Onur Sentürk <onur@sentek.org>
+  for making the MTD mapper avoid immediately reusing unique PIDs when switching channels
++ for fixing handling shared CA pids
++ for fixing handling the S2SatelliteDeliverySystemDescriptor for transponders broadcasting
++ in "backwards compatibility mode" according to ETSI EN 300 468
+ 
+ Helmut Binder <cco@aon.at>
+  for improving calculating signal strength and quality
++ for fixing switching through encrypted channels with the Up/Down keys
++ for deactivating MTD support if a non MCD capable CAM is inserted after removing
++ a previously used CAM that is MCD capable
++ for fixing accessing the actual frontend on multi frontend devices
++ for fixing processing the last entry in the scan list of the EIT scanner
++ for fixing processing transponder data in the NIT
++ for fixing triggering the SDT filter when parsing the NIT
++ for reporting a bug in processing SI::T2DeliverySystemDescriptor when typecasting it
++ over an SI::ExtensionDescriptor
++ for fixing mapping SIDs in MTD
++ for fixing updating the checksum in the CA table after mapping EMM PIDs for MTD
++ for fixing a compiler warning in ExchangeChars()
++ for suggesting to add __attribute__((packed)) to tIndexPes and tIndexTs
++
++Ulrich Eckhardt <uli@uli-eckhardt.de>
++ for reporting a problem with shutdown after user inactivity in case a plugin is
++ keeping the OSD open
++
++Stian B. Barmen <stian@barmen.nu>
++ for reporting missing EPG data on channels from Canal Digital Norway
+diff -ruN vdr-2.4.0/HISTORY vdr-2.4.1/HISTORY
+--- vdr-2.4.0/HISTORY	2018-04-15 10:32:25.000000000 +0200
++++ vdr-2.4.1/HISTORY	2019-06-16 11:15:44.000000000 +0200
+@@ -9347,3 +9347,75 @@
+ - Fixed a high CPU load during replay with active progress display (reported by Matthias
+   Senzel).
+ - Official release.
++
++2019-06-17: Version 2.4.1
++
++- Fixed handling the tfRecording flag in the SVDRP commands MODT and UPDT (reported
++  by Johann Friedrichs).
++- Fixed a possible invalid locking sequence in case a remote timer handling error message
++  is displayed on the OSD and the skin tries to lock the Recordings or DeletedRecordings
++  list in its Flush() function (for instance by calling cVideoDiskUsage::HasChanged()).
++  To do this, the call to Skins.Message() in menu.c's HandleRemoteModifications() has
++  been changed to Skins.QueueMessage(), and cSkins::ProcessQueuedMessages() is now called
++  unconditionally in the main loop, and checks whether the current cSkinDisplay object
++  (if any) implements SetMessage().
++- Fixed locking the Channels list in cDisplayChannel, where the lock was still held
++  when Flush() was called (reported by Matthias Senzel and Uwe Scheffler).
++- Fixed shutdown after user inactivity in case a plugin is keeping the OSD open
++  (reported by Ulrich Eckhardt).
++- Fixed switching through encrypted channels with the Up/Down keys (thanks to Helmut
++  Binder).
++- Now deactivating MTD support if a non MCD capable CAM is inserted after removing
++  a previously used CAM that is MCD capable (thanks to Helmut Binder).
++- Added support for DVB devices with more than one frontend that all use the same
++  dvr and demux. Note that in order for this to work, you must not set symbolic
++  links like "demux1 -> demux0" and "dvr1 -> dvr0", as is mentioned in some user
++  manuals of multi frontend DVB cards.
++- Reverted the change "The EIT filter no longer parses data from "other TS"...". It led to
++  missing EPG data on channels from Canal Digital Norway (reported by Stian B. Barmen).
++- Fixed accessing the actual frontend on multi frontend devices (thanks to Helmut Binder).
++- Fixed opening the UDP port in peerdemo (thanks to Robert Hannebauer).
++- Fixed handling PATs that contain no PMTs.
++- Fixed processing the last entry in the scan list of the EIT scanner (thanks to
++  Helmut Binder).
++- Fixed processing transponder data in the NIT (thanks to Helmut Binder).
++- Fixed triggering the SDT filter when parsing the NIT (thanks to Helmut Binder).
++- Added support for EAC3 audio from other sources (thanks to Jürgen Schneider).
++- No longer logging tuning timeouts for transponders that are announced in the NIT but
++  are not currently broadcasting.
++- Fixed processing SI::T2DeliverySystemDescriptor when typecasting it over an
++  SI::ExtensionDescriptor (reported by Helmut Binder).
++- Fixed sorting recordings alphabetically.
++- Fixed dropping capabilities in case cap_sys_time is not available.
++- Fixed updating the cursor position when switching channels with the Channel+/- keys
++  while the Channels menu is open.
++- Fixed handling shared CA pids (thanks to Onur Sentürk).
++- Now touching the .update file in the video directory after removing deleted
++  recordings, so that other VDRs that use the same video directory will update their
++  list of (deleted) recordings and thus won't display too much empty disk space.
++- Fixed the install target in case of multiple jobs (thanks to Chris Mayo).
++- Fixed mapping SIDs in MTD (thanks to Helmut Binder).
++- Fixed updating the checksum in the CA table after mapping EMM PIDs for MTD (thanks to
++  Helmut Binder).
++- Fixed a compiler warning in ExchangeChars() (thanks to Helmut Binder).
++- Fixed a compiler warning and a possible buffer overflow in cCiMMI::SendAnswer().
++- Fixed a possible invalid lock sequence if the main menu is open and the user
++  switches to a channel that is currently not available, using the Channel+/- keys.
++- Fixed handling remote timers in case the response to LSTT is '550 No timers defined'.
++- Fixed a compiler warning in cIndexFile::ConvertToPes() and added __attribute__((packed))
++  to tIndexPes and tIndexTs (suggested by Helmut Binder).
++- Fixed handling repeat function for keyboards.
++- Added a workaround for broadcasters who set an event to status "not running" where
++  this is inappropriate; implicitly setting events to "not running" is now also logged.
++- Fixed asserting free disk space in case there is no local timer currently recording.
++- The default maximum size of a cPixmap has been raised to the maximum possible value.
++- Increased PLAYERBUFSIZE to (MAXFRAMESIZE * 5) to avoid stuttering replay under heavy
++  system load, and to better document that this buffer size is related to the maximum
++  frame size.
++- Fixed inconsistent behavior in case only certain devices are used (selected by the '-D'
++  option).
++- Fixed a wrong variable name in cFileName::cFileName().
++- If cSkins::Message() is called from a background thread and Type is not mtStatus,
++  the call is now automatically forwarded to QueueMessage().
++- Fixed handling the S2SatelliteDeliverySystemDescriptor for transponders broadcasting
++  in "backwards compatibility mode" according to ETSI EN 300 468 (thanks to Onur Sentürk).
+diff -ruN vdr-2.4.0/Makefile vdr-2.4.1/Makefile
+--- vdr-2.4.0/Makefile	2017-05-29 10:48:42.000000000 +0200
++++ vdr-2.4.1/Makefile	2019-05-05 15:37:38.000000000 +0200
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 4.5 2017/05/29 08:48:42 kls Exp $
++# $Id: Makefile 4.5.1.1 2019/05/05 13:37:38 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -271,7 +271,7 @@
+ 
+ # Install the files (note that 'install-pc' must be first!):
+ 
+-install: install-pc install-bin install-dirs install-conf install-doc install-plugins install-i18n install-includes
++install: install-pc install-bin install-conf install-doc install-plugins install-i18n install-includes
+ 
+ # VDR binary:
+ 
+@@ -288,7 +288,7 @@
+ 	@mkdir -p $(DESTDIR)$(CACHEDIR)
+ 	@mkdir -p $(DESTDIR)$(RESDIR)
+ 
+-install-conf:
++install-conf: install-dirs
+ 	@cp -pn *.conf $(DESTDIR)$(CONFDIR)
+ 
+ # Documentation:
+diff -ruN vdr-2.4.0/PLUGINS/src/skincurses/HISTORY vdr-2.4.1/PLUGINS/src/skincurses/HISTORY
+--- vdr-2.4.0/PLUGINS/src/skincurses/HISTORY	2018-04-10 14:59:26.000000000 +0200
++++ vdr-2.4.1/PLUGINS/src/skincurses/HISTORY	2019-03-12 13:28:04.000000000 +0100
+@@ -141,3 +141,7 @@
+ 2018-04-15: Version 2.4.0
+ 
+ - Official release.
++
++2019-03-12: Version 2.4.1
++
++- Changes for ncurses version 6 (thanks to Ulrick Eckhardt).
+diff -ruN vdr-2.4.0/PLUGINS/src/skincurses/skincurses.c vdr-2.4.1/PLUGINS/src/skincurses/skincurses.c
+--- vdr-2.4.0/PLUGINS/src/skincurses/skincurses.c	2018-04-10 15:01:00.000000000 +0200
++++ vdr-2.4.1/PLUGINS/src/skincurses/skincurses.c	2019-03-12 13:28:04.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: skincurses.c 4.3 2018/04/10 13:01:00 kls Exp $
++ * $Id: skincurses.c 4.3.1.1 2019/03/12 12:28:04 kls Exp $
+  */
+ 
+ #include <ncurses.h>
+@@ -12,7 +12,7 @@
+ #include <vdr/skins.h>
+ #include <vdr/videodir.h>
+ 
+-static const char *VERSION        = "2.4.0";
++static const char *VERSION        = "2.4.1";
+ static const char *DESCRIPTION    = trNOOP("A text only skin");
+ static const char *MAINMENUENTRY  = NULL;
+ 
+@@ -127,8 +127,12 @@
+ 
+ void cCursesOsd::RestoreRegion(void)
+ {
++  int begy, begx;
++  int maxy, maxx;
++  getmaxyx(savedRegion, maxy,maxx);
++  getbegyx(savedRegion, begy,begx);
+   if (savedRegion) {
+-     copywin(savedRegion, window, 0, 0, savedRegion->_begy, savedRegion->_begx, savedRegion->_maxy - savedRegion->_begy, savedRegion->_maxx - savedRegion->_begx, false);
++     copywin(savedRegion, window, 0, 0, begy, begx, maxy - begy, maxx - begx, false);
+      delwin(savedRegion);
+      savedRegion = NULL;
+      }
+@@ -828,9 +832,13 @@
+ {
+   // Initialize any background activities the plugin shall perform.
+   WINDOW *w = initscr();
++  int begy, begx;
++  int maxy, maxx;
++  getmaxyx(w, maxy,maxx);
++  getbegyx(w, begy,begx);
+   if (w) {
+-     ScOsdWidth  = w->_maxx - w->_begx + 1;
+-     ScOsdHeight = w->_maxy - w->_begy + 1;
++     ScOsdWidth  = maxx - begx + 1;
++     ScOsdHeight = maxy - begy + 1;
+      return true;
+      }
+   return false;
+diff -ruN vdr-2.4.0/ci.c vdr-2.4.1/ci.c
+--- vdr-2.4.0/ci.c	2018-03-19 17:37:03.000000000 +0100
++++ vdr-2.4.1/ci.c	2019-05-28 17:55:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 4.21 2018/03/19 16:37:03 kls Exp $
++ * $Id: ci.c 4.21.1.5 2019/05/28 15:55:44 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -225,7 +225,7 @@
+            }
+         else {
+            esyslog("ERROR: buffer overflow in cCaPidReceiver::Receive()");
+-           bufp = 0;
++           bufp = NULL;
+            length = 0;
+            }
+         }
+@@ -250,12 +250,22 @@
+                i += p[i + 1] + 2 - 1; // -1 to compensate for the loop increment
+                }
+             }
++        if (MtdCamSlot) {
++           if (!bufp && length) {
++              // update crc32 - but only single packet CAT is handled for now:
++              uint32_t crc = SI::CRC32::crc32((const char *)p - 8, length + 8 - 4, 0xFFFFFFFF); // <TableIdCAT....>[crc32]
++              uchar *c = const_cast<uchar *>(p + length - 4);
++              *c++ = crc >> 24;
++              *c++ = crc >> 16;
++              *c++ = crc >> 8;
++              *c++ = crc;
++              }
++           memcpy(mtdCatBuffer, Data, TS_SIZE);
++           MtdCamSlot->PutCat(mtdCatBuffer, TS_SIZE);
++           }
+         p = NULL;
+-        bufp = 0;
++        bufp = NULL;
+         length = 0;
+-        memcpy(mtdCatBuffer, Data, TS_SIZE);
+-        if (MtdCamSlot)
+-           MtdCamSlot->PutCat(mtdCatBuffer, TS_SIZE);
+         }
+      }
+ }
+@@ -1213,6 +1223,7 @@
+         }
+      else {
+         dsyslog("CAM %d: doesn't reply to QUERY - only a single channel can be decrypted", CamSlot()->SlotNumber());
++        CamSlot()->MtdActivate(false);
+         state = 4; // normal operation
+         }
+      }
+@@ -1580,9 +1591,12 @@
+   struct tAnswer { uint8_t id; char text[256]; };//XXX
+   tAnswer answer;
+   answer.id = Text ? AI_ANSWER : AI_CANCEL;
+-  if (Text)
+-     strncpy(answer.text, Text, sizeof(answer.text));
+-  SendData(AOT_ANSW, Text ? strlen(Text) + 1 : 1, (uint8_t *)&answer);
++  int len = 0;
++  if (Text) {
++     len = min(sizeof(answer.text), strlen(Text));
++     memcpy(answer.text, Text, len);
++     }
++  SendData(AOT_ANSW, len + 1, (uint8_t *)&answer);
+   return true;
+ }
+ 
+@@ -2219,14 +2233,14 @@
+   return false;
+ }
+ 
+-bool cCamSlot::Devices(cVector<int> &CardIndexes)
++bool cCamSlot::Devices(cVector<int> &DeviceNumbers)
+ {
+   cMutexLock MutexLock(&mutex);
+   if (mtdHandler)
+-     return mtdHandler->Devices(CardIndexes);
++     return mtdHandler->Devices(DeviceNumbers);
+   if (assignedDevice)
+-     CardIndexes.Append(assignedDevice->CardIndex());
+-  return CardIndexes.Size() > 0;
++     DeviceNumbers.Append(assignedDevice->DeviceNumber());
++  return DeviceNumbers.Size() > 0;
+ }
+ 
+ void cCamSlot::NewConnection(void)
+@@ -2504,8 +2518,10 @@
+                   if (GetCaPids(source, transponder, p->programNumber, CaSystemIds, MAXRECEIVEPIDS + 1, CaPids) > 0) {
+                      if (Active)
+                         caPidReceiver->AddPids(CaPids);
+-                     else
++                     else {
++                        KeepSharedCaPids(p->programNumber, CaSystemIds, CaPids);
+                         caPidReceiver->DelPids(CaPids);
++                        }
+                      }
+                   }
+                if (RepliesToQuery())
+@@ -2521,6 +2537,43 @@
+      }
+ }
+ 
++void cCamSlot::KeepSharedCaPids(int ProgramNumber, const int *CaSystemIds, int *CaPids)
++{
++  int numPids = 0;
++  int *pCaPids = CaPids;
++  while (*pCaPids) {
++        numPids++;
++        pCaPids++;
++        }
++  if (numPids <= 0)
++     return;
++  int CaPids2[MAXRECEIVEPIDS + 1];
++  for (cCiCaProgramData *p = caProgramList.First(); p; p = caProgramList.Next(p)) {
++      if (p->programNumber != ProgramNumber) {
++         if (GetCaPids(source, transponder, p->programNumber, CaSystemIds, MAXRECEIVEPIDS + 1, CaPids2) > 0) {
++            int *pCaPids2 = CaPids2;
++            while (*pCaPids2) {
++                  pCaPids = CaPids;
++                  while (*pCaPids) {
++                        if (*pCaPids == *pCaPids2) {
++                           dsyslog("CAM %d: keeping shared CA pid %d", SlotNumber(), *pCaPids);
++                           // To remove *pCaPids from CaPids we overwrite it with the last valie in the list, and then strip the last value:
++                           *pCaPids = CaPids[numPids - 1];
++                           numPids--;
++                           CaPids[numPids] = 0;
++                           if (numPids <= 0)
++                              return;
++                           }
++                        else
++                           pCaPids++;
++                        }
++                  pCaPids2++;
++                  }
++            }
++         }
++      }
++}
++
+ void cCamSlot::SendCaPmts(cCiCaPmtList &CaPmtList)
+ {
+   cMutexLock MutexLock(&mutex);
+diff -ruN vdr-2.4.0/ci.h vdr-2.4.1/ci.h
+--- vdr-2.4.0/ci.h	2018-03-17 13:17:37.000000000 +0100
++++ vdr-2.4.1/ci.h	2019-05-28 17:55:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.h 4.12 2018/03/17 12:17:37 kls Exp $
++ * $Id: ci.h 4.12.1.2 2019/05/28 15:55:44 kls Exp $
+  */
+ 
+ #ifndef __CI_H
+@@ -254,6 +254,7 @@
+   cList<cCiCaProgramData> caProgramList;
+   bool mtdAvailable;
+   cMtdHandler *mtdHandler;
++  void KeepSharedCaPids(int ProgramNumber, const int *CaSystemIds, int *CaPids);
+   void NewConnection(void);
+   void DeleteAllConnections(void);
+   void Process(cTPDU *TPDU = NULL);
+@@ -330,9 +331,9 @@
+        ///< class function.
+   cDevice *Device(void) { return assignedDevice; }
+        ///< Returns the device this CAM slot is currently assigned to.
+-  bool Devices(cVector<int> &CardIndexes);
+-       ///< Adds the card indexes of any devices that currently use this CAM to
+-       ///< the given CardIndexes. This can be more than one in case of MTD.
++  bool Devices(cVector<int> &DeviceNumbers);
++       ///< Adds the numbers of any devices that currently use this CAM to
++       ///< the given DeviceNumbers. This can be more than one in case of MTD.
+        ///< Returns true if the array is not empty.
+   bool WantsTsData(void) const { return caPidReceiver != NULL; }
+        ///< Returns true if this CAM slot wants to receive the TS data through
+diff -ruN vdr-2.4.0/config.h vdr-2.4.1/config.h
+--- vdr-2.4.0/config.h	2018-03-19 16:06:46.000000000 +0100
++++ vdr-2.4.1/config.h	2019-06-16 11:13:45.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 4.15 2018/03/19 15:06:46 kls Exp $
++ * $Id: config.h 4.15.1.1 2019/06/16 09:13:45 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.4.0"
+-#define VDRVERSNUM   20400  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.4.1"
++#define VDRVERSNUM   20401  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "2.4.0"
+-#define APIVERSNUM   20400  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "2.4.1"
++#define APIVERSNUM   20401  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-2.4.0/device.c vdr-2.4.1/device.c
+--- vdr-2.4.0/device.c	2018-03-24 10:49:14.000000000 +0100
++++ vdr-2.4.1/device.c	2019-05-28 17:55:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 4.27 2018/03/24 09:49:14 kls Exp $
++ * $Id: device.c 4.27.1.3 2019/05/28 15:55:44 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -75,9 +75,9 @@
+ :patPmtParser(true)
+ {
+   cardIndex = nextCardIndex++;
+-  dsyslog("new device number %d", CardIndex() + 1);
++  dsyslog("new device number %d (card index %d)", numDevices + 1, CardIndex() + 1);
+ 
+-  SetDescription("device %d receiver", CardIndex() + 1);
++  SetDescription("device %d receiver", numDevices + 1);
+ 
+   mute = false;
+   volume = Setup.CurrentVolume;
+@@ -230,11 +230,11 @@
+   int MaxNumProvidedSystems = (1 << AvailableBits) - 1;
+   int NumProvidedSystems = Device->NumProvidedSystems();
+   if (NumProvidedSystems > MaxNumProvidedSystems) {
+-     esyslog("ERROR: device %d supports %d modulation systems but cDevice::GetDevice() currently only supports %d delivery systems which should be fixed", Device->CardIndex() + 1, NumProvidedSystems, MaxNumProvidedSystems);
++     esyslog("ERROR: device %d supports %d modulation systems but cDevice::GetDevice() currently only supports %d delivery systems which should be fixed", Device->DeviceNumber() + 1, NumProvidedSystems, MaxNumProvidedSystems);
+      NumProvidedSystems = MaxNumProvidedSystems;
+      }
+   else if (NumProvidedSystems <= 0) {
+-     esyslog("ERROR: device %d reported an invalid number (%d) of supported delivery systems - assuming 1", Device->CardIndex() + 1, NumProvidedSystems);
++     esyslog("ERROR: device %d reported an invalid number (%d) of supported delivery systems - assuming 1", Device->DeviceNumber() + 1, NumProvidedSystems);
+      NumProvidedSystems = 1;
+      }
+   return NumProvidedSystems;
+@@ -272,7 +272,7 @@
+       if (NumUsableSlots && SlotPriority[j] > MAXPRIORITY)
+          continue; // there is no CAM available in this slot
+       for (int i = 0; i < numDevices; i++) {
+-          if (Channel->Ca() && Channel->Ca() <= CA_DVB_MAX && Channel->Ca() != device[i]->CardIndex() + 1)
++          if (Channel->Ca() && Channel->Ca() <= CA_DVB_MAX && Channel->Ca() != device[i]->DeviceNumber() + 1)
+              continue; // a specific card was requested, but not this one
+           bool HasInternalCam = device[i]->HasInternalCam();
+           if (InternalCamNeeded && !HasInternalCam)
+@@ -525,7 +525,7 @@
+   PixelAspect = 1.0;
+ }
+ 
+-//#define PRINTPIDS(s) { char b[500]; char *q = b; q += sprintf(q, "%d %s ", CardIndex(), s); for (int i = 0; i < MAXPIDHANDLES; i++) q += sprintf(q, " %s%4d %d", i == ptOther ? "* " : "", pidHandles[i].pid, pidHandles[i].used); dsyslog("%s", b); }
++//#define PRINTPIDS(s) { char b[500]; char *q = b; q += sprintf(q, "%d %s ", DeviceNumber() + 1, s); for (int i = 0; i < MAXPIDHANDLES; i++) q += sprintf(q, " %s%4d %d", i == ptOther ? "* " : "", pidHandles[i].pid, pidHandles[i].used); dsyslog("%s", b); }
+ #define PRINTPIDS(s)
+ 
+ bool cDevice::HasPid(int Pid) const
+@@ -560,7 +560,7 @@
+            // It's a special PID that may have to be switched into "tap" mode
+            PRINTPIDS("A");
+            if (!SetPid(&pidHandles[n], n, true)) {
+-              esyslog("ERROR: can't set PID %d on device %d", Pid, CardIndex() + 1);
++              esyslog("ERROR: can't set PID %d on device %d", Pid, DeviceNumber() + 1);
+               if (PidType <= ptTeletext)
+                  DetachAll(Pid);
+               DelPid(Pid, PidType);
+@@ -581,7 +581,7 @@
+         n = a;
+         }
+      else {
+-        esyslog("ERROR: no free slot for PID %d on device %d", Pid, CardIndex() + 1);
++        esyslog("ERROR: no free slot for PID %d on device %d", Pid, DeviceNumber() + 1);
+         return false;
+         }
+      if (n >= 0) {
+@@ -590,7 +590,7 @@
+         pidHandles[n].used = 1;
+         PRINTPIDS("C");
+         if (!SetPid(&pidHandles[n], n, true)) {
+-           esyslog("ERROR: can't set PID %d on device %d", Pid, CardIndex() + 1);
++           esyslog("ERROR: can't set PID %d on device %d", Pid, DeviceNumber() + 1);
+            if (PidType <= ptTeletext)
+               DetachAll(Pid);
+            DelPid(Pid, PidType);
+@@ -787,6 +787,7 @@
+   if (LiveView) {
+      isyslog("switching to channel %d %s (%s)", Channel->Number(), *Channel->GetChannelID().ToString(), Channel->Name());
+      cControl::Shutdown(); // prevents old channel from being shown too long if GetDevice() takes longer
++                           // and, if decrypted, this removes the now superflous PIDs from the CAM, too
+      }
+   for (int i = 3; i--;) {
+       switch (SetChannel(Channel, LiveView)) {
+@@ -809,6 +810,7 @@
+   Direction = sgn(Direction);
+   if (Direction) {
+      cControl::Shutdown(); // prevents old channel from being shown too long if GetDevice() takes longer
++                           // and, if decrypted, this removes the now superflous PIDs from the CAM, too
+      int n = CurrentChannel() + Direction;
+      int first = n;
+      LOCK_CHANNELS_READ;
+@@ -829,7 +831,7 @@
+            result = true;
+         }
+      else if (n != first)
+-        Skins.Message(mtError, tr("Channel not available!"));
++        Skins.QueueMessage(mtError, tr("Channel not available!"));
+      }
+   return result;
+ }
+@@ -1756,7 +1758,7 @@
+ #ifdef WAIT_FOR_TUNER_LOCK
+ #define TUNER_LOCK_TIMEOUT 5000 // ms
+   if (!HasLock(TUNER_LOCK_TIMEOUT)) {
+-     esyslog("ERROR: device %d has no lock, can't attach receiver!", CardIndex() + 1);
++     esyslog("ERROR: device %d has no lock, can't attach receiver!", DeviceNumber() + 1);
+      return false;
+      }
+ #endif
+@@ -1847,11 +1849,11 @@
+ 
+ // --- cTSBuffer -------------------------------------------------------------
+ 
+-cTSBuffer::cTSBuffer(int File, int Size, int CardIndex)
++cTSBuffer::cTSBuffer(int File, int Size, int DeviceNumber)
+ {
+-  SetDescription("device %d TS buffer", CardIndex);
++  SetDescription("device %d TS buffer", DeviceNumber);
+   f = File;
+-  cardIndex = CardIndex;
++  deviceNumber = DeviceNumber;
+   delivered = 0;
+   ringBuffer = new cRingBufferLinear(Size, TS_SIZE, true, "TS");
+   ringBuffer->SetTimeouts(100, 100);
+@@ -1876,7 +1878,7 @@
+               int r = ringBuffer->Read(f);
+               if (r < 0 && FATALERRNO) {
+                  if (errno == EOVERFLOW)
+-                    esyslog("ERROR: driver buffer overflow on device %d", cardIndex);
++                    esyslog("ERROR: driver buffer overflow on device %d", deviceNumber);
+                  else {
+                     LOG_ERROR;
+                     break;
+@@ -1907,7 +1909,7 @@
+                }
+             }
+         ringBuffer->Del(Count);
+-        esyslog("ERROR: skipped %d bytes to sync on TS packet on device %d", Count, cardIndex);
++        esyslog("ERROR: skipped %d bytes to sync on TS packet on device %d", Count, deviceNumber);
+         return NULL;
+         }
+      delivered = TS_SIZE;
+diff -ruN vdr-2.4.0/device.h vdr-2.4.1/device.h
+--- vdr-2.4.0/device.h	2017-11-02 15:47:33.000000000 +0100
++++ vdr-2.4.1/device.h	2019-05-28 17:55:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 4.12 2017/11/02 14:47:33 kls Exp $
++ * $Id: device.h 4.12.1.1 2019/05/28 15:55:44 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -861,12 +861,12 @@
+ class cTSBuffer : public cThread {
+ private:
+   int f;
+-  int cardIndex;
++  int deviceNumber;
+   int delivered;
+   cRingBufferLinear *ringBuffer;
+   virtual void Action(void);
+ public:
+-  cTSBuffer(int File, int Size, int CardIndex);
++  cTSBuffer(int File, int Size, int DeviceNumber);
+   virtual ~cTSBuffer();
+   uchar *Get(int *Available = NULL, bool CheckAvailable = false);
+      ///< Returns a pointer to the first TS packet in the buffer. If Available is given,
+diff -ruN vdr-2.4.0/dvbdevice.c vdr-2.4.1/dvbdevice.c
+--- vdr-2.4.0/dvbdevice.c	2018-02-15 16:37:01.000000000 +0100
++++ vdr-2.4.1/dvbdevice.c	2019-05-28 17:55:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 4.16 2018/02/15 15:37:01 kls Exp $
++ * $Id: dvbdevice.c 4.16.1.4 2019/05/28 15:55:44 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -293,19 +293,248 @@
+   return true;
+ }
+ 
++// --- cDvbFrontend ----------------------------------------------------------
++
++const char *DeliverySystemNames[] = {
++  "???",
++  "DVB-C",
++  "DVB-C",
++  "DVB-T",
++  "DSS",
++  "DVB-S",
++  "DVB-S2",
++  "DVB-H",
++  "ISDBT",
++  "ISDBS",
++  "ISDBC",
++  "ATSC",
++  "ATSCMH",
++  "DTMB",
++  "CMMB",
++  "DAB",
++  "DVB-T2",
++  "TURBO",
++  "DVB-C",
++  "DVB-C2",
++  NULL
++  };
++
++static const int DeliverySystemNamesMax = sizeof(DeliverySystemNames) / sizeof(DeliverySystemNames[0]) - 2; // -1 to get the maximum allowed index & -1 for the NULL => -2
++
++static const char *GetDeliverySystemName(int Index)
++{
++  if (Index > DeliverySystemNamesMax)
++     Index = 0;
++  return DeliverySystemNames[Index];
++};
++
++#define MAXFRONTENDCMDS 16
++#define SETCMD(c, d) { Props[CmdSeq.num].cmd = (c);\
++                       Props[CmdSeq.num].u.data = (d);\
++                       if (CmdSeq.num++ > MAXFRONTENDCMDS) {\
++                          esyslog("ERROR: too many tuning commands on frontend %d/%d", adapter, frontend);\
++                          return false;\
++                          }\
++                     }
++
++class cDvbFrontend {
++private:
++  int adapter, frontend;
++  int fd_frontend;
++  uint32_t subsystemId;
++  dvb_frontend_info frontendInfo;
++  cVector<int> deliverySystems;
++  int numModulations;
++  bool QueryDeliverySystems(void);
++public:
++  cDvbFrontend(int Adapter, int Frontend);
++  ~cDvbFrontend();
++  int Open(void);
++  void Close(void);
++  const char *FrontendName(void) { return frontendInfo.name; }
++  bool ProvidesDeliverySystem(int DeliverySystem) const;
++  bool ProvidesModulation(int System, int StreamId, int Modulation) const;
++  int NumDeliverySystems(void) const { return deliverySystems.Size(); }
++  int NumModulations(void) const { return numModulations; }
++  uint32_t SubsystemId(void) const { return subsystemId; }
++  };
++
++cDvbFrontend::cDvbFrontend(int Adapter, int Frontend)
++{
++  adapter = Adapter;
++  frontend = Frontend;
++  fd_frontend = -1;
++  subsystemId = cDvbDeviceProbe::GetSubsystemId(adapter, frontend);
++  numModulations = 0;
++  Open();
++  QueryDeliverySystems();
++  Close();
++}
++
++cDvbFrontend::~cDvbFrontend()
++{
++  Close();
++}
++
++int cDvbFrontend::Open(void)
++{
++  Close();
++  fd_frontend = DvbOpen(DEV_DVB_FRONTEND, adapter, frontend, O_RDWR | O_NONBLOCK, true);
++  return fd_frontend;
++}
++
++void cDvbFrontend::Close(void)
++{
++  if (fd_frontend >= 0) {
++     if (close(fd_frontend) != 0)
++        esyslog("ERROR: frontend %d/%d", adapter, frontend);
++     fd_frontend = -1;
++     }
++}
++
++bool cDvbFrontend::ProvidesDeliverySystem(int DeliverySystem) const
++{
++  for (int i = 0; i < deliverySystems.Size(); i++) {
++      if (deliverySystems[i] == DeliverySystem)
++         return true;
++      }
++  return false;
++}
++
++bool cDvbFrontend::ProvidesModulation(int System, int StreamId, int Modulation) const
++{
++  if (StreamId != 0 && !(frontendInfo.caps & FE_CAN_MULTISTREAM))
++     return false;
++  if (Modulation == QPSK     && !(frontendInfo.caps & FE_CAN_QPSK) ||
++      Modulation == QAM_16   && !(frontendInfo.caps & FE_CAN_QAM_16) ||
++      Modulation == QAM_32   && !(frontendInfo.caps & FE_CAN_QAM_32) ||
++      Modulation == QAM_64   && !(frontendInfo.caps & FE_CAN_QAM_64) ||
++      Modulation == QAM_128  && !(frontendInfo.caps & FE_CAN_QAM_128) ||
++      Modulation == QAM_256  && !(frontendInfo.caps & FE_CAN_QAM_256) ||
++      Modulation == QAM_AUTO && !(frontendInfo.caps & FE_CAN_QAM_AUTO) ||
++      Modulation == VSB_8    && !(frontendInfo.caps & FE_CAN_8VSB) ||
++      Modulation == VSB_16   && !(frontendInfo.caps & FE_CAN_16VSB) ||
++      Modulation == PSK_8    && !(frontendInfo.caps & FE_CAN_TURBO_FEC) && System == SYS_DVBS) // "turbo fec" is a non standard FEC used by North American broadcasters - this is a best guess to de
++     return false;
++  return true;
++}
++
++bool cDvbFrontend::QueryDeliverySystems(void)
++{
++  deliverySystems.Clear();
++  numModulations = 0;
++  if (ioctl(fd_frontend, FE_GET_INFO, &frontendInfo) < 0) {
++     LOG_ERROR;
++     return false;
++     }
++  dtv_property Props[1];
++  dtv_properties CmdSeq;
++  // Determine the version of the running DVB API:
++  if (!DvbApiVersion) {
++     memset(&Props, 0, sizeof(Props));
++     memset(&CmdSeq, 0, sizeof(CmdSeq));
++     CmdSeq.props = Props;
++     SETCMD(DTV_API_VERSION, 0);
++     if (ioctl(fd_frontend, FE_GET_PROPERTY, &CmdSeq) != 0) {
++        LOG_ERROR;
++        return false;
++        }
++     DvbApiVersion = Props[0].u.data;
++     isyslog("DVB API version is 0x%04X (VDR was built with 0x%04X)", DvbApiVersion, DVBAPIVERSION);
++     }
++  // Determine the types of delivery systems this device provides:
++  bool LegacyMode = true;
++  if (DvbApiVersion >= 0x0505) {
++     memset(&Props, 0, sizeof(Props));
++     memset(&CmdSeq, 0, sizeof(CmdSeq));
++     CmdSeq.props = Props;
++     SETCMD(DTV_ENUM_DELSYS, 0);
++     int Result = ioctl(fd_frontend, FE_GET_PROPERTY, &CmdSeq);
++     if (Result == 0) {
++        for (uint i = 0; i < Props[0].u.buffer.len; i++) {
++            // activate this line to simulate a multi-frontend device if you only have a single-frontend device with DVB-S and DVB-S2:
++            //if (frontend == 0 && Props[0].u.buffer.data[i] != SYS_DVBS || frontend == 1 && Props[0].u.buffer.data[i] != SYS_DVBS2)
++            deliverySystems.Append(Props[0].u.buffer.data[i]);
++            }
++        LegacyMode = false;
++        }
++     else {
++        esyslog("ERROR: can't query delivery systems on frontend %d/%d - falling back to legacy mode", adapter, frontend);
++        }
++     }
++  if (LegacyMode) {
++     // Legacy mode (DVB-API < 5.5):
++     switch (frontendInfo.type) {
++       case FE_QPSK: deliverySystems.Append(SYS_DVBS);
++                     if (frontendInfo.caps & FE_CAN_2G_MODULATION)
++                        deliverySystems.Append(SYS_DVBS2);
++                     break;
++       case FE_OFDM: deliverySystems.Append(SYS_DVBT);
++                     if (frontendInfo.caps & FE_CAN_2G_MODULATION)
++                        deliverySystems.Append(SYS_DVBT2);
++                     break;
++       case FE_QAM:  deliverySystems.Append(SYS_DVBC_ANNEX_AC); break;
++       case FE_ATSC: deliverySystems.Append(SYS_ATSC); break;
++       default: esyslog("ERROR: unknown frontend type %d on frontend %d/%d", frontendInfo.type, adapter, frontend);
++       }
++     }
++  if (deliverySystems.Size() > 0) {
++     cString ds("");
++     for (int i = 0; i < deliverySystems.Size(); i++)
++         ds = cString::sprintf("%s%s%s", *ds, i ? "," : "", GetDeliverySystemName(deliverySystems[i]));
++     cString ms("");
++     if (frontendInfo.caps & FE_CAN_QPSK)      { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(QPSK, ModulationValues)); }
++     if (frontendInfo.caps & FE_CAN_QAM_16)    { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(QAM_16, ModulationValues)); }
++     if (frontendInfo.caps & FE_CAN_QAM_32)    { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(QAM_32, ModulationValues)); }
++     if (frontendInfo.caps & FE_CAN_QAM_64)    { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(QAM_64, ModulationValues)); }
++     if (frontendInfo.caps & FE_CAN_QAM_128)   { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(QAM_128, ModulationValues)); }
++     if (frontendInfo.caps & FE_CAN_QAM_256)   { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(QAM_256, ModulationValues)); }
++     if (frontendInfo.caps & FE_CAN_8VSB)      { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(VSB_8, ModulationValues)); }
++     if (frontendInfo.caps & FE_CAN_16VSB)     { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(VSB_16, ModulationValues)); }
++     if (frontendInfo.caps & FE_CAN_TURBO_FEC) { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", "TURBO_FEC"); }
++     if (!**ms)
++        ms = "unknown modulations";
++     isyslog("frontend %d/%d provides %s with %s (\"%s\")", adapter, frontend, *ds, *ms, frontendInfo.name);
++     return true;
++     }
++  else
++     esyslog("ERROR: frontend %d/%d doesn't provide any delivery systems", adapter, frontend);
++  return false;
++}
++
+ // --- cDvbTuner -------------------------------------------------------------
+ 
+ #define TUNER_POLL_TIMEOUT  10 // ms
+ 
++static int GetRequiredDeliverySystem(const cChannel *Channel, const cDvbTransponderParameters *Dtp)
++{
++  int ds = SYS_UNDEFINED;
++  if (Channel->IsAtsc())
++     ds = SYS_ATSC;
++  else if (Channel->IsCable())
++     ds = SYS_DVBC_ANNEX_AC;
++  else if (Channel->IsSat())
++     ds = Dtp->System() == DVB_SYSTEM_1 ? SYS_DVBS : SYS_DVBS2;
++  else if (Channel->IsTerr())
++     ds = Dtp->System() == DVB_SYSTEM_1 ? SYS_DVBT : SYS_DVBT2;
++  else
++     esyslog("ERROR: can't determine frontend type for channel %d (%s)", Channel->Number(), Channel->Name());
++  return ds;
++}
++
+ class cDvbTuner : public cThread {
+ private:
+   static cMutex bondMutex;
+   enum eTunerStatus { tsIdle, tsSet, tsPositioning, tsTuned, tsLocked };
+   int frontendType;
+   const cDvbDevice *device;
+-  int fd_frontend;
+-  int adapter, frontend;
+-  uint32_t subsystemId;
++  mutable int fd_frontend;
++  int adapter;
++  mutable int frontend;
++  cVector<cDvbFrontend *> dvbFrontends;
++  mutable cDvbFrontend *dvbFrontend;
++  int numDeliverySystems;
++  int numModulations;
+   int tuneTimeout;
+   int lockTimeout;
+   time_t lastTimeoutReport;
+@@ -320,7 +549,7 @@
+   const cScr *scr;
+   bool lnbPowerTurnedOn;
+   eTunerStatus tunerStatus;
+-  cMutex mutex;
++  mutable cMutex mutex;
+   cCondVar locked;
+   cCondVar newSet;
+   cDvbTuner *bondedTuner;
+@@ -337,14 +566,20 @@
+   bool SetFrontend(void);
+   virtual void Action(void);
+ public:
+-  cDvbTuner(const cDvbDevice *Device, int Fd_Frontend, int Adapter, int Frontend);
++  cDvbTuner(const cDvbDevice *Device, int Adapter, int Frontend);
+   virtual ~cDvbTuner();
++  bool ProvidesDeliverySystem(int DeliverySystem) const;
++  bool ProvidesModulation(int System, int StreamId, int Modulation) const;
++  bool ProvidesFrontend(const cChannel *Channel, bool Activate = false) const;
++  int Frontend(void) const { return frontend; }
+   int FrontendType(void) const { return frontendType; }
++  const char *FrontendName(void) { return dvbFrontend->FrontendName(); }
++  int NumProvidedSystems(void) const { return numDeliverySystems + numModulations; }
+   bool Bond(cDvbTuner *Tuner);
+   void UnBond(void);
+   bool BondingOk(const cChannel *Channel, bool ConsiderOccupied = false) const;
+   const cChannel *GetTransponder(void) const { return &channel; }
+-  uint32_t SubsystemId(void) const { return subsystemId; }
++  uint32_t SubsystemId(void) const { return dvbFrontend->SubsystemId(); }
+   bool IsTunedTo(const cChannel *Channel) const;
+   void SetChannel(const cChannel *Channel);
+   bool Locked(int TimeoutMs = 0);
+@@ -356,14 +591,14 @@
+ 
+ cMutex cDvbTuner::bondMutex;
+ 
+-cDvbTuner::cDvbTuner(const cDvbDevice *Device, int Fd_Frontend, int Adapter, int Frontend)
++cDvbTuner::cDvbTuner(const cDvbDevice *Device, int Adapter, int Frontend)
+ {
+   frontendType = SYS_UNDEFINED;
+   device = Device;
+-  fd_frontend = Fd_Frontend;
++  fd_frontend = -1;
+   adapter = Adapter;
+   frontend = Frontend;
+-  subsystemId = cDvbDeviceProbe::GetSubsystemId(adapter, frontend);
++  dvbFrontend = NULL;
+   tuneTimeout = 0;
+   lockTimeout = 0;
+   lastTimeoutReport = 0;
+@@ -379,7 +614,31 @@
+   tunerStatus = tsIdle;
+   bondedTuner = NULL;
+   bondedMaster = false;
+-  SetDescription("frontend %d/%d tuner", adapter, frontend);
++  cDvbFrontend *fe = new cDvbFrontend(adapter, frontend);
++  dvbFrontends.Append(fe);
++  numDeliverySystems = fe->NumDeliverySystems();
++  numModulations = fe->NumModulations();
++  cString FrontendNumbers = cString::sprintf("%d", frontend);
++  // Check for multiple frontends:
++  if (frontend == 0) {
++     for (int i = 1; ; i++) {
++         if (access(DvbName(DEV_DVB_FRONTEND, adapter, i), F_OK) == 0) {
++            if (access(DvbName(DEV_DVB_DEMUX, adapter, i), F_OK) != 0) {
++               fe = new cDvbFrontend(adapter, i);
++               dvbFrontends.Append(fe);
++               numDeliverySystems += fe->NumDeliverySystems();
++               //numModulations += fe->NumModulations(); // looks like in multi frontend devices all frontends report the same modulations
++               FrontendNumbers = cString::sprintf("%s+%d", *FrontendNumbers, i);
++               }
++            }
++         else
++            break;
++         }
++     }
++  // Open default frontend:
++  dvbFrontend = dvbFrontends[0];
++  fd_frontend = dvbFrontend->Open();
++  SetDescription("frontend %d/%s tuner", adapter, *FrontendNumbers);
+   Start();
+ }
+ 
+@@ -396,6 +655,49 @@
+      ExecuteDiseqc(lastDiseqc, &Frequency);
+      }
+   */
++  for (int i = 0; i < dvbFrontends.Size(); i++)
++      delete dvbFrontends[i];
++}
++
++bool cDvbTuner::ProvidesDeliverySystem(int DeliverySystem) const
++{
++  for (int i = 0; i < dvbFrontends.Size(); i++) {
++      if (dvbFrontends[i]->ProvidesDeliverySystem(DeliverySystem))
++         return true;
++      }
++  return false;
++}
++
++bool cDvbTuner::ProvidesModulation(int System, int StreamId, int Modulation) const
++{
++  for (int i = 0; i < dvbFrontends.Size(); i++) {
++      if (dvbFrontends[i]->ProvidesModulation(System, StreamId, Modulation))
++         return true;
++      }
++  return false;
++}
++
++bool cDvbTuner::ProvidesFrontend(const cChannel *Channel, bool Activate) const
++{
++  cDvbTransponderParameters dtp(Channel->Parameters());
++  int DeliverySystem = GetRequiredDeliverySystem(Channel, &dtp);
++  for (int i = 0; i < dvbFrontends.Size(); i++) {
++      if (dvbFrontends[i]->ProvidesDeliverySystem(DeliverySystem) && dvbFrontends[i]->ProvidesModulation(dtp.System(), dtp.StreamId(), dtp.Modulation())) {
++         if (Activate && dvbFrontend != dvbFrontends[i]) {
++            cMutexLock MutexLock(&mutex);
++            dvbFrontend->Close();
++            dvbFrontend = dvbFrontends[i];
++            fd_frontend = dvbFrontend->Open();
++            frontend = i;
++            dsyslog("using frontend %d/%d", adapter, frontend);
++            lastUncValue = 0;
++            lastUncDelta = 0;
++            lastUncChange = 0;
++            }
++         return true;
++         }
++      }
++  return false;
+ }
+ 
+ bool cDvbTuner::Bond(cDvbTuner *Tuner)
+@@ -436,7 +738,7 @@
+      Channel = &channel;
+   cDvbTransponderParameters dtp(Channel->Parameters());
+   if (Setup.DiSEqC) {
+-     if (const cDiseqc *diseqc = Diseqcs.Get(device->CardIndex() + 1, Channel->Source(), Channel->Frequency(), dtp.Polarization(), NULL))
++     if (const cDiseqc *diseqc = Diseqcs.Get(device->DeviceNumber() + 1, Channel->Source(), Channel->Frequency(), dtp.Polarization(), NULL))
+         return diseqc->Commands();
+      }
+   else {
+@@ -565,15 +867,6 @@
+ //#define DEBUG_SIGNALSTRENGTH
+ //#define DEBUG_SIGNALQUALITY
+ 
+-#define MAXFRONTENDCMDS 16
+-#define SETCMD(c, d) { Props[CmdSeq.num].cmd = (c);\
+-                       Props[CmdSeq.num].u.data = (d);\
+-                       if (CmdSeq.num++ > MAXFRONTENDCMDS) {\
+-                          esyslog("ERROR: too many tuning commands on frontend %d/%d", adapter, frontend);\
+-                          return false;\
+-                          }\
+-                     }
+-
+ bool cDvbTuner::GetSignalStats(int &Valid, double *Strength, double *Cnr, double *BerPre, double *BerPost, double *Per, int *Status) const
+ {
+   ClearEventQueue();
+@@ -585,7 +878,7 @@
+   CmdSeq.props = Props;
+   Valid = DTV_STAT_VALID_NONE;
+   if (ioctl(fd_frontend, FE_READ_STATUS, &FeStatus) != 0) {
+-     esyslog("ERROR: frontend %d/%d: %m", adapter, frontend);
++     esyslog("ERROR: frontend %d/%d: %m (%s:%d)", adapter, frontend, __FILE__, __LINE__);
+      return false;
+      }
+   if (Status) {
+@@ -606,7 +899,7 @@
+   if (Per)      { SETCMD(DTV_STAT_ERROR_BLOCK_COUNT, 0);
+                   SETCMD(DTV_STAT_TOTAL_BLOCK_COUNT, 0); }
+   if (ioctl(fd_frontend, FE_GET_PROPERTY, &CmdSeq) != 0) {
+-     esyslog("ERROR: frontend %d/%d: %m", adapter, frontend);
++     esyslog("ERROR: frontend %d/%d: %m (%s:%d)", adapter, frontend, __FILE__, __LINE__);
+      return false;
+      }
+   int i = 0;
+@@ -939,7 +1232,7 @@
+       SETCMD(DTV_CODE_RATE_HP, 0); // DVB-T only
+       SETCMD(DTV_INNER_FEC, 0);
+       if (ioctl(fd_frontend, FE_GET_PROPERTY, &CmdSeq) != 0) {
+-         esyslog("ERROR: frontend %d/%d: %m", adapter, frontend);
++         esyslog("ERROR: frontend %d/%d: %m (%s:%d)", adapter, frontend, __FILE__, __LINE__);
+          return -1;
+          }
+       int FeMod = (Props[1].u.st.len > 0) ? (int)Props[1].u.data : -1;
+@@ -973,7 +1266,7 @@
+   uint16_t MaxSignal = 0xFFFF; // Let's assume the default is using the entire range.
+   // Use the subsystemId to identify individual devices in case they need
+   // special treatment to map their Signal value into the range 0...0xFFFF.
+-  switch (subsystemId) {
++  switch (dvbFrontend->SubsystemId()) {
+     case 0x13C21019: // TT-budget S2-3200 (DVB-S/DVB-S2)
+     case 0x1AE40001: // TechniSat SkyStar HD2 (DVB-S/DVB-S2)
+                      MaxSignal = 670; break;
+@@ -982,7 +1275,7 @@
+   if (s > 100)
+      s = 100;
+ #ifdef DEBUG_SIGNALSTRENGTH
+-  fprintf(stderr, "FE %d/%d: API3 %08X S = %04X %04X %3d%%\n", adapter, frontend, subsystemId, MaxSignal, Signal, s);
++  fprintf(stderr, "FE %d/%d: API3 %08X S = %04X %04X %3d%%\n", adapter, frontend, dvbFrontend->SubsystemId(), MaxSignal, Signal, s);
+ #endif
+   return s;
+ }
+@@ -1005,7 +1298,7 @@
+       SETCMD(DTV_STAT_POST_ERROR_BIT_COUNT, 0);
+       SETCMD(DTV_STAT_POST_TOTAL_BIT_COUNT, 0);
+       if (ioctl(fd_frontend, FE_GET_PROPERTY, &CmdSeq) != 0) {
+-         esyslog("ERROR: frontend %d/%d: %m", adapter, frontend);
++         esyslog("ERROR: frontend %d/%d: %m (%s:%d)", adapter, frontend, __FILE__, __LINE__);
+          return -1;
+          }
+       int FeMod = (Props[1].u.st.len > 0) ? (int)Props[1].u.data : -1;
+@@ -1132,7 +1425,7 @@
+      uint16_t MaxSnr = 0xFFFF; // Let's assume the default is using the entire range.
+      // Use the subsystemId to identify individual devices in case they need
+      // special treatment to map their Snr value into the range 0...0xFFFF.
+-     switch (subsystemId) {
++     switch (dvbFrontend->SubsystemId()) {
+        case 0x13C21019: // TT-budget S2-3200 (DVB-S/DVB-S2)
+        case 0x1AE40001: // TechniSat SkyStar HD2 (DVB-S/DVB-S2)
+                         if (frontendType == SYS_DVBS2) {
+@@ -1154,7 +1447,7 @@
+      if (q > 100)
+         q = 100;
+ #ifdef DEBUG_SIGNALQUALITY
+-     fprintf(stderr, "FE %d/%d: API3 %08X Q = %04X %04X %d %5d %5d %3d%%\n", adapter, frontend, subsystemId, MaxSnr, Snr, HasSnr, HasBer ? int(Ber) : -1, HasUnc ? int(Unc) : -1, q);
++     fprintf(stderr, "FE %d/%d: API3 %08X Q = %04X %04X %d %5d %5d %3d%%\n", adapter, frontend, dvbFrontend->SubsystemId(), MaxSnr, Snr, HasSnr, HasBer ? int(Ber) : -1, HasUnc ? int(Unc) : -1, q);
+ #endif
+      return q;
+      }
+@@ -1240,22 +1533,6 @@
+   CHECK(ioctl(fd_frontend, FE_SET_TONE, SEC_TONE_OFF));
+ }
+ 
+-static int GetRequiredDeliverySystem(const cChannel *Channel, const cDvbTransponderParameters *Dtp)
+-{
+-  int ds = SYS_UNDEFINED;
+-  if (Channel->IsAtsc())
+-     ds = SYS_ATSC;
+-  else if (Channel->IsCable())
+-     ds = SYS_DVBC_ANNEX_AC;
+-  else if (Channel->IsSat())
+-     ds = Dtp->System() == DVB_SYSTEM_1 ? SYS_DVBS : SYS_DVBS2;
+-  else if (Channel->IsTerr())
+-     ds = Dtp->System() == DVB_SYSTEM_1 ? SYS_DVBT : SYS_DVBT2;
+-  else
+-     esyslog("ERROR: can't determine frontend type for channel %d (%s)", Channel->Number(), Channel->Name());
+-  return ds;
+-}
+-
+ bool cDvbTuner::SetFrontend(void)
+ {
+   dtv_property Props[MAXFRONTENDCMDS];
+@@ -1265,7 +1542,7 @@
+   CmdSeq.props = Props;
+   SETCMD(DTV_CLEAR, 0);
+   if (ioctl(fd_frontend, FE_SET_PROPERTY, &CmdSeq) < 0) {
+-     esyslog("ERROR: frontend %d/%d: %m", adapter, frontend);
++     esyslog("ERROR: frontend %d/%d: %m (%s:%d)", adapter, frontend, __FILE__, __LINE__);
+      return false;
+      }
+   CmdSeq.num = 0;
+@@ -1281,7 +1558,7 @@
+   if (frontendType == SYS_DVBS || frontendType == SYS_DVBS2) {
+      int frequency = channel.Frequency();
+      if (Setup.DiSEqC) {
+-        if (const cDiseqc *diseqc = Diseqcs.Get(device->CardIndex() + 1, channel.Source(), frequency, dtp.Polarization(), &scr)) {
++        if (const cDiseqc *diseqc = Diseqcs.Get(device->DeviceNumber() + 1, channel.Source(), frequency, dtp.Polarization(), &scr)) {
+            frequency -= diseqc->Lof();
+            if (diseqc != lastDiseqc || diseqc->IsScr() || diseqc->Position() >= 0 && channel.Source() != lastSource) {
+               if (IsBondedMaster()) {
+@@ -1390,7 +1667,7 @@
+      }
+   SETCMD(DTV_TUNE, 0);
+   if (ioctl(fd_frontend, FE_SET_PROPERTY, &CmdSeq) < 0) {
+-     esyslog("ERROR: frontend %d/%d: %m", adapter, frontend);
++     esyslog("ERROR: frontend %d/%d: %m (%s:%d)", adapter, frontend, __FILE__, __LINE__);
+      return false;
+      }
+   return true;
+@@ -1402,11 +1679,11 @@
+   bool LostLock = false;
+   fe_status_t Status = (fe_status_t)0;
+   while (Running()) {
++        int WaitTime = 1000;
+         fe_status_t NewStatus;
+         if (GetFrontendStatus(NewStatus))
+            Status = NewStatus;
+         cMutexLock MutexLock(&mutex);
+-        int WaitTime = 1000;
+         switch (tunerStatus) {
+           case tsIdle:
+                break; // we want the TimedWait() below!
+@@ -1434,7 +1711,8 @@
+                   lastDiseqc = NULL;
+                   lastSource = 0;
+                   if (time(NULL) - lastTimeoutReport > 60) { // let's not get too many of these
+-                     isyslog("frontend %d/%d timed out while tuning to channel %d (%s), tp %d", adapter, frontend, channel.Number(), channel.Name(), channel.Transponder());
++                     if (channel.Number()) // no need to log this for transponders that are announced in the NIT but are not currently broadcasting
++                        isyslog("frontend %d/%d timed out while tuning to channel %d (%s), tp %d", adapter, frontend, channel.Number(), channel.Name(), channel.Transponder());
+                      lastTimeoutReport = time(NULL);
+                      }
+                   continue;
+@@ -1541,55 +1819,16 @@
+ int cDvbDevice::setTransferModeForDolbyDigital = 1;
+ cMutex cDvbDevice::bondMutex;
+ 
+-const char *DeliverySystemNames[] = {
+-  "",
+-  "DVB-C",
+-  "DVB-C",
+-  "DVB-T",
+-  "DSS",
+-  "DVB-S",
+-  "DVB-S2",
+-  "DVB-H",
+-  "ISDBT",
+-  "ISDBS",
+-  "ISDBC",
+-  "ATSC",
+-  "ATSCMH",
+-  "DTMB",
+-  "CMMB",
+-  "DAB",
+-  "DVB-T2",
+-  "TURBO",
+-  "DVB-C",
+-  "DVB-C2",
+-  NULL
+-  };
+-
+-static const int DeliverySystemNamesMax = sizeof(DeliverySystemNames) / sizeof(DeliverySystemNames[0]) - 2; // -1 to get the maximum allowed index & -1 for the NULL => -2
+-
+-static const char *GetDeliverySystemName(int Index)
+-{
+-  if (Index > DeliverySystemNamesMax)
+-     Index = 0;
+-  return DeliverySystemNames[Index];
+-};
+-
+ cDvbDevice::cDvbDevice(int Adapter, int Frontend)
+ {
+   adapter = Adapter;
+   frontend = Frontend;
+   ciAdapter = NULL;
+   dvbTuner = NULL;
+-  numDeliverySystems = 0;
+-  numModulations = 0;
+   bondedDevice = NULL;
+   needsDetachBondedReceivers = false;
+   tsBuffer = NULL;
+ 
+-  // Devices that are present on all card types:
+-
+-  int fd_frontend = DvbOpen(DEV_DVB_FRONTEND, adapter, frontend, O_RDWR | O_NONBLOCK);
+-
+   // Common Interface:
+ 
+   fd_ca = DvbOpen(DEV_DVB_CA, adapter, frontend, O_RDWR);
+@@ -1603,12 +1842,7 @@
+ 
+   // We only check the devices that must be present - the others will be checked before accessing them://XXX
+ 
+-  if (fd_frontend >= 0) {
+-     if (QueryDeliverySystems(fd_frontend))
+-        dvbTuner = new cDvbTuner(this, fd_frontend, adapter, frontend);
+-     }
+-  else
+-     esyslog("ERROR: can't open DVB device %d/%d", adapter, frontend);
++  dvbTuner = new cDvbTuner(this, adapter, frontend);
+ 
+   StartSectionHandler();
+ }
+@@ -1623,12 +1857,12 @@
+   // caused segfaults. Besides, the program is about to terminate anyway...
+ }
+ 
+-cString cDvbDevice::DvbName(const char *Name, int Adapter, int Frontend)
++cString DvbName(const char *Name, int Adapter, int Frontend)
+ {
+   return cString::sprintf("%s/%s%d/%s%d", DEV_DVB_BASE, DEV_DVB_ADAPTER, Adapter, Name, Frontend);
+ }
+ 
+-int cDvbDevice::DvbOpen(const char *Name, int Adapter, int Frontend, int Mode, bool ReportError)
++int DvbOpen(const char *Name, int Adapter, int Frontend, int Mode, bool ReportError)
+ {
+   cString FileName = DvbName(Name, Adapter, Frontend);
+   int fd = open(FileName, Mode);
+@@ -1637,6 +1871,11 @@
+   return fd;
+ }
+ 
++int cDvbDevice::Frontend(void) const
++{
++  return dvbTuner ? dvbTuner->Frontend() : frontend;
++}
++
+ bool cDvbDevice::Exists(int Adapter, int Frontend)
+ {
+   cString FileName = DvbName(DEV_DVB_FRONTEND, Adapter, Frontend);
+@@ -1669,18 +1908,16 @@
+ 
+ cString cDvbDevice::DeviceType(void) const
+ {
+-  if (dvbTuner) {
+-     if (dvbTuner->FrontendType() != SYS_UNDEFINED)
+-        return GetDeliverySystemName(dvbTuner->FrontendType());
+-     if (numDeliverySystems)
+-        return GetDeliverySystemName(deliverySystems[0]); // to have some reasonable default
+-     }
++  if (dvbTuner)
++     return GetDeliverySystemName(dvbTuner->FrontendType());
+   return "";
+ }
+ 
+ cString cDvbDevice::DeviceName(void) const
+ {
+-  return frontendInfo.name;
++  if (dvbTuner)
++     return dvbTuner->FrontendName();
++  return "";
+ }
+ 
+ bool cDvbDevice::Initialize(void)
+@@ -1702,7 +1939,10 @@
+                  while ((f = AdapterDir.Next()) != NULL) {
+                        if (strstr(f->d_name, DEV_DVB_FRONTEND) == f->d_name) {
+                           int Frontend = strtol(f->d_name + strlen(DEV_DVB_FRONTEND), NULL, 10);
+-                          Nodes.Append(strdup(cString::sprintf("%2d %2d", Adapter, Frontend)));
++                          if (access(DvbName(DEV_DVB_DEMUX, Adapter, Frontend), F_OK) == 0) { // we only create devices for actual demuxes
++                             dsyslog("detected /dev/dvb/adapter%d/frontend%d", Adapter, Frontend);
++                             Nodes.Append(strdup(cString::sprintf("%2d %2d", Adapter, Frontend)));
++                             }
+                           }
+                        }
+                  }
+@@ -1724,8 +1964,10 @@
+                      if (Probe(Adapter, Frontend))
+                         Used++;
+                      }
+-                  else
++                  else {
++                     dsyslog("skipped /dev/dvb/adapter%d/frontend%d", Adapter, Frontend);
+                      NextCardIndex(1); // skips this one
++                     }
+                   }
+                }
+             }
+@@ -1741,90 +1983,6 @@
+   return Found > 0;
+ }
+ 
+-bool cDvbDevice::QueryDeliverySystems(int fd_frontend)
+-{
+-  numDeliverySystems = 0;
+-  if (ioctl(fd_frontend, FE_GET_INFO, &frontendInfo) < 0) {
+-     LOG_ERROR;
+-     return false;
+-     }
+-  dtv_property Props[1];
+-  dtv_properties CmdSeq;
+-  // Determine the version of the running DVB API:
+-  if (!DvbApiVersion) {
+-     memset(&Props, 0, sizeof(Props));
+-     memset(&CmdSeq, 0, sizeof(CmdSeq));
+-     CmdSeq.props = Props;
+-     SETCMD(DTV_API_VERSION, 0);
+-     if (ioctl(fd_frontend, FE_GET_PROPERTY, &CmdSeq) != 0) {
+-        LOG_ERROR;
+-        return false;
+-        }
+-     DvbApiVersion = Props[0].u.data;
+-     isyslog("DVB API version is 0x%04X (VDR was built with 0x%04X)", DvbApiVersion, DVBAPIVERSION);
+-     }
+-  // Determine the types of delivery systems this device provides:
+-  bool LegacyMode = true;
+-  if (DvbApiVersion >= 0x0505) {
+-     memset(&Props, 0, sizeof(Props));
+-     memset(&CmdSeq, 0, sizeof(CmdSeq));
+-     CmdSeq.props = Props;
+-     SETCMD(DTV_ENUM_DELSYS, 0);
+-     int Result = ioctl(fd_frontend, FE_GET_PROPERTY, &CmdSeq);
+-     if (Result == 0) {
+-        for (uint i = 0; i < Props[0].u.buffer.len; i++) {
+-            if (numDeliverySystems >= MAXDELIVERYSYSTEMS) {
+-               esyslog("ERROR: too many delivery systems on frontend %d/%d", adapter, frontend);
+-               break;
+-               }
+-            deliverySystems[numDeliverySystems++] = Props[0].u.buffer.data[i];
+-            }
+-        LegacyMode = false;
+-        }
+-     else {
+-        esyslog("ERROR: can't query delivery systems on frontend %d/%d - falling back to legacy mode", adapter, frontend);
+-        }
+-     }
+-  if (LegacyMode) {
+-     // Legacy mode (DVB-API < 5.5):
+-     switch (frontendInfo.type) {
+-       case FE_QPSK: deliverySystems[numDeliverySystems++] = SYS_DVBS;
+-                     if (frontendInfo.caps & FE_CAN_2G_MODULATION)
+-                        deliverySystems[numDeliverySystems++] = SYS_DVBS2;
+-                     break;
+-       case FE_OFDM: deliverySystems[numDeliverySystems++] = SYS_DVBT;
+-                     if (frontendInfo.caps & FE_CAN_2G_MODULATION)
+-                        deliverySystems[numDeliverySystems++] = SYS_DVBT2;
+-                     break;
+-       case FE_QAM:  deliverySystems[numDeliverySystems++] = SYS_DVBC_ANNEX_AC; break;
+-       case FE_ATSC: deliverySystems[numDeliverySystems++] = SYS_ATSC; break;
+-       default: esyslog("ERROR: unknown frontend type %d on frontend %d/%d", frontendInfo.type, adapter, frontend);
+-       }
+-     }
+-  if (numDeliverySystems > 0) {
+-     cString ds("");
+-     for (int i = 0; i < numDeliverySystems; i++)
+-         ds = cString::sprintf("%s%s%s", *ds, i ? "," : "", GetDeliverySystemName(deliverySystems[i]));
+-     cString ms("");
+-     if (frontendInfo.caps & FE_CAN_QPSK)      { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(QPSK, ModulationValues)); }
+-     if (frontendInfo.caps & FE_CAN_QAM_16)    { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(QAM_16, ModulationValues)); }
+-     if (frontendInfo.caps & FE_CAN_QAM_32)    { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(QAM_32, ModulationValues)); }
+-     if (frontendInfo.caps & FE_CAN_QAM_64)    { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(QAM_64, ModulationValues)); }
+-     if (frontendInfo.caps & FE_CAN_QAM_128)   { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(QAM_128, ModulationValues)); }
+-     if (frontendInfo.caps & FE_CAN_QAM_256)   { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(QAM_256, ModulationValues)); }
+-     if (frontendInfo.caps & FE_CAN_8VSB)      { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(VSB_8, ModulationValues)); }
+-     if (frontendInfo.caps & FE_CAN_16VSB)     { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", MapToUserString(VSB_16, ModulationValues)); }
+-     if (frontendInfo.caps & FE_CAN_TURBO_FEC) { numModulations++; ms = cString::sprintf("%s%s%s", *ms, **ms ? "," : "", "TURBO_FEC"); }
+-     if (!**ms)
+-        ms = "unknown modulations";
+-     isyslog("frontend %d/%d provides %s with %s (\"%s\")", adapter, frontend, *ds, *ms, frontendInfo.name);
+-     return true;
+-     }
+-  else
+-     esyslog("ERROR: frontend %d/%d doesn't provide any delivery systems", adapter, frontend);
+-  return false;
+-}
+-
+ bool cDvbDevice::BondDevices(const char *Bondings)
+ {
+   UnBondDevices();
+@@ -1883,18 +2041,18 @@
+            if (dvbTuner && Device->dvbTuner && dvbTuner->Bond(Device->dvbTuner)) {
+               bondedDevice = Device->bondedDevice ? Device->bondedDevice : Device;
+               Device->bondedDevice = this;
+-              dsyslog("device %d bonded with device %d", CardIndex() + 1, bondedDevice->CardIndex() + 1);
++              dsyslog("device %d bonded with device %d", DeviceNumber() + 1, bondedDevice->DeviceNumber() + 1);
+               return true;
+               }
+            }
+         else
+-           esyslog("ERROR: can't bond device %d with device %d (only DVB-S(2) devices can be bonded)", CardIndex() + 1, Device->CardIndex() + 1);
++           esyslog("ERROR: can't bond device %d with device %d (only DVB-S(2) devices can be bonded)", DeviceNumber() + 1, Device->DeviceNumber() + 1);
+         }
+      else
+-        esyslog("ERROR: can't bond device %d with itself", CardIndex() + 1);
++        esyslog("ERROR: can't bond device %d with itself", DeviceNumber() + 1);
+      }
+   else
+-     esyslog("ERROR: device %d already bonded with device %d, can't bond with device %d", CardIndex() + 1, bondedDevice->CardIndex() + 1, Device->CardIndex() + 1);
++     esyslog("ERROR: device %d already bonded with device %d, can't bond with device %d", DeviceNumber() + 1, bondedDevice->DeviceNumber() + 1, Device->DeviceNumber() + 1);
+   return false;
+ }
+ 
+@@ -1904,7 +2062,7 @@
+   if (cDvbDevice *d = bondedDevice) {
+      if (dvbTuner)
+         dvbTuner->UnBond();
+-     dsyslog("device %d unbonded from device %d", CardIndex() + 1, bondedDevice->CardIndex() + 1);
++     dsyslog("device %d unbonded from device %d", DeviceNumber() + 1, bondedDevice->DeviceNumber() + 1);
+      while (d->bondedDevice != this)
+            d = d->bondedDevice;
+      if (d == bondedDevice)
+@@ -1999,11 +2157,7 @@
+ 
+ bool cDvbDevice::ProvidesDeliverySystem(int DeliverySystem) const
+ {
+-  for (int i = 0; i < numDeliverySystems; i++) {
+-      if (deliverySystems[i] == DeliverySystem)
+-         return true;
+-      }
+-  return false;
++  return dvbTuner->ProvidesDeliverySystem(DeliverySystem);
+ }
+ 
+ bool cDvbDevice::ProvidesSource(int Source) const
+@@ -2020,22 +2174,11 @@
+ {
+   if (!ProvidesSource(Channel->Source()))
+      return false; // doesn't provide source
+-  cDvbTransponderParameters dtp(Channel->Parameters());
+-  if (!ProvidesDeliverySystem(GetRequiredDeliverySystem(Channel, &dtp)) ||
+-     dtp.StreamId()   != 0        && !(frontendInfo.caps & FE_CAN_MULTISTREAM) ||
+-     dtp.Modulation() == QPSK     && !(frontendInfo.caps & FE_CAN_QPSK) ||
+-     dtp.Modulation() == QAM_16   && !(frontendInfo.caps & FE_CAN_QAM_16) ||
+-     dtp.Modulation() == QAM_32   && !(frontendInfo.caps & FE_CAN_QAM_32) ||
+-     dtp.Modulation() == QAM_64   && !(frontendInfo.caps & FE_CAN_QAM_64) ||
+-     dtp.Modulation() == QAM_128  && !(frontendInfo.caps & FE_CAN_QAM_128) ||
+-     dtp.Modulation() == QAM_256  && !(frontendInfo.caps & FE_CAN_QAM_256) ||
+-     dtp.Modulation() == QAM_AUTO && !(frontendInfo.caps & FE_CAN_QAM_AUTO) ||
+-     dtp.Modulation() == VSB_8    && !(frontendInfo.caps & FE_CAN_8VSB) ||
+-     dtp.Modulation() == VSB_16   && !(frontendInfo.caps & FE_CAN_16VSB) ||
+-     dtp.Modulation() == PSK_8    && !(frontendInfo.caps & FE_CAN_TURBO_FEC) && dtp.System() == SYS_DVBS) // "turbo fec" is a non standard FEC used by North American broadcasters - this is a best guess to determine this condition
++  if (!dvbTuner->ProvidesFrontend(Channel))
+      return false; // requires modulation system which frontend doesn't provide
++  cDvbTransponderParameters dtp(Channel->Parameters());
+   if (!cSource::IsSat(Channel->Source()) ||
+-     (!Setup.DiSEqC || Diseqcs.Get(CardIndex() + 1, Channel->Source(), Channel->Frequency(), dtp.Polarization(), NULL)))
++     (!Setup.DiSEqC || Diseqcs.Get(DeviceNumber() + 1, Channel->Source(), Channel->Frequency(), dtp.Polarization(), NULL)))
+      return DeviceHooksProvidesTransponder(Channel);
+   return false;
+ }
+@@ -2047,7 +2190,7 @@
+   bool needsDetachReceivers = false;
+   needsDetachBondedReceivers = false;
+ 
+-  if (dvbTuner && ProvidesTransponder(Channel)) {
++  if (ProvidesTransponder(Channel)) {
+      result = hasPriority;
+      if (Priority > IDLEPRIORITY) {
+         if (Receiving()) {
+@@ -2097,7 +2240,7 @@
+ 
+ int cDvbDevice::NumProvidedSystems(void) const
+ {
+-  return numDeliverySystems + numModulations;
++  return dvbTuner ? dvbTuner->NumProvidedSystems() : 0;
+ }
+ 
+ const cPositioner *cDvbDevice::Positioner(void) const
+@@ -2137,9 +2280,11 @@
+ 
+ bool cDvbDevice::SetChannelDevice(const cChannel *Channel, bool LiveView)
+ {
+-  if (dvbTuner)
++  if (dvbTuner->ProvidesFrontend(Channel, true)) {
+      dvbTuner->SetChannel(Channel);
+-  return true;
++     return true;
++     }
++  return false;
+ }
+ 
+ bool cDvbDevice::HasLock(int TimeoutMs) const
+@@ -2157,7 +2302,7 @@
+   CloseDvr();
+   fd_dvr = DvbOpen(DEV_DVB_DVR, adapter, frontend, O_RDONLY | O_NONBLOCK, true);
+   if (fd_dvr >= 0)
+-     tsBuffer = new cTSBuffer(fd_dvr, MEGABYTE(5), CardIndex() + 1);
++     tsBuffer = new cTSBuffer(fd_dvr, MEGABYTE(5), DeviceNumber() + 1);
+   return fd_dvr >= 0;
+ }
+ 
+diff -ruN vdr-2.4.0/dvbdevice.h vdr-2.4.1/dvbdevice.h
+--- vdr-2.4.0/dvbdevice.h	2017-05-09 13:24:47.000000000 +0200
++++ vdr-2.4.1/dvbdevice.h	2019-03-10 13:18:02.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 4.4 2017/05/09 11:24:47 kls Exp $
++ * $Id: dvbdevice.h 4.4.1.2 2019/03/10 12:18:02 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -67,8 +67,6 @@
+ 
+ // --- End of definitions for older DVB API versions -------------------------
+ 
+-#define MAXDELIVERYSYSTEMS 8
+-
+ #define DEV_VIDEO         "/dev/video"
+ #define DEV_DVB_BASE      "/dev/dvb"
+ #define DEV_DVB_ADAPTER   "adapter"
+@@ -162,12 +160,12 @@
+ 
+ class cDvbTuner;
+ 
++cString DvbName(const char *Name, int Adapter, int Frontend);
++int DvbOpen(const char *Name, int Adapter, int Frontend, int Mode, bool ReportError = false);
++
+ /// The cDvbDevice implements a DVB device which can be accessed through the Linux DVB driver API.
+ 
+ class cDvbDevice : public cDevice {
+-protected:
+-  static cString DvbName(const char *Name, int Adapter, int Frontend);
+-  static int DvbOpen(const char *Name, int Adapter, int Frontend, int Mode, bool ReportError = false);
+ private:
+   static bool Exists(int Adapter, int Frontend);
+          ///< Checks whether the given adapter/frontend exists.
+@@ -182,21 +180,16 @@
+ protected:
+   int adapter, frontend;
+ private:
+-  dvb_frontend_info frontendInfo;
+-  int deliverySystems[MAXDELIVERYSYSTEMS];
+-  int numDeliverySystems;
+-  int numModulations;
+   int fd_dvr, fd_ca;
+   bool checkTsBuffer;
+   static cMutex bondMutex;
+   cDvbDevice *bondedDevice;
+   mutable bool needsDetachBondedReceivers;
+-  bool QueryDeliverySystems(int fd_frontend);
+ public:
+   cDvbDevice(int Adapter, int Frontend);
+   virtual ~cDvbDevice();
+   int Adapter(void) const { return adapter; }
+-  int Frontend(void) const { return frontend; }
++  int Frontend(void) const;
+   virtual cString DeviceType(void) const;
+   virtual cString DeviceName(void) const;
+   static bool BondDevices(const char *Bondings);
+diff -ruN vdr-2.4.0/dvbplayer.c vdr-2.4.1/dvbplayer.c
+--- vdr-2.4.0/dvbplayer.c	2017-11-26 15:55:03.000000000 +0100
++++ vdr-2.4.1/dvbplayer.c	2019-05-28 11:27:32.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.c 4.5 2017/11/26 14:55:03 kls Exp $
++ * $Id: dvbplayer.c 4.5.1.1 2019/05/28 09:27:32 kls Exp $
+  */
+ 
+ #include "dvbplayer.h"
+@@ -230,7 +230,7 @@
+ 
+ // --- cDvbPlayer ------------------------------------------------------------
+ 
+-#define PLAYERBUFSIZE  MEGABYTE(1)
++#define PLAYERBUFSIZE  (MAXFRAMESIZE * 5)
+ 
+ #define RESUMEBACKUP 10 // number of seconds to back up when resuming an interrupted replay session
+ #define MAXSTUCKATEOF 3 // max. number of seconds to wait in case the device doesn't play the last frame
+diff -ruN vdr-2.4.0/eit.c vdr-2.4.1/eit.c
+--- vdr-2.4.0/eit.c	2018-03-31 15:40:32.000000000 +0200
++++ vdr-2.4.1/eit.c	2019-05-21 23:25:00.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 4.5 2018/03/31 13:40:32 kls Exp $
++ * $Id: eit.c 4.5.1.2 2019/05/21 21:25:00 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -20,6 +20,8 @@
+ 
+ #define VALID_TIME (31536000 * 2) // two years
+ 
++#define DBGEIT 0
++
+ // --- cEIT ------------------------------------------------------------------
+ 
+ class cEIT : public SI::EIT {
+@@ -130,8 +132,34 @@
+       if (pEvent->TableID() > 0x4E) // for backwards compatibility, table ids less than 0x4E are never overwritten
+          pEvent->SetTableID(Tid);
+       if (Tid == 0x4E) { // we trust only the present/following info on the actual TS
+-         if (SiEitEvent.getRunningStatus() >= SI::RunningStatusNotRunning)
+-            pSchedule->SetRunningStatus(pEvent, SiEitEvent.getRunningStatus(), Channel);
++         int RunningStatus = SiEitEvent.getRunningStatus();
++#if DBGEIT
++         if (Process)
++            dsyslog("channel %d (%s) event %s status %d (raw data from '%s' section)", Channel->Number(), Channel->Name(), *pEvent->ToDescr(), RunningStatus, getSectionNumber() ? "following" : "present");
++#endif
++         if (RunningStatus >= SI::RunningStatusNotRunning) {
++            // Workaround for broadcasters who set an event to status "not running" where
++            // this is inappropriate:
++            if (RunningStatus != pEvent->RunningStatus()) { // if the running status of the event has changed...
++               if (RunningStatus == SI::RunningStatusNotRunning) { // ...and the new status is "not running"...
++                  int OverrideStatus = -1;
++                  if (getSectionNumber() == 0) { // ...and if this the "present" event...
++                     if (pEvent->RunningStatus() == SI::RunningStatusPausing) // ...and if the event has already been set to "pausing"...
++                        OverrideStatus = SI::RunningStatusPausing; // ...then we ignore the faulty new status and stay with "pausing"
++                     }
++                  else // ...and if this is the "following" event...
++                     OverrideStatus = SI::RunningStatusUndefined; // ...then we ignore the faulty new status and fall back to "undefined"
++                  if (OverrideStatus >= 0) {
++#if DBGEIT
++                     if (Process)
++                        dsyslog("channel %d (%s) event %s status %d (ignored status %d from '%s' section)", Channel->Number(), Channel->Name(), *pEvent->ToDescr(), OverrideStatus, RunningStatus, getSectionNumber() ? "following" : "present");
++#endif
++                     RunningStatus = OverrideStatus;
++                     }
++                  }
++               }
++            pSchedule->SetRunningStatus(pEvent, RunningStatus, Channel);
++            }
+          if (!Process)
+             continue;
+          }
+@@ -388,8 +416,7 @@
+ 
+ cEitFilter::cEitFilter(void)
+ {
+-//Set(0x12, 0x40, 0xC0);  // event info now&next actual/other TS (0x4E/0x4F), future actual/other TS (0x5X/0x6X) // TODO: remove later
+-  Set(0x12, 0x40, 0xE0);  // event info now&next actual/other TS (0x4E/0x4F), future actual TS (0x5X)
++  Set(0x12, 0x40, 0xC0);  // event info now&next actual/other TS (0x4E/0x4F), future actual/other TS (0x5X/0x6X)
+   Set(0x14, 0x70);        // TDT
+ }
+ 
+@@ -416,8 +443,7 @@
+      }
+   switch (Pid) {
+     case 0x12: {
+-       //if (Tid >= 0x4E && Tid <= 0x6F) // TODO: remove later
+-         if (Tid == 0x4E || Tid >= 0x50 && Tid <= 0x5F)
++         if (Tid >= 0x4E && Tid <= 0x6F)
+             cEIT EIT(sectionSyncerHash, Source(), Tid, Data);
+          }
+          break;
+diff -ruN vdr-2.4.0/eitscan.c vdr-2.4.1/eitscan.c
+--- vdr-2.4.0/eitscan.c	2015-09-10 13:05:03.000000000 +0200
++++ vdr-2.4.1/eitscan.c	2019-03-12 12:54:27.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: eitscan.c 4.2 2015/09/10 11:05:03 kls Exp $
++ * $Id: eitscan.c 4.2.1.1 2019/03/12 11:54:27 kls Exp $
+  */
+ 
+ #include "eitscan.h"
+@@ -177,7 +177,7 @@
+                       }
+                   }
+                }
+-           if (!scanList->Count() || !AnyDeviceSwitched) {
++           if (!AnyDeviceSwitched) {
+               delete scanList;
+               scanList = NULL;
+               if (lastActivity == 0) // this was a triggered scan
+diff -ruN vdr-2.4.0/epg.c vdr-2.4.1/epg.c
+--- vdr-2.4.0/epg.c	2017-05-28 15:08:09.000000000 +0200
++++ vdr-2.4.1/epg.c	2019-05-21 23:25:00.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 4.8 2017/05/28 13:08:09 kls Exp $
++ * $Id: epg.c 4.8.1.1 2019/05/21 21:25:00 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -1025,7 +1025,7 @@
+             }
+          }
+       else if (RunningStatus >= SI::RunningStatusPausing && p->StartTime() < Event->StartTime())
+-         p->SetRunningStatus(SI::RunningStatusNotRunning);
++         p->SetRunningStatus(SI::RunningStatusNotRunning, Channel);
+       if (p->RunningStatus() >= SI::RunningStatusPausing)
+          hasRunning = true;
+       }
+diff -ruN vdr-2.4.0/libsi/descriptor.c vdr-2.4.1/libsi/descriptor.c
+--- vdr-2.4.0/libsi/descriptor.c	2013-10-30 11:16:18.000000000 +0100
++++ vdr-2.4.1/libsi/descriptor.c	2019-03-15 23:38:36.000000000 +0100
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: descriptor.c 4.0 2013/10/30 10:16:18 kls Exp $
++ *   $Id: descriptor.c 4.0.1.1 2019/03/15 22:38:36 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -870,6 +870,11 @@
+ void ExtensionDescriptor::Parse() {
+    int offset=0;
+    data.setPointerAndOffset<const descr_extension>(s, offset);
++   extended_data_flag = s->descriptor_length > 0x04;
++}
++
++int ExtensionDescriptor::getExtendedDataFlag() const {
++  return extended_data_flag;
+ }
+ 
+ int ExtensionDescriptor::getExtensionDescriptorTag() const {
+diff -ruN vdr-2.4.0/libsi/descriptor.h vdr-2.4.1/libsi/descriptor.h
+--- vdr-2.4.0/libsi/descriptor.h	2014-02-08 13:44:17.000000000 +0100
++++ vdr-2.4.1/libsi/descriptor.h	2019-03-15 23:38:36.000000000 +0100
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: descriptor.h 4.0 2014/02/08 12:44:17 kls Exp $
++ *   $Id: descriptor.h 4.0.1.1 2019/03/15 22:38:36 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -529,11 +529,13 @@
+ 
+ class ExtensionDescriptor : public Descriptor {
+ public:
++   int getExtendedDataFlag() const;
+    int getExtensionDescriptorTag() const;
+ protected:
+    virtual void Parse();
+ private:
+    const descr_extension *s;
++   int extended_data_flag;
+ };
+ 
+ class T2DeliverySystemDescriptor : public Descriptor {
+diff -ruN vdr-2.4.0/menu.c vdr-2.4.1/menu.c
+--- vdr-2.4.0/menu.c	2018-04-14 12:24:41.000000000 +0200
++++ vdr-2.4.1/menu.c	2019-05-28 17:55:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 4.74 2018/04/14 10:24:41 kls Exp $
++ * $Id: menu.c 4.74.1.6 2019/05/28 15:55:44 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -576,7 +576,7 @@
+          break;
+     default:
+          if (state == osUnknown) {
+-            switch (Key) {
++            switch (int(Key)) {
+               case k0 ... k9:
+                             return Number(Key);
+               case kOk:     return Switch();
+@@ -586,6 +586,20 @@
+               case kBlue:   if (!HasSubMenu())
+                                Mark();
+                             break;
++              case kChanUp|k_Repeat:
++              case kChanUp:
++              case kChanDn|k_Repeat:
++              case kChanDn: {
++                   LOCK_CHANNELS_READ;
++                   int CurrentChannelNr = cDevice::CurrentChannel();
++                   for (cMenuChannelItem *ci = (cMenuChannelItem *)First(); ci; ci = (cMenuChannelItem *)ci->Next()) {
++                       if (!ci->Channel()->GroupSep() && ci->Channel()->Number() == CurrentChannelNr) {
++                          SetCurrent(ci);
++                          Display();
++                          break;
++                          }
++                       }
++                   }
+               default: break;
+               }
+             }
+@@ -1075,7 +1089,7 @@
+ {
+   cString ErrorMessage;
+   if (!HandleRemoteTimerModifications(NewTimer, OldTimer, &ErrorMessage)) {
+-     Skins.Message(mtError, ErrorMessage);
++     Skins.QueueMessage(mtError, ErrorMessage);
+      return false;
+      }
+   return true;
+@@ -3878,16 +3892,16 @@
+   else if (camSlot->IsActivating())
+      // TRANSLATORS: note the leading blank!
+      Activating = tr(" (activating)");
+-  cVector<int> CardIndexes;
++  cVector<int> DeviceNumbers;
+   for (cCamSlot *CamSlot = CamSlots.First(); CamSlot; CamSlot = CamSlots.Next(CamSlot)) {
+       if (CamSlot == camSlot || CamSlot->MasterSlot() == camSlot)
+-         CamSlot->Devices(CardIndexes);
++         CamSlot->Devices(DeviceNumbers);
+       }
+-  if (CardIndexes.Size() > 0) {
++  if (DeviceNumbers.Size() > 0) {
+      AssignedDevice = cString::sprintf(" %s", tr("@ device"));
+-     CardIndexes.Sort(CompareInts);
+-     for (int i = 0; i < CardIndexes.Size(); i++)
+-         AssignedDevice = cString::sprintf("%s %d", *AssignedDevice, CardIndexes[i] + 1);
++     DeviceNumbers.Sort(CompareInts);
++     for (int i = 0; i < DeviceNumbers.Size(); i++)
++         AssignedDevice = cString::sprintf("%s %d", *AssignedDevice, DeviceNumbers[i]);
+      }
+ 
+   cString buffer = cString::sprintf(" %d %s%s%s", camSlot->SlotNumber(), CamName, *AssignedDevice, Activating);
+@@ -4626,14 +4640,17 @@
+   cOsdProvider::OsdSizeChanged(osdState); // just to get the current state
+   positioner = NULL;
+   channel = NULL;
+-  LOCK_CHANNELS_READ;
+-  channel = Channels->GetByNumber(Number);
+-  lastPresent = lastFollowing = NULL;
+-  if (channel) {
+-     DisplayChannel();
+-     DisplayInfo();
++  {
++    LOCK_CHANNELS_READ;
++    channel = Channels->GetByNumber(Number);
++    lastPresent = lastFollowing = NULL;
++    if (channel) {
++       DisplayChannel();
++       DisplayInfo();
++       }
++  }
++  if (channel)
+      displayChannel->Flush();
+-     }
+   lastTime.Set();
+ }
+ 
+@@ -4651,8 +4668,10 @@
+   displayChannel = Skins.Current()->DisplayChannel(withInfo);
+   positioner = NULL;
+   channel = NULL;
+-  LOCK_CHANNELS_READ;
+-  channel = Channels->GetByNumber(cDevice::CurrentChannel());
++  {
++    LOCK_CHANNELS_READ;
++    channel = Channels->GetByNumber(cDevice::CurrentChannel());
++  }
+   ProcessKey(FirstKey);
+ }
+ 
+@@ -4699,6 +4718,8 @@
+ const cChannel *cDisplayChannel::NextAvailableChannel(const cChannel *Channel, int Direction)
+ {
+   if (Direction) {
++     cControl::Shutdown(); // prevents old channel from being shown too long if GetDevice() takes longer
++                           // and, if decrypted, this removes the now superflous PIDs from the CAM, too
+      LOCK_CHANNELS_READ;
+      while (Channel) {
+            Channel = Direction > 0 ? Channels->Next(Channel) : Channels->Prev(Channel);
+@@ -4868,31 +4889,33 @@
+             }
+     };
+   if (positioner || !timeout || lastTime.Elapsed() < (uint64_t)(Setup.ChannelInfoTime * 1000)) {
+-     LOCK_CHANNELS_READ;
+-     if (Key == kNone && !number && group < 0 && !NewChannel && channel && channel->Number() != cDevice::CurrentChannel()) {
+-        // makes sure a channel switch through the SVDRP CHAN command is displayed
+-        channel = Channels->GetByNumber(cDevice::CurrentChannel());
+-        Refresh();
+-        lastTime.Set();
+-        }
+-     DisplayInfo();
+-     if (NewChannel) {
+-        SetTrackDescriptions(NewChannel->Number()); // to make them immediately visible in the channel display
+-        Channels->SwitchTo(NewChannel->Number());
+-        SetTrackDescriptions(NewChannel->Number()); // switching the channel has cleared them
+-        channel = NewChannel;
+-        }
+-     const cPositioner *Positioner = cDevice::ActualDevice()->Positioner();
+-     bool PositionerMoving = Positioner && Positioner->IsMoving();
+-     SetNeedsFastResponse(PositionerMoving);
+-     if (!PositionerMoving) {
+-        if (positioner)
+-           lastTime.Set(); // to keep the channel display up a few seconds after the target position has been reached
+-        Positioner = NULL;
+-        }
+-     if (Positioner || positioner) // making sure we call SetPositioner(NULL) if there is a switch from "with" to "without" positioner
+-        displayChannel->SetPositioner(Positioner);
+-     positioner = Positioner;
++     {
++       LOCK_CHANNELS_READ;
++       if (Key == kNone && !number && group < 0 && !NewChannel && channel && channel->Number() != cDevice::CurrentChannel()) {
++          // makes sure a channel switch through the SVDRP CHAN command is displayed
++          channel = Channels->GetByNumber(cDevice::CurrentChannel());
++          Refresh();
++          lastTime.Set();
++          }
++       DisplayInfo();
++       if (NewChannel) {
++          SetTrackDescriptions(NewChannel->Number()); // to make them immediately visible in the channel display
++          Channels->SwitchTo(NewChannel->Number());
++          SetTrackDescriptions(NewChannel->Number()); // switching the channel has cleared them
++          channel = NewChannel;
++          }
++       const cPositioner *Positioner = cDevice::ActualDevice()->Positioner();
++       bool PositionerMoving = Positioner && Positioner->IsMoving();
++       SetNeedsFastResponse(PositionerMoving);
++       if (!PositionerMoving) {
++          if (positioner)
++             lastTime.Set(); // to keep the channel display up a few seconds after the target position has been reached
++          Positioner = NULL;
++          }
++       if (Positioner || positioner) // making sure we call SetPositioner(NULL) if there is a switch from "with" to "without" positioner
++          displayChannel->SetPositioner(Positioner);
++       positioner = Positioner;
++     }
+      displayChannel->Flush();
+      return osContinue;
+      }
+@@ -5208,7 +5231,7 @@
+   if (!timer) {
+      timer = new cTimer(true, Pause);
+      Timers->Add(timer);
+-     instantId = cString::sprintf(cDevice::NumDevices() > 1 ? "%s - %d" : "%s", timer->Channel()->Name(), device->CardIndex() + 1);
++     instantId = cString::sprintf(cDevice::NumDevices() > 1 ? "%s - %d" : "%s", timer->Channel()->Name(), device->DeviceNumber() + 1);
+      }
+   timer->SetPending(true);
+   timer->SetRecording(true);
+diff -ruN vdr-2.4.0/mtd.c vdr-2.4.1/mtd.c
+--- vdr-2.4.0/mtd.c	2017-10-31 13:16:39.000000000 +0100
++++ vdr-2.4.1/mtd.c	2019-05-28 17:55:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: mtd.c 1.12 2017/10/31 12:16:39 kls Exp $
++ * $Id: mtd.c 1.12.1.2 2019/05/28 15:55:44 kls Exp $
+  */
+ 
+ #include "mtd.h"
+@@ -127,11 +127,11 @@
+   return false;
+ }
+ 
+-bool cMtdHandler::Devices(cVector<int> &CardIndexes)
++bool cMtdHandler::Devices(cVector<int> &DeviceNumbers)
+ {
+   for (int i = 0; i < camSlots.Size(); i++)
+-      camSlots[i]->Devices(CardIndexes);
+-  return CardIndexes.Size() > 0;
++      camSlots[i]->Devices(DeviceNumbers);
++  return DeviceNumbers.Size() > 0;
+ }
+ 
+ void cMtdHandler::UnAssignAll(void)
+@@ -224,7 +224,10 @@
+ 
+ void MtdMapSid(uchar *p, cMtdMapper *MtdMapper)
+ {
+-  Poke13(p, MtdMapper->RealToUniqSid(Peek13(p)));
++  uint16_t RealSid = p[0] << 8 | p[1];
++  uint16_t UniqSid = MtdMapper->RealToUniqSid(RealSid);
++  p[0] = UniqSid >> 8;
++  p[1] = UniqSid & 0xff;
+ }
+ 
+ void MtdMapPid(uchar *p, cMtdMapper *MtdMapper)
+diff -ruN vdr-2.4.0/mtd.h vdr-2.4.1/mtd.h
+--- vdr-2.4.0/mtd.h	2017-05-01 11:19:21.000000000 +0200
++++ vdr-2.4.1/mtd.h	2019-05-28 17:55:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: mtd.h 1.8 2017/05/01 09:19:21 kls Exp $
++ * $Id: mtd.h 1.8.1.1 2019/05/28 15:55:44 kls Exp $
+  */
+ 
+ #ifndef __MTD_H
+@@ -136,9 +136,9 @@
+       ///< Tells all active MTD CAM slots to cancel activation.
+   bool IsActivating(void);
+       ///< Returns true if any of the active MTD CAM slots is currently activating.
+-  bool Devices(cVector<int> &CardIndexes);
+-      ///< Adds the card indexes of the devices of any active MTD CAM slots to
+-      ///< the given CardIndexes.
++  bool Devices(cVector<int> &DeviceNumbers);
++      ///< Adds the numbers of the devices of any active MTD CAM slots to
++      ///< the given DeviceNumbers.
+       ///< Returns true if the array is not empty.
+   void UnAssignAll(void);
+       ///< Unassigns all MTD CAM slots from their devices.
+diff -ruN vdr-2.4.0/nit.c vdr-2.4.1/nit.c
+--- vdr-2.4.0/nit.c	2018-03-18 11:52:21.000000000 +0100
++++ vdr-2.4.1/nit.c	2019-05-31 23:47:02.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: nit.c 4.5 2018/03/18 10:52:21 kls Exp $
++ * $Id: nit.c 4.5.1.4 2019/05/31 21:47:02 kls Exp $
+  */
+ 
+ #include "nit.h"
+@@ -97,6 +97,15 @@
+          }
+       delete fld;
+ 
++      // Necessary for "backwards compatibility mode" according to ETSI EN 300 468:
++      bool ForceDVBS2 = false;
++      for (SI::Loop::Iterator it2; (d = ts.transportStreamDescriptors.getNext(it2)); ) {
++          if (d->getDescriptorTag() == SI::S2SatelliteDeliverySystemDescriptorTag) {
++             ForceDVBS2 = true;
++             break;
++             }
++          }
++
+       for (SI::Loop::Iterator it2; (d = ts.transportStreamDescriptors.getNext(it2)); ) {
+           switch (d->getDescriptorTag()) {
+             case SI::SatelliteDeliverySystemDescriptorTag: {
+@@ -110,11 +119,12 @@
+                  dtp.SetCoderateH(CodeRates[sd->getFecInner()]);
+                  static int Modulations[] = { QAM_AUTO, QPSK, PSK_8, QAM_16 };
+                  dtp.SetModulation(Modulations[sd->getModulationType()]);
+-                 dtp.SetSystem(sd->getModulationSystem() ? DVB_SYSTEM_2 : DVB_SYSTEM_1);
++                 bool System = sd->getModulationSystem() || ForceDVBS2;
++                 dtp.SetSystem(System ? DVB_SYSTEM_2 : DVB_SYSTEM_1);
+                  static int RollOffs[] = { ROLLOFF_35, ROLLOFF_25, ROLLOFF_20, ROLLOFF_AUTO };
+-                 dtp.SetRollOff(sd->getModulationSystem() ? RollOffs[sd->getRollOff()] : ROLLOFF_AUTO);
++                 dtp.SetRollOff(System ? RollOffs[sd->getRollOff()] : ROLLOFF_AUTO);
+                  int SymbolRate = BCD2INT(sd->getSymbolRate()) / 10;
+-                 dbgnit("    %s %d %c %d %d\n", *cSource::ToString(Source), Frequency, dtp.Polarization(), SymbolRate, cChannel::Transponder(Frequency, dtp.Polarization()));
++                 dbgnit("    %s %d %c %d %d DVB-S%d\n", *cSource::ToString(Source), Frequency, dtp.Polarization(), SymbolRate, cChannel::Transponder(Frequency, dtp.Polarization()), System ? 2 : 1);
+                  if (Setup.UpdateChannels >= 5) {
+                     bool found = false;
+                     bool forceTransponderUpdate = false;
+@@ -125,7 +135,6 @@
+                            dtp.SetStreamId(dtpc.StreamId());
+                            //
+                            int transponder = Channel->Transponder();
+-                           found = true;
+                            if (!ISTRANSPONDER(cChannel::Transponder(Frequency, dtp.Polarization()), transponder)) {
+                               for (int n = 0; n < NumFrequencies; n++) {
+                                   if (ISTRANSPONDER(cChannel::Transponder(Frequencies[n], dtp.Polarization()), transponder)) {
+@@ -134,7 +143,10 @@
+                                      }
+                                   }
+                               }
+-                           if (ISTRANSPONDER(cChannel::Transponder(Frequency, dtp.Polarization()), Transponder())) // only modify channels if we're actually receiving this transponder
++                           if (!ISTRANSPONDER(cChannel::Transponder(Frequency, dtp.Polarization()), transponder))
++                              continue; // a channel with obsolete/wrong/other(?) transponder
++                           found = true;
++                           if (ISTRANSPONDER(transponder, Transponder())) // only modify channels if we're actually receiving this transponder
+                               ChannelsModified |= Channel->SetTransponderData(Source, Frequency, SymbolRate, dtp.ToString('S'));
+                            else if (Channel->Srate() != SymbolRate || strcmp(Channel->Parameters(), dtp.ToString('S')))
+                               forceTransponderUpdate = true; // get us receiving this transponder
+@@ -151,8 +163,6 @@
+                            }
+                        }
+                     }
+-                 if (ISTRANSPONDER(cChannel::Transponder(Frequency, dtp.Polarization()), Transponder()))
+-                    sdtFilter->Trigger(Source);
+                  }
+                  break;
+             case SI::S2SatelliteDeliverySystemDescriptorTag: {
+@@ -188,7 +198,6 @@
+                     for (cChannel *Channel = Channels->First(); Channel; Channel = Channels->Next(Channel)) {
+                         if (!Channel->GroupSep() && Channel->Source() == Source && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+                            int transponder = Channel->Transponder();
+-                           found = true;
+                            if (!ISTRANSPONDER(Frequency / 1000, transponder)) {
+                               for (int n = 0; n < NumFrequencies; n++) {
+                                   if (ISTRANSPONDER(Frequencies[n] / 1000, transponder)) {
+@@ -197,7 +206,10 @@
+                                      }
+                                   }
+                               }
+-                           if (ISTRANSPONDER(Frequency / 1000, Transponder())) // only modify channels if we're actually receiving this transponder
++                           if (!ISTRANSPONDER(Frequency / 1000, transponder))
++                              continue; // a channel with obsolete/wrong/other(?) transponder
++                           found = true;
++                           if (ISTRANSPONDER(transponder, Transponder())) // only modify channels if we're actually receiving this transponder
+                               ChannelsModified |= Channel->SetTransponderData(Source, Frequency, SymbolRate, dtp.ToString('C'));
+                            else if (Channel->Srate() != SymbolRate || strcmp(Channel->Parameters(), dtp.ToString('C')))
+                               forceTransponderUpdate = true; // get us receiving this transponder
+@@ -214,8 +226,6 @@
+                            }
+                        }
+                     }
+-                 if (ISTRANSPONDER(Frequency / 1000, Transponder()))
+-                    sdtFilter->Trigger(Source);
+                  }
+                  break;
+             case SI::TerrestrialDeliverySystemDescriptorTag: {
+@@ -254,7 +264,6 @@
+                            dtp.SetTransmission(dtpc.Transmission());
+                            //
+                            int transponder = Channel->Transponder();
+-                           found = true;
+                            if (!ISTRANSPONDER(Frequency / 1000000, transponder)) {
+                               for (int n = 0; n < NumFrequencies; n++) {
+                                   if (ISTRANSPONDER(Frequencies[n] / 1000000, transponder)) {
+@@ -263,7 +272,10 @@
+                                      }
+                                   }
+                               }
+-                           if (ISTRANSPONDER(Frequency / 1000000, Transponder())) // only modify channels if we're actually receiving this transponder
++                           if (!ISTRANSPONDER(Frequency / 1000000, transponder))
++                              continue; // a channel with obsolete/wrong/other(?) transponder
++                           found = true;
++                           if (ISTRANSPONDER(transponder, Transponder())) // only modify channels if we're actually receiving this transponder
+                               ChannelsModified |= Channel->SetTransponderData(Source, Frequency, 0, dtp.ToString('T'));
+                            else if (strcmp(Channel->Parameters(), dtp.ToString('T')))
+                               forceTransponderUpdate = true; // get us receiving this transponder
+@@ -280,8 +292,6 @@
+                            }
+                        }
+                     }
+-                 if (ISTRANSPONDER(Frequency / 1000000, Transponder()))
+-                    sdtFilter->Trigger(Source);
+                  }
+                  break;
+             case SI::ExtensionDescriptorTag: {
+@@ -361,5 +371,9 @@
+           delete d;
+           }
+       }
++  if (nit.getSectionNumber() == nit.getLastSectionNumber()) {
++     dbgnit("    trigger sdtFilter for current tp %d\n", Transponder());
++     sdtFilter->Trigger(Source());
++     }
+   StateKey.Remove(ChannelsModified);
+ }
+diff -ruN vdr-2.4.0/osd.c vdr-2.4.1/osd.c
+--- vdr-2.4.0/osd.c	2018-04-06 10:43:15.000000000 +0200
++++ vdr-2.4.1/osd.c	2019-05-24 23:30:20.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 4.5 2018/04/06 08:43:15 kls Exp $
++ * $Id: osd.c 4.5.1.1 2019/05/24 21:30:20 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -1643,7 +1643,7 @@
+ int cOsd::osdTop = 0;
+ int cOsd::osdWidth = 0;
+ int cOsd::osdHeight = 0;
+-cSize cOsd::maxPixmapSize(2048, 2048);
++cSize cOsd::maxPixmapSize(INT_MAX, INT_MAX);
+ cVector<cOsd *> cOsd::Osds;
+ cMutex cOsd::mutex;
+ 
+diff -ruN vdr-2.4.0/osd.h vdr-2.4.1/osd.h
+--- vdr-2.4.0/osd.h	2017-11-02 15:59:19.000000000 +0100
++++ vdr-2.4.1/osd.h	2019-05-24 23:30:20.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.h 4.5 2017/11/02 14:59:19 kls Exp $
++ * $Id: osd.h 4.5.1.1 2019/05/24 21:30:20 kls Exp $
+  */
+ 
+ #ifndef __OSD_H
+@@ -833,6 +833,10 @@
+        ///< If this is a true color OSD, this function does nothing.
+   virtual const cSize &MaxPixmapSize(void) const;
+        ///< Returns the maximum possible size of a pixmap this OSD can create.
++       ///< Derived classes can reimplement this function if their implementation
++       ///< of cPixmap can only provide pixmaps up to a certain size.
++       ///< The default implementation returns a cSize object of maximal size
++       ///< (INT_MAX). However, memory restrictions may still apply.
+   virtual cPixmap *CreatePixmap(int Layer, const cRect &ViewPort, const cRect &DrawPort = cRect::Null);
+        ///< Creates a new true color pixmap on this OSD (see cPixmap for details).
+        ///< The caller must not delete the returned object, it will be deleted when
+diff -ruN vdr-2.4.0/pat.c vdr-2.4.1/pat.c
+--- vdr-2.4.0/pat.c	2016-12-23 15:02:07.000000000 +0100
++++ vdr-2.4.1/pat.c	2019-03-15 14:13:40.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.c 4.3 2016/12/23 14:02:07 kls Exp $
++ * $Id: pat.c 4.3.1.2 2019/03/15 13:13:40 kls Exp $
+  */
+ 
+ #include "pat.h"
+@@ -372,7 +372,8 @@
+                }
+            if (numPmtEntries > 0 && pmtIndex < 0)
+               pmtIndex = 0;
+-           Add(GetPmtPid(pmtIndex), SI::TableIdPMT);
++           if (pmtIndex >= 0)
++              Add(GetPmtPid(pmtIndex), SI::TableIdPMT);
+            patVersion = pat.getVersionNumber();
+            timer.Set(PMT_SCAN_TIMEOUT);
+            }
+@@ -544,6 +545,7 @@
+                          }
+                       // fall through
+               case 0x81: // STREAMTYPE_USER_PRIVATE
++              case 0x87: // eac3
+                       if (Setup.StandardCompliance == STANDARD_ANSISCTE) { // ATSC A/53 AUDIO (ANSI/SCTE 57)
+                          char lang[MAXLANGCODE1] = { 0 };
+                          SI::Descriptor *d;
+@@ -574,7 +576,8 @@
+                          break;
+                          }
+                       // fall through
+-              case 0x83 ... 0xFF: // STREAMTYPE_USER_PRIVATE
++              case 0x83 ... 0x86: // STREAMTYPE_USER_PRIVATE
++              case 0x88 ... 0xFF: // STREAMTYPE_USER_PRIVATE
+                       {
+                       char lang[MAXLANGCODE1] = { 0 };
+                       bool IsAc3 = false;
+diff -ruN vdr-2.4.0/peerdemo vdr-2.4.1/peerdemo
+--- vdr-2.4.0/peerdemo	2018-04-10 19:20:58.000000000 +0200
++++ vdr-2.4.1/peerdemo	2019-03-11 11:39:30.000000000 +0100
+@@ -37,7 +37,7 @@
+ $UdpPort = $DefaultSvdrpPort;
+ 
+ $TcpSocket = new IO::Socket::INET(Listen => 5, LocalPort => $TcpPort, Proto => "tcp", ReusePort => 1) || die "$!";
+-$UdpSocket = new IO::Socket::INET(             LocalPort => $UdpPort, Proto => "udp", ReusePort => 1) || die "$!";
++$UdpSocket = new IO::Socket::INET(             LocalPort => $UdpPort, Proto => "udp", ReuseAddr => 1) || die "$!";
+ $SvdrpSelect = new IO::Select($TcpSocket);
+ setsockopt($UdpSocket, SOL_SOCKET, SO_RCVTIMEO, pack('L!L!', 0, 1000)); # 1ms timeout on UDP socket
+ 
+diff -ruN vdr-2.4.0/recording.c vdr-2.4.1/recording.c
+--- vdr-2.4.0/recording.c	2018-03-17 11:56:13.000000000 +0100
++++ vdr-2.4.1/recording.c	2019-05-29 16:25:51.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 4.22 2018/03/17 10:56:13 kls Exp $
++ * $Id: recording.c 4.22.1.4 2019/05/29 14:25:51 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -99,27 +99,33 @@
+   if (LockFile.Lock()) {
+      time_t StartTime = time(NULL);
+      bool deleted = false;
++     bool interrupted = false;
+      LOCK_DELETEDRECORDINGS_WRITE;
+      for (cRecording *r = DeletedRecordings->First(); r; ) {
+          if (cIoThrottle::Engaged())
+-            return;
+-         if (time(NULL) - StartTime > MAXREMOVETIME)
+-            return; // don't stay here too long
+-         if (cRemote::HasKeys())
+-            return; // react immediately on user input
++            interrupted = true;
++         else if (time(NULL) - StartTime > MAXREMOVETIME)
++            interrupted = true; // don't stay here too long
++         else if (cRemote::HasKeys())
++            interrupted = true; // react immediately on user input
++         if (interrupted)
++            break;
+          if (r->Deleted() && time(NULL) - r->Deleted() > DELETEDLIFETIME) {
+             cRecording *next = DeletedRecordings->Next(r);
+             r->Remove();
+             DeletedRecordings->Del(r);
+             r = next;
+             deleted = true;
+-            continue;
+             }
+-         r = DeletedRecordings->Next(r);
++         else
++            r = DeletedRecordings->Next(r);
+          }
+      if (deleted) {
+-        const char *IgnoreFiles[] = { SORTMODEFILE, TIMERRECFILE, NULL };
+-        cVideoDirectory::RemoveEmptyVideoDirectories(IgnoreFiles);
++        cRecordings::TouchUpdate();
++        if (!interrupted) {
++           const char *IgnoreFiles[] = { SORTMODEFILE, TIMERRECFILE, NULL };
++           cVideoDirectory::RemoveEmptyVideoDirectories(IgnoreFiles);
++           }
+         }
+      }
+ }
+@@ -604,7 +610,7 @@
+                              char buf[4];
+                              sprintf(buf, "#%02X", (unsigned char)*p);
+                              memmove(p + 2, p, strlen(p) + 1);
+-                             strncpy(p, buf, 3);
++                             memcpy(p, buf, 3);
+                              p += 2;
+                              }
+                           else
+@@ -1022,9 +1028,9 @@
+ {
+   cRecording *r = (cRecording *)&ListObject;
+   if (Setup.RecSortingDirection == rsdAscending)
+-     return strcasecmp(SortName(), r->SortName());
++     return strcmp(SortName(), r->SortName());
+   else
+-     return strcasecmp(r->SortName(), SortName());
++     return strcmp(r->SortName(), SortName());
+ }
+ 
+ bool cRecording::IsInPath(const char *Path) const
+@@ -2492,14 +2498,14 @@
+ #define MAXINDEXCATCHUP    8 // number of retries
+ #define INDEXCATCHUPWAIT 100 // milliseconds
+ 
+-struct tIndexPes {
++struct __attribute__((packed)) tIndexPes {
+   uint32_t offset;
+   uchar type;
+   uchar number;
+   uint16_t reserved;
+   };
+ 
+-struct tIndexTs {
++struct __attribute__((packed)) tIndexTs {
+   uint64_t offset:40; // up to 1TB per file (not using off_t here - must definitely be exactly 64 bit!)
+   int reserved:7;     // reserved for future use
+   int independent:1;  // marks frames that can be displayed by themselves (for trick modes)
+@@ -2634,7 +2640,7 @@
+         IndexPes.type = uchar(IndexTs->independent ? 1 : 2); // I_FRAME : "not I_FRAME" (exact frame type doesn't matter)
+         IndexPes.number = uchar(IndexTs->number);
+         IndexPes.reserved = 0;
+-        memcpy(IndexTs, &IndexPes, sizeof(*IndexTs));
++        memcpy((void *)IndexTs, &IndexPes, sizeof(*IndexTs));
+         IndexTs++;
+         }
+ }
+@@ -2890,7 +2896,7 @@
+   // Prepare the file name:
+   fileName = MALLOC(char, strlen(FileName) + RECORDFILESUFFIXLEN);
+   if (!fileName) {
+-     esyslog("ERROR: can't copy file name '%s'", fileName);
++     esyslog("ERROR: can't copy file name '%s'", FileName);
+      return;
+      }
+   strcpy(fileName, FileName);
+diff -ruN vdr-2.4.0/remote.c vdr-2.4.1/remote.c
+--- vdr-2.4.0/remote.c	2015-01-20 15:53:57.000000000 +0100
++++ vdr-2.4.1/remote.c	2019-05-13 16:01:21.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.c 4.0 2015/01/20 14:53:57 kls Exp $
++ * $Id: remote.c 4.0.1.1 2019/05/13 14:01:21 kls Exp $
+  */
+ 
+ #include "remote.h"
+@@ -307,7 +307,7 @@
+ int cKbdRemote::ReadKey(void)
+ {
+   cPoller Poller(STDIN_FILENO);
+-  if (Poller.Poll(50)) {
++  if (Poller.Poll(Setup.RcRepeatDelta * 3 / 2)) {
+      uchar ch = 0;
+      int r = safe_read(STDIN_FILENO, &ch, 1);
+      if (r == 1)
+@@ -431,6 +431,11 @@
+            FirstCommand = 0;
+            FirstTime.Set();
+            }
++        else if (FirstCommand && FirstTime.Elapsed() > (uint)Setup.RcRepeatDelay) {
++           // Don't wait too long for that second key press:
++           Delayed = false;
++           FirstCommand = 0;
++           }
+         LastCommand = Command;
+         }
+ }
+diff -ruN vdr-2.4.0/remux.c vdr-2.4.1/remux.c
+--- vdr-2.4.0/remux.c	2017-04-29 14:25:09.000000000 +0200
++++ vdr-2.4.1/remux.c	2019-03-15 14:13:40.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 4.7 2017/04/29 12:25:09 kls Exp $
++ * $Id: remux.c 4.7.1.1 2019/03/15 13:13:40 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -839,9 +839,11 @@
+                       break;
+            case 0x81: // STREAMTYPE_USER_PRIVATE - AC3 audio for ATSC and BD
+            case 0x82: // STREAMTYPE_USER_PRIVATE - DTS audio for BD
++           case 0x87: // eac3
+                       {
+                       dbgpatpmt(" %s",
+                           stream.getStreamType() == 0x81 ? "AC3" :
++                          stream.getStreamType() == 0x87 ? "AC3" :
+                           stream.getStreamType() == 0x82 ? "DTS" : "");
+                       char lang[MAXLANGCODE1] = { 0 };
+                       SI::Descriptor *d;
+diff -ruN vdr-2.4.0/sections.c vdr-2.4.1/sections.c
+--- vdr-2.4.0/sections.c	2015-01-14 12:35:53.000000000 +0100
++++ vdr-2.4.1/sections.c	2019-05-28 17:55:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sections.c 4.0 2015/01/14 11:35:53 kls Exp $
++ * $Id: sections.c 4.0.1.1 2019/05/28 15:55:44 kls Exp $
+  */
+ 
+ #include "sections.h"
+@@ -44,7 +44,7 @@
+ {
+   shp = new cSectionHandlerPrivate;
+   device = Device;
+-  SetDescription("device %d section handler", device->CardIndex() + 1);
++  SetDescription("device %d section handler", device->DeviceNumber() + 1);
+   statusCount = 0;
+   on = false;
+   waitForLock = false;
+diff -ruN vdr-2.4.0/skins.c vdr-2.4.1/skins.c
+--- vdr-2.4.0/skins.c	2013-08-18 14:07:22.000000000 +0200
++++ vdr-2.4.1/skins.c	2019-05-29 18:49:48.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skins.c 4.0 2013/08/18 12:07:22 kls Exp $
++ * $Id: skins.c 4.0.1.2 2019/05/29 16:49:48 kls Exp $
+  */
+ 
+ #include "skins.h"
+@@ -250,7 +250,10 @@
+ eKeys cSkins::Message(eMessageType Type, const char *s, int Seconds)
+ {
+   if (!cThread::IsMainThread()) {
+-     dsyslog("cSkins::Message() called from background thread - ignored! (Use cSkins::QueueMessage() instead)");
++     if (Type != mtStatus)
++        QueueMessage(Type, s, Seconds);
++     else
++        dsyslog("cSkins::Message(%d, \"%s\", %d) called from background thread - ignored! (Use cSkins::QueueMessage() instead)", Type, s, Seconds);
+      return kNone;
+      }
+   switch (Type) {
+@@ -352,6 +355,14 @@
+      dsyslog("cSkins::ProcessQueuedMessages() called from background thread - ignored!");
+      return;
+      }
++  // Check whether there is a cSkinDisplay object (if any) that implements SetMessage():
++  if (cSkinDisplay *sd = cSkinDisplay::Current()) {
++     if (!(dynamic_cast<cSkinDisplayChannel *>(sd) ||
++           dynamic_cast<cSkinDisplayMenu *>(sd) ||
++           dynamic_cast<cSkinDisplayReplay *>(sd) ||
++           dynamic_cast<cSkinDisplayMessage *>(sd)))
++        return;
++     }
+   cSkinQueuedMessage *msg = NULL;
+   // Get the first waiting message:
+   queueMessageMutex.Lock();
+diff -ruN vdr-2.4.0/skins.h vdr-2.4.1/skins.h
+--- vdr-2.4.0/skins.h	2017-11-02 16:04:56.000000000 +0100
++++ vdr-2.4.1/skins.h	2019-05-29 18:49:48.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skins.h 4.5 2017/11/02 15:04:56 kls Exp $
++ * $Id: skins.h 4.5.1.1 2019/05/29 16:49:48 kls Exp $
+  */
+ 
+ #ifndef __SKINS_H
+@@ -477,6 +477,8 @@
+        ///< has been received within Seconds (the default value of 0 results
+        ///< in the value defined for "Message time" in the setup), kNone
+        ///< will be returned.
++       ///< If Message() is called from a background thread and Type is not
++       ///< mtStatus, the call will be automatically forwarded to QueueMessage().
+   int QueueMessage(eMessageType Type, const char *s, int Seconds = 0, int Timeout = 0);
+        ///< Like Message(), but this function may be called from a background
+        ///< thread. The given message is put into a queue and the main program
+diff -ruN vdr-2.4.0/svdrp.c vdr-2.4.1/svdrp.c
+--- vdr-2.4.0/svdrp.c	2018-03-19 13:16:33.000000000 +0100
++++ vdr-2.4.1/svdrp.c	2019-05-06 17:20:40.000000000 +0200
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 4.37 2018/03/19 12:16:33 kls Exp $
++ * $Id: svdrp.c 4.37.1.2 2019/05/06 15:20:40 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -508,9 +508,10 @@
+          int Code = SVDRPCode(s);
+          if (Code == 250)
+             strshift(s, 4);
++         else if (Code == 550)
++            Response.Clear();
+          else {
+-            if (Code != 550)
+-               esyslog("ERROR: %s: %s", ServerName(), s);
++            esyslog("ERROR: %s: %s", ServerName(), s);
+             return false;
+             }
+          }
+@@ -2036,6 +2037,7 @@
+         LOCK_TIMERS_WRITE;
+         Timers->SetExplicitModify();
+         if (cTimer *Timer = Timers->GetById(Id)) {
++           bool IsRecording = Timer->HasFlags(tfRecording);
+            cTimer t = *Timer;
+            if (strcasecmp(tail, "ON") == 0)
+               t.SetFlags(tfActive);
+@@ -2046,6 +2048,10 @@
+               return;
+               }
+            *Timer = t;
++           if (IsRecording)
++              Timer->SetFlags(tfRecording);
++           else
++              Timer->ClrFlags(tfRecording);
+            Timers->SetModified();
+            isyslog("SVDRP %s < %s modified timer %s (%s)", Setup.SVDRPHostName, *clientName, *Timer->ToDescr(), Timer->HasFlags(tfActive) ? "active" : "inactive");
+            Reply(250, "%d %s", Timer->Id(), *Timer->ToText(true));
+@@ -2478,12 +2484,18 @@
+      if (Timer->Parse(Option)) {
+         LOCK_TIMERS_WRITE;
+         if (cTimer *t = Timers->GetTimer(Timer)) {
++           bool IsRecording = t->HasFlags(tfRecording);
+            t->Parse(Option);
+            delete Timer;
+            Timer = t;
++           if (IsRecording)
++              Timer->SetFlags(tfRecording);
++           else
++              Timer->ClrFlags(tfRecording);
+            isyslog("SVDRP %s < %s updated timer %s", Setup.SVDRPHostName, *clientName, *Timer->ToDescr());
+            }
+         else {
++           Timer->ClrFlags(tfRecording);
+            Timers->Add(Timer);
+            isyslog("SVDRP %s < %s added timer %s", Setup.SVDRPHostName, *clientName, *Timer->ToDescr());
+            }
+diff -ruN vdr-2.4.0/timers.c vdr-2.4.1/timers.c
+--- vdr-2.4.0/timers.c	2018-03-17 11:07:19.000000000 +0100
++++ vdr-2.4.1/timers.c	2019-05-23 12:02:45.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 4.18 2018/03/17 10:07:19 kls Exp $
++ * $Id: timers.c 4.18.1.1 2019/05/23 10:02:45 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -819,7 +819,7 @@
+ 
+ int cTimers::GetMaxPriority(void) const
+ {
+-  int n = 0;
++  int n = -1;
+   for (const cTimer *ti = First(); ti; ti = Next(ti)) {
+       if (!ti->Remote() && ti->Recording())
+          n = max(n, ti->Priority());
+diff -ruN vdr-2.4.0/timers.h vdr-2.4.1/timers.h
+--- vdr-2.4.0/timers.h	2018-02-27 14:57:26.000000000 +0100
++++ vdr-2.4.1/timers.h	2019-05-23 12:02:45.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.h 4.11 2018/02/27 13:57:26 kls Exp $
++ * $Id: timers.h 4.11.1.1 2019/05/23 10:02:45 kls Exp $
+  */
+ 
+ #ifndef __TIMERS_H
+@@ -178,6 +178,7 @@
+   cTimer *GetMatch(const cEvent *Event, eTimerMatch *Match = NULL) { return const_cast<cTimer *>(static_cast<const cTimers *>(this)->GetMatch(Event, Match)); }
+   int GetMaxPriority(void) const;
+       ///< Returns the maximum priority of all local timers that are currently recording.
++      ///< If there is no local timer currently recording, -1 is returned.
+   const cTimer *GetNextActiveTimer(void) const;
+   const cTimer *UsesChannel(const cChannel *Channel) const;
+   bool SetEvents(const cSchedules *Schedules);
+diff -ruN vdr-2.4.0/vdr.c vdr-2.4.1/vdr.c
+--- vdr-2.4.0/vdr.c	2018-04-10 15:24:43.000000000 +0200
++++ vdr-2.4.1/vdr.c	2019-05-23 12:02:45.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 4.25 2018/04/10 13:24:43 kls Exp $
++ * $Id: vdr.c 4.25.1.5 2019/05/23 10:02:45 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -126,7 +126,25 @@
+ static bool DropCaps(void)
+ {
+   // drop all capabilities except selected ones
+-  cap_t caps = cap_from_text("= cap_sys_nice,cap_sys_time,cap_net_raw=ep");
++  cap_t caps_all = cap_get_proc();
++  if (!caps_all) {
++     fprintf(stderr, "vdr: cap_get_proc failed: %s\n", strerror(errno));
++     return false;
++     }
++  char *caps_text = cap_to_text(caps_all, NULL);
++  if (!caps_text) {
++     fprintf(stderr, "vdr: cap_to_text failed: %s\n", strerror(errno));
++     return false;
++     }
++  if (cap_free(caps_all)) {
++     fprintf(stderr, "vdr: cap_free failed: %s\n", strerror(errno));
++     return false;
++     }
++  cap_t caps;
++  if (strstr(caps_text,"cap_sys_time"))
++     caps = cap_from_text("= cap_sys_nice,cap_sys_time,cap_net_raw=ep");
++  else
++     caps = cap_from_text("= cap_sys_nice,cap_net_raw=ep");
+   if (!caps) {
+      fprintf(stderr, "vdr: cap_from_text failed: %s\n", strerror(errno));
+      return false;
+@@ -1164,7 +1182,9 @@
+           if (Timers->DeleteExpired())
+              TimersModified = true;
+           // Make sure there is enough free disk space for ongoing recordings:
+-          AssertFreeDiskSpace(Timers->GetMaxPriority());
++          int MaxPriority = Timers->GetMaxPriority();
++          if (MaxPriority >= 0)
++             AssertFreeDiskSpace(MaxPriority);
+           TimersStateKey.Remove(TimersModified);
+         }
+         // Recordings:
+@@ -1176,8 +1196,7 @@
+         if (!Menu && !cOsd::IsOpen())
+            Menu = CamControl();
+         // Queued messages:
+-        if (!Skins.IsOpen())
+-           Skins.ProcessQueuedMessages();
++        Skins.ProcessQueuedMessages();
+         // User Input:
+         cOsdObject *Interact = Menu ? Menu : cControl::Control();
+         eKeys key = Interface->GetKey(!Interact || !Interact->NeedsFastResponse());
+@@ -1515,9 +1534,7 @@
+               ShutdownHandler.countdown.Cancel();
+            }
+ 
+-        if ((Now - LastInteract) > ACTIVITYTIMEOUT && !cRecordControls::Active() && !RecordingsHandler.Active() && (Now - cRemote::LastActivity()) > ACTIVITYTIMEOUT) {
+-           // Handle housekeeping tasks
+-
++        if (!cControl::Control() && !cRecordControls::Active() && !RecordingsHandler.Active() && (Now - cRemote::LastActivity()) > ACTIVITYTIMEOUT) {
+            // Shutdown:
+            // Check whether VDR will be ready for shutdown in SHUTDOWNWAIT seconds:
+            time_t Soon = Now + SHUTDOWNWAIT;
+@@ -1536,13 +1553,15 @@
+               // Do this again a bit later:
+               ShutdownHandler.SetRetry(SHUTDOWNRETRY);
+               }
+-
+-           // Disk housekeeping:
+-           RemoveDeletedRecordings();
+-           ListGarbageCollector.Purge();
+-           cSchedules::Cleanup();
+-           // Plugins housekeeping:
+-           PluginManager.Housekeeping();
++           // Handle housekeeping tasks
++           if ((Now - LastInteract) > ACTIVITYTIMEOUT) {
++              // Disk housekeeping:
++              RemoveDeletedRecordings();
++              ListGarbageCollector.Purge();
++              cSchedules::Cleanup();
++              // Plugins housekeeping:
++              PluginManager.Housekeeping();
++              }
+            }
+ 
+         ReportEpgBugFixStats();

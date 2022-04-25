@@ -1,0 +1,714 @@
+diff -ruN vdr-1.4.5/CONTRIBUTORS vdr-1.4.6/CONTRIBUTORS
+--- vdr-1.4.5/CONTRIBUTORS	2007-01-04 14:38:40.000000000 +0100
++++ vdr-1.4.6/CONTRIBUTORS	2007-02-24 12:13:59.000000000 +0100
+@@ -360,6 +360,7 @@
+ Thilo Wunderlich <wunderlich@speedway.org>
+  for his help in keeping 'channels.conf' up to date
+  for reporting a problem with accessing the epg.data file before it is fully written
++ for updating satellite names in 'sources.conf'
+ 
+ Stephan Schreiber <stephan@sschreiber.de>
+  for his support in keeping the Premiere World channels up to date in 'channels.conf.cable'
+@@ -1014,7 +1015,7 @@
+  for reporting a bug in handling a channels.conf that contains a ":@nnn" line as
+  its last entry
+ 
+-Hermann Gausterer <mrq1@gmx.net>
++Hermann Gausterer <vdr@mrq1.org>
+  for suggesting to switch to the recording channel in case the current channel
+  becomes unavailable
+ 
+@@ -1114,6 +1115,9 @@
+  for changing the behaviour when hitting the end of a recording in fast forward mode
+  for suggesting to give the cRemote::CallPlugin() function a boolean return value
+  for fixing a possible crash in remux.c on 64-bit machines
++ for making cCommand::Execute() use cPipe instead of popen() to avoid problems
++ with open file handles when starting background commands
++ for fixing handling error status in cDvbTuner::GetFrontendStatus()
+ 
+ Richard Robson <richard_robson@beeb.net>
+  for reporting freezing replay if a timer starts while in Transfer Mode from the
+@@ -1387,6 +1391,7 @@
+  replay has been stopped
+  for reporting a problem with displaying the replay mode symbol in case of "Multi
+  speed mode"
++ for removing 'assert(0)' from cDvbSpuDecoder::setTime()
+ 
+ Jürgen Schmitz <j.schmitz@web.de>
+  for reporting a bug in displaying the current channel when switching via the SVDRP
+@@ -1692,6 +1697,7 @@
+ Martin Wache <M.Wache@gmx.net>
+  for adding a sleep in cDvbPlayer::Action() in case there is no data to send to the
+  device, which avoids a busy loop on very fast machines
++ for fixing a possible crash when loading an invalid XPM file
+ 
+ Matthias Lenk <matthias.lenk@amd.com>
+  for reporting an out-of-bounds memory access with audio language ids
+@@ -1720,6 +1726,7 @@
+  for reporting a bug in the initial setting of the time transponder setup parameter
+  for suggesting to extend the version number reported with the '-V' option to also
+  show the current APIVERSION
++ for fixing i18n characters for the Hungarian texts
+ 
+ David Woodhouse <dwmw2@infradead.org>
+  for his help in replacing the get/put_unaligned() macros from asm/unaligned.h with
+diff -ruN vdr-1.4.5/HISTORY vdr-1.4.6/HISTORY
+--- vdr-1.4.5/HISTORY	2007-01-07 14:47:19.000000000 +0100
++++ vdr-1.4.6/HISTORY	2007-03-03 16:57:20.000000000 +0100
+@@ -5028,3 +5028,22 @@
+ 2007-01-07: Version 1.4.5
+ 
+ - Official release.
++
++2007-01-28: Version 1.4.5-1
++
++- Fixed i18n characters for the Hungarian texts (thanks to Thomas Günther).
++- Now using cPipe instead of popen() in cCommand::Execute() to avoid problems
++  with open file handles when starting background commands (thanks to Reinhard
++  Nissl).
++
++2007-02-24: Version 1.4.5-2
++
++- Removed 'assert(0)' from cDvbSpuDecoder::setTime() (thanks to Marco Schlüßler).
++- Fixed a possible crash when loading an invalid XPM file (thanks to Martin Wache).
++- Updated satellite names in 'sources.conf' (thanks to Thilo Wunderlich).
++- Fixed handling error status in cDvbTuner::GetFrontendStatus() (thanks to
++  Reinhard Nissl).
++
++2007-03-03: Version 1.4.6
++
++- Updated the Finnish OSD texts (thanks to Rolf Ahrenberg).
+diff -ruN vdr-1.4.5/config.c vdr-1.4.6/config.c
+--- vdr-1.4.5/config.c	2006-07-22 13:57:51.000000000 +0200
++++ vdr-1.4.6/config.c	2007-01-26 14:32:19.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 1.146 2006/07/22 11:57:51 kls Exp $
++ * $Id: config.c 1.147 2007/01/26 13:32:19 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -67,8 +67,8 @@
+      asprintf(&cmdbuf, "%s %s", command, Parameters);
+   const char *cmd = cmdbuf ? cmdbuf : command;
+   dsyslog("executing command '%s'", cmd);
+-  FILE *p = popen(cmd, "r");
+-  if (p) {
++  cPipe p;
++  if (p.Open(cmd, "r")) {
+      int l = 0;
+      int c;
+      while ((c = fgetc(p)) != EOF) {
+@@ -78,7 +78,7 @@
+            }
+      if (result)
+         result[l] = 0;
+-     pclose(p);
++     p.Close();
+      }
+   else
+      esyslog("ERROR: can't open pipe for command '%s'", cmd);
+diff -ruN vdr-1.4.5/config.h vdr-1.4.6/config.h
+--- vdr-1.4.5/config.h	2007-01-07 14:45:19.000000000 +0100
++++ vdr-1.4.6/config.h	2007-02-25 13:09:29.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.282 2007/01/07 13:45:19 kls Exp $
++ * $Id: config.h 1.282.1.3 2007/02/25 12:09:29 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -21,8 +21,8 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.4.5"
+-#define VDRVERSNUM   10405  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.4.6"
++#define VDRVERSNUM   10406  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+diff -ruN vdr-1.4.5/dvbdevice.c vdr-1.4.6/dvbdevice.c
+--- vdr-1.4.5/dvbdevice.c	2006-08-14 11:38:32.000000000 +0200
++++ vdr-1.4.6/dvbdevice.c	2007-02-24 12:10:14.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.160 2006/08/14 09:38:32 kls Exp $
++ * $Id: dvbdevice.c 1.160.1.1 2007/02/24 11:10:14 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -157,15 +157,14 @@
+               ; // just to clear the event queue - we'll read the actual status below
+         }
+      }
+-  do {
+-     int stat = ioctl(fd_frontend, FE_READ_STATUS, &Status);
+-     if (stat == 0)
+-        return true;
+-     if (stat < 0) {
+-        if (errno == EINTR)
++  while (1) {
++        int stat = ioctl(fd_frontend, FE_READ_STATUS, &Status);
++        if (stat == 0)
++           return true;
++        if (stat < 0 && errno == EINTR)
+            continue;
++        break;
+         }
+-     } while (0);
+   return false;
+ }
+ 
+diff -ruN vdr-1.4.5/dvbspu.c vdr-1.4.6/dvbspu.c
+--- vdr-1.4.5/dvbspu.c	2006-04-17 14:45:05.000000000 +0200
++++ vdr-1.4.6/dvbspu.c	2007-02-03 11:13:18.000000000 +0100
+@@ -8,7 +8,7 @@
+  *
+  * parts of this file are derived from the OMS program.
+  *
+- * $Id: dvbspu.c 1.21 2006/04/17 12:45:05 kls Exp $
++ * $Id: dvbspu.c 1.22 2007/02/03 10:13:18 kls Exp $
+  */
+ 
+ #include "dvbspu.h"
+@@ -504,9 +504,8 @@
+                 default:
+                     esyslog("invalid sequence in control header (%.2x)",
+                             spu[i]);
+-                    assert(0);
+-                    i++;
+-                    break;
++                    Empty();
++                    return 0;
+                 }
+             }
+             if (fodd != 0 && feven != 0) {
+diff -ruN vdr-1.4.5/i18n.c vdr-1.4.6/i18n.c
+--- vdr-1.4.5/i18n.c	2006-10-14 11:26:41.000000000 +0200
++++ vdr-1.4.6/i18n.c	2007-02-25 13:08:26.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.285 2006/10/14 09:26:41 kls Exp $
++ * $Id: i18n.c 1.285.1.2 2007/02/25 12:08:26 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -119,7 +119,7 @@
+     "iso8859-7",
+     "iso8859-1",
+     "iso8859-2",
+-    "iso8859-1",
++    "iso8859-2",
+     "iso8859-1",
+     "iso8859-5",
+     "iso8859-2",
+@@ -231,7 +231,7 @@
+     "×ñïíïðñïãñáììáôéóìïß",
+     "Timers",
+     "Timer-e",
+-    "Idözítö",
++    "Idõzítõ",
+     "Temporitzadors",
+     "ÂÐÙÜÕàë",
+     "Termini",
+@@ -385,7 +385,7 @@
+     "Ôñïðïðïßçóç ÷ñïíïðñïãñáììáôéóìïý",
+     "Ändra timer",
+     "Modificare timer",
+-    "Idözítö megváltoztatása",
++    "Idõzítõ megváltoztatása",
+     "Editar temporitzador",
+     "ÃáâÐÝÞÒÚÐ âÐÙÜÕàÐ",
+     "Ureðivanje termina",
+@@ -694,7 +694,7 @@
+     "",// TODO
+     "Timer",
+     "Timer",
+-    "Idözítö",
++    "Idõzítõ",
+     "",// TODO
+     "ÂÐÙÜÕà",
+     "",// TODO
+@@ -936,7 +936,7 @@
+     "Åðüìåíï",
+     "Nästa",
+     "Urmãtor",
+-    "Következö",
++    "Következõ",
+     "Següent",
+     "´ÐÛÕÕ",
+     "Slijedi",
+@@ -1157,7 +1157,7 @@
+     "ÄéáãñáöÞ ÷ñïíïðñïãñáììáôéóìïý;?",
+     "Ta bort timern?",
+     "ªterg timer-ul?",
+-    "Idözítö törlése?",
++    "Idõzítõ törlése?",
+     "Esborrar el temporitzador?",
+     "ÃÔÐÛØâì âÐÙÜÕà?",
+     "Obrisati termin?",
+@@ -1377,7 +1377,7 @@
+     "ÁíáìÝíåôáé åããñáöÞ óÝ %ld ëåðôÜ - ÔåëéêÜ íá ôåñìáôéóôåß?",
+     "Inspelning startar om %ld minuter, vill du avsluta?",
+     "Înregistrez peste %ld minute - închid, totuºi?",
+-    "Felvétel %ld perc mulva kezdödik - mégis kikapcsolni?",
++    "Felvétel %ld perc mulva kezdõdik - mégis kikapcsolni?",
+     "Hi ha una gravació en %ld minuts - Apagar de totes maneres?",
+     "ÇÕàÕ× %ld ÜØÝãâ ÝÐçÝñâáï ×ÐßØáì - ÔÕÙáâÒØâÕÛìÝÞ ÒëÚÛîçØâì?",
+     "Snimanje za %ld minuta - svejedno iskljuèiti?",
+@@ -2149,7 +2149,7 @@
+     "Ðñþôç ìÝñá",
+     "Första dag",
+     "Prima zi",
+-    "Elsö nap",
++    "Elsõ nap",
+     "Primer dia",
+     "¿ÕàÒëÙ ÔÕÝì",
+     "Prvi dan",
+@@ -2172,7 +2172,7 @@
+     "Ôï êáíÜëç ÷ñéóéìïðïéåßôáé áðü ÷ñïíïðñïãñáììáôéóìü!",
+     "Kanalen används av en timer!",
+     "Canalul este utilizat de un timer!",
+-    "Az adót az idözítö használja!",
++    "Az adót az idõzítõ használja!",
+     "Canal en ús per un temporitzador!",
+     "ºÐÝÐÛ ×ÐÝïâ âÐÙÜÕàÞÜ!",
+     "Program je trenutno zauzet terminom za snimanje",
+@@ -2304,7 +2304,7 @@
+     "",//TODO
+     "strax VPS inspelning...",
+     "Urmeazã o înregistrare VPS!",
+-    "VPS-felvétel rögtön kezdödik!",
++    "VPS-felvétel rögtön kezdõdik!",
+     "",//TODO
+     "VPS-·ÐßØáì áÚÞàÞ ÝÐçÝÕâáï",
+     "",//TODO
+@@ -2348,7 +2348,7 @@
+     "Ôï êáíÜëç äÝí åßíáé äéáèÝóéìï!",
+     "Kanalen är inte tillgänglig!",
+     "Canal indisponibil",
+-    "Az adó nem elérhetö",
++    "Az adó nem elérhetõ",
+     "Canal no disponible!",
+     "ºÐÝÐÛ ÝÕÔÞáâãßÕÝ!",
+     "Program nije dostupan!",
+@@ -2370,7 +2370,7 @@
+     "Ïé ñéèìýóåéò ôïí êáíáëéþí áëëõëïóõìðßðôïõí!",
+     "Kanalinställningarna är ej unika!",
+     "Parametrii canalului nu sunt univoci!",
+-    "Az adóbeállítások nem egyértelmüek",
++    "Az adóbeállítások nem egyértelmûek",
+     "Propietats del canal duplicades!",
+     "½ÐáâàÞÙÚØ ÚÐÝÐÛÐ ÝÕ ãÝØÚÐÛìÝë!",
+     "Parametri programa nisu jednoznaèni!",
+@@ -2524,7 +2524,7 @@
+     "",//TODO
+     "Otillräcklingt diskutrymme för inspelning!",
+     "Insuficient spaþiul pe disc pentru înregistrare!",
+-    "Nincs elegendö hely a felvételre",
++    "Nincs elegendõ hely a felvételre",
+     "",//TODO
+     "½ÕÔÞáâÐâÞçÝÞ ÜÕáâÐ ÝÐ ÔØáÚÕ ÔÛï ÝÐçÐÛÐ ×ÐßØáØ",
+     "",//TODO
+@@ -3120,7 +3120,7 @@
+     "×ñüíïò Ýíäåéîçò ìõíçìÜôùí (ä)",
+     "Tid för meddelanden (sek)",
+     "Timp afiºare mesaje (sec)",
+-    "Információ feltüntetésének idötartama",
++    "Információ feltûntetésének idõtartama",
+     "Durada dels missatges (s)",
+     "´ÛØâÕÛìÝÞáâì ßÞÚÐ×Ð áÞÞÑéÕÝØÙ (áÕÚ)",
+     "Vrijeme prikaza poruka (s)",
+@@ -3142,7 +3142,7 @@
+     "×ñéóçìïðïßçóç ìéêñüí ãñáììáôïóåéñþí",
+     "Använd liten font",
+     "Utilizare fonturi mici",
+-    "Kisbetüt használni",
++    "Kisbetût használni",
+     "",// TODO
+     "¸áßÞÛì×ÞÒÐâì ÜÕÛÚØÙ èàØäâ",
+     "Koristi mala slova",
+@@ -3186,7 +3186,7 @@
+     "ÅîáñôÜôå áðü ôÞí åðéöÜíåéá",
+     "skin beroende",
+     "dep. de skin",
+-    "Menü nézetétöl függöen",
++    "Menü nézetétõl függõen",
+     "",// TODO
+     "áÞÓÛÐáÝÞ âÕÜÕ",
+     "ovisno o povr¹ini",
+@@ -3252,7 +3252,7 @@
+     "÷ñüíïò Ýíäåéêóçò ðëçñïöïñßùí êáíáëéïý óå (ä)",
+     "Kanal information (s)",
+     "Durata afiºãrii info-canal (s)",
+-    "Adásinformáció feltüntetésének idötartama (s)",
++    "Adásinformáció feltûntetésének idõtartama (s)",
+     "",// TODO
+     "¿ÞÚÐ× ØÝäÞàÜÐæØØ Þ ÚÐÝÐÛÕ (áÕÚ)",
+     "Vrijeme prikaza informacije o programu (s)",
+@@ -3406,7 +3406,7 @@
+     "×ñüíïò äéÜñêåéáò åîÝôáóçò EPG óå þñåò",
+     "EPG sökning timeout",
+     "Interval achiziþie EPG (h)",
+-    "Fennmaradt idö az EPG-újításig (h)",
++    "Fennmaradt idõ az EPG-újításig (h)",
+     "Màxim d'Hores a cercar per la Guia",
+     "·ÐÔÕàÖÚÐ áÚÐÝØàÞÒÐÝØï âÕÛÕÓØÔÐ (ç)",
+     "Vrijeme do EPG pregleda (h)",
+@@ -3472,7 +3472,7 @@
+     "Óõíôïíéóìüò þñáò õðïëïãéóôÞ",
+     "Ställ in systemtid",
+     "Potriveºte ceasul sistem",
+-    "Az idö beállítása",
++    "Az idõ beállítása",
+     "Ajustar l'hora del sistema",
+     "ÃáâÐÝÞÒØâì áØáâÕÜÝÞÕ ÒàÕÜï",
+     "Podesi vrijeme sistema",
+@@ -3494,7 +3494,7 @@
+     "Áíáìåôáäüôçò óõíôïíéóìïý þñáò",
+     "Använd klockan från transponder",
+     "Preia ora din transponder",
+-    "Idöhöz tartozó Transponder",
++    "Idõhöz tartozó Transponder",
+     "Usar el temps del múltiplex",
+     "¸áßÞÛì×ÞÒÐâì ÒàÕÜï âàÐÝáßÞÝÔÕàÐ",
+     "Transponder za pode¹avanje sata",
+@@ -3560,7 +3560,7 @@
+     "Êýñéá DVB êÜñôá",
+     "Primär DVB enhet",
+     "Dispozitiv DVB primar",
+-    "Elsö DVB interface",
++    "Elsõ DVB interface",
+     "Tarja DVB primària",
+     "¾áÝÞÒÝÞÕ DVB-ãáâàÞÙáâÒÞ",
+     "Primarni DVB ureðaj",
+@@ -3934,7 +3934,7 @@
+     "¢íù LNB-Óõ÷íüôçôá (MHz)",
+     "Övre LNB frekvens (MHz)",
+     "Frecvnþã LNB superioarã (MHz)",
+-    "Felsö LNB-frekvencia (MHZ)",
++    "Felsõ LNB-frekvencia (MHZ)",
+     "Freqüència LNB alta (MHz)",
+     "²ÕàåÝïï çÐáâÞâÐ ÚÞÝÒÕàâÕàÐ (¼³æ)",
+     "Gornja LNB frekv. (MHz)",
+@@ -4000,7 +4000,7 @@
+     "Ðñüóèåôïò ÷ñüíïò óôçí áñ÷Þ (ëåðôÜ)",
+     "Marginal för start (min)",
+     "Marjã la pornire (min)",
+-    "Idöeltolódás a kezdésnél (perc)",
++    "Idõeltolódás a kezdésnél (perc)",
+     "Marge d'inici de gravació (min)",
+     "¾ßÕàÕÖÕÝØÕ ÝÐçÐÛÐ ×ÐßØáØ (ÜØÝ)",
+     "Rezerva na poèetku snimanja (min)",
+@@ -4022,7 +4022,7 @@
+     "Ðñüóèåôïò ÷ñüíïò óôü ôÝëïò (ëåðôÜ)",
+     "Marginal för stopp (min)",
+     "Marjã la oprire (min)",
+-    "Idöeltolódás a befejezésnél (perc)",
++    "Idõeltolódás a befejezésnél (perc)",
+     "Marge de fi de gravació (min)",
+     "·ÐßÐ×ÔëÒÐÝØÕ ÞáâÐÝÞÒÚØ ×ÐßØáØ (ÜØÝ)",
+     "Rezerva na kraju (min)",
+@@ -4198,7 +4198,7 @@
+     "Ðåñéèþñéï VPS (ä)",
+     "VPS marginal (s)",
+     "Marjã de timp la utilizare VPS (s)",
+-    "Idöeltolódás VPS-nél (s)",
++    "Idõeltolódás VPS-nél (s)",
+     "",// TODO
+     "±ãäÕàÝÞÕ ÒàÕÜï VPS (áÕÚ)",
+     "Vremenska rezerva kod VPS (s)",
+@@ -4264,7 +4264,7 @@
+     "ÄéÜñêåéá óôãìéáßáò åããñáöÞò (ëåðôÜ)",
+     "Direktinspelning längd (min)",
+     "Timpul de înregistare imediatã (min)",
+-    "Felvétel idötartama (perc)",
++    "Felvétel idõtartama (perc)",
+     "Temps de gravació instantània (min)",
+     "´ÛØâÕÛìÝÞáâì àãçÝÞÙ ×ÐßØáØ (ÜØÝ)",
+     "Trajanje direktnog snimanja (min)",
+@@ -4396,7 +4396,7 @@
+     "ÅëÜ÷éóôïò ÷ñÜíïò ðáñåìâïëÞò (ëåðôÜ)",
+     "Minsta händelse-pause (min)",
+     "Duratã minimã emisiuni (min)",
+-    "Idözitések közötti idötartam (perc)",
++    "Idõzitések közötti idõtartam (perc)",
+     "Temps mínim en pausa (min)",
+     "¼ØÝ. ÒàÕÜï ÞÖØÔÐÝØï áÞÑëâØï (ÜØÝ)",
+     "Minimalno vrijeme pauze",
+@@ -4506,7 +4506,7 @@
+     "",// TODO
+     "Ljudstyrka vid uppstart",
+     "Volumul la pornire",
+-    "Hangerö a bekapcsolásnál",
++    "Hangerõ a bekapcsolásnál",
+     "",// TODO
+     "³àÞÜÚÞáâì ßàØ ÒÚÛîçÕÝØØ",
+     "",// TODO
+@@ -4528,7 +4528,7 @@
+     "",// TODO
+     "som förut",
+     "ca mai înainte",
+-    "ahogy az elöbb",
++    "ahogy az elõbb",
+     "",// TODO
+     "ÚÐÚ àÐÝìèÕ",
+     "",// TODO
+@@ -4596,7 +4596,7 @@
+     " áÜâãäåÝæçÞèéßêëìíîïüðñóòôõýö÷øùþ0123456789-.#~,/_@abcdefghijklmnopqrstuvwxyz",
+     " abcdefghijklmnopqrstuvwxyzåäö0123456789-.#~,/_@",
+     " aãâbcdefghiîjklmnopqrsºtþuvwxyz0123456789-.#~,/_@",
+-    " aábcdeéfghiíjklmnoóö¿pqrstuúü¿vwxyz0123456789-.,#~,/_@",
++    " aábcdeéfghiíjklmnoóöõpqrstuúüûvwxyz0123456789-.,#~,/_@",
+     " aàbcçdeéèfghiíjklmnoòpqrstuúvwxyz0123456789-.,#~,/_@·",
+     " abcdefghijklmnopqrstuvwxyzÐÑÒÓÔÕñÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìîï0123456789-.#~,/_@",
+     " abcèædðefghijklmnopqrs¹tuvwxyz¾0123456789-.#~,/_@", // hrv
+@@ -4619,7 +4619,7 @@
+     "",//TODO
+     " 0\t-.#~,/_@1\tabcåä2\tdef3\tghi4\tjkl5\tmnoö6\tpqrs7\ttuv8\twxyz",
+     " 0\t-.#~,/_@1\taãâbc2\tdef3\tghiî4\tjkl5\tmno6\tpqrsº7\ttþuv8\twxyz9",
+-    " 0\t-.#~,/_@1\taábc2\tdeé3\tghií4\tjkl5\tmnoóö¿6\tpqrs7\ttuúü¿v8\twxyz9",
++    " 0\t-.#~,/_@1\taábc2\tdeéf3\tghií4\tjkl5\tmnoóöõ6\tpqrs7\ttuúüûv8\twxyz9",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -4664,7 +4664,7 @@
+     "ÖÜóç 1: Áíß÷íåõóç êþäéêá RC",
+     "Steg1: identifiering av kod",
+     "Faza 1: Detecþia tipului telecomenzii",
+-    "Elsö lépés: távirányító kódjának meghatározása",
++    "Elsõ lépés: távirányító kódjának meghatározása",
+     "Fase 1: Detectant el tipus de receptor",
+     "ÈÐÓ 1: ¾ßàÕÔÕÛÕÝØÕ âØßÐ ÚÞÔÐ ßãÛìâÐ",
+     "Faza 1: detektiranje kôda daljinskog upravljaèa.",
+@@ -5303,7 +5303,7 @@
+     "Ðñïþèçóç åìðñüò",
+     "Snabbspolning framåt",
+     "Derulare înainte",
+-    "Elöre pörgetni",
++    "Elõre pörgetni",
+     "Endavant ràpidament",
+     "¿àÞÚàãâÚÐ ÒßÕàñÔ",
+     "Naprijed",
+@@ -5347,7 +5347,7 @@
+     "",// TODO
+     "Nästa",
+     "Urmãtor",
+-    "Elöre",
++    "Elõre",
+     "",// TODO
+     "²ßÕàÕÔ",
+     "",// TODO
+@@ -5385,7 +5385,7 @@
+     "Ligar",
+     "Arrêt",
+     "Power",
+-    "Virtakytkin",
++    "Virta",
+     "Wy³±cz",
+     "Apagar",
+     "Këåßóéìï",
+@@ -5457,7 +5457,7 @@
+     "",// TODO
+     "Förra kanalen",
+     "Canal anterior",
+-    "Az elözö adás",
++    "Az elõzõ adás",
+     "",// TODO
+     "¿àÕÔëÔãéØÙ ÚÐÝÐÛ",
+     "",// TODO
+@@ -5479,7 +5479,7 @@
+     "¸íôáóç+",
+     "Volym+",
+     "Volum+",
+-    "Hangerö+",
++    "Hangerõ+",
+     "Volum +",
+     "³àÞÜÚÞáâì +",
+     "Glasnije", // hrv "Glasnocca +"
+@@ -5501,7 +5501,7 @@
+     "¸íôáóç-",
+     "Volym-",
+     "Volum-",
+-    "Hangerö-",
++    "Hangerõ-",
+     "Volum -",
+     "³àÞÜÚÞáâì -",
+     "Ti¹e", // hrv Glasnocca -"
+@@ -5517,7 +5517,7 @@
+     "Sem som",
+     "Coupure du son",
+     "Lyd av",
+-    "Äänetön",
++    "Mykistys",
+     "Wycisz",
+     "Mudo",
+     "Óéùðçëü",
+@@ -5788,7 +5788,7 @@
+     "¸íôáóç ",
+     "Volym ",
+     "Volum ",
+-    "Hangerö",
++    "Hangerõ",
+     "Volum ",
+     "³àÞÜÚÞáâì ",
+     "Glasnoæa ",
+@@ -6008,7 +6008,7 @@
+     "ÐÜãùìá æùíôáíïý óÞìáôïò",
+     "Pausar direktinspelningen",
+     "Trec în pauzã emisiunea transmisã...",
+-    "Az élö adás megállítva...",
++    "Az élõ adás megállítva...",
+     "Pausa d'emissió en directe...",
+     "ÀÕÖØÜ ÞâÛÞÖÕÝÝÞÓÞ ßàÞáÜÞâàÐ...",
+     "Zaustavljanje ¾ivog signala...",
+diff -ruN vdr-1.4.5/osd.c vdr-1.4.6/osd.c
+--- vdr-1.4.5/osd.c	2006-02-26 15:31:31.000000000 +0100
++++ vdr-1.4.6/osd.c	2007-02-17 17:05:52.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 1.67 2006/02/26 14:31:31 kls Exp $
++ * $Id: osd.c 1.68 2007/02/17 16:05:52 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -218,14 +218,17 @@
+                  int w, h, n, c;
+                  if (4 != sscanf(s, "%d %d %d %d", &w, &h, &n, &c)) {
+                     esyslog("ERROR: faulty 'values' line in XPM file '%s'", FileName);
++                    isXpm = false;
+                     break;
+                     }
+                  lines = h + n + 1;
+                  Xpm = MALLOC(char *, lines);
++                 memset(Xpm, 0, lines * sizeof(char*));
+                  }
+               char *q = strchr(s, '"');
+               if (!q) {
+                  esyslog("ERROR: missing quotes in XPM file '%s'", FileName);
++                 isXpm = false;
+                  break;
+                  }
+               *q = 0;
+@@ -233,16 +236,21 @@
+                  Xpm[index++] = strdup(s);
+               else {
+                  esyslog("ERROR: too many lines in XPM file '%s'", FileName);
++                 isXpm = false;
+                  break;
+                  }
+               }
+            }
+-     if (index == lines)
+-        Result = SetXpm(Xpm);
+-     else
+-        esyslog("ERROR: too few lines in XPM file '%s'", FileName);
+-     for (int i = 0; i < index; i++)
+-         free(Xpm[i]);
++     if (isXpm) {
++        if (index == lines)
++           Result = SetXpm(Xpm);
++        else
++           esyslog("ERROR: too few lines in XPM file '%s'", FileName);
++        }
++     if (Xpm) {
++        for (int i = 0; i < index; i++)
++            free(Xpm[i]);
++        }
+      free(Xpm);
+      fclose(f);
+      }
+diff -ruN vdr-1.4.5/sources.conf vdr-1.4.6/sources.conf
+--- vdr-1.4.5/sources.conf	2006-06-15 12:02:28.000000000 +0200
++++ vdr-1.4.6/sources.conf	2007-02-17 17:15:13.000000000 +0100
+@@ -38,7 +38,7 @@
+ S39E    Hellas Sat 2
+ S40E    Express AM1
+ S42E    Turksat 1C/2A
+-S45E    PAS 12
++S45E    Intelsat 12
+ S49E    Yamal 202
+ S53E    Express AM 22
+ S55E    Insat 3E & Intelsat 702
+@@ -48,9 +48,9 @@
+ S62E    Intelsat 902
+ S64E    Intelsat 906
+ S66E    Intelsat 704
+-S68.5E  PAS 7/10
++S68.5E  Intelsat 7/10
+ S70.5E  Eutelsat W5
+-S72E    PAS 4
++S72E    Intelsat 4
+ 
+ # Asia
+ 
+@@ -98,8 +98,8 @@
+ S160E   Optus B1
+ S162E   Superbird B2
+ S164E   Optus A3
+-S166E   PAS 8
+-S169E   PAS 2
++S166E   Intelsat 8
++S169E   Intelsat 2
+ S172E   AMC 23
+ S180E   Intelsat 701
+ S177W   NSS 5
+@@ -125,12 +125,12 @@
+ S34.5W  Intelsat 903
+ S37.5W  Telstar 11 & AMC 12
+ S40.5W  NSS 806
+-S43W    PAS 3R/6B
+-S45W    PAS 1R
++S43W    Intelsat 3R/6B
++S45W    Intelsat 1R
+ S50W    Intelsat 705
+ S53W    Intelsat 707
+ S55.5W  Intelsat 805
+-S58W    PAS 9
++S58W    Intelsat 9
+ S61W    Amazonas
+ 
+ # America
+@@ -151,13 +151,13 @@
+ S85W    AMC 2
+ S85.1W  XM 3
+ S87W    AMC3
+-S89W    Intelsat Americas 8
++S89W    Galaxy 28
+ S91W    Galaxy 11 & Nimiq 1
+ S91.5W  DirecTV 2
+ S92W    Brasilsat B4
+-S93W    Intelsat Americas 6
++S93W    Galaxy 26
+ S95W    Galaxy 3C
+-S97W    Intelsat Americas 5
++S97W    Galaxy 25
+ S99W    Galaxy 4R
+ S99.2W  Spaceway 2
+ S101W   DirecTV 1R/4S/8 & AMC4
+@@ -168,11 +168,11 @@
+ S111.1W Anik F2
+ S113W   Solidaridad 2
+ S119W   Echostar 7 & DirecTV 7S
+-S121W   Echostar 9 & Intelsat Americas 13
++S121W   Echostar 9 & Galaxy 23
+ S123W   Galaxy 10R
+ S125W   Galaxy 14
+ S127W   Galaxy 13/Horizons 1
+-S129W   Echostar 5 & Intelsat Americas 7
++S129W   Echostar 5 & Galaxy 27
+ S131W   AMC 11
+ S133W   Galaxy15/1R
+ S135W   AMC 10

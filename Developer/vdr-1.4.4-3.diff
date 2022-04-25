@@ -1,0 +1,206 @@
+diff -ruN vdr-1.4.4-2/CONTRIBUTORS vdr-1.4.4-3/CONTRIBUTORS
+--- vdr-1.4.4-2/CONTRIBUTORS	2006-12-03 17:52:19.000000000 +0100
++++ vdr-1.4.4-3/CONTRIBUTORS	2007-01-04 14:38:40.000000000 +0100
+@@ -1477,6 +1477,8 @@
+  false and not actually kill the thread if the special value -1 is given
+  or fixing a possible segfault in cSkins::Message()
+  for some hints on how to improve handling cPluginManager::Active()
++ for fixing a possible segfault if VDR gets terminated while a message is displayed
++ for reporting an error in the INSTALL section on retrying shutdown later
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -2014,6 +2016,8 @@
+ Frank Schmirler <vdr@schmirler.de>
+  for fixing handling client side termination of SVDRP connections
+  for fixing assigning schedules to channels in case there is no initial EPG information
++ for making entering text via the numeric keys check the characters against the
++ allowed characters
+ 
+ Jörn Reder <joern@zyn.de>
+  for reporting that a recording may unnecessarily block a device with a CAM, while
+diff -ruN vdr-1.4.4-2/HISTORY vdr-1.4.4-3/HISTORY
+--- vdr-1.4.4-2/HISTORY	2006-12-03 17:51:36.000000000 +0100
++++ vdr-1.4.4-3/HISTORY	2007-01-05 11:09:22.000000000 +0100
+@@ -5006,7 +5006,7 @@
+   and waiting for 5 minutes before calling it again (thanks to Jörg Wendel for
+   reporting that cPlugin::Active() was called too often, and to Udo Richter for
+   some hints on how to improve this).
+-- Replaced 'unsigned long long' with 'uint32_t' and 'uint64' with 'uint64_t' to
++- Replaced 'unsigned long' with 'uint32_t' and 'uint64' with 'uint64_t' to
+   avoid problems on 64-bit machines.
+ 
+ 2006-12-03: Version 1.4.4-2
+@@ -5015,3 +5015,12 @@
+ - Added a compatibility define for 'uint64' to tools.h, so that existing
+   plugins don't need to be modified immediately (reported by Suur Karu).
+   This will be removed in version 1.5.
++
++2007-01-05: Version 1.4.4-3
++
++- Fixed a possible segfault if VDR gets terminated while a message is displayed
++  (thanks to Udo Richter).
++- Fixed the INSTALL section on retrying shutdown later (reported by Udo Richter).
++- When entering text via the numeric keys, the characters are now checked against
++  the allowed characters (thanks to Frank Schmirler).
++- Added a missing break statement in cCiHandler::OpenSession().
+diff -ruN vdr-1.4.4-2/INSTALL vdr-1.4.4-3/INSTALL
+--- vdr-1.4.4-2/INSTALL	2006-07-30 12:57:25.000000000 +0200
++++ vdr-1.4.4-3/INSTALL	2007-01-04 14:22:01.000000000 +0100
+@@ -199,9 +199,8 @@
+ Before the shutdown program is called, the user will be prompted to inform
+ him that the system is about to shut down. If any remote control key is
+ pressed while this prompt is visible, the shutdown will be cancelled (and
+-tried again after another MinUserInactivity minutes). The shutdown prompt
+-will be displayed for 5 minutes, which should be enough time for the user
+-to react.
++tried again later). The shutdown prompt will be displayed for 5 minutes, which
++should be enough time for the user to react.
+ 
+ A sample shell script to be used with the '-s' option might look like this:
+ 
+diff -ruN vdr-1.4.4-2/ci.c vdr-1.4.4-3/ci.c
+--- vdr-1.4.4-2/ci.c	2006-08-20 13:38:33.000000000 +0200
++++ vdr-1.4.4-3/ci.c	2007-01-05 11:08:46.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 1.45 2006/08/20 11:38:33 kls Exp $
++ * $Id: ci.c 1.46 2007/01/05 10:08:46 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -1607,6 +1607,7 @@
+                  }
+               esyslog("ERROR: can't create session for resource identifier: %08X", ResourceId);
+             }
++            break;
+        default: esyslog("ERROR: unknown resource identifier: %08X", ResourceId);
+        }
+      }
+diff -ruN vdr-1.4.4-2/config.h vdr-1.4.4-3/config.h
+--- vdr-1.4.4-2/config.h	2006-12-03 17:44:29.000000000 +0100
++++ vdr-1.4.4-3/config.h	2007-01-04 13:52:22.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.280 2006/12/03 16:44:29 kls Exp $
++ * $Id: config.h 1.281 2007/01/04 12:52:22 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -21,7 +21,7 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.4.4-2"
++#define VDRVERSION  "1.4.4-3"
+ #define VDRVERSNUM   10404  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+diff -ruN vdr-1.4.4-2/menuitems.c vdr-1.4.4-3/menuitems.c
+--- vdr-1.4.4-2/menuitems.c	2006-07-30 11:09:30.000000000 +0200
++++ vdr-1.4.4-3/menuitems.c	2007-01-04 14:30:37.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.c 1.47 2006/07/30 09:09:30 kls Exp $
++ * $Id: menuitems.c 1.48 2007/01/04 13:30:37 kls Exp $
+  */
+ 
+ #include "menuitems.h"
+@@ -461,13 +461,6 @@
+                           AdvancePos();
+                        currentChar = NULL;
+                        }
+-                    if (insert && newchar) {
+-                       // create a new character in insert mode
+-                       if (int(strlen(value)) < length - 1) {
+-                          memmove(value + pos + 1, value + pos, strlen(value) - pos + 1);
+-                          value[pos] = ' ';
+-                          }
+-                       }
+                     if (!currentChar || !*currentChar || *currentChar == '\t') {
+                        // find the beginning of the character map entry for Key
+                        int n = NORMALKEY(Key) - k0;
+@@ -476,15 +469,28 @@
+                              if (*currentChar++ == '\t')
+                                 n--;
+                              }
++                       // find first allowed character
++                       while (*currentChar && *currentChar != '\t' && !strchr(allowed, *currentChar))
++                             currentChar++;
+                        }
+                     if (*currentChar && *currentChar != '\t') {
++                       if (insert && newchar) {
++                          // create a new character in insert mode
++                          if (int(strlen(value)) < length - 1) {
++                             memmove(value + pos + 1, value + pos, strlen(value) - pos + 1);
++                             value[pos] = ' ';
++                             }
++                          }
+                        value[pos] = *currentChar;
+                        if (uppercase)
+                           value[pos] = toupper(value[pos]);
+-                       currentChar++;
++                       // find next allowed character
++                       do {
++                          currentChar++;
++                          } while (*currentChar && *currentChar != '\t' && !strchr(allowed, *currentChar));
++                       newchar = false;
++                       autoAdvanceTimeout.Set(AUTO_ADVANCE_TIMEOUT);
+                        }
+-                    newchar = false;
+-                    autoAdvanceTimeout.Set(AUTO_ADVANCE_TIMEOUT);
+                     }
+                  else
+                     return cMenuEditItem::ProcessKey(Key);
+diff -ruN vdr-1.4.4-2/skins.c vdr-1.4.4-3/skins.c
+--- vdr-1.4.4-2/skins.c	2006-12-01 14:32:37.000000000 +0100
++++ vdr-1.4.4-3/skins.c	2007-01-04 14:08:55.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skins.c 1.12 2006/12/01 13:32:37 kls Exp $
++ * $Id: skins.c 1.13 2007/01/04 13:08:55 kls Exp $
+  */
+ 
+ #include "skins.h"
+@@ -358,3 +358,12 @@
+   if (cSkinDisplay::Current())
+      cSkinDisplay::Current()->Flush();
+ }
++
++void cSkins::Clear(void)
++{
++  if (displayMessage) {
++     delete displayMessage;
++     displayMessage = NULL;
++     }
++  cList<cSkin>::Clear();
++}
+diff -ruN vdr-1.4.4-2/skins.h vdr-1.4.4-3/skins.h
+--- vdr-1.4.4-2/skins.h	2006-06-03 12:21:45.000000000 +0200
++++ vdr-1.4.4-3/skins.h	2007-01-04 14:08:55.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skins.h 1.14 2006/06/03 10:21:45 kls Exp $
++ * $Id: skins.h 1.15 2007/01/04 13:08:55 kls Exp $
+  */
+ 
+ #ifndef __SKINS_H
+@@ -360,6 +360,8 @@
+        ///< Processes the first queued message, if any.
+   void Flush(void);
+        ///< Flushes the currently active cSkinDisplay, if any.
++  virtual void Clear(void);
++       ///< Free up all registered skins
+   };
+ 
+ extern cSkins Skins;

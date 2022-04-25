@@ -1,0 +1,5970 @@
+diff -ruN vdr-1.7.9/CONTRIBUTORS vdr-1.7.10/CONTRIBUTORS
+--- vdr-1.7.9/CONTRIBUTORS	2009-08-16 17:32:39.000000000 +0200
++++ vdr-1.7.10/CONTRIBUTORS	2009-11-22 15:29:33.000000000 +0100
+@@ -1,7 +1,7 @@
+ Tons of suggestions, bugreports, patches and other contributions have been
+ provided by the people on the 'linux-dvb' and 'vdr' mailing lists
+ Special thanks go to the following individuals (if your name is missing here,
+-please send an email to kls@cadsoft.de):
++please send an email to kls@tvdr.de):
+ 
+ Carsten Koch <Carsten.Koch@icem.de>
+  for adding LIRC support
+@@ -526,7 +526,7 @@
+ Onno Kreuzinger <ok@solutas.net>
+  for reporting leftover references to the file FORMATS in MANUAL and svdrp.c
+ 
+-Rudi Hofer (Rudi.Hofer@cadsoft.de)
++Rudi Hofer (Rudi.Hofer@gmx.de)
+  for his help in keeping 'channels.conf' up to date
+ 
+ Gregoire Favre <greg@ulima.unil.ch>
+@@ -1081,6 +1081,8 @@
+  for adding a note about the meaning of PERCENTAGEDELTA in cRingBuffer::UpdatePercentage()
+  for fixing handling file name length on VFAT systems in case they
+  contain UTF-8 characters
++ for fixing wrong bracketing in cChannel::SubtitlingType() etc.
++ for fixing handling DVB subtitles for PES recordings
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1573,6 +1575,7 @@
+  for fixing a missing ',' in the Greek OSD texts
+  for fixing a missing ',' in the Swedish OSD texts
+  for reporting problems with CAMs when checking the CAM status too frequently
++ for reporting references to old *.vdr file names in MANUAL
+ 
+ Milos Kapoun <m.kapoun@cra.cz>
+  for suggesting to skip code table info in SI data
+@@ -2270,6 +2273,7 @@
+  for fixing handling the 'pointer field' in generating and parsing PAT/PMT
+  for suggesting to use an "instance id" instead of the "resume id" to distinguish
+  recordings of the same broadcast made by different instances of VDR
++ for fixing EntriesOnSameFileSystem() to avoid using f_fsid, which may be 0
+ 
+ Jˆrn Reder <joern@zyn.de>
+  for reporting that a recording may unnecessarily block a device with a CAM, while
+@@ -2361,6 +2365,7 @@
+ 
+ Diego Pierotto <vdr-italian@tiscali.it>
+  for translating OSD texts to the Italian language
++ for reporting a wrong default value for "Pause key handling" in the MANUAL
+ 
+ Timo Eskola <timo@tolleri.net>
+  for implementing sending all frames to devices that can handle them in fast forward
+@@ -2489,3 +2494,23 @@
+ 
+ Mikko Tuumanen <mikko.tuumanen@utu.fi>
+  for implementing full handling of subtitling descriptors
++
++Timothy D. Lenz <tlenz@vorgon.com>
++ for reporting a problem with logging changes for channels that
++ have no number
++
++Valdemaras Pipiras <valdemaras@ambernet.lt>
++ for translating OSD texts to the Lithuanian language
++
++Manuel Reimer <Manuel.Reimer@gmx.de>
++ for fixing saving terminal settings when running in background
++
++Rene van den Braken <rene@vandenbraken.name>
++ for reporting a bug in writing the PCR pid into the PMT in
++ cPatPmtGenerator::GeneratePmt()
++
++Milan Hrala <hrala.milan@gmail.com>
++ for translating OSD texts to the Slovakian language
++
++Andreas Schaefers <andreas_schaefers@gmx.de>
++ for adding the audio id to the call of PlayAudio() in cDevice::PlayTsAudio()
+diff -ruN vdr-1.7.9/HISTORY vdr-1.7.10/HISTORY
+--- vdr-1.7.9/HISTORY	2009-08-23 15:21:39.000000000 +0200
++++ vdr-1.7.10/HISTORY	2009-11-22 15:29:14.000000000 +0100
+@@ -922,7 +922,7 @@
+   give the user some feedback in case this takes longer.
+ - Status messages are now displayed centered.
+ - Removed the 'Tools' subdirectory from the VDR archive. All contributed tools
+-  can now be found at ftp://ftp.cadsoft.de/pub/people/kls/vdr/Tools.
++  can now be found at ftp://ftp.tvdr.de/vdr/Tools.
+ 
+ 2002-01-29: Version 0.99pre3
+ 
+@@ -5839,14 +5839,14 @@
+   DVB API in the kernel (based on patches from Igor M. Liplianin, Niels Wagenaar
+   and Edgar Hucek). VDR now uses the S2API driver from http://linuxtv.org/hg/v4l-dvb.
+   In order to correctly detect DVB-S2 capable devices, you need to apply the patch
+-  from ftp://ftp.cadsoft.de/vdr/Developer/v4l-dvb-s2api-add-s2-capability.diff to
++  from ftp://ftp.tvdr.de/vdr/Developer/v4l-dvb-s2api-add-s2-capability.diff to
+   the driver source, because the S2API doesn't provide a way of telling whether a
+   device can handle DVB-S2 transponders.
+ - The cDvbTuner::IsTunedTo() function now also checks the symbol rate in case of
+   DVB-S and DVB-C.
+ - Improved handling PES video packets with zero length when converting from TS to PES.
+   For good replay in Transfer Mode on full featured DVB cards you may want to apply
+-  the patch from ftp://ftp.cadsoft.de/vdr/Developer/av7110_v4ldvb_api5_audiobuf_test_1.diff
++  the patch from ftp://ftp.tvdr.de/vdr/Developer/av7110_v4ldvb_api5_audiobuf_test_1.diff
+   to the driver (thanks to Oliver Endriss).
+ 
+ 2009-01-06: Version 1.7.3
+@@ -5918,7 +5918,7 @@
+   flag is now in the driver, anyway.
+ - The full-featured DVB cards are now given the TS data directly for replay
+   (thanks to Oliver Endriss for enhancing the av7110 driver to make it replay
+-  TS data). The patch from ftp://ftp.cadsoft.de/vdr/Developer/av7110_ts_replay__1.diff
++  TS data). The patch from ftp://ftp.tvdr.de/vdr/Developer/av7110_ts_replay__1.diff
+   implements this change in the driver.
+   The patch av7110_v4ldvb_api5_audiobuf_test_1.diff mentioned in version 1.7.2
+   is still necessary to avoid audio and video glitches on some channels.
+@@ -6156,3 +6156,43 @@
+ - Increased the value of MAXFRAMESIZE to better suit HD recordings (thanks to
+   Reinhard Nissl).
+ - Implemented full handling of subtitling descriptors (thanks to Mikko Tuumanen).
++
++2009-11-22: Version 1.7.10
++
++- Updated the Italian OSD texts (thanks to Diego Pierotto).
++- Fixed wrong bracketing in cChannel::SubtitlingType() etc.
++  (thanks to Rolf Ahrenberg).
++- Fixed not logging changes for channels that have no number
++  (reported by Timothy D. Lenz).
++- Changed the project's URLs and email to tvdr.de.
++- Added Lithuanian language translations (thanks to Valdemaras Pipiras).
++- Updated Chinese language texts (thanks to Nan Feng).
++- Only checking DVB_API_VERSION to be >=5 in order to stay compileable in case
++  the DVB API version number is increased (the API claims to always be backward
++  compatible).
++- Fixed saving terminal settings when running in background (thanks to Manuel
++  Reimer).
++- Fixed cFrameDetector::Analyze() to handle video streams where the frame type
++  is not detectable from the first TS packet of a frame.
++- Fixed writing the PCR pid into the PMT in cPatPmtGenerator::GeneratePmt()
++  (reported by Rene van den Braken).
++- Added Slovakian language texts (thanks to Milan Hrala).
++- Fixed EntriesOnSameFileSystem() to avoid using f_fsid, which may be 0 (thanks
++  to Frank Schmirler).
++- Fixed starting a recording at an I-frame.
++- Fixed generating the index for recordings from channels that put a whole
++  GOP into one payload unit.
++- The index file for TS recordings is now regenerated on-the-fly if a
++  recording is replayed that has no index. This can also be used to
++  re-create a broken index file by manually deleting the index file and then
++  replaying the recording (at least until the index file has been generated).
++- The cRingBufferLinear::Read() function now returns -1 and sets errno to
++  EAGAIN if the buffer is already full.
++- Fixed handling DVB subtitles for PES recordings (thanks to Rolf Ahrenberg).
++- Added the audio id to the call of PlayAudio() in cDevice::PlayTsAudio()
++  (thanks to Andreas Schaefers).
++- Fixed references to old *.vdr file names in MANUAL (reported by Arthur Konovalov).
++- Reverted "Removed limitation to PAL resolution from SPU handling" because it
++  cause nothing but trouble. Besides, the core VDR doesn't use this, anyway.
++- Fixed the default value for "Pause key handling" in the MANUAL (reported by
++  Diego Pierotto).
+diff -ruN vdr-1.7.9/INSTALL vdr-1.7.10/INSTALL
+--- vdr-1.7.9/INSTALL	2009-04-25 16:19:15.000000000 +0200
++++ vdr-1.7.10/INSTALL	2009-10-18 16:13:00.000000000 +0200
+@@ -47,7 +47,7 @@
+ the default:
+ 
+   REMOTE=RCU    control via the "Remote Control Unit" receiver
+-                (see http://www.cadsoft.de/vdr/remote.htm)
++                (see http://www.tvdr.de/remote.htm)
+   REMOTE=LIRC   control via the "Linux Infrared Remote Control"
+                 (see http://www.lirc.org)
+ 
+diff -ruN vdr-1.7.9/MANUAL vdr-1.7.10/MANUAL
+--- vdr-1.7.9/MANUAL	2009-05-21 13:28:41.000000000 +0200
++++ vdr-1.7.10/MANUAL	2009-11-22 15:28:15.000000000 +0100
+@@ -748,7 +748,7 @@
+   Pause priority = 10    The Priority and Lifetime values used when pausing live
+   Pause lifetime = 1     video.
+ 
+-  Pause key handling = 3 Defines what happens if the Pause key on the remote control
++  Pause key handling = 2 Defines what happens if the Pause key on the remote control
+                          is pressed during live tv.
+                          0 = do not pause live video
+                          1 = confirm pause live video
+@@ -804,7 +804,7 @@
+                          During the actual editing process VDR writes the result
+                          into files that may grow up to MaxVideoFileSize. If you
+                          prefer to have each marked sequence stored in a separate
+-                         file (named 001.vdr, 002.vdr, ...) you can set this
++                         file (named 00001.ts, 00002.ts, ...) you can set this
+                          option to 'yes'.
+ 
+   Replay:
+@@ -819,8 +819,8 @@
+   Resume ID = 0          Defines an additional ID that can be used in a multi user
+                          environment, so that every user has his/her own resume
+                          files for each recording. The valid range is 0...99, with
+-                         0 resulting in a file named 'resume.vdr', and any other
+-                         value resulting in 'resume.n.vdr'.
++                         0 resulting in a file named 'resume', and any other
++                         value resulting in 'resume.n'.
+ 
+   Miscellaneous:
+ 
+diff -ruN vdr-1.7.9/Makefile vdr-1.7.10/Makefile
+--- vdr-1.7.9/Makefile	2008-12-24 16:21:09.000000000 +0100
++++ vdr-1.7.10/Makefile	2009-10-18 15:59:25.000000000 +0200
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 2.3 2008/12/24 15:21:09 kls Exp $
++# $Id: Makefile 2.4 2009/10/18 13:59:25 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -110,7 +110,7 @@
+ 	msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --msgid-bugs-address='<vdr-bugs@cadsoft.de>' -o $@ $^
++	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ $^
+ 
+ %.po: $(I18Npot)
+ 	msgmerge -U --no-wrap --no-location --backup=none -q $@ $<
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/Makefile vdr-1.7.10/PLUGINS/src/hello/Makefile
+--- vdr-1.7.9/PLUGINS/src/hello/Makefile	2008-01-13 13:59:58.000000000 +0100
++++ vdr-1.7.10/PLUGINS/src/hello/Makefile	2009-10-18 16:00:07.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.0 2008/01/13 12:59:58 kls Exp $
++# $Id: Makefile 2.1 2009/10/18 14:00:07 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -79,7 +79,7 @@
+ 	msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --msgid-bugs-address='<vdr-bugs@cadsoft.de>' -o $@ $^
++	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ $^
+ 
+ %.po: $(I18Npot)
+ 	msgmerge -U --no-wrap --no-location --backup=none -q $@ $<
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/README vdr-1.7.10/PLUGINS/src/hello/README
+--- vdr-1.7.9/PLUGINS/src/hello/README	2007-08-12 13:07:37.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/README	2009-10-18 16:16:38.000000000 +0200
+@@ -1,10 +1,10 @@
+ This is a "plugin" for the Video Disk Recorder (VDR).
+ 
+-Written by:                  Klaus Schmidinger <kls@cadsoft.de>
++Written by:                  Klaus Schmidinger <kls@tvdr.de>
+ 
+-Project's homepage:          www.cadsoft.de/people/kls/vdr
++Project's homepage:          http://www.tvdr.de
+ 
+-Latest version available at: www.cadsoft.de/people/kls/vdr/software.htm
++Latest version available at: http://www.tvdr.de
+ 
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/ca_ES.po vdr-1.7.10/PLUGINS/src/hello/po/ca_ES.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/ca_ES.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/ca_ES.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Marc Rovira Vall <tm05462@salleURL.edu>, 2003
+ # Ramon Roca <ramon.roca@xcombo.com>, 2003
+@@ -8,7 +8,7 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Jordi Vil‡ <jvila@tinet.org>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/cs_CZ.po vdr-1.7.10/PLUGINS/src/hello/po/cs_CZ.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/cs_CZ.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/cs_CZ.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # VladimÌr B·rta <vladimir.barta@k2atmitec.cz>, 2006
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: VladimÌr B·rta <vladimir.barta@k2atmitec.cz>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/da_DK.po vdr-1.7.10/PLUGINS/src/hello/po/da_DK.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/da_DK.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/da_DK.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Mogens Elneff <mogens@elneff.dk>, 2004
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/de_DE.po vdr-1.7.10/PLUGINS/src/hello/po/de_DE.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/de_DE.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/de_DE.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,15 +1,15 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Klaus Schmidinger <kls@cadsoft.de>, 2000
++# Klaus Schmidinger <kls@tvdr.de>, 2000
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+-"Last-Translator: Klaus Schmidinger <kls@cadsoft.de>\n"
++"Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
+ "Language-Team: German\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/el_GR.po vdr-1.7.10/PLUGINS/src/hello/po/el_GR.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/el_GR.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/el_GR.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Dimitrios Dimitrakos <mail@dimitrios.de>, 2002
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/es_ES.po vdr-1.7.10/PLUGINS/src/hello/po/es_ES.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/es_ES.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/es_ES.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Ruben Nunez Francisco <ruben.nunez@tang-it.com>, 2002
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Ruben Nunez Francisco <ruben.nunez@tang-it.com>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/et_EE.po vdr-1.7.10/PLUGINS/src/hello/po/et_EE.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/et_EE.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/et_EE.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arthur Konovalov <kasjas@hot.ee>, 2004
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Arthur Konovalov <kasjas@hot.ee>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/fi_FI.po vdr-1.7.10/PLUGINS/src/hello/po/fi_FI.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/fi_FI.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/fi_FI.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Hannu Savolainen <hannu@opensound.com>, 2002
+ # Jaakko Hyv‰tti <jaakko@hyvatti.iki.fi>, 2002
+@@ -9,7 +9,7 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/fr_FR.po vdr-1.7.10/PLUGINS/src/hello/po/fr_FR.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/fr_FR.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/fr_FR.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Jean-Claude Repetto <jc@repetto.org>, 2001
+ # Olivier Jacques <jacquesolivier@hotmail.com>, 2003
+@@ -9,7 +9,7 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Nicolas Huillard <nhuillard@e-dition.fr>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/hr_HR.po vdr-1.7.10/PLUGINS/src/hello/po/hr_HR.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/hr_HR.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/hr_HR.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Adrian Caval <anrxc@sysphere.org>, 2008
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2008-03-17 19:52+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/hu_HU.po vdr-1.7.10/PLUGINS/src/hello/po/hu_HU.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/hu_HU.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/hu_HU.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Istvan Koenigsberger <istvnko@hotmail.com>, 2002
+ # Guido Josten <guido.josten@t-online.de>, 2002
+@@ -7,7 +7,7 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Istvan Koenigsberger <istvnko@hotmail.com>, Guido Josten <guido.josten@t-online.de>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/it_IT.po vdr-1.7.10/PLUGINS/src/hello/po/it_IT.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/it_IT.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/it_IT.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Diego Pierotto <vdr-italian@tiscali.it>, 2008
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2008-01-27 20:11+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/nl_NL.po vdr-1.7.10/PLUGINS/src/hello/po/nl_NL.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/nl_NL.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/nl_NL.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arnold Niessen <niessen@iae.nl> <arnold.niessen@philips.com>, 2001
+ # Hans Dingemans <hans.dingemans@tacticalops.nl>, 2003
+@@ -8,7 +8,7 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Maarten Wisse <Maarten.Wisse@urz.uni-hd.de>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/nn_NO.po vdr-1.7.10/PLUGINS/src/hello/po/nn_NO.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/nn_NO.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/nn_NO.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # J¯rgen Tvedt <pjtvedt@online.no>, 2001
+ # Truls Slevigen <truls@slevigen.no>, 2002
+@@ -7,7 +7,7 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/pl_PL.po vdr-1.7.10/PLUGINS/src/hello/po/pl_PL.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/pl_PL.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/pl_PL.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Michael Rakowski <mrak@gmx.de>, 2002
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Michael Rakowski <mrak@gmx.de>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/pt_PT.po vdr-1.7.10/PLUGINS/src/hello/po/pt_PT.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/pt_PT.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/pt_PT.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paulo Lopes <pmml@netvita.pt>, 2001
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Paulo Lopes <pmml@netvita.pt>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/ro_RO.po vdr-1.7.10/PLUGINS/src/hello/po/ro_RO.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/ro_RO.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/ro_RO.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paul Lacatus <paul@campina.iiruc.ro>, 2002
+ # Lucian Muresan <lucianm@users.sourceforge.net>, 2004
+@@ -7,7 +7,7 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/ru_RU.po vdr-1.7.10/PLUGINS/src/hello/po/ru_RU.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/ru_RU.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/ru_RU.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Vyacheslav Dikonov <sdiconov@mail.ru>, 2004
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Vyacheslav Dikonov <sdiconov@mail.ru>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/sk_SK.po vdr-1.7.10/PLUGINS/src/hello/po/sk_SK.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/sk_SK.po	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.7.10/PLUGINS/src/hello/po/sk_SK.po	2009-11-01 17:28:31.000000000 +0100
+@@ -0,0 +1,35 @@
++# VDR plugin language source file.
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# This file is distributed under the same license as the VDR package.
++# VladimÌr B·rta <vladimir.barta@k2atmitec.cz>, 2006
++#
++msgid ""
++msgstr ""
++"Project-Id-Version: VDR 1.6.0\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2007-10-13 11:52+0200\n"
++"PO-Revision-Date: 2009-09-30 09:48+0100\n"
++"Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
++"Language-Team: Slovak\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=ISO-8859-2\n"
++"Content-Transfer-Encoding: 8bit\n"
++
++msgid "A friendly greeting"
++msgstr "Priateµsk˝ pozdrav"
++
++msgid "Hello"
++msgstr "Ahoj"
++
++msgid "Greeting time (s)"
++msgstr "»as pozdravu (s)"
++
++msgid "Use alternate greeting"
++msgstr "Pouæiª n·hradn˝ pozdrav"
++
++msgid "Howdy folks!"
++msgstr "Ahojte vπetci!"
++
++msgid "Hello world!"
++msgstr "Ahoj svet!"
++
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/sl_SI.po vdr-1.7.10/PLUGINS/src/hello/po/sl_SI.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/sl_SI.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/sl_SI.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Miha Setina <mihasetina@softhome.net>, 2000
+ # Matjaz Thaler <matjaz.thaler@guest.arnes.si>, 2003
+@@ -7,7 +7,7 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/sv_SE.po vdr-1.7.10/PLUGINS/src/hello/po/sv_SE.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/sv_SE.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/sv_SE.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Tomas Prybil <tomas@prybil.se>, 2002
+ # Jan Ekholm <chakie@infa.abo.fi>, 2003
+@@ -7,7 +7,7 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Tomas Prybil <tomas@prybil.se>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/tr_TR.po vdr-1.7.10/PLUGINS/src/hello/po/tr_TR.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/tr_TR.po	2009-08-23 14:55:39.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/hello/po/tr_TR.po	2009-11-01 17:28:31.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Oktay YolgeÁen <oktay_73@yahoo.de>, 2007
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-10-13 11:52+0200\n"
+ "PO-Revision-Date: 2008-05-12 22:34:4800\n"
+ "Last-Translator: Oktay YolgeÁen <oktay_73@yahoo.de>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/hello/po/zh_CN.po vdr-1.7.10/PLUGINS/src/hello/po/zh_CN.po
+--- vdr-1.7.9/PLUGINS/src/hello/po/zh_CN.po	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.7.10/PLUGINS/src/hello/po/zh_CN.po	2009-11-01 17:28:31.000000000 +0100
+@@ -0,0 +1,38 @@
++# VDR plugin language source file.
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# This file is distributed under the same license as the VDR package.
++# Marc Rovira Vall <tm05462@salleURL.edu>, 2003
++# Ramon Roca <ramon.roca@xcombo.com>, 2003
++# Jordi Vil√† <jvila@tinet.org>, 2003
++# Nan Feng VDR <nfgx@21cn.com>, 2009.2
++#
++msgid ""
++msgstr ""
++"Project-Id-Version: VDR 1.6.0\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2007-10-13 11:52+0200\n"
++"PO-Revision-Date: 2009-01-23 09:48+0800\n"
++"Last-Translator: senin\n"
++"Language-Team: Catalanian\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=utf-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++
++msgid "A friendly greeting"
++msgstr "ÂèãÂ•ΩÁöÑÈóÆÂÄô"
++
++msgid "Hello"
++msgstr "‰Ω†Â•Ω"
++
++msgid "Greeting time (s)"
++msgstr "ÈóÆÂÄôÊó∂Èó¥ (s)"
++
++msgid "Use alternate greeting"
++msgstr "‰ΩøÁî®Êõø‰ª£Ë¥∫Âç°"
++
++msgid "Howdy folks!"
++msgstr "‰Ω†Â•Ω‰∫∫ÔºÅ"
++
++msgid "Hello world!"
++msgstr "‰∏ñÁïåÊÇ®Â•ΩÔºÅ"
++
+diff -ruN vdr-1.7.9/PLUGINS/src/osddemo/README vdr-1.7.10/PLUGINS/src/osddemo/README
+--- vdr-1.7.9/PLUGINS/src/osddemo/README	2007-08-12 13:08:12.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/osddemo/README	2009-10-18 16:02:34.000000000 +0200
+@@ -1,10 +1,10 @@
+ This is a "plugin" for the Video Disk Recorder (VDR).
+ 
+-Written by:                  Klaus Schmidinger <kls@cadsoft.de>
++Written by:                  Klaus Schmidinger <kls@tvdr.de>
+ 
+-Project's homepage:          http://www.cadsoft.de/vdr
++Project's homepage:          http://www.tvdr.de
+ 
+-Latest version available at: http://www.cadsoft.de/vdr
++Latest version available at: http://www.tvdr.de
+ 
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+diff -ruN vdr-1.7.9/PLUGINS/src/pictures/Makefile vdr-1.7.10/PLUGINS/src/pictures/Makefile
+--- vdr-1.7.9/PLUGINS/src/pictures/Makefile	2008-01-13 14:00:04.000000000 +0100
++++ vdr-1.7.10/PLUGINS/src/pictures/Makefile	2009-10-18 16:02:41.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.0 2008/01/13 13:00:04 kls Exp $
++# $Id: Makefile 2.1 2009/10/18 14:02:41 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -79,7 +79,7 @@
+ 	msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --msgid-bugs-address='<vdr-bugs@cadsoft.de>' -o $@ $^
++	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ $^
+ 
+ %.po: $(I18Npot)
+ 	msgmerge -U --no-wrap --no-location --backup=none -q $@ $<
+diff -ruN vdr-1.7.9/PLUGINS/src/pictures/README vdr-1.7.10/PLUGINS/src/pictures/README
+--- vdr-1.7.9/PLUGINS/src/pictures/README	2008-01-13 12:44:38.000000000 +0100
++++ vdr-1.7.10/PLUGINS/src/pictures/README	2009-10-18 16:16:41.000000000 +0200
+@@ -1,10 +1,10 @@
+ This is a "plugin" for the Video Disk Recorder (VDR).
+ 
+-Written by:                  Klaus Schmidinger <kls@cadsoft.de>
++Written by:                  Klaus Schmidinger <kls@tvdr.de>
+ 
+-Project's homepage:          www.cadsoft.de/vdr
++Project's homepage:          http://www.tvdr.de
+ 
+-Latest version available at: www.cadsoft.de/vdr
++Latest version available at: http://www.tvdr.de
+ 
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+diff -ruN vdr-1.7.9/PLUGINS/src/pictures/po/de_DE.po vdr-1.7.10/PLUGINS/src/pictures/po/de_DE.po
+--- vdr-1.7.9/PLUGINS/src/pictures/po/de_DE.po	2009-08-23 14:55:41.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/pictures/po/de_DE.po	2009-11-01 17:28:34.000000000 +0100
+@@ -1,15 +1,15 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Klaus Schmidinger <kls@cadsoft.de>, 2008
++# Klaus Schmidinger <kls@tvdr.de>, 2008
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2008-01-12 17:38+0100\n"
+ "PO-Revision-Date: 2008-01-12 17:41+0100\n"
+-"Last-Translator: Klaus Schmidinger <kls@cadsoft.de>\n"
++"Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
+ "Language-Team: German\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/pictures/po/fi_FI.po vdr-1.7.10/PLUGINS/src/pictures/po/fi_FI.po
+--- vdr-1.7.9/PLUGINS/src/pictures/po/fi_FI.po	2009-08-23 14:55:41.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/pictures/po/fi_FI.po	2009-11-01 17:28:34.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Rolf Ahrenberg <rahrenbe@cc.hut.fi>, 2008
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2008-01-12 17:38+0100\n"
+ "PO-Revision-Date: 2008-01-12 17:41+0100\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/pictures/po/fr_FR.po vdr-1.7.10/PLUGINS/src/pictures/po/fr_FR.po
+--- vdr-1.7.9/PLUGINS/src/pictures/po/fr_FR.po	2009-08-23 14:55:41.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/pictures/po/fr_FR.po	2009-11-01 17:28:34.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Patrice Staudt <ipatrice.staudt@laposte.net>, 2008
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2008-01-12 17:38+0100\n"
+ "PO-Revision-Date: 2008-01-12 17:41+0100\n"
+ "Last-Translator: Patrice Staudt <ipatrice.staudt@laposte.net>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/pictures/po/it_IT.po vdr-1.7.10/PLUGINS/src/pictures/po/it_IT.po
+--- vdr-1.7.9/PLUGINS/src/pictures/po/it_IT.po	2009-08-23 14:55:41.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/pictures/po/it_IT.po	2009-11-01 17:28:34.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Diego Pierotto <vdr-italian@tiscali.it>, 2008
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2008-01-12 17:38+0100\n"
+ "PO-Revision-Date: 2008-01-27 20:22+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/pictures/po/ru_RU.po vdr-1.7.10/PLUGINS/src/pictures/po/ru_RU.po
+--- vdr-1.7.9/PLUGINS/src/pictures/po/ru_RU.po	2009-08-23 14:55:41.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/pictures/po/ru_RU.po	2009-11-01 17:28:34.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Alexander Gross <Bikalexander@gmail.com>, 2008
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2008-01-12 17:38+0100\n"
+ "PO-Revision-Date: 2008-03-14 00:45+0100\n"
+ "Last-Translator: Alexander Gross <Bikalexander@gmail.com>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/pictures/po/sk_SK.po vdr-1.7.10/PLUGINS/src/pictures/po/sk_SK.po
+--- vdr-1.7.9/PLUGINS/src/pictures/po/sk_SK.po	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.7.10/PLUGINS/src/pictures/po/sk_SK.po	2009-11-01 17:28:34.000000000 +0100
+@@ -0,0 +1,32 @@
++# VDR plugin language source file.
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# This file is distributed under the same license as the VDR package.
++# Klaus Schmidinger <kls@tvdr.de>, 2008
++#
++msgid ""
++msgstr ""
++"Project-Id-Version: VDR 1.6.0\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2008-01-12 17:38+0100\n"
++"PO-Revision-Date: 2009-09-30 12:54+0100\n"
++"Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
++"Language-Team: Slovak\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=iso-8859-2\n"
++"Content-Transfer-Encoding: 8bit\n"
++
++msgid "Pictures"
++msgstr "Obr·zky"
++
++msgid "A simple picture viewer"
++msgstr "Jednoduch˝ prehliadaË obr·zkov"
++
++msgid "Picture directory"
++msgstr "Umiestnenie obr·zkov"
++
++msgid "Slide show delay (s)"
++msgstr "Oneskorenie prezent·cia (s)"
++
++msgid "No picture directory has been defined!"
++msgstr "Neboli preuk·zanÈ æiadne fotky v adres·ri!"
++
+diff -ruN vdr-1.7.9/PLUGINS/src/servicedemo/README vdr-1.7.10/PLUGINS/src/servicedemo/README
+--- vdr-1.7.9/PLUGINS/src/servicedemo/README	2007-08-12 13:08:15.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/servicedemo/README	2009-10-18 16:16:43.000000000 +0200
+@@ -2,9 +2,9 @@
+ 
+ Written by:                  Udo Richter <udo_richter@gmx.de>
+ 
+-Project's homepage:          www.cadsoft.de/vdr
++Project's homepage:          http://www.tvdr.de
+ 
+-Latest version available at: www.cadsoft.de/vdr
++Latest version available at: http://www.tvdr.de
+ 
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+diff -ruN vdr-1.7.9/PLUGINS/src/skincurses/Makefile vdr-1.7.10/PLUGINS/src/skincurses/Makefile
+--- vdr-1.7.9/PLUGINS/src/skincurses/Makefile	2008-01-19 12:40:33.000000000 +0100
++++ vdr-1.7.10/PLUGINS/src/skincurses/Makefile	2009-10-18 16:03:30.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.0 2008/01/19 11:40:33 kls Exp $
++# $Id: Makefile 2.1 2009/10/18 14:03:30 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -79,7 +79,7 @@
+ 	msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --msgid-bugs-address='<vdr-bugs@cadsoft.de>' -o $@ $^
++	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ $^
+ 
+ %.po: $(I18Npot)
+ 	msgmerge -U --no-wrap --no-location --backup=none -q $@ $<
+diff -ruN vdr-1.7.9/PLUGINS/src/skincurses/README vdr-1.7.10/PLUGINS/src/skincurses/README
+--- vdr-1.7.9/PLUGINS/src/skincurses/README	2007-08-12 13:08:16.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/skincurses/README	2009-10-18 16:16:45.000000000 +0200
+@@ -1,10 +1,10 @@
+ This is a "plugin" for the Video Disk Recorder (VDR).
+ 
+-Written by:                  Klaus Schmidinger <kls@cadsoft.de>
++Written by:                  Klaus Schmidinger <kls@tvdr.de>
+ 
+-Project's homepage:          www.cadsoft.de/vdr
++Project's homepage:          http://www.tvdr.de
+ 
+-Latest version available at: www.cadsoft.de/vdr
++Latest version available at: http://www.tvdr.de
+ 
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+diff -ruN vdr-1.7.9/PLUGINS/src/skincurses/po/de_DE.po vdr-1.7.10/PLUGINS/src/skincurses/po/de_DE.po
+--- vdr-1.7.9/PLUGINS/src/skincurses/po/de_DE.po	2009-08-23 14:55:44.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/skincurses/po/de_DE.po	2009-11-01 17:28:37.000000000 +0100
+@@ -1,15 +1,15 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Klaus Schmidinger <kls@cadsoft.de>, 2007
++# Klaus Schmidinger <kls@tvdr.de>, 2007
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-08-15 16:04+0200\n"
+ "PO-Revision-Date: 2007-08-15 16:07+0200\n"
+-"Last-Translator: Klaus Schmidinger <kls@cadsoft.de>\n"
++"Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
+ "Language-Team: German\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/skincurses/po/fi_FI.po vdr-1.7.10/PLUGINS/src/skincurses/po/fi_FI.po
+--- vdr-1.7.9/PLUGINS/src/skincurses/po/fi_FI.po	2009-08-23 14:55:44.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/skincurses/po/fi_FI.po	2009-11-01 17:28:37.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Rolf Ahrenberg <rahrenbe@cc.hut.fi>, 2007
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-08-14 20:54+0300\n"
+ "PO-Revision-Date: 2007-08-14 20:48+0300\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/skincurses/po/it_IT.po vdr-1.7.10/PLUGINS/src/skincurses/po/it_IT.po
+--- vdr-1.7.9/PLUGINS/src/skincurses/po/it_IT.po	2009-08-23 14:55:44.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/skincurses/po/it_IT.po	2009-11-01 17:28:37.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Diego Pierotto <vdr-italian@tiscali.it>, 2008
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-08-15 16:04+0200\n"
+ "PO-Revision-Date: 2008-01-27 20:35+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/skincurses/po/ru_RU.po vdr-1.7.10/PLUGINS/src/skincurses/po/ru_RU.po
+--- vdr-1.7.9/PLUGINS/src/skincurses/po/ru_RU.po	2009-08-23 14:55:44.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/skincurses/po/ru_RU.po	2009-11-01 17:28:37.000000000 +0100
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Alexander Gross <Bikalexander@gmail.com>, 2008
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2007-08-15 16:04+0200\n"
+ "PO-Revision-Date: 2008-03-14 00:21+0100\n"
+ "Last-Translator: Alexander Gross <Bikalexander@gmail.com>\n"
+diff -ruN vdr-1.7.9/PLUGINS/src/skincurses/po/sk_SK.po vdr-1.7.10/PLUGINS/src/skincurses/po/sk_SK.po
+--- vdr-1.7.9/PLUGINS/src/skincurses/po/sk_SK.po	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.7.10/PLUGINS/src/skincurses/po/sk_SK.po	2009-11-01 17:28:37.000000000 +0100
+@@ -0,0 +1,29 @@
++# VDR plugin language source file.
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# This file is distributed under the same license as the VDR package.
++# Klaus Schmidinger <kls@tvdr.de>, 2007
++#
++msgid ""
++msgstr ""
++"Project-Id-Version: VDR 1.6.0\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2007-08-15 16:04+0200\n"
++"PO-Revision-Date: 2009-09-30 12:52+0100\n"
++"Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
++"Language-Team: Slovak\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=iso-8859-2\n"
++"Content-Transfer-Encoding: 8bit\n"
++
++msgid "A text only skin"
++msgstr "Iba text vzhµadu"
++
++msgid "Key$Mute"
++msgstr "Stlmiª zvuk"
++
++msgid "Volume "
++msgstr "Hlasitosª"
++
++msgid "Text mode"
++msgstr "Textov˝ reæim"
++
+diff -ruN vdr-1.7.9/PLUGINS/src/sky/README vdr-1.7.10/PLUGINS/src/sky/README
+--- vdr-1.7.9/PLUGINS/src/sky/README	2007-08-12 13:08:16.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/sky/README	2009-10-18 16:16:46.000000000 +0200
+@@ -1,10 +1,10 @@
+ This is a "plugin" for the Video Disk Recorder (VDR).
+ 
+-Written by:                  Klaus Schmidinger <kls@cadsoft.de>
++Written by:                  Klaus Schmidinger <kls@tvdr.de>
+ 
+-Project's homepage:          www.cadsoft.de/vdr
++Project's homepage:          http://www.tvdr.de
+ 
+-Latest version available at: www.cadsoft.de/vdr
++Latest version available at: http://www.tvdr.de
+ 
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+diff -ruN vdr-1.7.9/PLUGINS/src/sky/getskyepg.pl vdr-1.7.10/PLUGINS/src/sky/getskyepg.pl
+--- vdr-1.7.9/PLUGINS/src/sky/getskyepg.pl	2008-03-22 11:17:42.000000000 +0100
++++ vdr-1.7.10/PLUGINS/src/sky/getskyepg.pl	2009-10-18 16:05:47.000000000 +0200
+@@ -8,7 +8,7 @@
+ #
+ # See the README file for copyright information and how to reach the author.
+ #
+-# $Id: getskyepg.pl 2.0 2008/03/22 10:17:42 kls Exp $
++# $Id: getskyepg.pl 2.1 2009/10/18 14:05:47 kls Exp $
+ 
+ use Getopt::Std;
+ use Time::Local;
+@@ -35,10 +35,10 @@
+ 
+ # See "Rules for using this data" on http://bleb.org/tv/data/listings.
+ # In case you modify this script in a way that changes its behavior
+-# towards the www.bleb.org website, please replace 'vdrbugs@cadsoft.de'
++# towards the www.bleb.org website, please replace 'vdr-bugs@tvdr.de'
+ # with your own email address! That way Andrew Flegg <andrew@bleb.org>,
+ # who runs that web site, can contact you in case of problems.
+-$IDENT = "VDR::getskyepg.pl, http://www.cadsoft.de/vdr - vdrbugs\@cadsoft.de";
++$IDENT = "VDR::getskyepg.pl, http://www.tvdr.de - vdr-bugs\@tvdr.de";
+ $GAP = 2;
+ 
+ $SkyWebPage = "www.bleb.org/tv/data/listings";
+diff -ruN vdr-1.7.9/PLUGINS/src/status/README vdr-1.7.10/PLUGINS/src/status/README
+--- vdr-1.7.9/PLUGINS/src/status/README	2007-08-12 13:08:17.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/status/README	2009-10-18 16:16:48.000000000 +0200
+@@ -1,10 +1,10 @@
+ This is a "plugin" for the Video Disk Recorder (VDR).
+ 
+-Written by:                  Klaus Schmidinger <kls@cadsoft.de>
++Written by:                  Klaus Schmidinger <kls@tvdr.de>
+ 
+-Project's homepage:          www.cadsoft.de/people/kls/vdr
++Project's homepage:          http://www.tvdr.de
+ 
+-Latest version available at: www.cadsoft.de/people/kls/vdr/software.htm
++Latest version available at: http://www.tvdr.de
+ 
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+diff -ruN vdr-1.7.9/PLUGINS/src/svdrpdemo/README vdr-1.7.10/PLUGINS/src/svdrpdemo/README
+--- vdr-1.7.9/PLUGINS/src/svdrpdemo/README	2007-08-12 13:08:18.000000000 +0200
++++ vdr-1.7.10/PLUGINS/src/svdrpdemo/README	2009-10-18 16:06:27.000000000 +0200
+@@ -1,10 +1,10 @@
+ This is a "plugin" for the Video Disk Recorder (VDR).
+ 
+-Written by:                  Klaus Schmidinger <Klaus.Schmidinger@cadsoft.de>
++Written by:                  Klaus Schmidinger <Klaus.Schmidinger@tvdr.de>
+ 
+-Project's homepage:          http://www.cadsoft.de/vdr
++Project's homepage:          http://www.tvdr.de
+ 
+-Latest version available at: http://www.cadsoft.de/vdr
++Latest version available at: http://www.tvdr.de
+ 
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+diff -ruN vdr-1.7.9/PLUGINS.html vdr-1.7.10/PLUGINS.html
+--- vdr-1.7.9/PLUGINS.html	2009-05-09 12:03:26.000000000 +0200
++++ vdr-1.7.10/PLUGINS.html	2009-10-18 15:59:41.000000000 +0200
+@@ -31,8 +31,8 @@
+ <b>Version 1.7</b>
+ <p>
+ Copyright &copy; 2009 Klaus Schmidinger<br>
+-<a href="mailto:kls@cadsoft.de">kls@cadsoft.de</a><br>
+-<a href="http://www.cadsoft.de/vdr">www.cadsoft.de/vdr</a>
++<a href="mailto:kls@tvdr.de">kls@tvdr.de</a><br>
++<a href="http://www.tvdr.de">www.tvdr.de</a>
+ </div>
+ <div class="modified">
+ Important modifications introduced since version 1.6 are marked like this.
+diff -ruN vdr-1.7.9/README vdr-1.7.10/README
+--- vdr-1.7.9/README	2006-04-21 16:57:48.000000000 +0200
++++ vdr-1.7.10/README	2009-10-18 16:06:38.000000000 +0200
+@@ -4,7 +4,7 @@
+ These files contain the source code of the "Video Disk Recorder",
+ which is based on the DVB driver of the LinuxTV project (http://linuxtv.org).
+ For details about the "Video Disk Recorder" project please
+-refer to http://www.cadsoft.de/vdr.
++refer to http://www.tvdr.de.
+ 
+ There is also a remote control unit described on those
+ Web pages, which can be used within this program.
+@@ -17,7 +17,7 @@
+ The CONTRIBUTORS file lists all the people who have contributed to the
+ development of VDR.
+ 
+-The author can be contacted at kls@cadsoft.de.
++The author can be contacted at kls@tvdr.de.
+ 
+ Yet another "set-top box"?
+ --------------------------
+diff -ruN vdr-1.7.9/README.i18n vdr-1.7.10/README.i18n
+--- vdr-1.7.9/README.i18n	2007-10-14 11:16:14.000000000 +0200
++++ vdr-1.7.10/README.i18n	2009-10-18 16:06:45.000000000 +0200
+@@ -52,5 +52,5 @@
+ 
+ Once you have created or updated a translation file, please
+ send it to the maintainer of the respective plugin (in case
+-it belongs to a plugin) or to kls@cadsoft.de (for core VDR
++it belongs to a plugin) or to kls@tvdr.de (for core VDR
+ language files).
+diff -ruN vdr-1.7.9/UPDATE-1.2.0 vdr-1.7.10/UPDATE-1.2.0
+--- vdr-1.7.9/UPDATE-1.2.0	2003-05-30 15:46:54.000000000 +0200
++++ vdr-1.7.10/UPDATE-1.2.0	2009-10-18 16:06:58.000000000 +0200
+@@ -10,7 +10,7 @@
+ - Implemented a universal plugin interface. See the file PLUGINS.html
+   for a detailed description. The man page vdr(1) describes the new options '-L'
+   and '-P' used to load plugins.
+-  See http://www.cadsoft.de/vdr/plugins.htm for a list of available plugins.
++  See http://www.tvdr.de/plugins.htm for a list of available plugins.
+ - Rearranged the remote control key handling to allow plugins to implement
+   additional types of remote controls (see PLUGINS.html, section "Remote Control").
+   The previously used files 'keys.conf' and 'keys-pc.conf' have been replaced
+diff -ruN vdr-1.7.9/channels.c vdr-1.7.10/channels.c
+--- vdr-1.7.9/channels.c	2009-08-16 17:08:49.000000000 +0200
++++ vdr-1.7.10/channels.c	2009-08-30 13:25:50.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 2.7 2009/08/16 15:08:49 kls Exp $
++ * $Id: channels.c 2.8 2009/08/30 11:25:50 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -508,7 +508,8 @@
+      q = NewSpidsBuf;
+      q += IntArrayToString(q, Spids, 10, SLangs);
+      *q = 0;
+-     dsyslog("changing pids of channel %d from %d+%d=%d:%s:%s:%d to %d+%d=%d:%s:%s:%d", Number(), vpid, ppid, vtype, OldApidsBuf, OldSpidsBuf, tpid, Vpid, Ppid, Vtype, NewApidsBuf, NewSpidsBuf, Tpid);
++     if (Number())
++        dsyslog("changing pids of channel %d from %d+%d=%d:%s:%s:%d to %d+%d=%d:%s:%s:%d", Number(), vpid, ppid, vtype, OldApidsBuf, OldSpidsBuf, tpid, Vpid, Ppid, Vtype, NewApidsBuf, NewSpidsBuf, Tpid);
+      vpid = Vpid;
+      ppid = Ppid;
+      vtype = Vtype;
+@@ -558,7 +559,8 @@
+      char NewCaIdsBuf[MAXCAIDS * 5 + 10];
+      IntArrayToString(OldCaIdsBuf, caids, 16);
+      IntArrayToString(NewCaIdsBuf, CaIds, 16);
+-     dsyslog("changing caids of channel %d from %s to %s", Number(), OldCaIdsBuf, NewCaIdsBuf);
++     if (Number())
++        dsyslog("changing caids of channel %d from %s to %s", Number(), OldCaIdsBuf, NewCaIdsBuf);
+      for (int i = 0; i <= MAXCAIDS; i++) { // <= to copy the terminating 0
+          caids[i] = CaIds[i];
+          if (!CaIds[i])
+@@ -574,7 +576,7 @@
+   if (Level > 0) {
+      modification |= CHANNELMOD_CA;
+      Channels.SetModified();
+-     if (Level > 1)
++     if (Number() && Level > 1)
+         dsyslog("changing ca descriptors of channel %d", Number());
+      }
+ }
+@@ -622,7 +624,8 @@
+      }
+   else
+      q += sprintf(q, " none");
+-  dsyslog(buffer);
++  if (Number())
++     dsyslog(buffer);
+ }
+ 
+ void cChannel::SetRefChannel(cChannel *RefChannel)
+diff -ruN vdr-1.7.9/channels.h vdr-1.7.10/channels.h
+--- vdr-1.7.9/channels.h	2009-08-16 16:58:26.000000000 +0200
++++ vdr-1.7.10/channels.h	2009-08-30 13:05:54.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.h 2.5 2009/08/16 14:58:26 kls Exp $
++ * $Id: channels.h 2.6 2009/08/30 11:05:54 kls Exp $
+  */
+ 
+ #ifndef __CHANNELS_H
+@@ -188,9 +188,9 @@
+   const char *Alang(int i) const { return (0 <= i && i < MAXAPIDS) ? alangs[i] : ""; }
+   const char *Dlang(int i) const { return (0 <= i && i < MAXDPIDS) ? dlangs[i] : ""; }
+   const char *Slang(int i) const { return (0 <= i && i < MAXSPIDS) ? slangs[i] : ""; }
+-  uchar SubtitlingType(int i) const { return (0 <= i && i < MAXSPIDS ? subtitlingTypes[i] : 0); }
+-  uint16_t CompositionPageId(int i) const { return (0 <= i && i < MAXSPIDS ? compositionPageIds[i] : 0); }
+-  uint16_t AncillaryPageId(int i) const { return (0 <= i && i < MAXSPIDS ? ancillaryPageIds[i] : 0); }
++  uchar SubtitlingType(int i) const { return (0 <= i && i < MAXSPIDS) ? subtitlingTypes[i] : 0; }
++  uint16_t CompositionPageId(int i) const { return (0 <= i && i < MAXSPIDS) ? compositionPageIds[i] : 0; }
++  uint16_t AncillaryPageId(int i) const { return (0 <= i && i < MAXSPIDS) ? ancillaryPageIds[i] : 0; }
+   int Tpid(void) const { return tpid; }
+   const int *Caids(void) const { return caids; }
+   int Ca(int Index = 0) const { return Index < MAXCAIDS ? caids[Index] : 0; }
+diff -ruN vdr-1.7.9/config.h vdr-1.7.10/config.h
+--- vdr-1.7.9/config.h	2009-06-21 12:02:49.000000000 +0200
++++ vdr-1.7.10/config.h	2009-08-29 14:47:03.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.14 2009/06/21 10:02:49 kls Exp $
++ * $Id: config.h 2.15 2009/08/29 12:47:03 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.9"
+-#define VDRVERSNUM   10709  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.10"
++#define VDRVERSNUM   10710  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.9"
+-#define APIVERSNUM   10709  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.10"
++#define APIVERSNUM   10710  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-1.7.9/device.c vdr-1.7.10/device.c
+--- vdr-1.7.9/device.c	2009-08-16 12:54:36.000000000 +0200
++++ vdr-1.7.10/device.c	2009-11-22 14:19:03.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.25 2009/08/16 10:54:36 kls Exp $
++ * $Id: device.c 2.26 2009/11/22 13:19:03 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -1309,7 +1309,7 @@
+   // Audio PES always has an explicit length and consists of single packets:
+   int l;
+   if (const uchar *p = tsToPesAudio.GetPes(l)) {
+-     int w = PlayAudio(p, l, 0);
++     int w = PlayAudio(p, l, p[3]);
+      if (w <= 0) {
+         tsToPesAudio.SetRepeatLast();
+         return w;
+diff -ruN vdr-1.7.9/device.h vdr-1.7.10/device.h
+--- vdr-1.7.9/device.h	2009-06-06 13:15:49.000000000 +0200
++++ vdr-1.7.10/device.h	2009-11-22 14:21:00.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 2.15 2009/06/06 11:15:49 kls Exp $
++ * $Id: device.h 2.16 2009/11/22 13:21:00 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -514,9 +514,6 @@
+        ///< Plays the given data block as audio.
+        ///< Data points to exactly one complete PES packet of the given Length.
+        ///< Id indicates the type of audio data this packet holds.
+-       ///< Note that as of version 1.7.1 Id is obsolete and may be 0 (in case of
+-       ///< TS replay). Plugins that need to know this Id shall read it from the
+-       ///< actual PES data (it's the 4th byte).
+        ///< PlayAudio() shall process the packet either as a whole (returning
+        ///< Length) or not at all (returning 0 or -1 and setting 'errno' accordingly).
+        ///< \return Returns the number of bytes actually taken from Data, or -1
+diff -ruN vdr-1.7.9/dvbdevice.h vdr-1.7.10/dvbdevice.h
+--- vdr-1.7.9/dvbdevice.h	2009-06-06 13:16:47.000000000 +0200
++++ vdr-1.7.10/dvbdevice.h	2009-10-25 14:58:20.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 2.8 2009/06/06 11:16:47 kls Exp $
++ * $Id: dvbdevice.h 2.9 2009/10/25 13:58:20 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -16,8 +16,8 @@
+ #include "device.h"
+ #include "dvbspu.h"
+ 
+-#if DVB_API_VERSION != 5 || DVB_API_VERSION_MINOR != 0
+-#error VDR requires Linux DVB driver API version 5.0!
++#if DVB_API_VERSION < 5
++#error VDR requires Linux DVB driver API version 5.0 or higher!
+ #endif
+ 
+ #define MAXDVBDEVICES  8
+diff -ruN vdr-1.7.9/dvbspu.c vdr-1.7.10/dvbspu.c
+--- vdr-1.7.9/dvbspu.c	2009-05-09 18:25:59.000000000 +0200
++++ vdr-1.7.10/dvbspu.c	2009-11-22 15:17:59.000000000 +0100
+@@ -8,7 +8,7 @@
+  *
+  * parts of this file are derived from the OMS program.
+  *
+- * $Id: dvbspu.c 2.1 2009/05/09 16:25:59 kls Exp $
++ * $Id: dvbspu.c 2.2 2009/11/22 14:17:59 kls Exp $
+  */
+ 
+ #include "dvbspu.h"
+@@ -55,6 +55,9 @@
+ #define setMin(a, b) if (a > b) a = b
+ #define setMax(a, b) if (a < b) a = b
+ 
++#define spuXres   720
++#define spuYres   576
++
+ #define revRect(r1, r2) { r1.x1 = r2.x2; r1.y1 = r2.y2; r1.x2 = r2.x1; r1.y2 = r2.y1; }
+ 
+ cDvbSpuBitmap::cDvbSpuBitmap(sDvbSpuRect size,
+@@ -63,8 +66,8 @@
+ {
+     size.x1 = max(size.x1, 0);
+     size.y1 = max(size.y1, 0);
+-    size.x2 = min(size.x2, Setup.OSDWidth);
+-    size.y2 = min(size.y2, Setup.OSDHeight);
++    size.x2 = min(size.x2, spuXres - 1);
++    size.y2 = min(size.y2, spuYres - 1);
+ 
+     bmpsize = size;
+     revRect(minsize[0], size);
+@@ -72,7 +75,7 @@
+     revRect(minsize[2], size);
+     revRect(minsize[3], size);
+ 
+-    int MemSize = bmpsize.width() * bmpsize.height() * sizeof(uint8_t);
++    int MemSize = spuXres * spuYres * sizeof(uint8_t);
+     bmp = new uint8_t[MemSize];
+ 
+     if (bmp)
+@@ -93,10 +96,10 @@
+     int h = size.height();
+     int w = size.width();
+ 
+-    if (size.y1 + h >= bmpsize.height())
+-        h = bmpsize.height() - size.y1 - 1;
+-    if (size.x1 + w >= bmpsize.width())
+-        w = bmpsize.width() - size.x1 - 1;
++    if (size.y1 + h >= spuYres)
++        h = spuYres - size.y1 - 1;
++    if (size.x1 + w >= spuXres)
++        w = spuXres - size.x1 - 1;
+ 
+     if (w & 0x03)
+         w += 4 - (w & 0x03);
+@@ -111,11 +114,13 @@
+     }
+ 
+     // set the content
+-    for (int yp = 0; yp < h; yp++) {
+-        for (int xp = 0; xp < w; xp++) {
+-            uint8_t idx = bmp[(size.y1 + yp) * bmpsize.width() + size.x1 + xp];
+-            ret->SetIndex(xp, yp, idx);
+-        }
++    if (bmp) {
++       for (int yp = 0; yp < h; yp++) {
++           for (int xp = 0; xp < w; xp++) {
++               uint8_t idx = bmp[(size.y1 + yp) * spuXres + size.x1 + xp];
++               ret->SetIndex(xp, yp, idx);
++           }
++       }
+     }
+     return ret;
+ }
+@@ -149,7 +154,8 @@
+ 
+ void cDvbSpuBitmap::putPixel(int xp, int yp, int len, uint8_t colorid)
+ {
+-    memset(bmp + bmpsize.width() * yp + xp, colorid, len);
++    if (bmp)
++       memset(bmp + spuXres * yp + xp, colorid, len);
+     setMin(minsize[colorid].x1, xp);
+     setMin(minsize[colorid].y1, yp);
+     setMax(minsize[colorid].x2, xp + len - 1);
+diff -ruN vdr-1.7.9/dvbsubtitle.c vdr-1.7.10/dvbsubtitle.c
+--- vdr-1.7.9/dvbsubtitle.c	2008-05-25 16:36:24.000000000 +0200
++++ vdr-1.7.10/dvbsubtitle.c	2009-11-22 13:28:53.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Original author: Marco Schl¸ﬂler <marco@lordzodiac.de>
+  * With some input from the "subtitle plugin" by Pekka Virtanen <pekka.virtanen@sci.fi>
+  *
+- * $Id: dvbsubtitle.c 2.1 2008/05/25 14:36:24 kls Exp $
++ * $Id: dvbsubtitle.c 2.2 2009/11/22 12:28:53 kls Exp $
+  */
+ 
+ #include "dvbsubtitle.h"
+@@ -699,7 +699,7 @@
+         }
+ 
+      if (Length > PayloadOffset + SubstreamHeaderLength) {
+-        int64_t pts = PesGetPts(Data);
++        int64_t pts = PesHasPts(Data) ? PesGetPts(Data) : 0;
+         if (pts)
+            dbgconverter("Converter PTS: %lld\n", pts);
+         const uchar *data = Data + PayloadOffset + SubstreamHeaderLength; // skip substream header
+diff -ruN vdr-1.7.9/i18n-to-gettext.pl vdr-1.7.10/i18n-to-gettext.pl
+--- vdr-1.7.9/i18n-to-gettext.pl	2007-11-04 11:57:36.000000000 +0100
++++ vdr-1.7.10/i18n-to-gettext.pl	2009-10-18 16:07:49.000000000 +0200
+@@ -10,7 +10,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: i18n-to-gettext.pl 2.0 2007/11/04 10:57:36 kls Exp $
++# $Id: i18n-to-gettext.pl 2.1 2009/10/18 14:07:49 kls Exp $
+ 
+ # How to convert an actual plugin:
+ #
+@@ -87,7 +87,7 @@
+ # Plugin specific information:
+ 
+ $TITLE = "VDR plugin language source file";
+-$COPYRIGHT = "2007 Klaus Schmidinger <kls\@cadsoft.de>";
++$COPYRIGHT = "2007 Klaus Schmidinger <kls\@tvdr.de>";
+ $PACKAGE = "VDR";
+ $VERSION = "1.5.7";
+ $MSGIDBUGS = "" || die "enter your email address here"; # escape the '@', as in "user\@domain.tld"
+@@ -152,8 +152,8 @@
+   );
+ 
+ @TRANSLATORS = (
+-  "Klaus Schmidinger <kls\@cadsoft.de>, 2000",
+-  "Klaus Schmidinger <kls\@cadsoft.de>, 2000",
++  "Klaus Schmidinger <kls\@tvdr.de>, 2000",
++  "Klaus Schmidinger <kls\@tvdr.de>, 2000",
+   "Miha Setina <mihasetina\@softhome.net>, 2000; Matjaz Thaler <matjaz.thaler\@guest.arnes.si>, 2003",
+   "Alberto Carraro <bertocar\@tin.it>, 2001; Antonio Ospite <ospite\@studenti.unina.it>, 2003; Sean Carlos <seanc\@libero.it>, 2005",
+   "Arnold Niessen <niessen\@iae.nl> <arnold.niessen\@philips.com>, 2001; Hans Dingemans <hans.dingemans\@tacticalops.nl>, 2003; Maarten Wisse <Maarten.Wisse\@urz.uni-hd.de>, 2005",
+@@ -177,8 +177,8 @@
+   );
+ 
+ @LASTTRANSLATOR = (
+-  "Klaus Schmidinger <kls\@cadsoft.de>",
+-  "Klaus Schmidinger <kls\@cadsoft.de>",
++  "Klaus Schmidinger <kls\@tvdr.de>",
++  "Klaus Schmidinger <kls\@tvdr.de>",
+   "Matjaz Thaler <matjaz.thaler\@guest.arnes.si>",
+   "Sean Carlos <seanc\@libero.it>",
+   "Maarten Wisse <Maarten.Wisse\@urz.uni-hd.de>",
+diff -ruN vdr-1.7.9/po/ca_ES.po vdr-1.7.10/po/ca_ES.po
+--- vdr-1.7.9/po/ca_ES.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/ca_ES.po	2009-11-22 12:28:38.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Marc Rovira Vall <tm05462@salleURL.edu>, 2003
+ # Ramon Roca <ramon.roca@xcombo.com>, 2003
+@@ -9,8 +9,8 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Catalanian\n"
+@@ -927,6 +927,12 @@
+ msgid "Low disk space!"
+ msgstr "Disc gairebÈ ple!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "No puc apagar, falta la opciÛ -s !"
+ 
+diff -ruN vdr-1.7.9/po/cs_CZ.po vdr-1.7.10/po/cs_CZ.po
+--- vdr-1.7.9/po/cs_CZ.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/cs_CZ.po	2009-11-22 12:28:38.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # VladimÌr B·rta <vladimir.barta@k2atmitec.cz>, 2006, 2008
+ # Ji¯Ì Dobr˝ <jdobry@centrum.cz>, 2008
+@@ -7,8 +7,8 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2008-02-28 15:00+0200\n"
+ "Last-Translator: VladimÌr B·rta <vladimir.barta@k2atmitec.cz>, Ji¯Ì Dobr˝ <jdobry@centrum.cz>\n"
+ "Language-Team: Czech\n"
+@@ -925,6 +925,12 @@
+ msgid "Low disk space!"
+ msgstr "Disk bude brzy zaplnÏn!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "VypnutÌ nenÌ moænÈ - chybÌ volba '-s'!"
+ 
+diff -ruN vdr-1.7.9/po/da_DK.po vdr-1.7.10/po/da_DK.po
+--- vdr-1.7.9/po/da_DK.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/da_DK.po	2009-11-22 12:28:38.000000000 +0100
+@@ -1,13 +1,13 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Mogens Elneff <mogens@elneff.dk>, 2004, 2008
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish\n"
+@@ -924,6 +924,12 @@
+ msgid "Low disk space!"
+ msgstr "Kun lidt diskplads tilbage!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Kan ikke slukke - parameter '-s' ikke angivet!"
+ 
+diff -ruN vdr-1.7.9/po/de_DE.po vdr-1.7.10/po/de_DE.po
+--- vdr-1.7.9/po/de_DE.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/de_DE.po	2009-11-22 12:30:27.000000000 +0100
+@@ -1,15 +1,15 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Klaus Schmidinger <kls@cadsoft.de>, 2000-2008
++# Klaus Schmidinger <kls@tvdr.de>, 2000-2008
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2007-11-25 15:19+0200\n"
+-"Last-Translator: Klaus Schmidinger <kls@cadsoft.de>\n"
++"Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
+ "Language-Team: German\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+@@ -924,6 +924,12 @@
+ msgid "Low disk space!"
+ msgstr "Platte beinahe voll!"
+ 
++msgid "Regenerating index file"
++msgstr "Index-Datei wird regeneriert"
++
++msgid "Index file regeneration complete"
++msgstr "Regenerierung der Index-Datei abgeschlossen"
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Ausschalten unmˆglich - Option '-s' fehlt!"
+ 
+diff -ruN vdr-1.7.9/po/el_GR.po vdr-1.7.10/po/el_GR.po
+--- vdr-1.7.9/po/el_GR.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/el_GR.po	2009-11-22 12:28:38.000000000 +0100
+@@ -1,13 +1,13 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Dimitrios Dimitrakos <mail@dimitrios.de>, 2002, 2006
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek\n"
+@@ -924,6 +924,12 @@
+ msgid "Low disk space!"
+ msgstr "œ ÛÍÎÁÒ¸Ú ÍÔÌÙÂ˝ÂÈ Ì‹ „ÂÏﬂÛÂÈ!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "¡‰˝Ì·ÙÔÌ Ì· „ﬂÌÂÈ ÙÂÒÏ·ÙÈÛÏ¸Ú. ¡Ì˝·ÒÍÙÁ Á ·Ò‹ÏÂÙÒÔÚ '-s'!"
+ 
+diff -ruN vdr-1.7.9/po/es_ES.po vdr-1.7.10/po/es_ES.po
+--- vdr-1.7.9/po/es_ES.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/es_ES.po	2009-11-22 12:28:38.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Ruben Nunez Francisco <ruben.nunez@tang-it.com>, 2002, 2006
+ # Luca Olivetti <luca@ventoso.org>, 2008
+@@ -7,8 +7,8 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Spanish\n"
+@@ -925,6 +925,12 @@
+ msgid "Low disk space!"
+ msgstr "°Poco espacio en disco!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "°No se puede apagar - falta el par·metro '-s'!"
+ 
+diff -ruN vdr-1.7.9/po/et_EE.po vdr-1.7.10/po/et_EE.po
+--- vdr-1.7.9/po/et_EE.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/et_EE.po	2009-11-22 12:28:38.000000000 +0100
+@@ -1,13 +1,13 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arthur Konovalov <kasjas@hot.ee>, 2004, 2005, 2006, 2007
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <kasjas@hot.ee>\n"
+ "Language-Team: Estonian\n"
+@@ -924,6 +924,12 @@
+ msgid "Low disk space!"
+ msgstr "Kıvaketas t‰is!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "V‰ljal¸litamine ebaınnestus - '-s' parameeter puudub!"
+ 
+diff -ruN vdr-1.7.9/po/fi_FI.po vdr-1.7.10/po/fi_FI.po
+--- vdr-1.7.9/po/fi_FI.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/fi_FI.po	2009-11-22 12:28:39.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Hannu Savolainen <hannu@opensound.com>, 2002
+ # Jaakko Hyv‰tti <jaakko@hyvatti.iki.fi>, 2002, 2003
+@@ -9,8 +9,8 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+ "Language-Team: Finnish\n"
+@@ -927,6 +927,12 @@
+ msgid "Low disk space!"
+ msgstr "Tallennustila loppumassa!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Sammutus ei onnistu - '-s' parametri puuttuu!"
+ 
+diff -ruN vdr-1.7.9/po/fr_FR.po vdr-1.7.10/po/fr_FR.po
+--- vdr-1.7.9/po/fr_FR.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/fr_FR.po	2009-11-22 12:28:39.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Jean-Claude Repetto <jc@repetto.org>, 2001, 2002, 2008
+ # Olivier Jacques <jacquesolivier@hotmail.com>, 2003, 2005
+@@ -12,8 +12,8 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2008-02-27 18:14+0100\n"
+ "Last-Translator: Jean-Claude Repetto <jc@repetto.org>\n"
+ "Language-Team: French\n"
+@@ -930,6 +930,12 @@
+ msgid "Low disk space!"
+ msgstr "Disque presque plein !"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "ArrÍt impossible - option '-s' absente !"
+ 
+diff -ruN vdr-1.7.9/po/hr_HR.po vdr-1.7.10/po/hr_HR.po
+--- vdr-1.7.9/po/hr_HR.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/hr_HR.po	2009-11-22 12:28:39.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Drazen Dupor <drazen.dupor@dupor.com>, 2004, 2005
+ # Dino Ravnic <dino.ravnic@fer.hr>, 2004
+@@ -8,8 +8,8 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian\n"
+@@ -926,6 +926,12 @@
+ msgid "Low disk space!"
+ msgstr "Malo prostora na disku!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Gaπenje nemoguÊe - nedostaje opcija '-s'!"
+ 
+diff -ruN vdr-1.7.9/po/hu_HU.po vdr-1.7.10/po/hu_HU.po
+--- vdr-1.7.9/po/hu_HU.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/hu_HU.po	2009-11-22 12:28:39.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Istvan Koenigsberger <istvnko@hotmail.com>, 2002, 2003, 2006
+ # Guido Josten <guido.josten@t-online.de>, 2002, 2003, 2006
+@@ -9,8 +9,8 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2007-12-01 21:42+0200\n"
+ "Last-Translator: Istv·n F¸ley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian\n"
+@@ -927,6 +927,12 @@
+ msgid "Low disk space!"
+ msgstr "A merev lemez majdnem tele!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "A le·llÌt·s nem lehetsÈges - OpciÛ '-s' hi·nyzik!"
+ 
+diff -ruN vdr-1.7.9/po/it_IT.po vdr-1.7.10/po/it_IT.po
+--- vdr-1.7.9/po/it_IT.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/it_IT.po	2009-11-22 12:28:39.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Alberto Carraro <bertocar@tin.it>, 2001
+ # Antonio Ospite <ospite@studenti.unina.it>, 2003, 2006
+@@ -10,9 +10,9 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+-"PO-Revision-Date: 2009-02-08 18:58+0100\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
++"PO-Revision-Date: 2009-08-29 11:16+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian\n"
+ "MIME-Version: 1.0\n"
+@@ -712,13 +712,13 @@
+ msgstr "Impossibile reimpostare il modulo CAM!"
+ 
+ msgid "do not pause live video"
+-msgstr ""
++msgstr "non pausare video dal vivo"
+ 
+ msgid "confirm pause live video"
+-msgstr ""
++msgstr "conferma pausa video dal vivo"
+ 
+ msgid "pause live video"
+-msgstr ""
++msgstr "pausa video dal vivo"
+ 
+ msgid "Recording"
+ msgstr "Registrazione"
+@@ -739,7 +739,7 @@
+ msgstr "Scadenza predefinita (gg)"
+ 
+ msgid "Setup.Recording$Pause key handling"
+-msgstr ""
++msgstr "Gestione tasto Pausa"
+ 
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Priorit√† di pausa"
+@@ -931,6 +931,12 @@
+ msgid "Low disk space!"
+ msgstr "Poco spazio su disco!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Impossibile spegnere - parametro '-s' non assegnato!"
+ 
+@@ -1003,7 +1009,7 @@
+ msgstr "Registrazione imminente!"
+ 
+ msgid "Pause live video?"
+-msgstr ""
++msgstr "Pausare video dal vivo?"
+ 
+ msgid "Recording started"
+ msgstr "Registrazione avviata"
+diff -ruN vdr-1.7.9/po/lt_LT.po vdr-1.7.10/po/lt_LT.po
+--- vdr-1.7.9/po/lt_LT.po	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.7.10/po/lt_LT.po	2009-11-22 12:28:39.000000000 +0100
+@@ -0,0 +1,1030 @@
++# VDR language source file.
++# Copyright (C) 2009 Klaus Schmidinger <kls@tvdr.de>
++# This file is distributed under the same license as the VDR package.
++# Valdemaras Pipiras <varas@ambernet.lt>, 2009.
++#
++msgid ""
++msgstr ""
++"Project-Id-Version: VDR 1.7.9\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
++"PO-Revision-Date: 2009-10-17 14:19+0200\n"
++"Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
++"Language-Team: Lithuanian\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++
++msgid "off"
++msgstr "ƒØjungt"
++
++msgid "on"
++msgstr "i≈°jungt"
++
++msgid "auto"
++msgstr "auto"
++
++msgid "none"
++msgstr "nƒóra"
++
++msgid "*** Invalid Channel ***"
++msgstr "*** Klaidingas kanalas ***"
++
++msgid "Channel not available!"
++msgstr "Kanalas neegzistuoja!"
++
++msgid "Can't start Transfer Mode!"
++msgstr "Negali pradƒóti perdavimo"
++
++msgid "Starting EPG scan"
++msgstr "Pradedamas EPG skanavimas"
++
++msgid "No title"
++msgstr "Be pavadinimo"
++
++#. TRANSLATORS: The name of the language, as written natively
++msgid "LanguageName$English"
++msgstr "Lietuvi≈°kai"
++
++#. TRANSLATORS: The 3-letter code of the language
++msgid "LanguageCode$eng"
++msgstr "lit"
++
++msgid "Phase 1: Detecting RC code type"
++msgstr "1 ≈æingsnis: Nustatinƒójamas distancinio pulto kodo tipas"
++
++msgid "Press any key on the RC unit"
++msgstr "Spauskite bet kurƒØ distancinio pulto mygtukƒÖ"
++
++msgid "RC code detected!"
++msgstr "Gautas distancinio pulto mygtuko kodas!"
++
++msgid "Do not press any key..."
++msgstr "Neki≈°kite nag≈≥ prie distancinio pulto..."
++
++msgid "Phase 2: Learning specific key codes"
++msgstr "2 ≈æingsnis: Atskir≈≥ mygtuk≈≥ kod≈≥ nuskaitymas"
++
++#, c-format
++msgid "Press key for '%s'"
++msgstr "Spauskite '%s' mygtukƒÖ"
++
++msgid "Press 'Up' to confirm"
++msgstr "Patvirtinimui, spausti mygtukƒÖ 'ƒØ vir≈°≈≥'"
++
++msgid "Press 'Down' to continue"
++msgstr "Jei norite tƒôsti, spauskite mygtukƒÖ 'ƒØ apaƒçiƒÖ'"
++
++msgid "(press 'Up' to go back)"
++msgstr "GrƒØ≈æimui atgal, spausti mygtukƒÖ 'ƒØ vir≈°≈≥'"
++
++msgid "(press 'Down' to end key definition)"
++msgstr "Norƒódami baigti mygtuk≈≥ nustaymus, spauskite mygtukƒÖ 'ƒØ apaƒçiƒÖ'"
++
++msgid "(press 'Menu' to skip this key)"
++msgstr "Spauskit 'Meniu', jei norit praleisti ≈°ƒØ mygtukƒÖ"
++
++msgid "Learning Remote Control Keys"
++msgstr "Distancinio pulto mygtuk≈≥ kod≈≥ nuskaitymas"
++
++msgid "Phase 3: Saving key codes"
++msgstr "3 ≈æingsnis: Mygtuk≈≥ kod≈≥ u≈æsaugojimas"
++
++msgid "Press 'Up' to save, 'Down' to cancel"
++msgstr "Spausti 'ƒØ vir≈°≈≥' kad u≈æsaugoti, 'ƒØ apaƒçiƒÖ' kad atmesti"
++
++msgid "Key$Up"
++msgstr "ƒÆ vir≈°≈≥"
++
++msgid "Key$Down"
++msgstr "ƒÆ apaƒçiƒÖ"
++
++msgid "Key$Menu"
++msgstr "Meniu"
++
++msgid "Key$Ok"
++msgstr "Ok"
++
++msgid "Key$Back"
++msgstr "Atgal"
++
++msgid "Key$Left"
++msgstr "ƒÆ kairƒô"
++
++msgid "Key$Right"
++msgstr "ƒÆ de≈°inƒô"
++
++msgid "Key$Red"
++msgstr "Raudona"
++
++msgid "Key$Green"
++msgstr "≈Ωalia"
++
++msgid "Key$Yellow"
++msgstr "Geltona"
++
++msgid "Key$Blue"
++msgstr "Mƒólyna"
++
++msgid "Key$Info"
++msgstr "Info"
++
++msgid "Key$Play"
++msgstr "Grona"
++
++msgid "Key$Pause"
++msgstr "Pristabdyti"
++
++msgid "Key$Stop"
++msgstr "Sustabdyti"
++
++msgid "Key$Record"
++msgstr "ƒÆra≈°yti"
++
++msgid "Key$FastFwd"
++msgstr "Prasukimas ƒØ priekimas"
++
++msgid "Key$FastRew"
++msgstr "Persukimas atgal"
++
++msgid "Key$Next"
++msgstr "Sekantis"
++
++msgid "Key$Prev"
++msgstr "Prie≈° einantis"
++
++msgid "Key$Power"
++msgstr "I≈°jungti"
++
++msgid "Key$Channel+"
++msgstr "Kanalas +"
++
++msgid "Key$Channel-"
++msgstr "Kanalas -"
++
++msgid "Key$PrevChannel"
++msgstr "Pri≈° tai buvƒôs"
++
++msgid "Key$Volume+"
++msgstr "Garsas +"
++
++msgid "Key$Volume-"
++msgstr "Garsas -"
++
++msgid "Key$Mute"
++msgstr "Nutildymas"
++
++msgid "Key$Audio"
++msgstr "Audio"
++
++msgid "Key$Subtitles"
++msgstr "Subtitrai"
++
++msgid "Key$Schedule"
++msgstr "Programa"
++
++msgid "Key$Channels"
++msgstr "Kanalai"
++
++msgid "Key$Timers"
++msgstr "Laikmaƒçiai"
++
++msgid "Key$Recordings"
++msgstr "ƒÆra≈°ai"
++
++msgid "Key$Setup"
++msgstr "Nustatymai"
++
++msgid "Key$Commands"
++msgstr "Komandos"
++
++msgid "Key$User1"
++msgstr "Vartotojas1"
++
++msgid "Key$User2"
++msgstr "Vartotojas2"
++
++msgid "Key$User3"
++msgstr "Vartotojas3"
++
++msgid "Key$User4"
++msgstr "Vartotojas4"
++
++msgid "Key$User5"
++msgstr "Vartotojas5"
++
++msgid "Key$User6"
++msgstr "Vartotojas6"
++
++msgid "Key$User7"
++msgstr "Vartotojas7"
++
++msgid "Key$User8"
++msgstr "Vartotojas8"
++
++msgid "Key$User9"
++msgstr "Vartotojas9"
++
++msgid "Disk"
++msgstr "Diskas"
++
++msgid "free"
++msgstr "laisva"
++
++msgid "Free To Air"
++msgstr "Nekoduotas kanalas"
++
++msgid "encrypted"
++msgstr "koduota"
++
++msgid "Edit channel"
++msgstr "Koreguoti kanalƒÖ"
++
++msgid "Name"
++msgstr "Pavadinimas"
++
++msgid "Source"
++msgstr "≈†altinis"
++
++msgid "Frequency"
++msgstr "Da≈ænis"
++
++msgid "Vpid"
++msgstr "Vpid (video)"
++
++msgid "Ppid"
++msgstr "Ppid"
++
++msgid "Apid1"
++msgstr "Apid1 (aidio 1)"
++
++msgid "Apid2"
++msgstr "Apid2 (aidio 2)"
++
++msgid "Dpid1"
++msgstr "Dpid1 (AC3 1)"
++
++msgid "Dpid2"
++msgstr "Dpid2 (AC3 2)"
++
++msgid "Spid1"
++msgstr "Subtitr≈≥ pid1"
++
++msgid "Spid2"
++msgstr "Subtitr≈≥ pid2"
++
++msgid "Tpid"
++msgstr "Tpid (teletekstas)"
++
++msgid "CA"
++msgstr "CA (dekodavimo sistema)"
++
++msgid "Sid"
++msgstr "Serviso id"
++
++msgid "Polarization"
++msgstr "Poliarizacija"
++
++msgid "System"
++msgstr "Sistema"
++
++msgid "Srate"
++msgstr "Perdavimo greitis (Symbol rate)"
++
++msgid "Inversion"
++msgstr "Inversija"
++
++msgid "CoderateH"
++msgstr "CoderateH"
++
++msgid "CoderateL"
++msgstr "CoderateL"
++
++msgid "Modulation"
++msgstr "Moduliacija"
++
++msgid "Bandwidth"
++msgstr "Pralaidumas"
++
++msgid "Transmission"
++msgstr "Perdavimas"
++
++msgid "Guard"
++msgstr "Apsauga"
++
++msgid "Hierarchy"
++msgstr "Hierarchija"
++
++msgid "Rolloff"
++msgstr "Rolloff"
++
++msgid "Channel settings are not unique!"
++msgstr "Kanal≈≥ nustatymai neunikal≈´s!"
++
++msgid "Channels"
++msgstr "Kanalai"
++
++msgid "Button$Edit"
++msgstr "Koreguoti"
++
++msgid "Button$New"
++msgstr "Naujas"
++
++msgid "Button$Delete"
++msgstr "Trinti"
++
++msgid "Button$Mark"
++msgstr "≈Ωymƒóti"
++
++msgid "Channel is being used by a timer!"
++msgstr "KanalƒÖ ≈°iuo metu naudoja laikmaƒçio procesas!"
++
++msgid "Delete channel?"
++msgstr "I≈°trinti kanalƒÖ?"
++
++msgid "Edit timer"
++msgstr "Koreguoti laikmatƒØ"
++
++msgid "Active"
++msgstr "Aktyvus"
++
++msgid "Channel"
++msgstr "Kanalas"
++
++msgid "Day"
++msgstr "Diena"
++
++msgid "Start"
++msgstr "Prad≈æia"
++
++msgid "Stop"
++msgstr "Sabaiga"
++
++msgid "VPS"
++msgstr "VPS"
++
++msgid "Priority"
++msgstr "Prioritetas"
++
++msgid "Lifetime"
++msgstr "Galiojimas"
++
++msgid "File"
++msgstr "Failas"
++
++msgid "First day"
++msgstr "Pirma diena"
++
++msgid "Timers"
++msgstr "Laikmaƒçiai"
++
++msgid "Button$On/Off"
++msgstr "ƒÆj/I≈°j"
++
++msgid "Button$Info"
++msgstr "Info"
++
++msgid "Delete timer?"
++msgstr "I≈°trinti laikmatƒØ?"
++
++msgid "Timer still recording - really delete?"
++msgstr "Laikmatis vis dar vykdo ƒØra≈°ymƒÖ - vistiek i≈°trinti?"
++
++msgid "Event"
++msgstr "Laida"
++
++msgid "Button$Timer"
++msgstr "Laikmatis"
++
++msgid "Button$Record"
++msgstr "ƒÆra≈°ymas"
++
++msgid "Button$Switch"
++msgstr "Perjungti"
++
++msgid "What's on now?"
++msgstr "Kas transliuojama ≈°iuo metu?"
++
++msgid "What's on next?"
++msgstr "Kas bus transliuojama vƒóliau?"
++
++msgid "Button$Next"
++msgstr "Sekantis"
++
++msgid "Button$Now"
++msgstr "Dabar"
++
++msgid "Button$Schedule"
++msgstr "Programa"
++
++msgid "Can't switch channel!"
++msgstr "Negali perjunti kanalo!"
++
++#, c-format
++msgid "Schedule - %s"
++msgstr "Programa - %s"
++
++#, c-format
++msgid "This event - %s"
++msgstr "≈†i laida - %s"
++
++msgid "This event - all channels"
++msgstr "≈†i laida - visi kanalai"
++
++msgid "All events - all channels"
++msgstr "Visos laidos - visi kanalai"
++
++#, c-format
++msgid "Please enter %d digits!"
++msgstr "ƒÆveskite %d skaiƒçius!"
++
++msgid "CAM not responding!"
++msgstr "Dekodavimo modulis (CAM) neveikia!"
++
++msgid "Recording info"
++msgstr "Informacija apie ƒØra≈°us"
++
++msgid "Button$Play"
++msgstr "Groti"
++
++msgid "Button$Rewind"
++msgstr "Atsukti"
++
++msgid "Recordings"
++msgstr "ƒÆra≈°ai"
++
++msgid "Button$Open"
++msgstr "Atidaryti"
++
++msgid "Commands"
++msgstr "Komandos"
++
++msgid "Error while accessing recording!"
++msgstr "Klaida atidarant ƒØra≈°ƒÖ!"
++
++msgid "Delete recording?"
++msgstr "I≈°trinti ƒØra≈°ƒÖ?"
++
++msgid "Error while deleting recording!"
++msgstr "Klaida trinant ƒØra≈°ƒÖ!"
++
++msgid "Recording commands"
++msgstr "ƒÆra≈°ymo komandos"
++
++msgid "never"
++msgstr "niekada"
++
++msgid "skin dependent"
++msgstr "priklauso nuo stiliaus"
++
++msgid "always"
++msgstr "visada"
++
++msgid "OSD"
++msgstr "OSD (ekrano u≈æsklanda)"
++
++msgid "Setup.OSD$Language"
++msgstr "Kalba"
++
++msgid "Setup.OSD$Skin"
++msgstr "Stilius"
++
++msgid "Setup.OSD$Theme"
++msgstr "Tema"
++
++msgid "Setup.OSD$Left (%)"
++msgstr "Atitraukimas nuo kairƒós (%)"
++
++msgid "Setup.OSD$Top (%)"
++msgstr "Atitraukimas nuo vir≈°aus (%)"
++
++msgid "Setup.OSD$Width (%)"
++msgstr "Plotis (%)"
++
++msgid "Setup.OSD$Height (%)"
++msgstr "Auk≈°tis (%)"
++
++msgid "Setup.OSD$Message time (s)"
++msgstr "≈Ωinutƒós parodymo laikas (s)"
++
++msgid "Setup.OSD$Use small font"
++msgstr "Naudoti ma≈æƒÖ ≈°riftƒÖ"
++
++msgid "Setup.OSD$Anti-alias"
++msgstr "≈†rift≈≥ pagra≈æinimas"
++
++msgid "Setup.OSD$Default font"
++msgstr "Numatytas ≈°riftas"
++
++msgid "Setup.OSD$Small font"
++msgstr "Ma≈æas ≈°riftas"
++
++msgid "Setup.OSD$Fixed font"
++msgstr "Nustatyto dyd≈æio ≈°riftas"
++
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Numatyto ≈°rifto dydis  (%)"
++
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Ma≈æo ≈°rifto dydis (%)"
++
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Nustatyto dyd≈æio ≈°rifto dydis (%)"
++
++msgid "Setup.OSD$Channel info position"
++msgstr "Kanalo informacijos lango pozicija"
++
++msgid "bottom"
++msgstr "i≈° apaƒçios"
++
++msgid "top"
++msgstr "i≈° vir≈°aus"
++
++msgid "Setup.OSD$Channel info time (s)"
++msgstr "Kanalo informacijos lango rodymo laikas (s)"
++
++msgid "Setup.OSD$Info on channel switch"
++msgstr "Rodyti informacijos perjungiant kanalƒÖ"
++
++msgid "Setup.OSD$Timeout requested channel info"
++msgstr "U≈ædaryti informacijƒÖ apie kanalƒÖ"
++
++msgid "Setup.OSD$Scroll pages"
++msgstr "Pereiti/Persukti per puslapius"
++
++msgid "Setup.OSD$Scroll wraps"
++msgstr "Cikli≈°kai pereiti"
++
++msgid "Setup.OSD$Menu key closes"
++msgstr "U≈ædaryti Meniu mygtuku"
++
++msgid "Setup.OSD$Recording directories"
++msgstr "ƒÆra≈°≈≥ katalogai"
++
++msgid "EPG"
++msgstr "Elektroninis program≈≥ gidas (EPG)"
++
++msgid "Button$Scan"
++msgstr "Skanuoti"
++
++msgid "Setup.EPG$EPG scan timeout (h)"
++msgstr "EPG skanavimo u≈ælaikymas (h)"
++
++msgid "Setup.EPG$EPG bugfix level"
++msgstr "EPG klaid≈≥ taisymo lygis"
++
++msgid "Setup.EPG$EPG linger time (min)"
++msgstr "Pasenusi≈≥ EPG duomen≈≥ saugojomas (min)"
++
++msgid "Setup.EPG$Set system time"
++msgstr "Nustatyti sistemos laikƒÖ"
++
++msgid "Setup.EPG$Use time from transponder"
++msgstr "Naudoti si≈≥stuvo laikƒÖ"
++
++#. TRANSLATORS: note the plural!
++msgid "Setup.EPG$Preferred languages"
++msgstr "Pageidaujamos kalbos"
++
++#. TRANSLATORS: note the singular!
++msgid "Setup.EPG$Preferred language"
++msgstr "Pageidaujama kalba"
++
++msgid "pan&scan"
++msgstr "pan≈≤scan"
++
++msgid "letterbox"
++msgstr "letterbox"
++
++msgid "center cut out"
++msgstr "center cut out"
++
++msgid "no"
++msgstr "ne"
++
++msgid "names only"
++msgstr "tik pavadinimai"
++
++msgid "PIDs only"
++msgstr "tik PID'ai"
++
++msgid "names and PIDs"
++msgstr "pavadinimai ir PID'ai"
++
++msgid "add new channels"
++msgstr "pridƒóti nauj≈≥ kanal≈≥"
++
++msgid "add new transponders"
++msgstr "pridƒóti nauj≈≥ si≈≥stuv≈≥"
++
++msgid "DVB"
++msgstr "DVB"
++
++msgid "Setup.DVB$Primary DVB interface"
++msgstr "Pirminiƒó DVB ƒØvestis"
++
++msgid "Setup.DVB$Video format"
++msgstr "Video formatas"
++
++msgid "Setup.DVB$Video display format"
++msgstr "Plaƒçiaekranis formatas"
++
++msgid "Setup.DVB$Use Dolby Digital"
++msgstr "ƒÆjungti Dolby Digital"
++
++msgid "Setup.DVB$Update channels"
++msgstr "Atnaujinti kanalus"
++
++msgid "Setup.DVB$Audio languages"
++msgstr "Garso takeliai"
++
++msgid "Setup.DVB$Audio language"
++msgstr "Garso takelis"
++
++msgid "Setup.DVB$Display subtitles"
++msgstr "Rodyti subtitrus"
++
++msgid "Setup.DVB$Subtitle languages"
++msgstr "Subtitr≈≥ kalbos"
++
++msgid "Setup.DVB$Subtitle language"
++msgstr "Subtitr≈≥ kalba"
++
++msgid "Setup.DVB$Subtitle offset"
++msgstr "Subtitr≈≥ pozicionavimo nuokrypis"
++
++msgid "Setup.DVB$Subtitle foreground transparency"
++msgstr "Subtitr≈≥ priekinio vaizdo permatomumas"
++
++msgid "Setup.DVB$Subtitle background transparency"
++msgstr "Subtitr≈≥ fono permatomumas"
++
++msgid "LNB"
++msgstr "Konverteris (LNB)"
++
++msgid "Setup.LNB$Use DiSEqC"
++msgstr "ƒÆjungti DiSEqC"
++
++msgid "Setup.LNB$SLOF (MHz)"
++msgstr "SLOF (MHz)"
++
++msgid "Setup.LNB$Low LNB frequency (MHz)"
++msgstr "≈Ωemasis LNB da≈ænis (MHz)"
++
++msgid "Setup.LNB$High LNB frequency (MHz)"
++msgstr "Auk≈°tasis LNB da≈ænis (MHz)"
++
++msgid "CAM reset"
++msgstr "Dekodavimo modulis (CAM) perkrautas"
++
++msgid "CAM present"
++msgstr "Dekodavimo modulis (CAM) ƒØjungtas"
++
++msgid "CAM ready"
++msgstr "Dekodavimo modulis (CAM) paruo≈°tas darbui"
++
++msgid "CAM"
++msgstr "Dekodavimo modulis (CAM)"
++
++msgid "Button$Menu"
++msgstr "Meniu"
++
++msgid "Button$Reset"
++msgstr "Perkrauti"
++
++msgid "Opening CAM menu..."
++msgstr "Atidaromas dekodavimo modulio meniu..."
++
++msgid "Can't open CAM menu!"
++msgstr "Negali atidaryti dekodavimo modulio meniu!"
++
++msgid "CAM is in use - really reset?"
++msgstr "Dekodavimo modulis ≈°iuo metu naudojamas - tikrai perkrauti?"
++
++msgid "Can't reset CAM!"
++msgstr "Negali perkrauti dekodavimo modulio!"
++
++msgid "do not pause live video"
++msgstr "nepristabdyti 'gyvo' video srauto"
++
++msgid "confirm pause live video"
++msgstr "patvirtinti 'gyvo' video srauto pristabdymƒÖ"
++
++msgid "pause live video"
++msgstr "pristabdyti 'gyvƒÖ' video srautƒÖ"
++
++msgid "Recording"
++msgstr "ƒÆra≈°ymas"
++
++msgid "Setup.Recording$Margin at start (min)"
++msgstr "ƒÆra≈°o prad≈æios u≈ælaikymo laikas (min)"
++
++msgid "Setup.Recording$Margin at stop (min)"
++msgstr "ƒÆra≈°o pabaigos u≈ælaikymo laikas (min)"
++
++msgid "Setup.Recording$Primary limit"
++msgstr "Pagrindinio ƒØvesties ƒØrenginio suderinimo prioritetas"
++
++msgid "Setup.Recording$Default priority"
++msgstr "Numatytas laikmaƒçio prioritetas"
++
++msgid "Setup.Recording$Default lifetime (d)"
++msgstr "Numatytasis ƒØra≈°o saugojimo laikas (d)"
++
++msgid "Setup.Recording$Pause key handling"
++msgstr "Pauzƒós mygtuko interpretavimas"
++
++msgid "Setup.Recording$Pause priority"
++msgstr "Atidƒótos per≈æi≈´ros prioritetas"
++
++msgid "Setup.Recording$Pause lifetime (d)"
++msgstr "Atidƒótos per≈æi≈´roso saugojimas (d)"
++
++msgid "Setup.Recording$Use episode name"
++msgstr "Grupuoti pagal epizodus"
++
++msgid "Setup.Recording$Use VPS"
++msgstr "Naudoti VPS"
++
++msgid "Setup.Recording$VPS margin (s)"
++msgstr "VPS buferio laikas (s)"
++
++msgid "Setup.Recording$Mark instant recording"
++msgstr "Pa≈æymƒóti rankiniu b≈´du vykdomus ƒØra≈°us"
++
++msgid "Setup.Recording$Name instant recording"
++msgstr "Rankiniu b≈´du vykdom≈≥ ƒØra≈°≈≥ ƒØvardinimo schama"
++
++msgid "Setup.Recording$Instant rec. time (min)"
++msgstr "Rankiniu b≈´du vykdomo ƒØra≈°o laikas (min)"
++
++msgid "Setup.Recording$Max. video file size (MB)"
++msgstr "Maks. video failo dydis (MB)"
++
++msgid "Setup.Recording$Split edited files"
++msgstr "Suskaidyti koreguotus failus"
++
++msgid "Replay"
++msgstr "Pakartoti"
++
++msgid "Setup.Replay$Multi speed mode"
++msgstr "Daugiagreitis rƒô≈æimas"
++
++msgid "Setup.Replay$Show replay mode"
++msgstr "Rodyti atvaizdavimo rƒô≈æimƒÖ"
++
++msgid "Setup.Replay$Resume ID"
++msgstr "K≈´rinio ID"
++
++msgid "Miscellaneous"
++msgstr "Kiti"
++
++msgid "Setup.Miscellaneous$Min. event timeout (min)"
++msgstr "Min. ƒØvykio laukimo laikas (min)"
++
++msgid "Setup.Miscellaneous$Min. user inactivity (min)"
++msgstr "Min. ƒØvesties laukimo laikas (min)"
++
++msgid "Setup.Miscellaneous$SVDRP timeout (s)"
++msgstr "SVDRP u≈ælaikymas (s)"
++
++msgid "Setup.Miscellaneous$Zap timeout (s)"
++msgstr "Kanalo perjungimo u≈ælaikymas (s)"
++
++msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
++msgstr "U≈ælaikymas (ms) kanalo ƒØvedimui"
++
++msgid "Setup.Miscellaneous$Initial channel"
++msgstr "Kanalas ƒØjungimo metu"
++
++msgid "Setup.Miscellaneous$as before"
++msgstr "kaip anksƒçiau"
++
++msgid "Setup.Miscellaneous$Initial volume"
++msgstr "Garsas ƒØjungimo metu"
++
++msgid "Setup.Miscellaneous$Emergency exit"
++msgstr "Avarinis i≈°ƒójimas"
++
++msgid "Plugins"
++msgstr "ƒÆskiepai"
++
++msgid "This plugin has no setup parameters!"
++msgstr "≈†is ƒØskiepas neturi nustatymo parametr≈≥!"
++
++msgid "Setup"
++msgstr "Nustatymai"
++
++msgid "Restart"
++msgstr "Perkrauti"
++
++msgid "Really restart?"
++msgstr "Tikrai perkrauti?"
++
++#. TRANSLATORS: note the leading and trailing blanks!
++msgid " Stop recording "
++msgstr " Sustabdyti ƒØra≈°inƒójimƒÖ "
++
++msgid "Schedule"
++msgstr "Programa"
++
++msgid "VDR"
++msgstr "VDR"
++
++#. TRANSLATORS: note the leading blank!
++msgid " Stop replaying"
++msgstr " Sustabdyti kartojimƒÖ"
++
++msgid "Button$Audio"
++msgstr "Garsas"
++
++msgid "Button$Pause"
++msgstr "Pristabdyti"
++
++msgid "Button$Stop"
++msgstr "Sustabdyti"
++
++msgid "Button$Resume"
++msgstr "Pradƒóti"
++
++#. TRANSLATORS: note the leading blank!
++msgid " Cancel editing"
++msgstr " Sustabdyti koregavimƒÖ"
++
++msgid "Stop recording?"
++msgstr "Sustabdyti ƒØra≈°inƒójimƒÖ?"
++
++msgid "Cancel editing?"
++msgstr "Atmesti koregavimƒÖ?"
++
++msgid "No audio available!"
++msgstr "Garsas nepateikiamas!"
++
++msgid "No subtitles"
++msgstr "Nƒóra subtitr≈≥"
++
++msgid "Button$Subtitles"
++msgstr "Subtitrai"
++
++msgid "No subtitles available!"
++msgstr "Subtitrai nepateikiami!"
++
++msgid "Not enough disk space to start recording!"
++msgstr "Nepakanka vietos diske,  kad b≈´t≈≥ galima ƒØra≈°inƒóti!"
++
++msgid "No free DVB device to record!"
++msgstr "Nƒóra laisv≈≥ DVB ƒØrengini≈≥, kad b≈´t≈≥ galima ƒØra≈°inƒóti!"
++
++msgid "Pausing live video..."
++msgstr "Sustabdomas 'gyvo' video grojimas..."
++
++#. TRANSLATORS: note the trailing blank!
++msgid "Jump: "
++msgstr "Per≈°okti: "
++
++msgid "No editing marks defined!"
++msgstr "Nenustatytos koregavimo ≈æymƒós!"
++
++msgid "Can't start editing process!"
++msgstr "Negali pradƒóti koregavimo!"
++
++msgid "Editing process started"
++msgstr "Koregavimo procesas prasidƒójo"
++
++msgid "Editing process already active!"
++msgstr "Koregavimo procesas jau aktyvus!"
++
++msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
++msgstr " aƒÖbcƒçdeƒôƒófghiƒØjklmnopqrs≈°tu≈≥≈´vwxyz≈æ0123456789-.,#~\\^$[]|()*+?{}/:%@&"
++
++msgid "yes"
++msgstr "taip"
++
++msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
++msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\taƒÖbcƒç2\tdeƒôƒóf3\tghiƒØ4\tjkl5\tmno6\tpqrs≈°7\ttu≈≥≈´v8\twxyz≈æ9"
++
++msgid "Button$ABC/abc"
++msgstr "ABC/abc"
++
++msgid "Button$Overwrite"
++msgstr "PerrƒÖ≈°yti"
++
++msgid "Button$Insert"
++msgstr "ƒÆterpti"
++
++msgid "Plugin"
++msgstr "ƒÆskiepas"
++
++msgid "Up/Dn for new location - OK to move"
++msgstr "Spauskite mygtukus ƒØ vir≈°≈≥ / ƒØ apaƒçiƒÖ ir OK kad perkelti ƒØ kitƒÖ vietƒÖ"
++
++msgid "Channel locked (recording)!"
++msgstr "Kanalas u≈æblokuotas (ƒØra≈°inƒójama)!"
++
++msgid "Low disk space!"
++msgstr "Ma≈æai vietos diske!"
++
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
++msgid "Can't shutdown - option '-s' not given!"
++msgstr "Sistemos negalima i≈°jungti, nes starto metu nebuvo komandinƒój eilutƒój paduota savybƒó '-s'!"
++
++msgid "Editing - shut down anyway?"
++msgstr "Koreguojama - i≈°jungti vistiek?"
++
++msgid "Recording - shut down anyway?"
++msgstr "ƒÆra≈°inƒójama - i≈°jungti vistiek?"
++
++#, c-format
++msgid "Recording in %ld minutes, shut down anyway?"
++msgstr "ƒÆra≈°as prasidƒós po %ld minuƒçi≈≥, i≈°jungti vistiek?"
++
++msgid "shut down anyway?"
++msgstr "i≈°jungti bet kokiu atveju?"
++
++#, c-format
++msgid "Plugin %s wakes up in %ld min, continue?"
++msgstr "ƒÆskiepas %s aktyvuosis po %ld min, tƒôsti toliau?"
++
++msgid "Editing - restart anyway?"
++msgstr "Koreguojama - perkrauti vistiek?"
++
++msgid "Recording - restart anyway?"
++msgstr "ƒÆra≈°inƒójama - perkrauti vistiek?"
++
++msgid "restart anyway?"
++msgstr "perkrati bet kokiu atveju?"
++
++#. TRANSLATORS: note the trailing blank!
++msgid "Volume "
++msgstr "Garsas "
++
++msgid "Classic VDR"
++msgstr "Klasikinis VDR"
++
++msgid "ST:TNG Panels"
++msgstr "ST:TNG Skydeliai"
++
++#. TRANSLATORS: the first character of each weekday, beginning with monday
++msgid "MTWTFSS"
++msgstr "PATKP≈†S"
++
++#. TRANSLATORS: abbreviated weekdays, beginning with monday (must all be 3 letters!)
++msgid "MonTueWedThuFriSatSun"
++msgstr "PirAntTreKetPen≈†e≈°Sek"
++
++msgid "Monday"
++msgstr "Pirmadienis"
++
++msgid "Tuesday"
++msgstr "Antradienis"
++
++msgid "Wednesday"
++msgstr "Treƒçiadienis"
++
++msgid "Thursday"
++msgstr "Ketvirtadienis"
++
++msgid "Friday"
++msgstr "Penktadienis"
++
++msgid "Saturday"
++msgstr "≈†e≈°tadienis"
++
++msgid "Sunday"
++msgstr "Sekmadienis"
++
++msgid "Upcoming recording!"
++msgstr "Tuoj ƒØsijungs ƒØra≈°inƒójimas!"
++
++msgid "Pause live video?"
++msgstr "Sustabdyti 'gyvƒÖ' video srautƒÖ?"
++
++msgid "Recording started"
++msgstr "ƒÆra≈°ymas prasidƒójo"
++
++msgid "VDR will shut down later - press Power to force"
++msgstr "VDR i≈°sijungs vƒóliau - paspauskite Power mygtukƒÖ kad padarytumƒóte tai dabar"
++
++msgid "Press any key to cancel shutdown"
++msgstr "Paspauskit bet kurƒØ mygtukƒÖ kad sustabdytumƒóte sistemos i≈°jungimƒÖ"
++
++msgid "Switching primary DVB..."
++msgstr "Sukeiƒçiamas pirminis DVB ƒØrenginys..."
++
++msgid "Editing process failed!"
++msgstr "Koregavimas nepavyko!"
++
++msgid "Editing process finished"
++msgstr "Koregavimas baigtas"
++
++msgid "Press any key to cancel restart"
++msgstr "Paspauskit bet kurƒØ mygtukƒÖ kad sustabdytumƒóte perkrovimƒÖ"
++
++#, c-format
++msgid "VDR will shut down in %s minutes"
++msgstr "VDR i≈°sijungs per %s minutes"
+diff -ruN vdr-1.7.9/po/nl_NL.po vdr-1.7.10/po/nl_NL.po
+--- vdr-1.7.9/po/nl_NL.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/nl_NL.po	2009-11-22 12:28:39.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arnold Niessen <niessen@iae.nl> <arnold.niessen@philips.com>, 2001
+ # Hans Dingemans <hans.dingemans@tacticalops.nl>, 2003, 2005
+@@ -10,8 +10,8 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2008-02-26 17:20+0100\n"
+ "Last-Translator: Johan Schuring <johan.schuring@vetteblei.nl>\n"
+ "Language-Team: Dutch\n"
+@@ -928,6 +928,12 @@
+ msgid "Low disk space!"
+ msgstr "Hardeschijf bijna vol!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Shutdown onmogelijk - Optie '-s' ontbreekt!"
+ 
+diff -ruN vdr-1.7.9/po/nn_NO.po vdr-1.7.10/po/nn_NO.po
+--- vdr-1.7.9/po/nn_NO.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/nn_NO.po	2009-11-22 12:28:39.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # J¯rgen Tvedt <pjtvedt@online.no>, 2001
+ # Truls Slevigen <truls@slevigen.no>, 2002
+@@ -7,8 +7,8 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian\n"
+@@ -925,6 +925,12 @@
+ msgid "Low disk space!"
+ msgstr "Lite ledig diskplass!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Kan ikke slÂ av - startet uten parameteret '-s'!"
+ 
+diff -ruN vdr-1.7.9/po/pl_PL.po vdr-1.7.10/po/pl_PL.po
+--- vdr-1.7.9/po/pl_PL.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/pl_PL.po	2009-11-22 12:28:39.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Michael Rakowski <mrak@gmx.de>, 2002, 2003, 2008
+ # Jaroslaw Swierczynski <swiergot@gmail.com>, 2006
+@@ -7,8 +7,8 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2008-03-09 12:59+0100\n"
+ "Last-Translator: Michael Rakowski <mrak@gmx.de>\n"
+ "Language-Team:  Polish\n"
+@@ -925,6 +925,12 @@
+ msgid "Low disk space!"
+ msgstr "Ma≥o miejsca na dysku!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Nie moøna wy≥±czyÊ - nie podano opcji '-s'!"
+ 
+diff -ruN vdr-1.7.9/po/pt_PT.po vdr-1.7.10/po/pt_PT.po
+--- vdr-1.7.9/po/pt_PT.po	2009-08-23 14:55:37.000000000 +0200
++++ vdr-1.7.10/po/pt_PT.po	2009-11-22 12:28:39.000000000 +0100
+@@ -1,13 +1,13 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paulo Lopes <pmml@netvita.pt>, 2001
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2008-03-18 17:04+0100\n"
+ "Last-Translator: anonymous\n"
+ "Language-Team: Portuguese\n"
+@@ -924,6 +924,12 @@
+ msgid "Low disk space!"
+ msgstr "EspaÁo em disco reduzido!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "ImpossÌvel desligar - falta a opÁ„o '-s'!"
+ 
+diff -ruN vdr-1.7.9/po/ro_RO.po vdr-1.7.10/po/ro_RO.po
+--- vdr-1.7.9/po/ro_RO.po	2009-08-23 14:55:38.000000000 +0200
++++ vdr-1.7.10/po/ro_RO.po	2009-11-22 12:28:39.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paul Lacatus <paul@campina.iiruc.ro>, 2002
+ # Lucian Muresan <lucianm@users.sourceforge.net>, 2004, 2005, 2006, 2008
+@@ -7,8 +7,8 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2008-02-25 00:39+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+ "Language-Team: Romanian\n"
+@@ -927,6 +927,12 @@
+ msgid "Low disk space!"
+ msgstr "Spa˛iul pe disc e foarte sc„zut!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Nu pot Ónchide - vezi op˛iunea '-s'"
+ 
+diff -ruN vdr-1.7.9/po/ru_RU.po vdr-1.7.10/po/ru_RU.po
+--- vdr-1.7.9/po/ru_RU.po	2009-08-23 14:55:38.000000000 +0200
++++ vdr-1.7.10/po/ru_RU.po	2009-11-22 12:28:39.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Vyacheslav Dikonov <sdiconov@mail.ru>, 2004, 2005
+ # Oleg Roitburd <oleg@roitburd.de>, 2005, 2006, 2007, 2008
+@@ -7,8 +7,8 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2008-12-15 14:37+0100\n"
+ "Last-Translator: Oleg Roitburd <oleg@roitburd.de>\n"
+ "Language-Team: Russian\n"
+@@ -925,6 +925,12 @@
+ msgid "Low disk space!"
+ msgstr "Ω’‘ﬁ·‚–‚ﬁÁ›ﬁ ‹’·‚– ›– ‘ÿ·⁄’!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "≤Î⁄€ÓÁ’›ÿ’ ›’“ﬁ◊‹ﬁ÷›ﬁ - ›’ ◊–‘–› ﬂ–‡–‹’‚‡ '-s'!"
+ 
+diff -ruN vdr-1.7.9/po/sk_SK.po vdr-1.7.10/po/sk_SK.po
+--- vdr-1.7.9/po/sk_SK.po	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.7.10/po/sk_SK.po	2009-11-22 12:28:39.000000000 +0100
+@@ -0,0 +1,1031 @@
++# VDR language source file.
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# This file is distributed under the same license as the VDR package.
++# VladimÌr B·rta <vladimir.barta@k2atmitec.cz>, 2006, 2008
++# Ji¯Ì Dobr˝ <jdobry@centrum.cz>, 2008
++#
++msgid ""
++msgstr ""
++"Project-Id-Version: VDR 1.6.0\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
++"PO-Revision-Date: 2009-09-30 12:50+0100\n"
++"Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
++"Language-Team: Slovak\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=ISO-8859-2\n"
++"Content-Transfer-Encoding: 8bit\n"
++
++msgid "off"
++msgstr "vypnutÈ"
++
++msgid "on"
++msgstr "zapnutÈ"
++
++msgid "auto"
++msgstr "automaticky"
++
++msgid "none"
++msgstr "æiadny"
++
++msgid "*** Invalid Channel ***"
++msgstr "*** Neplatn˝ kan·l ***"
++
++msgid "Channel not available!"
++msgstr "Kan·l nie je dostupn˝!"
++
++msgid "Can't start Transfer Mode!"
++msgstr "NemÙæe spustiª prenos!"
++
++msgid "Starting EPG scan"
++msgstr "ZaËÌna prehµad·vaª EPG"
++
++msgid "No title"
++msgstr "Bez n·zvu"
++
++#. TRANSLATORS: The name of the language, as written natively
++msgid "LanguageName$English"
++msgstr "Slovensky"
++
++#. TRANSLATORS: The 3-letter code of the language
++msgid "LanguageCode$eng"
++msgstr "sk"
++
++msgid "Phase 1: Detecting RC code type"
++msgstr "F·za 1: Detekcia typu kÛdu"
++
++msgid "Press any key on the RC unit"
++msgstr "StlaËte µubovoln˙ kl·vesu ovl·dania"
++
++msgid "RC code detected!"
++msgstr "KÛd bol zisten˝!"
++
++msgid "Do not press any key..."
++msgstr "Nestl·Ëajte æiadne kl·vesy..."
++
++msgid "Phase 2: Learning specific key codes"
++msgstr "F·za 2: UrËenie konkrÈtneho kÛdu kl·ves"
++
++#, c-format
++msgid "Press key for '%s'"
++msgstr "StlaËte kl·vesu pre '%s'"
++
++msgid "Press 'Up' to confirm"
++msgstr "StlaËte 'Hore' pre potvrdenie"
++
++msgid "Press 'Down' to continue"
++msgstr "StlaËte 'Dole' pre pokraËovanie"
++
++msgid "(press 'Up' to go back)"
++msgstr "(stlaËte 'hore' pre n·vrat)"
++
++msgid "(press 'Down' to end key definition)"
++msgstr "(stlaËte 'dole' pre skonËenie)"
++
++msgid "(press 'Menu' to skip this key)"
++msgstr "(stlaËte 'Menu' pre preskoËenie definÌcie kl·vesy)"
++
++msgid "Learning Remote Control Keys"
++msgstr "UrËenie kÛdu diaµkovÈho ovl·dania"
++
++msgid "Phase 3: Saving key codes"
++msgstr "F·za 3: Uloæenie kÛdu"
++
++msgid "Press 'Up' to save, 'Down' to cancel"
++msgstr "StlaËte 'hore' pre uloæenie, 'Dole' pre zruπenie"
++
++msgid "Key$Up"
++msgstr "Hore"
++
++msgid "Key$Down"
++msgstr "Dole"
++
++msgid "Key$Menu"
++msgstr "Menu"
++
++msgid "Key$Ok"
++msgstr "Ok"
++
++msgid "Key$Back"
++msgstr "Sp‰ª"
++
++msgid "Key$Left"
++msgstr "Vµavo"
++
++msgid "Key$Right"
++msgstr "Vpravo"
++
++msgid "Key$Red"
++msgstr "»ervenÈ"
++
++msgid "Key$Green"
++msgstr "ZelenÈ"
++
++msgid "Key$Yellow"
++msgstr "ÆltÈ"
++
++msgid "Key$Blue"
++msgstr "ModrÈ"
++
++msgid "Key$Info"
++msgstr "Info"
++
++msgid "Key$Play"
++msgstr "Prehraª"
++
++msgid "Key$Pause"
++msgstr "Preruπiª"
++
++msgid "Key$Stop"
++msgstr "Zastaviª"
++
++msgid "Key$Record"
++msgstr "Nahraª"
++
++msgid "Key$FastFwd"
++msgstr "PretoËiª dopredu"
++
++msgid "Key$FastRew"
++msgstr "PretoËiª sp‰ª"
++
++msgid "Key$Next"
++msgstr "œalej"
++
++msgid "Key$Prev"
++msgstr "Sp‰ª"
++
++msgid "Key$Power"
++msgstr "VypÌnaË"
++
++msgid "Key$Channel+"
++msgstr "Kan·l+"
++
++msgid "Key$Channel-"
++msgstr "Kan·l-"
++
++msgid "Key$PrevChannel"
++msgstr "Predch·dzaj˙ci kan·l"
++
++msgid "Key$Volume+"
++msgstr "Hlasitosª+"
++
++msgid "Key$Volume-"
++msgstr "Hlasitosª -"
++
++msgid "Key$Mute"
++msgstr "Ticho"
++
++msgid "Key$Audio"
++msgstr "Zvuk"
++
++msgid "Key$Subtitles"
++msgstr "Titulky"
++
++msgid "Key$Schedule"
++msgstr "Program (EPG)"
++
++msgid "Key$Channels"
++msgstr "Kan·ly"
++
++msgid "Key$Timers"
++msgstr "Pl·ny nahr·vania"
++
++msgid "Key$Recordings"
++msgstr "Z·znamy"
++
++msgid "Key$Setup"
++msgstr "Nastavenie"
++
++msgid "Key$Commands"
++msgstr "PrÌkazy"
++
++msgid "Key$User1"
++msgstr "UæÌvateµ1"
++
++msgid "Key$User2"
++msgstr "UæÌvateµ2"
++
++msgid "Key$User3"
++msgstr "UæÌvateµ3"
++
++msgid "Key$User4"
++msgstr "UæÌvateµ4"
++
++msgid "Key$User5"
++msgstr "UæÌvateµ5"
++
++msgid "Key$User6"
++msgstr "UæÌvateµ6"
++
++msgid "Key$User7"
++msgstr "UæÌvateµ7"
++
++msgid "Key$User8"
++msgstr "UæÌvateµ8"
++
++msgid "Key$User9"
++msgstr "UæÌvateµ9"
++
++msgid "Disk"
++msgstr "Disk"
++
++msgid "free"
++msgstr "volne"
++
++msgid "Free To Air"
++msgstr "volne πÌriteµn˝"
++
++msgid "encrypted"
++msgstr "kÛdovan˝"
++
++msgid "Edit channel"
++msgstr "⁄pravy kan·lu"
++
++msgid "Name"
++msgstr "N·zov"
++
++msgid "Source"
++msgstr "Zdroj"
++
++msgid "Frequency"
++msgstr "Frekvencia"
++
++msgid "Vpid"
++msgstr "Vpid"
++
++msgid "Ppid"
++msgstr "Ppid"
++
++msgid "Apid1"
++msgstr "Apid1"
++
++msgid "Apid2"
++msgstr "Apid2"
++
++msgid "Dpid1"
++msgstr "Dpid1"
++
++msgid "Dpid2"
++msgstr "Dpid2"
++
++msgid "Spid1"
++msgstr "Spid1"
++
++msgid "Spid2"
++msgstr "Spid2"
++
++msgid "Tpid"
++msgstr "Tpid"
++
++msgid "CA"
++msgstr "CA"
++
++msgid "Sid"
++msgstr "Sid"
++
++msgid "Polarization"
++msgstr "Polariz·cia"
++
++msgid "System"
++msgstr "systÈm"
++
++msgid "Srate"
++msgstr "Srate"
++
++msgid "Inversion"
++msgstr "Inversion"
++
++msgid "CoderateH"
++msgstr "CoderateH"
++
++msgid "CoderateL"
++msgstr "CoderateL"
++
++msgid "Modulation"
++msgstr "Modul·cia"
++
++msgid "Bandwidth"
++msgstr "©Ìrka p·sma"
++
++msgid "Transmission"
++msgstr "Prenos"
++
++msgid "Guard"
++msgstr "Ochrana"
++
++msgid "Hierarchy"
++msgstr "Hierarchia"
++
++msgid "Rolloff"
++msgstr ""
++
++msgid "Channel settings are not unique!"
++msgstr "Nastavenia kan·lu nie s˙ obyËajnÈ!"
++
++msgid "Channels"
++msgstr "Kan·ly"
++
++msgid "Button$Edit"
++msgstr "⁄pravy"
++
++msgid "Button$New"
++msgstr "Nov˝"
++
++msgid "Button$Delete"
++msgstr "Zmazaª"
++
++msgid "Button$Mark"
++msgstr "OznaËiª"
++
++msgid "Channel is being used by a timer!"
++msgstr "Pl·n nahr·vania pr·ve pouæÌva kan·l!"
++
++msgid "Delete channel?"
++msgstr "Odstr·niª kan·l?"
++
++msgid "Edit timer"
++msgstr "⁄prava pl·nu nahr·vania"
++
++msgid "Active"
++msgstr "V Ëinnosti"
++
++msgid "Channel"
++msgstr "Kan·l"
++
++msgid "Day"
++msgstr "DeÚ"
++
++msgid "Start"
++msgstr "ZaËiatok"
++
++msgid "Stop"
++msgstr "Koniec"
++
++msgid "VPS"
++msgstr "VPS"
++
++msgid "Priority"
++msgstr "Priorita"
++
++msgid "Lifetime"
++msgstr "Æivotnosª"
++
++msgid "File"
++msgstr "S˙bor"
++
++msgid "First day"
++msgstr "Prv˝ deÚ"
++
++msgid "Timers"
++msgstr "Pl·ny nahr·vania"
++
++msgid "Button$On/Off"
++msgstr "Zap./Vyp."
++
++msgid "Button$Info"
++msgstr "Info"
++
++msgid "Delete timer?"
++msgstr "Zmazaª pl·n nahr·vania?"
++
++msgid "Timer still recording - really delete?"
++msgstr "Pr·ve nahr·va- naozaj zmazaª?"
++
++msgid "Event"
++msgstr "Udalosti"
++
++msgid "Button$Timer"
++msgstr "Pl·ny"
++
++msgid "Button$Record"
++msgstr "Nahraª"
++
++msgid "Button$Switch"
++msgstr "Prepn˙ª"
++
++msgid "What's on now?"
++msgstr "Aktu·lny program"
++
++msgid "What's on next?"
++msgstr "N·sleduj˙ci program"
++
++msgid "Button$Next"
++msgstr "œalej"
++
++msgid "Button$Now"
++msgstr "Teraz"
++
++msgid "Button$Schedule"
++msgstr "TV program"
++
++msgid "Can't switch channel!"
++msgstr "Kan·l nejde prepn˙ª!"
++
++#, c-format
++msgid "Schedule - %s"
++msgstr "TV program - %s"
++
++#, c-format
++msgid "This event - %s"
++msgstr "Tato udalosª - %s"
++
++msgid "This event - all channels"
++msgstr "Tato udalosª - vπetky kan·ly"
++
++msgid "All events - all channels"
++msgstr "Vπetky udalosti - vπetky kan·ly"
++
++#, c-format
++msgid "Please enter %d digits!"
++msgstr "ProsÌm vloæte %d znakov!"
++
++msgid "CAM not responding!"
++msgstr "CAM neodpoved·!"
++
++msgid "Recording info"
++msgstr "Podrobnosti z·znamu"
++
++msgid "Button$Play"
++msgstr "Prehraª"
++
++msgid "Button$Rewind"
++msgstr "Na zaËiatok"
++
++msgid "Recordings"
++msgstr "Z·znamy"
++
++msgid "Button$Open"
++msgstr "Otvoriª"
++
++msgid "Commands"
++msgstr "PrÌkazy"
++
++msgid "Error while accessing recording!"
++msgstr "Chyba pri prÌstupe k z·znamom!"
++
++msgid "Delete recording?"
++msgstr "Zmazaª z·znam?"
++
++msgid "Error while deleting recording!"
++msgstr "Pri vymaz·vanÌ z·znamu priπlo k chybe!"
++
++msgid "Recording commands"
++msgstr "PrÌkazy nahr·vania"
++
++msgid "never"
++msgstr "nikdy"
++
++msgid "skin dependent"
++msgstr "podµa vzhµadu"
++
++msgid "always"
++msgstr "vædy"
++
++msgid "OSD"
++msgstr "OSD"
++
++msgid "Setup.OSD$Language"
++msgstr "Jazyk"
++
++msgid "Setup.OSD$Skin"
++msgstr "Vzhµad"
++
++msgid "Setup.OSD$Theme"
++msgstr "TÈma"
++
++msgid "Setup.OSD$Left (%)"
++msgstr "Vµavo (%)"
++
++msgid "Setup.OSD$Top (%)"
++msgstr "Navrchu (%)"
++
++msgid "Setup.OSD$Width (%)"
++msgstr "©Ìrka (%)"
++
++msgid "Setup.OSD$Height (%)"
++msgstr "V˝πka (%)"
++
++msgid "Setup.OSD$Message time (s)"
++msgstr "»as zobrazenia spr·vy (s)"
++
++msgid "Setup.OSD$Use small font"
++msgstr "PouæÌvaª malÈ pÌsmo"
++
++msgid "Setup.OSD$Anti-alias"
++msgstr "Vyhladiª pÌsmo"
++
++msgid "Setup.OSD$Default font"
++msgstr "PredvolenÈ pÌsmo"
++
++msgid "Setup.OSD$Small font"
++msgstr "MalÈ pÌsmo"
++
++msgid "Setup.OSD$Fixed font"
++msgstr "UrËenÈ pÌsmo"
++
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Veµkosª predvolenÈho pÌsma (%)"
++
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Veµkosª malÈho pÌsma (%)"
++
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Veµkosª urËenÈho pÌsma (%)"
++
++msgid "Setup.OSD$Channel info position"
++msgstr "PozÌcia inform·ciÌ o kan·le"
++
++msgid "bottom"
++msgstr "na spodku"
++
++msgid "top"
++msgstr "na vrchu"
++
++msgid "Setup.OSD$Channel info time (s)"
++msgstr "»as zobr. inform·ciÌ o kan·le (s)"
++
++msgid "Setup.OSD$Info on channel switch"
++msgstr "Inform·cie pri zmene kan·lu"
++
++msgid "Setup.OSD$Timeout requested channel info"
++msgstr "»asov˝ limit na inform·ciu o kan·le"
++
++msgid "Setup.OSD$Scroll pages"
++msgstr "Rolovaª strany"
++
++msgid "Setup.OSD$Scroll wraps"
++msgstr "Z konca na zaËiatok"
++
++msgid "Setup.OSD$Menu key closes"
++msgstr "Kl·vesa Menu zaviera"
++
++msgid "Setup.OSD$Recording directories"
++msgstr "Zoznam z·znamov"
++
++msgid "EPG"
++msgstr "EPG"
++
++msgid "Button$Scan"
++msgstr "SnÌmaª"
++
++msgid "Setup.EPG$EPG scan timeout (h)"
++msgstr "»asov˝ limit pre snÌmanie EPG (h)"
++
++msgid "Setup.EPG$EPG bugfix level"
++msgstr "EPG ˙roveÚ chyb"
++
++msgid "Setup.EPG$EPG linger time (min)"
++msgstr "Ukazovaª starπie EPG d·ta (min)"
++
++msgid "Setup.EPG$Set system time"
++msgstr "Nastaviª systÈmov˝ Ëas"
++
++msgid "Setup.EPG$Use time from transponder"
++msgstr "Pouæiª Ëas z kan·lu"
++
++#. TRANSLATORS: note the plural!
++msgid "Setup.EPG$Preferred languages"
++msgstr "UprednostÚovaª jazyky"
++
++#. TRANSLATORS: note the singular!
++msgid "Setup.EPG$Preferred language"
++msgstr "Uprednostniª jazyk"
++
++msgid "pan&scan"
++msgstr "pan&scan"
++
++msgid "letterbox"
++msgstr "letterbox"
++
++msgid "center cut out"
++msgstr "orezaª do stredu"
++
++msgid "no"
++msgstr "nie"
++
++msgid "names only"
++msgstr "iba n·zvy"
++
++msgid "PIDs only"
++msgstr "iba PID-y"
++
++msgid "names and PIDs"
++msgstr "n·zvy a PID-y"
++
++msgid "add new channels"
++msgstr "pridaª novÈ kan·ly"
++
++msgid "add new transponders"
++msgstr "pridaª novÈ transpondÈry"
++
++msgid "DVB"
++msgstr "DVB"
++
++msgid "Setup.DVB$Primary DVB interface"
++msgstr "HlavnÈ DVB rozhranie"
++
++msgid "Setup.DVB$Video format"
++msgstr "Form·t videa"
++
++msgid "Setup.DVB$Video display format"
++msgstr "Form·t zobrazenia videa"
++
++msgid "Setup.DVB$Use Dolby Digital"
++msgstr "PouæÌvaª zvuk v Dolby Digital"
++
++msgid "Setup.DVB$Update channels"
++msgstr "Aktualiz·cia kan·lov"
++
++msgid "Setup.DVB$Audio languages"
++msgstr "Jazyky zvuku"
++
++msgid "Setup.DVB$Audio language"
++msgstr "Jazyk zvuku"
++
++msgid "Setup.DVB$Display subtitles"
++msgstr "Zobrazovaª titulky"
++
++msgid "Setup.DVB$Subtitle languages"
++msgstr "Jazyky titulkov"
++
++msgid "Setup.DVB$Subtitle language"
++msgstr "Jazyk titulkov"
++
++msgid "Setup.DVB$Subtitle offset"
++msgstr "Posunutie titulkov"
++
++msgid "Setup.DVB$Subtitle foreground transparency"
++msgstr "Priehµadnosª pÌsma titulkov"
++
++msgid "Setup.DVB$Subtitle background transparency"
++msgstr "Priehµadnosª pozadia titulkov"
++
++msgid "LNB"
++msgstr "LNB"
++
++msgid "Setup.LNB$Use DiSEqC"
++msgstr "PouæÌvaª DiSEqC"
++
++msgid "Setup.LNB$SLOF (MHz)"
++msgstr "SLOF (MHz)"
++
++msgid "Setup.LNB$Low LNB frequency (MHz)"
++msgstr "Doln· frekvencia LNB (MHz)"
++
++msgid "Setup.LNB$High LNB frequency (MHz)"
++msgstr "Horn· frekvencia LNB (MHz)"
++
++msgid "CAM reset"
++msgstr "Reset CAMu"
++
++msgid "CAM present"
++msgstr "CAM prÌtomn˝"
++
++msgid "CAM ready"
++msgstr "CAM pripraven˝"
++
++msgid "CAM"
++msgstr "CAM"
++
++msgid "Button$Menu"
++msgstr "Menu"
++
++msgid "Button$Reset"
++msgstr "Reset"
++
++msgid "Opening CAM menu..."
++msgstr "Otv·ra sa menu CAM..."
++
++msgid "Can't open CAM menu!"
++msgstr "Menu CAM nie je dostupnÈ"
++
++msgid "CAM is in use - really reset?"
++msgstr "CAM sa pouæÌva - naozaj reπtartovaª?"
++
++msgid "Can't reset CAM!"
++msgstr "CAM modul nejde reπtartovaª!"
++
++msgid "do not pause live video"
++msgstr "nepreruπovaª æivÈ vysielanie"
++
++msgid "confirm pause live video"
++msgstr "Potrdiª preruπenie æivÈho vysielania"
++
++msgid "pause live video"
++msgstr "Preruπiª æivÈ vysielanie"
++
++msgid "Recording"
++msgstr "Nahr·vanie"
++
++msgid "Setup.Recording$Margin at start (min)"
++msgstr "Nahr·vaª pred zaËiatkom (min)"
++
++msgid "Setup.Recording$Margin at stop (min)"
++msgstr "Nahr·vaª po konci (min)"
++
++msgid "Setup.Recording$Primary limit"
++msgstr "Hlavn˝ limit"
++
++msgid "Setup.Recording$Default priority"
++msgstr "Predvolen· priorita"
++
++msgid "Setup.Recording$Default lifetime (d)"
++msgstr "Predvolen· æivotnosª"
++
++msgid "Setup.Recording$Pause key handling"
++msgstr ""
++
++msgid "Setup.Recording$Pause priority"
++msgstr "Priorita preruπenia"
++
++msgid "Setup.Recording$Pause lifetime (d)"
++msgstr "Æivotnosª preruπenia (d)"
++
++msgid "Setup.Recording$Use episode name"
++msgstr "PouæÌvaª n·zov epizÛdy"
++
++msgid "Setup.Recording$Use VPS"
++msgstr "PouæÌvaª VPS"
++
++msgid "Setup.Recording$VPS margin (s)"
++msgstr "»asov· rezerva pre VPS (s)"
++
++msgid "Setup.Recording$Mark instant recording"
++msgstr "OznaËiª okamæitÈ nahr·vky"
++
++msgid "Setup.Recording$Name instant recording"
++msgstr "Premenovaª okamæitÈ nahr·vky"
++
++msgid "Setup.Recording$Instant rec. time (min)"
++msgstr "DÂæka okamæitÈho nahr·vania (min)"
++
++msgid "Setup.Recording$Max. video file size (MB)"
++msgstr "Maxim·lna veµkosª nahr·vky (MB)"
++
++msgid "Setup.Recording$Split edited files"
++msgstr "Deliª upravovanÈ s˙bory"
++
++msgid "Replay"
++msgstr "Prehr·vanie"
++
++msgid "Setup.Replay$Multi speed mode"
++msgstr "Viac r˝chlostn˝ reæim"
++
++msgid "Setup.Replay$Show replay mode"
++msgstr "Zobraziª spÙsob prehr·vania"
++
++msgid "Setup.Replay$Resume ID"
++msgstr "ID obnovenie"
++
++msgid "Miscellaneous"
++msgstr "RÙzne"
++
++msgid "Setup.Miscellaneous$Min. event timeout (min)"
++msgstr "Min. pauza medzi udalosªami (min)"
++
++msgid "Setup.Miscellaneous$Min. user inactivity (min)"
++msgstr "»asov˝ limit neËinnosti (min)"
++
++msgid "Setup.Miscellaneous$SVDRP timeout (s)"
++msgstr "»asov˝ limit SVDRP (s)"
++
++msgid "Setup.Miscellaneous$Zap timeout (s)"
++msgstr "»asov˝ limit Zap (s)"
++
++msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
++msgstr "»as pri voµbe kan·la (ms)"
++
++msgid "Setup.Miscellaneous$Initial channel"
++msgstr "Kan·l po spustenÌ"
++
++msgid "Setup.Miscellaneous$as before"
++msgstr "ako naposledy"
++
++msgid "Setup.Miscellaneous$Initial volume"
++msgstr "Hlasitosª po spustenÌ"
++
++msgid "Setup.Miscellaneous$Emergency exit"
++msgstr "N˙dzovÈ ukonËenie"
++
++msgid "Plugins"
++msgstr "Moduly"
++
++msgid "This plugin has no setup parameters!"
++msgstr "Modul nem· konfiguraËnÈ parametre!"
++
++msgid "Setup"
++msgstr "Nastavenie"
++
++msgid "Restart"
++msgstr "Reπtart"
++
++msgid "Really restart?"
++msgstr "Opravdu reπtartovaª?"
++
++#. TRANSLATORS: note the leading and trailing blanks!
++msgid " Stop recording "
++msgstr " Zastaviª nahr·vanie"
++
++msgid "Schedule"
++msgstr "TV program"
++
++msgid "VDR"
++msgstr "VDR"
++
++#. TRANSLATORS: note the leading blank!
++msgid " Stop replaying"
++msgstr " Zastaviª prehr·vanie"
++
++msgid "Button$Audio"
++msgstr "Zvuk"
++
++msgid "Button$Pause"
++msgstr "Pozastaviª"
++
++msgid "Button$Stop"
++msgstr "Zastaviª"
++
++msgid "Button$Resume"
++msgstr "PokraËovaª"
++
++#. TRANSLATORS: note the leading blank!
++msgid " Cancel editing"
++msgstr " Zruπiª ˙pravu"
++
++msgid "Stop recording?"
++msgstr "UkonËiª nahr·vanie?"
++
++msgid "Cancel editing?"
++msgstr "Zruπiª ˙pravy?"
++
++msgid "No audio available!"
++msgstr "Zvuk nie je dostupn˝!"
++
++msgid "No subtitles"
++msgstr "Bez titulkov"
++
++msgid "Button$Subtitles"
++msgstr "Titulky"
++
++msgid "No subtitles available!"
++msgstr "æiadne dostupnÈ titulky!"
++
++msgid "Not enough disk space to start recording!"
++msgstr "M·lo volnÈho miesta na nahr·vanie!"
++
++msgid "No free DVB device to record!"
++msgstr "Æiadna DVB karta nie je voln· pre nahr·vanie"
++
++msgid "Pausing live video..."
++msgstr "Preruπuje sa beæiaci program ..."
++
++#. TRANSLATORS: note the trailing blank!
++msgid "Jump: "
++msgstr "Skok: "
++
++msgid "No editing marks defined!"
++msgstr "Nie s˙ urËenÈ upravovanÈ znaËky!"
++
++msgid "Can't start editing process!"
++msgstr "NemÙæe zaËaª spracovanie ˙prav!"
++
++msgid "Editing process started"
++msgstr "Spracovanie ˙prav zaËalo"
++
++msgid "Editing process already active!"
++msgstr "Spracovanie ˙prav je v Ëinnosti!"
++
++msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
++msgstr " a·‰bcËdÔeÈfghiÌjklÂµmnÚoÛÙpqr‡sπtªu˙vwxy˝zæ0123456789-.,#~\\^$[]|()*+?{}/:%@&"
++
++msgid "yes"
++msgstr "·no"
++
++msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
++msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc·Ë2\tdefÔÈÏ3\tghiÌ4\tjkl5\tmnoÚÛ6\tpqrs¯π7\ttuvª˙˘8\twxyz˝æ9"
++
++msgid "Button$ABC/abc"
++msgstr "ABC/abc"
++
++msgid "Button$Overwrite"
++msgstr "PrepÌsaª"
++
++msgid "Button$Insert"
++msgstr "Vloæiª"
++
++msgid "Plugin"
++msgstr "Modul"
++
++msgid "Up/Dn for new location - OK to move"
++msgstr "Hore/Dole na nov˙ pozÌciu - Ok presune"
++
++msgid "Channel locked (recording)!"
++msgstr "Kan·l je zamknut˝ (nahr·va sa)!"
++
++msgid "Low disk space!"
++msgstr "Za chvÌµku bude pln˝ disk!"
++
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
++msgid "Can't shutdown - option '-s' not given!"
++msgstr "Vypnutie nie je moænÈ - ch˝ba voµba '-s'!"
++
++msgid "Editing - shut down anyway?"
++msgstr "Upravujem - aj tak vypn˙ª?"
++
++msgid "Recording - shut down anyway?"
++msgstr "Nahr·va - aj tak vypn˙ª?"
++
++#, c-format
++msgid "Recording in %ld minutes, shut down anyway?"
++msgstr "Nahr·vanie zaËne za %ld min˙t - aj tak vypn˙ª?"
++
++msgid "shut down anyway?"
++msgstr "Aj tak vypn˙ª?"
++
++#, c-format
++msgid "Plugin %s wakes up in %ld min, continue?"
++msgstr "Modul %s πtartuje za %ld min., pokraËovaª?"
++
++msgid "Editing - restart anyway?"
++msgstr "Upravuje sa - aj tak reπtartovaª?"
++
++msgid "Recording - restart anyway?"
++msgstr "Nahr·va - aj tak reπtartovaª?"
++
++msgid "restart anyway?"
++msgstr "Aj tak reπtartovaª?"
++
++#. TRANSLATORS: note the trailing blank!
++msgid "Volume "
++msgstr "Hlasitosª"
++
++msgid "Classic VDR"
++msgstr "KlasickÈ VDR"
++
++msgid "ST:TNG Panels"
++msgstr "ST:TNG konzola"
++
++#. TRANSLATORS: the first character of each weekday, beginning with monday
++msgid "MTWTFSS"
++msgstr "P⁄S»PSN"
++
++#. TRANSLATORS: abbreviated weekdays, beginning with monday (must all be 3 letters!)
++msgid "MonTueWedThuFriSatSun"
++msgstr "Po Ut St ©t Pi So Ne "
++
++msgid "Monday"
++msgstr "Pondelok"
++
++msgid "Tuesday"
++msgstr "Utorok"
++
++msgid "Wednesday"
++msgstr "Streda"
++
++msgid "Thursday"
++msgstr "©tvrtok"
++
++msgid "Friday"
++msgstr "Piatok"
++
++msgid "Saturday"
++msgstr "Sobota"
++
++msgid "Sunday"
++msgstr "Nedeµa"
++
++msgid "Upcoming recording!"
++msgstr "Onedlho zaËne nahr·vanie!"
++
++msgid "Pause live video?"
++msgstr "Preruπiª æivÈ vysielanie?"
++
++msgid "Recording started"
++msgstr "ZaËalo nahr·vanie"
++
++msgid "VDR will shut down later - press Power to force"
++msgstr "Vypnutie VDR bude odloæenÈ - vypnete kl·vesou Power"
++
++msgid "Press any key to cancel shutdown"
++msgstr "Ktor·koµvek kl·vesa zruπÌ vypnutie"
++
++msgid "Switching primary DVB..."
++msgstr "PrepÌna hlavn˝ DVB..."
++
++msgid "Editing process failed!"
++msgstr "Spracovanie ˙prav zlyhalo!"
++
++msgid "Editing process finished"
++msgstr "Spracovanie ˙prav skonËilo"
++
++msgid "Press any key to cancel restart"
++msgstr "ktor·koµvek  kl·vesa zruπÌ reπtart"
++
++#, c-format
++msgid "VDR will shut down in %s minutes"
++msgstr "VDR sa vypne za %s min˙t"
+diff -ruN vdr-1.7.9/po/sl_SI.po vdr-1.7.10/po/sl_SI.po
+--- vdr-1.7.9/po/sl_SI.po	2009-08-23 14:55:38.000000000 +0200
++++ vdr-1.7.10/po/sl_SI.po	2009-11-22 12:28:39.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Miha Setina <mihasetina@softhome.net>, 2000
+ # Matjaz Thaler <matjaz.thaler@guest.arnes.si>, 2003, 2005, 2006, 2008
+@@ -7,8 +7,8 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2008-02-28 19:44+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian\n"
+@@ -925,6 +925,12 @@
+ msgid "Low disk space!"
+ msgstr "Premalo prostora na disku!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Zaustavitev ni izvedljiva - opcija '-s' ni podana!"
+ 
+diff -ruN vdr-1.7.9/po/sv_SE.po vdr-1.7.10/po/sv_SE.po
+--- vdr-1.7.9/po/sv_SE.po	2009-08-23 14:55:38.000000000 +0200
++++ vdr-1.7.10/po/sv_SE.po	2009-11-22 12:28:39.000000000 +0100
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Tomas Prybil <tomas@prybil.se>, 2002, 2003, 2005, 2006
+ # Jan Ekholm <chakie@infa.abo.fi>, 2003
+@@ -9,8 +9,8 @@
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2008-03-12 18:25+0100\n"
+ "Last-Translator: Magnus Andersson <svankan@bahnhof.se>\n"
+ "Language-Team: Swedish\n"
+@@ -927,6 +927,12 @@
+ msgid "Low disk space!"
+ msgstr "LÂgt diskutrymme!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Kan inte avsluta, mÂste anv‰nda parameter '-s'"
+ 
+diff -ruN vdr-1.7.9/po/tr_TR.po vdr-1.7.10/po/tr_TR.po
+--- vdr-1.7.9/po/tr_TR.po	2009-08-23 14:55:38.000000000 +0200
++++ vdr-1.7.10/po/tr_TR.po	2009-11-22 12:28:40.000000000 +0100
+@@ -1,13 +1,13 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Oktay YolgeÁen <oktay_73@yahoo.de>, 2007, 2008
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay YolgeÁen <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish\n"
+@@ -924,6 +924,12 @@
+ msgid "Low disk space!"
+ msgstr "Kay˝t kapasitesi az!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Kapat˝lam˝yor - '-s' seÁenei verilmemi˛!"
+ 
+diff -ruN vdr-1.7.9/po/uk_UA.po vdr-1.7.10/po/uk_UA.po
+--- vdr-1.7.9/po/uk_UA.po	2009-08-23 14:55:38.000000000 +0200
++++ vdr-1.7.10/po/uk_UA.po	2009-11-22 12:28:40.000000000 +0100
+@@ -1,13 +1,13 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Yarema Aka Knedlyk <yupadmin@gmail.com>, 2007, 2008
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.7\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-31 11:11+0200\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
+ "PO-Revision-Date: 2009-05-31 13:17+0200\n"
+ "Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian\n"
+@@ -924,6 +924,12 @@
+ msgid "Low disk space!"
+ msgstr "–ù–µ–¥–æ—Å—Ç–∞—Ç–Ω—å–æ –º—ñ—Å—Ü—è –Ω–∞ –¥–∏—Å–∫—É!"
+ 
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
++
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "–í–∏–∫–ª—é—á–µ–Ω–Ω–Ω—è –Ω–µ–º–æ–∂–ª–∏–≤–µ - –Ω–µ –∑–∞–¥–∞–Ω–æ –ø–∞—Ä–∞–º–µ—Ç—Ä '-s'!"
+ 
+diff -ruN vdr-1.7.9/po/zh_CN.po vdr-1.7.10/po/zh_CN.po
+--- vdr-1.7.9/po/zh_CN.po	2009-08-23 14:55:38.000000000 +0200
++++ vdr-1.7.10/po/zh_CN.po	2009-11-22 12:28:40.000000000 +0100
+@@ -1,14 +1,14 @@
+ # VDR language source file.
+-# Copyright (C) 2008 Klaus Schmidinger <kls@cadsoft.de>
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Nan Feng <nfgx@21cn.com>, 2008
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+-"Report-Msgid-Bugs-To: <vdr-bugs@cadsoft.de>\n"
+-"POT-Creation-Date: 2009-05-21 13:18+0200\n"
+-"PO-Revision-Date: 2008-03-21 08:44+0800\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2009-11-22 12:28+0100\n"
++"PO-Revision-Date: 2009-09-23 23:50+0800\n"
+ "Last-Translator: Nan Feng <nfgx@21cn.com>\n"
+ "Language-Team: Chinese\n"
+ "MIME-Version: 1.0\n"
+@@ -22,7 +22,7 @@
+ msgstr "ÂÖ≥"
+ 
+ msgid "on"
+-msgstr ""
++msgstr "ÂºÄ"
+ 
+ msgid "auto"
+ msgstr "Ëá™Âä®"
+@@ -31,7 +31,7 @@
+ msgstr "Êó†"
+ 
+ msgid "*** Invalid Channel ***"
+-msgstr "***Êó†ÊïàÈ¢ëÈÅì ***"
++msgstr "***Êó†ÊïàÁöÑÈ¢ëÈÅì ***"
+ 
+ msgid "Channel not available!"
+ msgstr "È¢ëÈÅì‰∏çÂèØÁî®!"
+@@ -47,7 +47,7 @@
+ 
+ #. TRANSLATORS: The name of the language, as written natively
+ msgid "LanguageName$English"
+-msgstr "‰∏≠Êñá"
++msgstr "ÁÆÄ‰Ωì‰∏≠Êñá"
+ 
+ #. TRANSLATORS: The 3-letter code of the language
+ msgid "LanguageCode$eng"
+@@ -63,7 +63,7 @@
+ msgstr "ÂèëÁé∞RC‰ª£Á†Å!"
+ 
+ msgid "Do not press any key..."
+-msgstr "‰∏çÊåâ‰∏ã‰ªª‰ΩïÈîÆ... "
++msgstr "‰∏çË¶ÅÊåâ‰∏ã‰ªª‰ΩïÈîÆ... "
+ 
+ msgid "Phase 2: Learning specific key codes"
+ msgstr "Èò∂ÊÆµ 2: Â≠¶‰π†ÁâπÊÆäÁöÑÊåâÈîÆ‰ª£Á†Å"
+@@ -94,7 +94,7 @@
+ msgstr "Èò∂ÊÆµ 3: ‰øùÂ≠ò‰ª£Á†Å"
+ 
+ msgid "Press 'Up' to save, 'Down' to cancel"
+-msgstr "ËØ∑Êåâ‰∏ä‰øùÂ≠òÔºåÊåâ‰∏ãÂèñÊ∂à"
++msgstr "ËØ∑Êåâ‰∏ä‰øùÂ≠ò,Êåâ‰∏ãÂèñÊ∂à."
+ 
+ msgid "Key$Up"
+ msgstr "‰∏ä"
+@@ -229,10 +229,10 @@
+ msgstr "Áî®Êà∑9"
+ 
+ msgid "Disk"
+-msgstr "Á£ÅÁõò"
++msgstr "Á°¨ÁõòÂ∑≤‰ΩøÁî®"
+ 
+ msgid "free"
+-msgstr "Ââ©‰Ωô"
++msgstr "ÂèØÂΩïÂÉèÊó∂Èó¥"
+ 
+ msgid "Free To Air"
+ msgstr "Ââ©‰ΩôÁ©∫Èó¥"
+@@ -247,7 +247,7 @@
+ msgstr "ÂêçÂ≠ó"
+ 
+ msgid "Source"
+-msgstr "Êù•Ê∫ê"
++msgstr "Âç´ÊòüÊ∫ê"
+ 
+ msgid "Frequency"
+ msgstr "È¢ëÁéá"
+@@ -286,16 +286,16 @@
+ msgstr "Sid"
+ 
+ msgid "Polarization"
+-msgstr "ÊûÅÂåñ"
++msgstr "ÊûÅÂåñÊñπÂºè"
+ 
+ msgid "System"
+-msgstr ""
++msgstr "Âç´ÊòüÁ≥ªÁªü"
+ 
+ msgid "Srate"
+-msgstr "ÊØîÁéá"
++msgstr "Á¨¶Âè∑Áéá"
+ 
+ msgid "Inversion"
+-msgstr "ÂÄíÁΩÆ"
++msgstr "ÂèçÂêë"
+ 
+ msgid "CoderateH"
+ msgstr "È´òÁ¨¶Âè∑È¢ëÁéá"
+@@ -319,13 +319,13 @@
+ msgstr "Â±ÇÊ¨°"
+ 
+ msgid "Rolloff"
+-msgstr ""
++msgstr "Ë∂äÈõ∂Áéá"
+ 
+ msgid "Channel settings are not unique!"
+ msgstr "È¢ëÈÅìËÆæÁΩÆ‰∏çÊòØÂîØ‰∏ÄÁöÑÔºÅ"
+ 
+ msgid "Channels"
+-msgstr "È¢ëÈÅì"
++msgstr "È¢ëÈÅìÂàóË°®"
+ 
+ msgid "Button$Edit"
+ msgstr "ÁºñËæë"
+@@ -340,7 +340,7 @@
+ msgstr "Ê†áËÆ∞"
+ 
+ msgid "Channel is being used by a timer!"
+-msgstr "È¢ëÈÅìÊ≠£Âú®‰ΩøÁî®ÂÆöÊó∂Âô®ÔºÅ"
++msgstr "È¢ëÈÅìÊ≠£Âú®ÂΩïÂÉèÔºÅ"
+ 
+ msgid "Delete channel?"
+ msgstr "ÊòØÂê¶Âà†Èô§È¢ëÈÅìÔºü"
+@@ -379,7 +379,7 @@
+ msgstr "Á¨¨‰∏ÄÂ§©"
+ 
+ msgid "Timers"
+-msgstr "ËÆ°Êó∂Âô®"
++msgstr "ÂΩïÂÉè‰∏≠ÂàóË°®"
+ 
+ msgid "Button$On/Off"
+ msgstr "ÂºÄ/ÂÖ≥"
+@@ -391,7 +391,7 @@
+ msgstr "ÊòØÂê¶Âà†Èô§Êó∂Èó¥Ôºü"
+ 
+ msgid "Timer still recording - really delete?"
+-msgstr "ËÆ°Êó∂Âô®‰ªçÂú®ÂΩïÂà∂-ÁúüÁöÑÂà†Èô§Ôºü "
++msgstr "ÂΩïÂÉè‰∏≠-ÊòØÂê¶ÁöÑÂà†Èô§Ôºü "
+ 
+ msgid "Event"
+ msgstr "‰∫ã‰ª∂"
+@@ -400,7 +400,7 @@
+ msgstr "Êó∂Èó¥"
+ 
+ msgid "Button$Record"
+-msgstr "ËÆ∞ÂΩï"
++msgstr "ÂΩïÂÉè"
+ 
+ msgid "Button$Switch"
+ msgstr "ÂºÄÂÖ≥"
+@@ -409,7 +409,7 @@
+ msgstr "Áé∞Âú®Êí≠ÊîæÁöÑËäÇÁõÆ?"
+ 
+ msgid "What's on next?"
+-msgstr "‰∏ã‰∏ÄÊí≠ÊîæÁöÑËäÇÁõÆ?"
++msgstr "‰∏ã‰∏Ä‰∏™Êí≠ÊîæÁöÑËäÇÁõÆ?"
+ 
+ msgid "Button$Next"
+ msgstr "‰∏ã‰∏ÄÊ≠•"
+@@ -418,14 +418,14 @@
+ msgstr "Áé∞Âú®"
+ 
+ msgid "Button$Schedule"
+-msgstr "‰ªªÂä°Ë°®"
++msgstr "‰ªªÂä°ÂàóË°®"
+ 
+ msgid "Can't switch channel!"
+ msgstr "‰∏çËÉΩÂàáÊç¢È¢ëÈÅì"
+ 
+ #, c-format
+ msgid "Schedule - %s"
+-msgstr "Êó∂Èó¥Ë°® - %s"
++msgstr "‰ªªÂä°ÂàóË°® - %s"
+ 
+ #, c-format
+ msgid "This event - %s"
+@@ -445,31 +445,31 @@
+ msgstr "CAM Ê≤°ÊúâÂìçÂ∫îÔºÅ"
+ 
+ msgid "Recording info"
+-msgstr "ËÆ∞ÂΩï‰ø°ÊÅØ"
++msgstr "ÂΩïÂÉè‰ø°ÊÅØ"
+ 
+ msgid "Button$Play"
+ msgstr "Êí≠Êîæ"
+ 
+ msgid "Button$Rewind"
+-msgstr "ÈáçÁªï"
++msgstr "ÈáçÊîæ"
+ 
+ msgid "Recordings"
+-msgstr "ËÆ∞ÂΩï"
++msgstr "ÂΩïÂÉèÂõûÊîæÂàóË°®"
+ 
+ msgid "Button$Open"
+ msgstr "ÊâìÂºÄ"
+ 
+ msgid "Commands"
+-msgstr "ÂëΩ‰ª§"
++msgstr "Â∏∏Áî®Êìç‰ΩúÂëΩ‰ª§"
+ 
+ msgid "Error while accessing recording!"
+-msgstr "Â≠òÂèñËÆ∞ÂΩïÈîôËØØÔºÅ"
++msgstr "Â≠òÂèñÂΩïÂÉèÈîôËØØÔºÅ"
+ 
+ msgid "Delete recording?"
+-msgstr "ÊòØÂê¶Âà†Èô§ËÆ∞ÂΩïÔºü"
++msgstr "ÊòØÂê¶Âà†Èô§ÂΩïÂÉèÔºü"
+ 
+ msgid "Error while deleting recording!"
+-msgstr "Âà†Èô§ËÆ∞ÂΩïÈîôËØØÔºÅ"
++msgstr "Âà†Èô§ÂΩïÂÉèÈîôËØØÔºÅ"
+ 
+ msgid "Recording commands"
+ msgstr "ËÆ∞ÂΩïÂëΩ‰ª§"
+@@ -478,52 +478,52 @@
+ msgstr "‰ªé‰∏ç"
+ 
+ msgid "skin dependent"
+-msgstr "Â§ñÂ£≥ÈÄâÊã©"
++msgstr "ÁöÆËÇ§ÈÄâÊã©"
+ 
+ msgid "always"
+ msgstr "ÊÄªÊòØ"
+ 
+ msgid "OSD"
+-msgstr "OSD"
++msgstr "Á≥ªÁªüËèúÂçïËÆæÁΩÆ"
+ 
+ msgid "Setup.OSD$Language"
+-msgstr "ËØ≠Ë®Ä"
++msgstr "ËØ≠Ë®ÄÈÄâÊã©"
+ 
+ msgid "Setup.OSD$Skin"
+-msgstr "Â§ñÂ£≥"
++msgstr "ÁöÆËÇ§ÈÄâÊã©"
+ 
+ msgid "Setup.OSD$Theme"
+-msgstr "‰∏ªÈ¢ò"
++msgstr "‰∏ªÈ¢òÈÄâÊã©"
+ 
+ msgid "Setup.OSD$Left (%)"
+-msgstr "Â∑¶ (%)"
++msgstr "Â∑¶ËæπË∑ùÁ¶ªËÆæÁΩÆ (%)"
+ 
+ msgid "Setup.OSD$Top (%)"
+-msgstr "È°∂ÈÉ® (%)"
++msgstr "È°∂ÈÉ®Ë∑ùÁ¶ªËÆæÁΩÆ (%)"
+ 
+ msgid "Setup.OSD$Width (%)"
+-msgstr "ÂÆΩ (%)"
++msgstr "ÂÆΩÂ∫¶ËÆæÁΩÆ (%)"
+ 
+ msgid "Setup.OSD$Height (%)"
+-msgstr "È´ò (%)"
++msgstr "È´òÂ∫¶ËÆæÁΩÆ (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+-msgstr "Êó∂Èó¥‰ø°ÊÅØ (s)"
++msgstr "ÊòæÁ§∫‰ø°ÊÅØÊó∂Èó¥(Áßí)"
+ 
+ msgid "Setup.OSD$Use small font"
+ msgstr "‰ΩøÁî®Â∞èÂ≠ó‰Ωì"
+ 
+ msgid "Setup.OSD$Anti-alias"
+-msgstr "ÊäóÈîØÈΩø"
++msgstr "ÊäóÈîØÈΩøÈÄâÊã©"
+ 
+ msgid "Setup.OSD$Default font"
+-msgstr "ÈªòËÆ§Â≠ó‰Ωì"
++msgstr "ÈªòËÆ§Â≠ó‰ΩìÈÄâÊã©"
+ 
+ msgid "Setup.OSD$Small font"
+-msgstr "Â∞èÂ≠ó‰Ωì"
++msgstr "Â∞èÂ≠ó‰ΩìÈÄâÊã©"
+ 
+ msgid "Setup.OSD$Fixed font"
+-msgstr "Âõ∫ÂÆöÂ≠ó‰Ωì"
++msgstr "Âõ∫ÂÆöÂ≠ó‰ΩìÈÄâÊã©"
+ 
+ msgid "Setup.OSD$Default font size (%)"
+ msgstr "ÈªòËÆ§Â≠ó‰ΩìÂ§ßÂ∞è (%)"
+@@ -559,13 +559,13 @@
+ msgstr "ÊªöÂä®ÈôêÂà∂"
+ 
+ msgid "Setup.OSD$Menu key closes"
+-msgstr "ÂΩ©ÂçïÂÖ≥Èó≠ÁªìÊùü"
++msgstr "ËèúÂçïÂÖ≥Èó≠ÁªìÊùü"
+ 
+ msgid "Setup.OSD$Recording directories"
+-msgstr "ËÆ∞ÂΩïÁõÆÂΩï"
++msgstr "ÂΩïÂÉèÁõÆÂΩï"
+ 
+ msgid "EPG"
+-msgstr "ËäÇÁõÆÂçï"
++msgstr "ÁîµÂ≠êËäÇÁõÆÂçïËÆæÁΩÆ"
+ 
+ msgid "Button$Scan"
+ msgstr "Êâ´Êèè"
+@@ -594,25 +594,25 @@
+ msgstr "È¶ñÈÄâËØ≠Ë®Ä"
+ 
+ msgid "pan&scan"
+-msgstr "pan&scan"
++msgstr "pan&scanÊ®°Âºè"
+ 
+ msgid "letterbox"
+-msgstr "Â∞èÁõíÂ≠êÊ®°Âºè"
++msgstr "letterboxÊ®°Âºè"
+ 
+ msgid "center cut out"
+-msgstr "Center-cut-out"
++msgstr "Center-cut-outÊ®°Âºè"
+ 
+ msgid "no"
+ msgstr "‰∏ç"
+ 
+ msgid "names only"
+-msgstr "names only"
++msgstr "‰ªÖÊòØÂêçÂ≠ó"
+ 
+ msgid "PIDs only"
+-msgstr "PIDs only"
++msgstr "‰ªÖÊòØPIDs"
+ 
+ msgid "names and PIDs"
+-msgstr "names and PIDs"
++msgstr "ÂêçÂ≠óÂíåPIDs"
+ 
+ msgid "add new channels"
+ msgstr "Ê∑ªÂä†Êñ∞È¢ëÈÅì"
+@@ -621,10 +621,10 @@
+ msgstr "Ê∑ªÂä†Êñ∞ËΩ¨ÂèëÂô®"
+ 
+ msgid "DVB"
+-msgstr "DVB"
++msgstr "Âç´ÊòüÂç°ËÆæÁΩÆ"
+ 
+ msgid "Setup.DVB$Primary DVB interface"
+-msgstr "‰∏ªË¶ÅDVBÊé•Âè£"
++msgstr "‰ΩøÁî®‰∏≠Âç´ÊòüÂç°Êé•Âè£"
+ 
+ msgid "Setup.DVB$Video format"
+ msgstr "ËßÜÈ¢ëÊ†ºÂºè"
+@@ -663,13 +663,13 @@
+ msgstr "Â≠óÂπïËÉåÊôØÈÄèÊòéÂ∫¶"
+ 
+ msgid "LNB"
+-msgstr "È´òÈ¢ëÂ§¥"
++msgstr "ÂàáÊç¢Âô®ËÆæÁΩÆ"
+ 
+ msgid "Setup.LNB$Use DiSEqC"
+ msgstr "‰ΩøÁî®ÂàáÊç¢Âô®"
+ 
+ msgid "Setup.LNB$SLOF (MHz)"
+-msgstr "SLOF (MHz)"
++msgstr "ÂàáÊç¢È¢ëÁéá (MHz)"
+ 
+ msgid "Setup.LNB$Low LNB frequency (MHz)"
+ msgstr "‰ΩéÊú¨ÊåØÈ¢ëÁéá (MHz)"
+@@ -678,22 +678,22 @@
+ msgstr "È´òÊú¨ÊåØÈ¢ëÁéá (MHz)"
+ 
+ msgid "CAM reset"
+-msgstr "CAM ÈáçÁΩÆ"
++msgstr "CAMÈáçÁΩÆ"
+ 
+ msgid "CAM present"
+-msgstr "Áé∞Âú®ÁöÑCAM"
++msgstr "Â≠òÂú®ÁöÑCAM"
+ 
+ msgid "CAM ready"
+-msgstr "CAM ÂáÜÂ§á"
++msgstr "CAMÂáÜÂ§á"
+ 
+ msgid "CAM"
+-msgstr "CAM"
++msgstr "CAMËÆæÁΩÆ"
+ 
+ msgid "Button$Menu"
+ msgstr "ËèúÂçï"
+ 
+ msgid "Button$Reset"
+-msgstr "ÈáçÂêØ"
++msgstr "ÈáçÊñ∞ÂêØÂä®Á≥ªÁªü"
+ 
+ msgid "Opening CAM menu..."
+ msgstr "ÊâìÂºÄCAMËèúÂçï..."
+@@ -717,7 +717,7 @@
+ msgstr ""
+ 
+ msgid "Recording"
+-msgstr "ËÆ∞ÂΩï‰∏≠"
++msgstr "ÂΩïÂÉèËÆæÁΩÆ"
+ 
+ msgid "Setup.Recording$Margin at start (min)"
+ msgstr "Êó∂Èó¥Ê≠£Âú®ÂºÄÂßã (min)"
+@@ -735,7 +735,7 @@
+ msgstr "ÈªòËÆ§ÁªàË∫´ (d)"
+ 
+ msgid "Setup.Recording$Pause key handling"
+-msgstr ""
++msgstr "ÊöÇÂÅúÂÖ≥ÈîÆÁöÑÂ§ÑÁêÜ"
+ 
+ msgid "Setup.Recording$Pause priority"
+ msgstr "ÊöÇÂÅú‰ºòÂÖà"
+@@ -768,7 +768,7 @@
+ msgstr "ÂàÜÁ¶ªÁºñËæëÊñá‰ª∂"
+ 
+ msgid "Replay"
+-msgstr "ÂõûÊîæ"
++msgstr "ÂõûÊîæËÆæÁΩÆ"
+ 
+ msgid "Setup.Replay$Multi speed mode"
+ msgstr "Â™í‰ΩìÈÄüÂ∫¶Ê®°Âºè"
+@@ -780,7 +780,7 @@
+ msgstr "ÊÅ¢Â§ç ID"
+ 
+ msgid "Miscellaneous"
+-msgstr "Ê∑∑ÊùÇÁöÑ"
++msgstr "ÂÖ∂ÂÆÉËÆæÁΩÆ"
+ 
+ msgid "Setup.Miscellaneous$Min. event timeout (min)"
+ msgstr "Min. ÁªìÊûúË∂ÖÊó∂ (min)"
+@@ -810,26 +810,26 @@
+ msgstr "Á™ÅÂèë‰∫ã‰ª∂ÈÄÄÂá∫"
+ 
+ msgid "Plugins"
+-msgstr "Êèí‰ª∂"
++msgstr "Êèí‰ª∂ËÆæÁΩÆ"
+ 
+ msgid "This plugin has no setup parameters!"
+ msgstr "Ëøô‰∏™Êèí‰ª∂Ê≤°ÊúâËÆæÁΩÆÂèÇÊï∞!"
+ 
+ msgid "Setup"
+-msgstr "ËÆæÁΩÆ"
++msgstr "VDRÁ≥ªÁªüËÆæÁΩÆ"
+ 
+ msgid "Restart"
+-msgstr "ÈáçÂêØ"
++msgstr " ÈáçÂêØVDRÁ≥ªÁªü"
+ 
+ msgid "Really restart?"
+ msgstr "ÊòØÂê¶ÈáçÂêØÔºü"
+ 
+ #. TRANSLATORS: note the leading and trailing blanks!
+ msgid " Stop recording "
+-msgstr "ÂÅúÊ≠¢ËÆ∞ÂΩï"
++msgstr "ÊòØÂê¶ÂÅúÊ≠¢ÂΩïÂÉè?"
+ 
+ msgid "Schedule"
+-msgstr "Êó∂Èó¥Ë°®"
++msgstr "‰ªªÂä°ÂàóË°®"
+ 
+ msgid "VDR"
+ msgstr "VDR"
+@@ -855,13 +855,13 @@
+ msgstr "ÂèñÊ∂àÁºñËæë"
+ 
+ msgid "Stop recording?"
+-msgstr "ÂÅúÊ≠¢ËÆ∞ÂΩï"
++msgstr "ÂÅúÊ≠¢ÂΩïÂÉè"
+ 
+ msgid "Cancel editing?"
+ msgstr "ÂèñÊ∂àÁºñËæë"
+ 
+ msgid "No audio available!"
+-msgstr "Â£∞ÈÅì‰∏çÂèØÁî®"
++msgstr "Èü≥È¢ë‰∏çÂèØÁî®"
+ 
+ msgid "No subtitles"
+ msgstr "Ê≤°ÊúâÂ≠óÂπï"
+@@ -873,10 +873,10 @@
+ msgstr "Â≠óÂπï‰∏çÂèØÁî®"
+ 
+ msgid "Not enough disk space to start recording!"
+-msgstr "Ê≤°ÊúâË∂≥Â§üÁöÑÁ©∫Èó¥ËÆ∞ÂΩï"
++msgstr "Ê≤°ÊúâË∂≥Â§üÁöÑÁ©∫Èó¥ÂΩïÂÉè"
+ 
+ msgid "No free DVB device to record!"
+-msgstr "Ê≤°ÊúâÁ©∫Èó≤ÁöÑDVBËÆæÂ§áËÆ∞ÂΩï"
++msgstr "Ê≤°ÊúâÁ©∫Èó≤ÁöÑDVBËÆæÂ§áÂΩïÂÉè"
+ 
+ msgid "Pausing live video..."
+ msgstr "ÊöÇÂÅúÂΩìÂâçËßÜÈ¢ë"
+@@ -922,10 +922,16 @@
+ msgstr "‰∏ä/‰∏ã Êñ∞ÁöÑÂÆö‰Ωç - OK ÁßªÂä®"
+ 
+ msgid "Channel locked (recording)!"
+-msgstr "È¢ëÈÅìÂ∑≤ÁªèÈîÅÂÆö (ËÆ∞ÂΩï)!"
++msgstr "È¢ëÈÅìÂ∑≤ÁªèÈîÅÂÆö (ÂΩïÂÉè)!"
+ 
+ msgid "Low disk space!"
+-msgstr "‰ΩéÁ£ÅÁõòÁ©∫Èó¥!"
++msgstr "Á£ÅÁõòÁ©∫Èó¥‰∏çË∂≥!"
++
++msgid "Regenerating index file"
++msgstr ""
++
++msgid "Index file regeneration complete"
++msgstr ""
+ 
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "‰∏çËÉΩÂÖ≥Êú∫ - Êìç‰Ωú '-s' ‰∏çÂÖÅËÆ∏!"
+@@ -934,45 +940,45 @@
+ msgstr "ÁºñËæë-Á´ãÂç≥ÂÖ≥Êú∫?"
+ 
+ msgid "Recording - shut down anyway?"
+-msgstr "ÂΩïÂÉè-Á´ãÂç≥ÂÖ≥Êú∫?"
++msgstr "ÂΩïÂÉè‰∏≠,ÊòØÂê¶Á´ãÂç≥ÂÖ≥Êú∫?"
+ 
+ #, c-format
+ msgid "Recording in %ld minutes, shut down anyway?"
+-msgstr "ËÆ∞ÂΩïÂú® %ld ÂàÜÈíüÔºåÁ´ãÂç≥ÂÖ≥Êú∫?"
++msgstr "ÂΩïÂÉèÂ∑≤Êúâ %ld ÂàÜÈíüÔºåÁ´ãÂç≥ÂÖ≥Êú∫?"
+ 
+ msgid "shut down anyway?"
+-msgstr "Á´ãÂç≥ÂÖ≥Êú∫?"
++msgstr "ÊòØÂê¶Á´ãÂç≥ÂÖ≥Êú∫?"
+ 
+ #, c-format
+ msgid "Plugin %s wakes up in %ld min, continue?"
+ msgstr "Êèí‰ª∂ %s Âî§ÈÜíÂú® %ld ÂàÜÈíüÔºåÊòØÂê¶ÁªßÁª≠?"
+ 
+ msgid "Editing - restart anyway?"
+-msgstr "ÁºñËæë - Áé∞Âú®ÈáçÂêØ?"
++msgstr "ÁºñËæë‰∏≠,ÊòØÂê¶Áé∞Âú®ÈáçÂêØ?"
+ 
+ msgid "Recording - restart anyway?"
+-msgstr "ËÆ∞ÂΩï - Áé∞Âú®ÈáçÂêØÔºü"
++msgstr "ÂΩïÂÉè‰∏≠,ÊòØÂê¶Áé∞Âú®ÈáçÂêØ?"
+ 
+ msgid "restart anyway?"
+-msgstr "Áé∞Âú®ÈáçÂêØÔºü"
++msgstr "Áé∞Âú®ÈáçÂêØ?"
+ 
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Volume "
+-msgstr "Èü≥Èáè"
++msgstr "Èü≥ÈáèË∞ÉÊï¥"
+ 
+ msgid "Classic VDR"
+-msgstr "ÁªèÂÖ∏ VDR"
++msgstr "ÁªèÂÖ∏VDRÈù¢Êùø"
+ 
+ msgid "ST:TNG Panels"
+ msgstr "ST:TNG Èù¢Êùø"
+ 
+ #. TRANSLATORS: the first character of each weekday, beginning with monday
+ msgid "MTWTFSS"
+-msgstr "MDMDFSS"
++msgstr "MTWTFSS"
+ 
+ #. TRANSLATORS: abbreviated weekdays, beginning with monday (must all be 3 letters!)
+ msgid "MonTueWedThuFriSatSun"
+-msgstr "‰∏Ä‰∫å‰∏âÂõõ‰∫îÂÖ≠Êó•"
++msgstr "ÊòüÊúü‰∏ÄÊòüÊúü‰∫åÊòüÊúü‰∏âÊòüÊúüÂõõÊòüÊúü‰∫îÊòüÊúüÂÖ≠ÊòüÊúüÂ§©"
+ 
+ msgid "Monday"
+ msgstr "ÊòüÊúü‰∏Ä"
+@@ -996,22 +1002,22 @@
+ msgstr "ÊòüÊúüÂ§©"
+ 
+ msgid "Upcoming recording!"
+-msgstr "Âç≥Â∞ÜÁöÑËÆ∞ÂΩïÔºÅ"
++msgstr "ÂáÜÂ§áÂΩïÂÉèÔºÅ"
+ 
+ msgid "Pause live video?"
+ msgstr ""
+ 
+ msgid "Recording started"
+-msgstr "ËÆ∞ÂΩïÂºÄÂßãÔºÅ"
++msgstr "ÂΩïÂÉèÂºÄÂßãÔºÅ"
+ 
+ msgid "VDR will shut down later - press Power to force"
+-msgstr "VDRÂç≥Â∞ÜÂÖ≥Èó≠ - ÊåâÁîµÊ∫êÂº∫Âà∂ÂÖ≥Èó≠"
++msgstr "VDRÂç≥Â∞ÜÂÖ≥Èó≠ - ÊåâÁîµÊ∫êÂº∫Âà∂ÂÖ≥Èó≠ÔºÅ"
+ 
+ msgid "Press any key to cancel shutdown"
+ msgstr "Êåâ‰∏ã‰ªª‰ΩïÈîÆÂç≥ÂèØÂèñÊ∂àÂÖ≥Êú∫"
+ 
+ msgid "Switching primary DVB..."
+-msgstr "ÂàáÊç¢‰∏ªË¶ÅÁöÑDVB.."
++msgstr "ÂàáÊç¢‰∏ªË¶ÅÁöÑDVBËÆæÂ§á."
+ 
+ msgid "Editing process failed!"
+ msgstr "ÁºñËæëËøáÁ®ãÂ§±Ë¥•"
+@@ -1024,4 +1030,4 @@
+ 
+ #, c-format
+ msgid "VDR will shut down in %s minutes"
+-msgstr "VDRÂ∞ÜË¶ÅÂú®%sÂàÜÈíüÂÖ≥Èó≠"
++msgstr "VDRÁ≥ªÁªüÂ∞ÜË¶ÅÂú®%sÂàÜÈíüÂÖ≥Èó≠"
+diff -ruN vdr-1.7.9/recorder.c vdr-1.7.10/recorder.c
+--- vdr-1.7.9/recorder.c	2009-05-23 14:18:25.000000000 +0200
++++ vdr-1.7.10/recorder.c	2009-11-21 16:58:12.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.c 2.4 2009/05/23 12:18:25 kls Exp $
++ * $Id: recorder.c 2.6 2009/11/21 15:58:12 kls Exp $
+  */
+ 
+ #include "recorder.h"
+@@ -30,7 +30,7 @@
+ 
+   SpinUpDisk(FileName);
+ 
+-  ringBuffer = new cRingBufferLinear(RECORDERBUFSIZE, TS_SIZE * 2, true, "Recorder");
++  ringBuffer = new cRingBufferLinear(RECORDERBUFSIZE, MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE, true, "Recorder");
+   ringBuffer->SetTimeouts(0, 100);
+   cChannel *Channel = Channels.GetByChannelID(ChannelID);
+   int Pid = VPid;
+@@ -116,6 +116,7 @@
+ {
+   time_t t = time(NULL);
+   bool InfoWritten = false;
++  bool FirstIframeSeen = false;
+   while (Running()) {
+         int r;
+         uchar *b = ringBuffer->Get(r);
+@@ -134,25 +135,28 @@
+                        }
+                     InfoWritten = true;
+                     }
+-                 if (!NextFile())
+-                    break;
+-                 if (index && frameDetector->NewFrame())
+-                    index->Write(frameDetector->IndependentFrame(), fileName->Number(), fileSize);
+-                 if (frameDetector->IndependentFrame()) {
+-                    recordFile->Write(patPmtGenerator.GetPat(), TS_SIZE);
+-                    fileSize += TS_SIZE;
+-                    int Index = 0;
+-                    while (uchar *pmt = patPmtGenerator.GetPmt(Index)) {
+-                          recordFile->Write(pmt, TS_SIZE);
+-                          fileSize += TS_SIZE;
+-                          }
+-                    }
+-                 if (recordFile->Write(b, Count) < 0) {
+-                    LOG_ERROR_STR(fileName->Name());
+-                    break;
++                 if (FirstIframeSeen || frameDetector->IndependentFrame()) {
++                    FirstIframeSeen = true; // start recording with the first I-frame
++                    if (!NextFile())
++                       break;
++                    if (index && frameDetector->NewFrame())
++                       index->Write(frameDetector->IndependentFrame(), fileName->Number(), fileSize);
++                    if (frameDetector->IndependentFrame()) {
++                       recordFile->Write(patPmtGenerator.GetPat(), TS_SIZE);
++                       fileSize += TS_SIZE;
++                       int Index = 0;
++                       while (uchar *pmt = patPmtGenerator.GetPmt(Index)) {
++                             recordFile->Write(pmt, TS_SIZE);
++                             fileSize += TS_SIZE;
++                             }
++                       }
++                    if (recordFile->Write(b, Count) < 0) {
++                       LOG_ERROR_STR(fileName->Name());
++                       break;
++                       }
++                    fileSize += Count;
++                    t = time(NULL);
+                     }
+-                 fileSize += Count;
+-                 t = time(NULL);
+                  }
+               ringBuffer->Del(Count);
+               }
+diff -ruN vdr-1.7.9/recording.c vdr-1.7.10/recording.c
+--- vdr-1.7.9/recording.c	2009-08-16 12:39:43.000000000 +0200
++++ vdr-1.7.10/recording.c	2009-11-22 12:20:53.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.17 2009/08/16 10:39:43 kls Exp $
++ * $Id: recording.c 2.18 2009/11/22 11:20:53 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -21,6 +21,7 @@
+ #include "i18n.h"
+ #include "interface.h"
+ #include "remux.h"
++#include "ringbuffer.h"
+ #include "skins.h"
+ #include "tools.h"
+ #include "videodir.h"
+@@ -1309,6 +1310,124 @@
+      }
+ }
+ 
++// --- cIndexFileGenerator ---------------------------------------------------
++
++#define IFG_BUFFER_SIZE KILOBYTE(100)
++
++class cIndexFileGenerator : public cThread {
++private:
++  cString recordingName;
++protected:
++  virtual void Action(void);
++public:
++  cIndexFileGenerator(const char *RecordingName);
++  ~cIndexFileGenerator();
++  };
++
++cIndexFileGenerator::cIndexFileGenerator(const char *RecordingName)
++:cThread("index file generator")
++,recordingName(RecordingName)
++{
++  Start();
++}
++
++cIndexFileGenerator::~cIndexFileGenerator()
++{
++  Cancel(3);
++}
++
++void cIndexFileGenerator::Action(void)
++{
++  bool IndexFileComplete = false;
++  bool Rewind = false;
++  cFileName FileName(recordingName, false);
++  cUnbufferedFile *ReplayFile = FileName.Open();
++  cRingBufferLinear Buffer(IFG_BUFFER_SIZE, MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE);
++  cPatPmtParser PatPmtParser;
++  cFrameDetector FrameDetector;
++  cIndexFile IndexFile(recordingName, true);
++  int BufferChunks = KILOBYTE(1); // no need to read a lot at the beginning when parsing PAT/PMT
++  off_t FileSize = 0;
++  off_t FrameOffset = -1;
++  Skins.QueueMessage(mtInfo, tr("Regenerating index file"));
++  while (Running()) {
++        // Rewind input file:
++        if (Rewind) {
++           ReplayFile = FileName.SetOffset(1);
++           Buffer.Clear();
++           Rewind = false;
++           }
++        // Process data:
++        int Length;
++        uchar *Data = Buffer.Get(Length);
++        if (Data) {
++           if (FrameDetector.Synced()) {
++              // Step 3 - generate the index:
++              if (TsPid(Data) == PATPID)
++                 FrameOffset = FileSize; // the PAT/PMT is at the beginning of an I-frame
++              int Processed = FrameDetector.Analyze(Data, Length);
++              if (Processed > 0) {
++                 if (FrameDetector.NewFrame()) {
++                    IndexFile.Write(FrameDetector.IndependentFrame(), FileName.Number(), FrameOffset >= 0 ? FrameOffset : FileSize);
++                    FrameOffset = -1;
++                    }
++                 FileSize += Processed;
++                 Buffer.Del(Processed);
++                 }
++              }
++           else if (PatPmtParser.Vpid()) {
++              // Step 2 - sync FrameDetector:
++              int Processed = FrameDetector.Analyze(Data, Length);
++              if (Processed > 0) {
++                 if (FrameDetector.Synced()) {
++                    // Synced FrameDetector, so rewind for actual processing:
++                    FrameDetector.Reset();
++                    Rewind = true;
++                    }
++                 Buffer.Del(Processed);
++                 }
++              }
++           else {
++              // Step 1 - parse PAT/PMT:
++              uchar *p = Data;
++              while (Length >= TS_SIZE) {
++                    int Pid = TsPid(p);
++                    if (Pid == 0)
++                       PatPmtParser.ParsePat(p, TS_SIZE);
++                    else if (Pid == PatPmtParser.PmtPid())
++                       PatPmtParser.ParsePmt(p, TS_SIZE);
++                    Length -= TS_SIZE;
++                    p += TS_SIZE;
++                    if (PatPmtParser.Vpid()) {
++                       // Found Vpid, so rewind to sync FrameDetector:
++                       FrameDetector.SetPid(PatPmtParser.Vpid(), PatPmtParser.Vtype());
++                       BufferChunks = IFG_BUFFER_SIZE;
++                       Rewind = true;
++                       break;
++                       }
++                    }
++              Buffer.Del(p - Data);
++              }
++           }
++        // Read data:
++        else if (ReplayFile) {
++           int Result = Buffer.Read(ReplayFile, BufferChunks);
++           if (Result == 0) // EOF
++              ReplayFile = FileName.NextFile();
++           }
++        // Recording has been processed:
++        else {
++           IndexFileComplete = true;
++           break;
++           }
++        }
++  // Delete the index file if the recording has not been processed entirely:
++  if (IndexFileComplete)
++     Skins.QueueMessage(mtInfo, tr("Index file regeneration complete"));
++  else
++     IndexFile.Delete();
++}
++
+ // --- cIndexFile ------------------------------------------------------------
+ 
+ #define INDEXFILESUFFIX     "/index"
+@@ -1343,6 +1462,9 @@
+   }
+   };
+ 
++#define MAXWAITFORINDEXFILE     10 // max. time to wait for the regenerated index file (seconds)
++#define INDEXFILECHECKINTERVAL 500 // ms between checks for existence of the regenerated index file
++
+ cIndexFile::cIndexFile(const char *FileName, bool Record, bool IsPesRecording)
+ :resumeFile(FileName, IsPesRecording)
+ {
+@@ -1352,6 +1474,7 @@
+   last = -1;
+   index = NULL;
+   isPesRecording = IsPesRecording;
++  indexFileGenerator = NULL;
+   if (FileName) {
+      const char *Suffix = isPesRecording ? INDEXFILESUFFIX ".vdr" : INDEXFILESUFFIX;
+      fileName = MALLOC(char, strlen(FileName) + strlen(Suffix) + 1);
+@@ -1360,6 +1483,18 @@
+         char *pFileExt = fileName + strlen(fileName);
+         strcpy(pFileExt, Suffix);
+         int delta = 0;
++        if (!Record && access(fileName, R_OK) != 0) {
++           // Index file doesn't exist, so try to regenerate it:
++           if (!isPesRecording) { // sorry, can only do this for TS recordings
++              resumeFile.Delete(); // just in case
++              indexFileGenerator = new cIndexFileGenerator(FileName);
++              // Wait until the index file exists:
++              time_t tmax = time(NULL) + MAXWAITFORINDEXFILE;
++              do {
++                 cCondWait::SleepMs(INDEXFILECHECKINTERVAL); // start with a sleep, to give it a head start
++                 } while (access(fileName, R_OK) != 0 && time(NULL) < tmax);
++              }
++           }
+         if (access(fileName, R_OK) == 0) {
+            struct stat buf;
+            if (stat(fileName, &buf) == 0) {
+@@ -1421,6 +1556,7 @@
+      close(f);
+   free(fileName);
+   free(index);
++  delete indexFileGenerator;
+ }
+ 
+ void cIndexFile::ConvertFromPes(tIndexTs *IndexTs, int Count)
+@@ -1598,6 +1734,18 @@
+   return f >= 0;
+ }
+ 
++void cIndexFile::Delete(void)
++{
++  if (fileName) {
++     dsyslog("deleting index file '%s'", fileName);
++     if (f >= 0) {
++        close(f);
++        f = -1;
++        }
++     unlink(fileName);
++     }
++}
++
+ // --- cFileName -------------------------------------------------------------
+ 
+ #define MAXFILESPERRECORDINGPES 255
+diff -ruN vdr-1.7.9/recording.h vdr-1.7.10/recording.h
+--- vdr-1.7.9/recording.h	2009-08-16 17:35:30.000000000 +0200
++++ vdr-1.7.10/recording.h	2009-11-21 17:12:55.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 2.9 2009/08/16 15:35:30 kls Exp $
++ * $Id: recording.h 2.10 2009/11/21 16:12:55 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -220,6 +220,7 @@
+ #define MAXVIDEOFILESIZEDEFAULT MAXVIDEOFILESIZEPES
+ 
+ struct tIndexTs;
++class cIndexFileGenerator;
+ 
+ class cIndexFile {
+ private:
+@@ -229,6 +230,7 @@
+   tIndexTs *index;
+   bool isPesRecording;
+   cResumeFile resumeFile;
++  cIndexFileGenerator *indexFileGenerator;
+   cMutex mutex;
+   void ConvertFromPes(tIndexTs *IndexTs, int Count);
+   void ConvertToPes(tIndexTs *IndexTs, int Count);
+@@ -245,6 +247,7 @@
+   int GetResume(void) { return resumeFile.Read(); }
+   bool StoreResume(int Index) { return resumeFile.Save(Index); }
+   bool IsStillRecording(void);
++  void Delete(void);
+   };
+ 
+ class cFileName {
+diff -ruN vdr-1.7.9/remux.c vdr-1.7.10/remux.c
+--- vdr-1.7.9/remux.c	2009-08-16 17:13:42.000000000 +0200
++++ vdr-1.7.10/remux.c	2009-11-22 12:23:27.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 2.26 2009/08/16 15:13:42 kls Exp $
++ * $Id: remux.c 2.29 2009/11/22 11:23:27 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -264,8 +264,8 @@
+   uchar *p = pat;
+   int i = 0;
+   p[i++] = TS_SYNC_BYTE; // TS indicator
+-  p[i++] = TS_PAYLOAD_START; // flags (3), pid hi (5)
+-  p[i++] = 0x00; // pid lo
++  p[i++] = TS_PAYLOAD_START | (PATPID >> 8); // flags (3), pid hi (5)
++  p[i++] = PATPID & 0xFF; // pid lo
+   p[i++] = 0x10; // flags (4), continuity counter (4)
+   p[i++] = 0x00; // pointer field (payload unit start indicator is set)
+   int PayloadStart = i;
+@@ -295,6 +295,7 @@
+   numPmtPackets = 0;
+   if (Channel) {
+      int Vpid = Channel->Vpid();
++     int Ppid = Channel->Ppid();
+      uchar *p = buf;
+      int i = 0;
+      p[i++] = 0x02; // table id
+@@ -306,8 +307,8 @@
+      p[i++] = 0xC1 | (pmtVersion << 1); // dummy (2), version number (5), current/next indicator (1)
+      p[i++] = 0x00; // section number
+      p[i++] = 0x00; // last section number
+-     p[i++] = 0xE0 | (Vpid >> 8); // dummy (3), PCR pid hi (5)
+-     p[i++] = Vpid; // PCR pid lo
++     p[i++] = 0xE0 | (Ppid >> 8); // dummy (3), PCR pid hi (5)
++     p[i++] = Ppid; // PCR pid lo
+      p[i++] = 0xF0; // dummy (4), program info length hi (4)
+      p[i++] = 0x00; // program info length lo
+ 
+@@ -732,20 +733,20 @@
+ 
+ // --- cFrameDetector --------------------------------------------------------
+ 
++#define EMPTY_SCANNER (0xFFFFFFFF)
++
+ cFrameDetector::cFrameDetector(int Pid, int Type)
+ {
+-  pid = Pid;
+-  type = Type;
++  SetPid(Pid, Type);
+   synced = false;
+   newFrame = independentFrame = false;
+   numPtsValues = 0;
+   numIFrames = 0;
+-  isVideo = type == 0x01 || type == 0x02 || type == 0x1B; // MPEG 1, 2 or 4
+   frameDuration = 0;
+   framesInPayloadUnit = framesPerPayloadUnit = 0;
+   payloadUnitOfFrame = 0;
+   scanning = false;
+-  scanner = 0;
++  scanner = EMPTY_SCANNER;
+ }
+ 
+ static int CmpUint32(const void *p1, const void *p2)
+@@ -755,8 +756,24 @@
+   return 0;
+ }
+ 
++void cFrameDetector::SetPid(int Pid, int Type)
++{
++  pid = Pid;
++  type = Type;
++  isVideo = type == 0x01 || type == 0x02 || type == 0x1B; // MPEG 1, 2 or 4
++}
++
++void cFrameDetector::Reset(void)
++{
++  newFrame = independentFrame = false;
++  payloadUnitOfFrame = 0;
++  scanning = false;
++  scanner = EMPTY_SCANNER;
++}
++
+ int cFrameDetector::Analyze(const uchar *Data, int Length)
+ {
++  int SeenPayloadStart = false;
+   int Processed = 0;
+   newFrame = independentFrame = false;
+   while (Length >= TS_SIZE) {
+@@ -767,140 +784,156 @@
+            esyslog("ERROR: skipped %d bytes to sync on start of TS packet", Skipped);
+            return Processed + Skipped;
+            }
+-        if (TsHasPayload(Data) && !TsIsScrambled(Data) && TsPid(Data) == pid) {
+-           if (TsPayloadStart(Data)) {
+-              if (!frameDuration) {
+-                 // frame duration unknown, so collect a sequenece of PTS values:
+-                 if (numPtsValues < MaxPtsValues && numIFrames < 2) { // collect a sequence containing at least two I-frames
+-                    const uchar *Pes = Data + TsPayloadOffset(Data);
+-                    if (PesHasPts(Pes)) {
+-                       ptsValues[numPtsValues] = PesGetPts(Pes);
+-                       // check for rollover:
+-                       if (numPtsValues && ptsValues[numPtsValues - 1] > 0xF0000000 && ptsValues[numPtsValues] < 0x10000000) {
+-                          dbgframes("#");
+-                          numPtsValues = 0;
+-                          numIFrames = 0;
++        if (TsHasPayload(Data) && !TsIsScrambled(Data)) {
++           int Pid = TsPid(Data);
++           if (Pid == pid) {
++              if (TsPayloadStart(Data)) {
++                 SeenPayloadStart = true;
++                 if (synced && Processed)
++                    return Processed;
++                 if (Length < MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE)
++                    return 0; // need more data, in case the frame type is not stored in the first TS packet
++                 if (!frameDuration) {
++                    // frame duration unknown, so collect a sequence of PTS values:
++                    if (numPtsValues < MaxPtsValues && numIFrames < 2) { // collect a sequence containing at least two I-frames
++                       const uchar *Pes = Data + TsPayloadOffset(Data);
++                       if (PesHasPts(Pes)) {
++                          ptsValues[numPtsValues] = PesGetPts(Pes);
++                          // check for rollover:
++                          if (numPtsValues && ptsValues[numPtsValues - 1] > 0xF0000000 && ptsValues[numPtsValues] < 0x10000000) {
++                             dbgframes("#");
++                             numPtsValues = 0;
++                             numIFrames = 0;
++                             }
++                          else
++                             numPtsValues++;
+                           }
+-                       else
+-                          numPtsValues++;
+                        }
+-                    }
+-                 else {
+-                    // find the smallest PTS delta:
+-                    qsort(ptsValues, numPtsValues, sizeof(uint32_t), CmpUint32);
+-                    numPtsValues--;
+-                    for (int i = 0; i < numPtsValues; i++)
+-                        ptsValues[i] = ptsValues[i + 1] - ptsValues[i];
+-                    qsort(ptsValues, numPtsValues, sizeof(uint32_t), CmpUint32);
+-                    uint32_t Delta = ptsValues[0];
+-                    // determine frame info:
+-                    if (isVideo) {
+-                       if (Delta % 3600 == 0)
+-                          frameDuration = 3600; // PAL, 25 fps
+-                       else if (Delta % 3003 == 0)
+-                          frameDuration = 3003; // NTSC, 29.97 fps
+-                       else if (Delta == 1800) {
+-                          frameDuration = 3600; // PAL, 25 fps
+-                          framesPerPayloadUnit = -2;
+-                          }
+-                       else if (Delta == 1501) {
+-                          frameDuration = 3003; // NTSC, 29.97 fps
+-                          framesPerPayloadUnit = -2;
+-                          }
+-                       else {
+-                          frameDuration = 3600; // unknown, assuming 25 fps
+-                          dsyslog("unknown frame duration (%d), assuming 25 fps", Delta);
++                    else {
++                       // find the smallest PTS delta:
++                       qsort(ptsValues, numPtsValues, sizeof(uint32_t), CmpUint32);
++                       numPtsValues--;
++                       for (int i = 0; i < numPtsValues; i++)
++                           ptsValues[i] = ptsValues[i + 1] - ptsValues[i];
++                       qsort(ptsValues, numPtsValues, sizeof(uint32_t), CmpUint32);
++                       uint32_t Delta = ptsValues[0];
++                       // determine frame info:
++                       if (isVideo) {
++                          if (Delta % 3600 == 0)
++                             frameDuration = 3600; // PAL, 25 fps
++                          else if (Delta % 3003 == 0)
++                             frameDuration = 3003; // NTSC, 29.97 fps
++                          else if (Delta == 1800) {
++                             frameDuration = 3600; // PAL, 25 fps
++                             framesPerPayloadUnit = -2;
++                             }
++                          else if (Delta == 1501) {
++                             frameDuration = 3003; // NTSC, 29.97 fps
++                             framesPerPayloadUnit = -2;
++                             }
++                          else {
++                             frameDuration = 3600; // unknown, assuming 25 fps
++                             dsyslog("unknown frame duration (%d), assuming 25 fps", Delta);
++                             }
+                           }
++                       else // audio
++                          frameDuration = Delta; // PTS of audio frames is always increasing
++                       dbgframes("\nframe duration = %d  FPS = %5.2f  FPPU = %d\n", frameDuration, 90000.0 / frameDuration, framesPerPayloadUnit);
+                        }
+-                    else // audio
+-                       frameDuration = Delta; // PTS of audio frames is always increasing
+-                    dbgframes("\nframe duration = %d  FPS = %5.2f  FPPU = %d\n", frameDuration, 90000.0 / frameDuration, framesPerPayloadUnit);
+                     }
++                 scanner = EMPTY_SCANNER;
++                 scanning = true;
+                  }
+-              scanner = 0;
+-              scanning = true;
+-              }
+-           if (scanning) {
+-              int PayloadOffset = TsPayloadOffset(Data);
+-              if (TsPayloadStart(Data)) {
+-                 PayloadOffset += PesPayloadOffset(Data + PayloadOffset);
+-                 if (!framesPerPayloadUnit)
+-                    framesPerPayloadUnit = framesInPayloadUnit;
+-                 if (DebugFrames && !synced)
+-                    dbgframes("/");
+-                 }
+-              for (int i = PayloadOffset; scanning && i < TS_SIZE; i++) {
+-                  scanner <<= 8;
+-                  scanner |= Data[i];
+-                  switch (type) {
+-                    case 0x01: // MPEG 1 video
+-                    case 0x02: // MPEG 2 video
+-                         if (scanner == 0x00000100) { // Picture Start Code
+-                            if (synced && Processed)
+-                               return Processed;
+-                            newFrame = true;
+-                            independentFrame = ((Data[i + 2] >> 3) & 0x07) == 1; // I-Frame
+-                            if (synced) {
+-                               if (framesPerPayloadUnit <= 1)
+-                                  scanning = false;
++              if (scanning) {
++                 int PayloadOffset = TsPayloadOffset(Data);
++                 if (TsPayloadStart(Data)) {
++                    PayloadOffset += PesPayloadOffset(Data + PayloadOffset);
++                    if (!framesPerPayloadUnit)
++                       framesPerPayloadUnit = framesInPayloadUnit;
++                    if (DebugFrames && !synced)
++                       dbgframes("/");
++                    }
++                 for (int i = PayloadOffset; scanning && i < TS_SIZE; i++) {
++                     scanner <<= 8;
++                     scanner |= Data[i];
++                     switch (type) {
++                       case 0x01: // MPEG 1 video
++                       case 0x02: // MPEG 2 video
++                            if (scanner == 0x00000100) { // Picture Start Code
++                               scanner = EMPTY_SCANNER;
++                               if (synced && !SeenPayloadStart && Processed)
++                                  return Processed; // flush everything before this new frame
++                               newFrame = true;
++                               independentFrame = ((Data[i + 2] >> 3) & 0x07) == 1; // I-Frame
++                               if (synced) {
++                                  if (framesPerPayloadUnit <= 1)
++                                     scanning = false;
++                                  }
++                               else {
++                                  framesInPayloadUnit++;
++                                  if (independentFrame)
++                                     numIFrames++;
++                                  dbgframes("%d ", (Data[i + 2] >> 3) & 0x07);
++                                  }
++                               if (synced)
++                                  return Processed + TS_SIZE; // flag this new frame
+                                }
+-                            else {
+-                               framesInPayloadUnit++;
+-                               if (independentFrame)
+-                                  numIFrames++;
+-                               dbgframes("%d ", (Data[i + 2] >> 3) & 0x07);
++                            break;
++                       case 0x1B: // MPEG 4 video
++                            if (scanner == 0x00000109) { // Access Unit Delimiter
++                               scanner = EMPTY_SCANNER;
++                               if (synced && !SeenPayloadStart && Processed)
++                                  return Processed; // flush everything before this new frame
++                               newFrame = true;
++                               independentFrame = Data[i + 1] == 0x10;
++                               if (synced) {
++                                  if (framesPerPayloadUnit < 0) {
++                                     payloadUnitOfFrame = (payloadUnitOfFrame + 1) % -framesPerPayloadUnit;
++                                     if (payloadUnitOfFrame != 0 && independentFrame)
++                                        payloadUnitOfFrame = 0;
++                                     if (payloadUnitOfFrame)
++                                        newFrame = false;
++                                     }
++                                  if (framesPerPayloadUnit <= 1)
++                                     scanning = false;
++                                  }
++                               else {
++                                  framesInPayloadUnit++;
++                                  if (independentFrame)
++                                     numIFrames++;
++                                  dbgframes("%02X ", Data[i + 1]);
++                                  }
++                               if (synced)
++                                  return Processed + TS_SIZE; // flag this new frame
+                                }
+-                            scanner = 0;
+-                            }
+-                         break;
+-                    case 0x1B: // MPEG 4 video
+-                         if (scanner == 0x00000109) { // Access Unit Delimiter
++                            break;
++                       case 0x04: // MPEG audio
++                       case 0x06: // AC3 audio
+                             if (synced && Processed)
+                                return Processed;
+                             newFrame = true;
+-                            independentFrame = Data[i + 1] == 0x10;
+-                            if (synced) {
+-                               if (framesPerPayloadUnit < 0) {
+-                                  payloadUnitOfFrame = (payloadUnitOfFrame + 1) % -framesPerPayloadUnit;
+-                                  if (payloadUnitOfFrame != 0 && independentFrame)
+-                                     payloadUnitOfFrame = 0;
+-                                  if (payloadUnitOfFrame)
+-                                     newFrame = false;
+-                                  }
+-                               if (framesPerPayloadUnit <= 1)
+-                                  scanning = false;
+-                               }
+-                            else {
+-                               framesInPayloadUnit++;
+-                               if (independentFrame)
++                            independentFrame = true;
++                            if (!synced) {
++                               framesInPayloadUnit = 1;
++                               if (TsPayloadStart(Data))
+                                   numIFrames++;
+-                               dbgframes("%02X ", Data[i + 1]);
+                                }
+-                            scanner = 0;
+-                            }
+-                         break;
+-                    case 0x04: // MPEG audio
+-                    case 0x06: // AC3 audio
+-                         if (synced && Processed)
+-                            return Processed;
+-                         newFrame = true;
+-                         independentFrame = true;
+-                         if (!synced) {
+-                            framesInPayloadUnit = 1;
+-                            if (TsPayloadStart(Data))
+-                               numIFrames++;
+-                            }
+-                         scanning = false;
+-                         break;
+-                    default: esyslog("ERROR: unknown stream type %d (PID %d) in frame detector", type, pid);
+-                             pid = 0; // let's just ignore any further data
++                            scanning = false;
++                            break;
++                       default: esyslog("ERROR: unknown stream type %d (PID %d) in frame detector", type, pid);
++                                pid = 0; // let's just ignore any further data
++                       }
++                     }
++                 if (!synced && frameDuration && independentFrame) {
++                    synced = true;
++                    dbgframes("*");
++                    Reset();
++                    return Processed + TS_SIZE;
+                     }
+-                  }
+-              if (!synced && frameDuration && independentFrame) {
+-                 synced = true;
+-                 dbgframes("*");
+                  }
+               }
++           else if (Pid == PATPID && synced && Processed)
++              return Processed; // allow the caller to see any PAT packets
+            }
+         Data += TS_SIZE;
+         Length -= TS_SIZE;
+diff -ruN vdr-1.7.9/remux.h vdr-1.7.10/remux.h
+--- vdr-1.7.9/remux.h	2009-08-16 17:15:33.000000000 +0200
++++ vdr-1.7.10/remux.h	2009-11-21 16:55:34.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 2.19 2009/08/16 15:15:33 kls Exp $
++ * $Id: remux.h 2.20 2009/11/21 15:55:34 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+@@ -49,6 +49,7 @@
+ #define TS_ADAPT_TP_PRIVATE   0x02
+ #define TS_ADAPT_EXTENSION    0x01
+ 
++#define PATPID 0x0000 // PAT PID (constant 0)
+ #define MAXPID 0x2000 // for arrays that use a PID as the index
+ 
+ inline bool TsHasPayload(const uchar *p)
+@@ -238,8 +239,11 @@
+        ///< Returns the PMT pid as defined by the current PAT.
+        ///< If no PAT has been received yet, -1 will be returned.
+   int Vpid(void) { return vpid; }
+-       ///< Returns the video pid as defined by the current PMT.
++       ///< Returns the video pid as defined by the current PMT, or 0 if no video
++       ///< pid has been detected, yet.
+   int Vtype(void) { return vtype; }
++       ///< Returns the video stream type as defined by the current PMT, or 0 if no video
++       ///< stream type has been detected, yet.
+   };
+ 
+ // TS to PES converter:
+@@ -299,6 +303,8 @@
+ 
+ // Frame detector:
+ 
++#define MIN_TS_PACKETS_FOR_FRAME_DETECTOR 2
++
+ class cFrameDetector {
+ private:
+   enum { MaxPtsValues = 150 };
+@@ -320,7 +326,15 @@
+   bool scanning;
+   uint32_t scanner;
+ public:
+-  cFrameDetector(int Pid, int Type);
++  cFrameDetector(int Pid = 0, int Type = 0);
++      ///< Sets up a frame detector for the given Pid and stream Type.
++      ///< If no Pid and Type is given, they need to be set by a separate
++      ///< call to SetPid().
++  void SetPid(int Pid, int Type);
++      ///< Sets the Pid and stream Type to detect frames for.
++  void Reset(void);
++      ///< Resets any counters and flags used while syncing and prepares
++      ///< the frame detector for actual work.
+   int Analyze(const uchar *Data, int Length);
+       ///< Analyzes the TS packets pointed to by Data. Length is the number of
+       ///< bytes Data points to, and must be a multiple of 188.
+diff -ruN vdr-1.7.9/ringbuffer.c vdr-1.7.10/ringbuffer.c
+--- vdr-1.7.9/ringbuffer.c	2009-05-17 12:05:17.000000000 +0200
++++ vdr-1.7.10/ringbuffer.c	2009-11-22 12:14:36.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Parts of this file were inspired by the 'ringbuffy.c' from the
+  * LinuxDVB driver (see linuxtv.org).
+  *
+- * $Id: ringbuffer.c 2.2 2009/05/17 10:05:17 kls Exp $
++ * $Id: ringbuffer.c 2.3 2009/11/22 11:14:36 kls Exp $
+  */
+ 
+ #include "ringbuffer.h"
+@@ -200,7 +200,7 @@
+ 
+ void cRingBufferLinear::Clear(void)
+ {
+-  tail = head;
++  tail = head = margin;
+ #ifdef DEBUGRINGBUFFERS
+   lastHead = head;
+   lastTail = tail;
+@@ -217,7 +217,8 @@
+   int free = (diff > 0) ? diff - 1 : Size() - head;
+   if (Tail <= margin)
+      free--;
+-  int Count = 0;
++  int Count = -1;
++  errno = EAGAIN;
+   if (free > 0) {
+      if (0 < Max && Max < free)
+         free = Max;
+@@ -225,6 +226,44 @@
+      if (Count > 0) {
+         int Head = head + Count;
+         if (Head >= Size())
++           Head = margin;
++        head = Head;
++        if (statistics) {
++           int fill = head - Tail;
++           if (fill < 0)
++              fill = Size() + fill;
++           else if (fill >= Size())
++              fill = Size() - 1;
++           UpdatePercentage(fill);
++           }
++        }
++     }
++#ifdef DEBUGRINGBUFFERS
++  lastHead = head;
++  lastPut = Count;
++#endif
++  EnableGet();
++  if (free == 0)
++     WaitForPut();
++  return Count;
++}
++
++int cRingBufferLinear::Read(cUnbufferedFile *File, int Max)
++{
++  int Tail = tail;
++  int diff = Tail - head;
++  int free = (diff > 0) ? diff - 1 : Size() - head;
++  if (Tail <= margin)
++     free--;
++  int Count = -1;
++  errno = EAGAIN;
++  if (free > 0) {
++     if (0 < Max && Max < free)
++        free = Max;
++     Count = File->Read(buffer + head, free);
++     if (Count > 0) {
++        int Head = head + Count;
++        if (Head >= Size())
+            Head = margin;
+         head = Head;
+         if (statistics) {
+diff -ruN vdr-1.7.9/ringbuffer.h vdr-1.7.10/ringbuffer.h
+--- vdr-1.7.9/ringbuffer.h	2009-02-24 12:31:32.000000000 +0100
++++ vdr-1.7.10/ringbuffer.h	2009-11-08 12:52:25.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ringbuffer.h 2.1 2009/02/24 11:31:32 kls Exp $
++ * $Id: ringbuffer.h 2.2 2009/11/08 11:52:25 kls Exp $
+  */
+ 
+ #ifndef __RINGBUFFER_H
+@@ -84,6 +84,8 @@
+     ///< Only one actual read() call is done.
+     ///< \return Returns the number of bytes actually read and stored, or
+     ///< an error value from the actual read() call.
++  int Read(cUnbufferedFile *File, int Max = 0);
++    ///< Like Read(int FileHandle, int Max), but reads fom a cUnbufferedFile).
+   int Put(const uchar *Data, int Count);
+     ///< Puts at most Count bytes of Data into the ring buffer.
+     ///< \return Returns the number of bytes actually stored.
+diff -ruN vdr-1.7.9/sources.conf vdr-1.7.10/sources.conf
+--- vdr-1.7.9/sources.conf	2008-08-16 12:02:27.000000000 +0200
++++ vdr-1.7.10/sources.conf	2009-10-18 16:08:53.000000000 +0200
+@@ -12,7 +12,7 @@
+ # '/' means same (or very little deviation) orbital position & host.
+ # A value in () means this satellite is still in it's test phase.
+ #
+-# Please contact kls@cadsoft.de before assigning a new code
++# Please contact kls@tvdr.de before assigning a new code
+ # to a description, in order to keep them unique.
+ 
+ # Satellites
+diff -ruN vdr-1.7.9/svdrp.c vdr-1.7.10/svdrp.c
+--- vdr-1.7.9/svdrp.c	2009-06-06 16:03:55.000000000 +0200
++++ vdr-1.7.10/svdrp.c	2009-10-18 16:08:58.000000000 +0200
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 2.5 2009/06/06 14:03:55 kls Exp $
++ * $Id: svdrp.c 2.6 2009/10/18 14:08:58 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -887,7 +887,7 @@
+          PrintHelpTopics(hp);
+          }
+      Reply(-214, "To report bugs in the implementation send email to");
+-     Reply(-214, "    vdr-bugs@cadsoft.de");
++     Reply(-214, "    vdr-bugs@tvdr.de");
+      }
+   Reply(214, "End of HELP info");
+ }
+diff -ruN vdr-1.7.9/tools.c vdr-1.7.10/tools.c
+--- vdr-1.7.9/tools.c	2009-05-31 13:43:24.000000000 +0200
++++ vdr-1.7.10/tools.c	2009-11-06 16:21:17.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 2.3 2009/05/31 11:43:24 kls Exp $
++ * $Id: tools.c 2.4 2009/11/06 15:21:17 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -279,11 +279,11 @@
+ 
+ bool EntriesOnSameFileSystem(const char *File1, const char *File2)
+ {
+-  struct statfs statFs;
+-  if (statfs(File1, &statFs) == 0) {
+-     fsid_t fsid1 = statFs.f_fsid;
+-     if (statfs(File2, &statFs) == 0)
+-        return memcmp(&statFs.f_fsid, &fsid1, sizeof(fsid1)) == 0;
++  struct stat st;
++  if (stat(File1, &st) == 0) {
++     dev_t dev1 = st.st_dev;
++     if (stat(File2, &st) == 0)
++        return st.st_dev == dev1;
+      else
+         LOG_ERROR_STR(File2);
+      }
+diff -ruN vdr-1.7.9/vdr.1 vdr-1.7.10/vdr.1
+--- vdr-1.7.9/vdr.1	2009-08-16 12:28:39.000000000 +0200
++++ vdr-1.7.10/vdr.1	2009-10-18 16:09:03.000000000 +0200
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.1 2.2 2009/08/16 10:28:39 kls Exp $
++.\" $Id: vdr.1 2.3 2009/10/18 14:09:03 kls Exp $
+ .\"
+ .TH vdr 1 "10 Feb 2008" "1.6" "Video Disk Recorder"
+ .SH NAME
+@@ -239,7 +239,7 @@
+ Written by Klaus Schmidinger, with contributions from many others.
+ See the file \fICONTRIBUTORS\fR in the \fBvdr\fR source distribution.
+ .SH REPORTING BUGS
+-Report bugs to <vdr\-bugs@cadsoft.de>.
++Report bugs to <vdr\-bugs@tvdr.de>.
+ .SH COPYRIGHT
+ Copyright \(co 2008 Klaus Schmidinger.
+ 
+diff -ruN vdr-1.7.9/vdr.5 vdr-1.7.10/vdr.5
+--- vdr-1.7.9/vdr.5	2009-01-06 13:37:35.000000000 +0100
++++ vdr-1.7.10/vdr.5	2009-10-18 16:09:07.000000000 +0200
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 2.6 2009/01/06 12:37:35 kls Exp $
++.\" $Id: vdr.5 2.7 2009/10/18 14:09:07 kls Exp $
+ .\"
+ .TH vdr 5 "10 Feb 2008" "1.6" "Video Disk Recorder Files"
+ .SH NAME
+@@ -688,7 +688,7 @@
+ .SH AUTHOR
+ Written by Klaus Schmidinger.
+ .SH REPORTING BUGS
+-Report bugs to <vdr\-bugs@cadsoft.de>.
++Report bugs to <vdr\-bugs@tvdr.de>.
+ .SH COPYRIGHT
+ Copyright \(co 2008 Klaus Schmidinger.
+ 
+diff -ruN vdr-1.7.9/vdr.c vdr-1.7.10/vdr.c
+--- vdr-1.7.9/vdr.c	2009-05-21 13:14:48.000000000 +0200
++++ vdr-1.7.10/vdr.c	2009-10-25 15:45:47.000000000 +0100
+@@ -18,11 +18,11 @@
+  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+  * Or, point your browser to http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+  *
+- * The author can be reached at kls@cadsoft.de
++ * The author can be reached at kls@tvdr.de
+  *
+- * The project's page is at http://www.cadsoft.de/vdr
++ * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 2.10 2009/05/21 11:14:48 kls Exp $
++ * $Id: vdr.c 2.12 2009/10/25 14:45:47 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -507,6 +507,7 @@
+      stdout = freopen(Terminal, "w", stdout);
+      stderr = freopen(Terminal, "w", stderr);
+      HasStdin = true;
++     tcgetattr(STDIN_FILENO, &savedTm);
+      }
+ 
+   isyslog("VDR version %s started", VDRVERSION);

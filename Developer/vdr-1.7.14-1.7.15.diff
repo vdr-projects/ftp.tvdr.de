@@ -1,0 +1,6745 @@
+diff -ruN vdr-1.7.14/CONTRIBUTORS vdr-1.7.15/CONTRIBUTORS
+--- vdr-1.7.14/CONTRIBUTORS	2010-03-07 15:15:04.000000000 +0100
++++ vdr-1.7.15/CONTRIBUTORS	2010-06-06 12:50:16.000000000 +0200
+@@ -1093,6 +1093,10 @@
+  suggesting to add plain text error messages to log entries from cOsd::SetAreas()
+  for keeping subtitles visible when pausing replay
+  for suggesting to assign the source character 'I' to "IPTV"
++ for fixing generating PMT language descriptors for multi language PIDs
++ for reporting a possible out of buffer memory access in case of bad TS data
++ for implementing handling of HD resolution subtitles according to v1.3.1 of
++ ETSI EN 300 743, chapter 7.2.1
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1358,6 +1362,7 @@
+  for terrestrial transponders
+  for his support in debugging a problem in setting the source type for newly
+  detected terrestrial transponders
++ for registering the default SVDRP port (6419) with ICANN/IANA
+ 
+ Jens Rosenboom <me@jayr.de>
+  for fixing the SVDRP command 'STAT DISK' to avoid a 'division by 0' in case
+@@ -1952,6 +1957,7 @@
+  strings
+  for suggesting to make the 'Allowed' parameter in cMenuEditStrItem() NULL by default,
+  which results in using tr(FileNameChars)
++ for fixing handling "none" color entries in XPM files
+ 
+ David Woodhouse <dwmw2@infradead.org>
+  for his help in replacing the get/put_unaligned() macros from asm/unaligned.h with
+@@ -2336,6 +2342,7 @@
+ Ulf Kiener <webmaster@ulf-kiener.de>
+  for reporting a problem with audio track descriptions in the DVD plugin after a
+  replay has been stopped
++ for suggesting to add user defined key kUser0
+ 
+ J�rg Wendel <vdr-ml@jwendel.de>
+  for reporting that cPlugin::Active() was called too often
+@@ -2362,6 +2369,7 @@
+ Jose Alberto Reguero <jareguero@telefonica.net>
+  for a patch that fixed part of a crash in i18n character set conversion
+  for fixing cDvbPlayer::NextFile() to handle files larger than 2GB
++ for implementing full handling of the stream types of Dolby Digital pids
+ 
+ Patrice Staudt <staudt@engsystem.net>
+  for adding full weekday names to i18n.c for plugins to use
+@@ -2393,6 +2401,7 @@
+  channel in the channel list
+  for suggesting to make the "Source" item in the "Edit channel" menu wrap around the
+  list of sources
++ for reporting a crash when creating a new channel if the channel list is empty
+ 
+ Denis Knauf <denis.knauf@gmail.com>
+  for reporting a missing '-' at the next to last line of SVDRP help texts
+@@ -2524,6 +2533,8 @@
+  for reporting a problem with HD NTSC broadcasts that split frames over several payload
+  units
+  for updating sources.conf
++ for reporting a problem where the frame rate was not detected correctly
++ for testing the implementation of FE_CAN_TURBO_FEC
+ 
+ Marcel Unbehaun <frostworks@gmx.de>
+  for adding cRecordingInfo::GetEvent()
+@@ -2579,3 +2590,27 @@
+ 
+ Alex Lasnier <alex@fepg.org>
+  for adding tuning support for ATSC devices
++
++Dimitar Petrovski <dimeptr@gmail.com>
++ for translating OSD texts to the Macedonian language
++
++Eric Valette <eric.valette@free.fr>
++ for adding handling of EnhancedAC3DescriptorTag
++
++Paul Menzel <paulepanter@users.sourceforge.net>
++ for making include paths be added instead of overwriting INCLUDES in the Makefile
++
++Radek Stastny <dedkus@gmail.com>
++ for translating OSD texts to the Czech language
++
++Luis Fernandes <telping@gmail.com>
++ for suggesting to add handling MPEG audio type "ISO/IEC 14496-3 Audio with LATM
++ transport syntax"
++
++Christopher Reimer <reimer.christopher@freenet.de>
++ for reporting a problem with external Dolby Digital processing via the '-a' option
++ in live mode and with TS recordings
++
++Stefan Huskamp <coca_cola1@gmx.de>
++ for suggesting to make entering characters via the number keys
++ configurable
+diff -ruN vdr-1.7.14/HISTORY vdr-1.7.15/HISTORY
+--- vdr-1.7.14/HISTORY	2010-03-12 17:46:45.000000000 +0100
++++ vdr-1.7.15/HISTORY	2010-06-06 14:23:23.000000000 +0200
+@@ -6410,3 +6410,57 @@
+   during replay.
+ - The new setup option "Folders in timer menu" controls whether the file names in
+   the timer menu are shown with their full folder path.
++
++2010-06-06: Version 1.7.15
++
++- Added Macedonian language texts (thanks to Dimitar Petrovski).
++- Updated the Estonian OSD texts (thanks to Arthur Konovalov).
++- Updated the Finnish OSD texts (thanks to Rolf Ahrenberg).
++- Added handling of EnhancedAC3DescriptorTag (thanks to Eric Valette).
++- The default SVDRP port is now 6419 (registered with ICANN/IANA by Christian Tramnitz).
++  Use '-p 2001' to switch back to the old port if necessary.
++- Updated the Italian OSD texts (thanks to Diego Pierotto).
++- cDvbDevice::ProvidesTransponder() now checks the modulation capabilities of the
++  device (as far as the driver allows this).
++- Fixed cFrameDetector::Analyze() in case part of the data has been processed and
++  there is less than MIN_TS_PACKETS_FOR_FRAME_DETECTOR left (reported by Derek Kelly).
++- Added a note about not deleting cDeviceHook objects to device.h.
++- Added user defined key kUser0 (suggested by Ulf Kiener).
++- Include paths are now added instead of overwriting INCLUDES in the Makefile (thanks
++  to Paul Menzel).
++- The various modulation types are now taken into account when selecting a device for
++  a recording or live viewing, so that devices that provide more capabilities are
++  spared.
++- Fixed generating PMT language descriptors for multi language PIDs (thanks to Rolf
++  Ahrenberg).
++- Transponders that use "8psk turbo fec" (a non-standard mode used by North American
++  providers) are now identified by assuming that all 8psk transponders on DVB-S use
++  "turbo fec". In order to determine whether a certain device can handle "turbo fec",
++  the new driver flag FE_CAN_TURBO_FEC is checked. If your device can handle "turbo
++  fec", and your driver doesn't have that flag, yet, you can apply the patch from
++  ftp://ftp.tvdr.de/vdr/Developer/v4l-dvb-add-FE_CAN_TURBO_FEC.diff. A temporary
++  macro in dvbdevice.c defines the flag for all those who don't need this in the
++  driver, so that they can continue using an unmodified driver.
++  Thanks to Derek Kelly for testing this.
++- Updated the Ukrainian OSD texts (thanks to Yarema Aka Knedlyk).
++- Fixed handling "none" color entries in XPM files (thanks to Thomas G�nther).
++- Fixed a crash when creating a new channel if the channel list is empty (reported
++  by Halim Sahin).
++- Updated the Czech OSD texts (thanks to Radek Stastny).
++- Fixed a possible out of buffer memory access in case of bad TS data (reported
++  by Rolf Ahrenberg).
++- Implemented handling of HD resolution subtitles according to v1.3.1 of
++  ETSI EN 300 743, chapter 7.2.1 (thanks to Rolf Ahrenberg).
++- The EPG data now handles stream components 5 (H.264-video) and 6 (HEAAC-audio).
++- Fixed a problem with external Dolby Digital processing via the '-a' option in live
++  mode and with TS recordings (reported by Christopher Reimer).
++- Added handling MPEG audio types "ISO/IEC 14496-3 Audio with LATM transport syntax"
++  and "ISO/IEC 13818-7 Audio with ADTS transport syntax" (suggested by Luis Fernandes).
++  See man vdr(5) on how the APID section of channels has been extended to store
++  this information.
++- Added detecting channels that use service type 0x16.
++- Added full handling of the stream types of Dolby Digital pids
++  (thanks to Jose Alberto Reguero).
++- The new setup option "OSD/Number keys for characters" can be used to control whether
++  the number keys can be used to enter characters in a text input field (suggested
++  by Stefan Huskamp).
+diff -ruN vdr-1.7.14/INSTALL vdr-1.7.15/INSTALL
+--- vdr-1.7.14/INSTALL	2010-01-17 13:32:05.000000000 +0100
++++ vdr-1.7.15/INSTALL	2010-04-02 14:21:48.000000000 +0200
+@@ -66,7 +66,7 @@
+ 
+ The program can be controlled via a network connection to its SVDRP
+ port ("Simple Video Disk Recorder Protocol"). By default, it listens
+-on port 2001 (use the --port=PORT option to change this). For details
++on port 6419 (use the --port=PORT option to change this). For details
+ about the SVDRP syntax see the source file 'svdrp.c'.
+ 
+ WARNING: DUE TO THE OPEN SVDRP PORT THIS PROGRAM MAY CONSTITUTE A
+diff -ruN vdr-1.7.14/MANUAL vdr-1.7.15/MANUAL
+--- vdr-1.7.14/MANUAL	2010-03-12 17:42:08.000000000 +0100
++++ vdr-1.7.15/MANUAL	2010-06-06 12:42:35.000000000 +0200
+@@ -588,6 +588,11 @@
+                          Controls whether the full folder path is shown in the
+                          "Timers" menu, or just the basic recording name.
+ 
++  Number keys for characters = yes
++                         Controls whether the number keys can be used to enter
++                         characters in a text input field. You may want to set this
++                         to "no" if you are using an actual keyboard to control VDR.
++
+   EPG:
+ 
+   EPG scan timeout = 5   The time (in hours) of user inactivity after which the
+diff -ruN vdr-1.7.14/Makefile vdr-1.7.15/Makefile
+--- vdr-1.7.14/Makefile	2010-02-21 12:44:38.000000000 +0100
++++ vdr-1.7.15/Makefile	2010-04-10 14:40:15.000000000 +0200
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 2.8 2010/02/21 11:44:38 kls Exp $
++# $Id: Makefile 2.9 2010/04/10 12:40:15 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -21,7 +21,7 @@
+ BINDIR   = $(PREFIX)/bin
+ LOCDIR   = ./locale
+ LIBS     = -ljpeg -lpthread -ldl -lcap -lrt -lfreetype -lfontconfig
+-INCLUDES = -I/usr/include/freetype2
++INCLUDES ?= -I/usr/include/freetype2
+ 
+ PLUGINDIR= ./PLUGINS
+ PLUGINLIBDIR= $(PLUGINDIR)/lib
+diff -ruN vdr-1.7.14/README vdr-1.7.15/README
+--- vdr-1.7.14/README	2009-10-18 16:06:38.000000000 +0200
++++ vdr-1.7.15/README	2010-05-16 16:50:16.000000000 +0200
+@@ -34,3 +34,7 @@
+ of commercial set-top boxes usually are a lot more fancy than
+ the ones in this system, but here we have the full source code
+ and can modify the menus in whatever way desired.
++
++
++"VDR Video Disk Recorder" is a registered trademark of Klaus Schmidinger. 
++"TVDR TV Done Right" is a registered trademark of Klaus Schmidinger. 
+diff -ruN vdr-1.7.14/audio.c vdr-1.7.15/audio.c
+--- vdr-1.7.14/audio.c	2008-07-06 13:42:58.000000000 +0200
++++ vdr-1.7.15/audio.c	2010-05-16 15:30:11.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: audio.c 2.1 2008/07/06 11:42:58 kls Exp $
++ * $Id: audio.c 2.2 2010/05/16 13:30:11 kls Exp $
+  */
+ 
+ #include "audio.h"
+@@ -56,6 +56,7 @@
+ {
+   command = strdup(Command);
+   mute = false;
++  cDvbDevice::SetTransferModeForDolbyDigital(2);
+ }
+ 
+ cExternalAudio::~cExternalAudio()
+@@ -68,7 +69,6 @@
+   if (command && !mute) {
+      if (pipe || pipe.Open(command, "w")) {
+         if (0x80 <= Id && Id <= 0x87 || Id == 0xBD) { // AC3
+-           cDvbDevice::SetTransferModeForDolbyDigital(2);
+            int written = Data[8] + 9; // skips the PES header
+            if (Id != 0xBD)
+               written += 4; // skips AC3 bytes
+diff -ruN vdr-1.7.14/channels.c vdr-1.7.15/channels.c
+--- vdr-1.7.14/channels.c	2010-02-21 14:36:04.000000000 +0100
++++ vdr-1.7.15/channels.c	2010-06-05 15:33:57.000000000 +0200
+@@ -4,13 +4,14 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 2.13 2010/02/21 13:36:04 kls Exp $
++ * $Id: channels.c 2.16 2010/06/05 13:33:57 kls Exp $
+  */
+ 
+ #include "channels.h"
+ #include <ctype.h>
+ #include "device.h"
+ #include "epg.h"
++#include "libsi/si.h"
+ #include "timers.h"
+ 
+ // IMPORTANT NOTE: in the 'sscanf()' calls there is a blank after the '%d'
+@@ -61,6 +62,7 @@
+   provider = strdup("");
+   portalName = strdup("");
+   memset(&__BeginData__, 0, (char *)&__EndData__ - (char *)&__BeginData__);
++  parameters = "";
+   modification = CHANNELMOD_NONE;
+   schedule     = NULL;
+   linkChannels = NULL;
+@@ -270,14 +272,21 @@
+   return result;
+ }
+ 
+-static int IntArrayToString(char *s, const int *a, int Base = 10, const char n[][MAXLANGCODE2] = NULL)
++static int IntArrayToString(char *s, const int *a, int Base = 10, const char n[][MAXLANGCODE2] = NULL, const int *t = NULL)
+ {
+   char *q = s;
+   int i = 0;
+   while (a[i] || i == 0) {
+         q += sprintf(q, Base == 16 ? "%s%X" : "%s%d", i ? "," : "", a[i]);
+-        if (a[i] && n && *n[i])
+-           q += sprintf(q, "=%s", n[i]);
++        const char *Delim = "=";
++        if (a[i]) {
++           if (n && *n[i]) {
++              q += sprintf(q, "%s%s", Delim, n[i]);
++              Delim = "";
++              }
++           if (t && t[i])
++              q += sprintf(q, "%s@%d", Delim, t[i]);
++           }
+         if (!a[i])
+            break;
+         i++;
+@@ -286,32 +295,32 @@
+   return q - s;
+ }
+ 
+-void cChannel::SetPids(int Vpid, int Ppid, int Vtype, int *Apids, char ALangs[][MAXLANGCODE2], int *Dpids, char DLangs[][MAXLANGCODE2], int *Spids, char SLangs[][MAXLANGCODE2], int Tpid)
++void cChannel::SetPids(int Vpid, int Ppid, int Vtype, int *Apids, int *Atypes, char ALangs[][MAXLANGCODE2], int *Dpids, int *Dtypes, char DLangs[][MAXLANGCODE2], int *Spids, char SLangs[][MAXLANGCODE2], int Tpid)
+ {
+   int mod = CHANNELMOD_NONE;
+   if (vpid != Vpid || ppid != Ppid || vtype != Vtype || tpid != Tpid)
+      mod |= CHANNELMOD_PIDS;
+-  int m = IntArraysDiffer(apids, Apids, alangs, ALangs) | IntArraysDiffer(dpids, Dpids, dlangs, DLangs) | IntArraysDiffer(spids, Spids, slangs, SLangs);
++  int m = IntArraysDiffer(apids, Apids, alangs, ALangs) | IntArraysDiffer(atypes, Atypes) | IntArraysDiffer(dpids, Dpids, dlangs, DLangs) | IntArraysDiffer(dtypes, Dtypes) | IntArraysDiffer(spids, Spids, slangs, SLangs);
+   if (m & STRDIFF)
+      mod |= CHANNELMOD_LANGS;
+   if (m & VALDIFF)
+      mod |= CHANNELMOD_PIDS;
+   if (mod) {
+-     const int BufferSize = (MAXAPIDS + MAXDPIDS) * (5 + 1 + MAXLANGCODE2) + 10; // 5 digits plus delimiting ',' or ';' plus optional '=cod+cod', +10: paranoia
++     const int BufferSize = (MAXAPIDS + MAXDPIDS) * (5 + 1 + MAXLANGCODE2 + 5) + 10; // 5 digits plus delimiting ',' or ';' plus optional '=cod+cod@type', +10: paranoia
+      char OldApidsBuf[BufferSize];
+      char NewApidsBuf[BufferSize];
+      char *q = OldApidsBuf;
+-     q += IntArrayToString(q, apids, 10, alangs);
++     q += IntArrayToString(q, apids, 10, alangs, atypes);
+      if (dpids[0]) {
+         *q++ = ';';
+-        q += IntArrayToString(q, dpids, 10, dlangs);
++        q += IntArrayToString(q, dpids, 10, dlangs, dtypes);
+         }
+      *q = 0;
+      q = NewApidsBuf;
+-     q += IntArrayToString(q, Apids, 10, ALangs);
++     q += IntArrayToString(q, Apids, 10, ALangs, Atypes);
+      if (Dpids[0]) {
+         *q++ = ';';
+-        q += IntArrayToString(q, Dpids, 10, DLangs);
++        q += IntArrayToString(q, Dpids, 10, DLangs, Dtypes);
+         }
+      *q = 0;
+      const int SBufferSize = MAXSPIDS * (5 + 1 + MAXLANGCODE2) + 10; // 5 digits plus delimiting ',' or ';' plus optional '=cod', +10: paranoia
+@@ -330,11 +339,13 @@
+      vtype = Vtype;
+      for (int i = 0; i < MAXAPIDS; i++) {
+          apids[i] = Apids[i];
++         atypes[i] = Atypes[i];
+          strn0cpy(alangs[i], ALangs[i], MAXLANGCODE2);
+          }
+      apids[MAXAPIDS] = 0;
+      for (int i = 0; i < MAXDPIDS; i++) {
+          dpids[i] = Dpids[i];
++         dtypes[i] = Dtypes[i];
+          strn0cpy(dlangs[i], DLangs[i], MAXLANGCODE2);
+          }
+      dpids[MAXDPIDS] = 0;
+@@ -484,13 +495,13 @@
+      if (Channel->vpid && Channel->vtype)
+         q += snprintf(q, sizeof(vpidbuf) - (q - vpidbuf), "=%d", Channel->vtype);
+      *q = 0;
+-     const int BufferSize = (MAXAPIDS + MAXDPIDS) * (5 + 1 + MAXLANGCODE2) + 10; // 5 digits plus delimiting ',' or ';' plus optional '=cod+cod', +10: paranoia
++     const int BufferSize = (MAXAPIDS + MAXDPIDS) * (5 + 1 + MAXLANGCODE2 + 5) + 10; // 5 digits plus delimiting ',' or ';' plus optional '=cod+cod@type', +10: paranoia
+      char apidbuf[BufferSize];
+      q = apidbuf;
+-     q += IntArrayToString(q, Channel->apids, 10, Channel->alangs);
++     q += IntArrayToString(q, Channel->apids, 10, Channel->alangs, Channel->atypes);
+      if (Channel->dpids[0]) {
+         *q++ = ';';
+-        q += IntArrayToString(q, Channel->dpids, 10, Channel->dlangs);
++        q += IntArrayToString(q, Channel->dpids, 10, Channel->dlangs, Channel->dtypes);
+         }
+      *q = 0;
+      char caidbuf[MAXCAIDS * 5 + 10]; // 5: 4 digits plus delimiting ',', 10: paranoia
+@@ -546,7 +557,9 @@
+         vpid = ppid = 0;
+         vtype = 0;
+         apids[0] = 0;
++        atypes[0] = 0;
+         dpids[0] = 0;
++        dtypes[0] = 0;
+         ok = false;
+         if (parambuf && sourcebuf && vpidbuf && apidbuf) {
+            parameters = parambuf;
+@@ -579,9 +592,15 @@
+            char *strtok_next;
+            while ((q = strtok_r(p, ",", &strtok_next)) != NULL) {
+                  if (NumApids < MAXAPIDS) {
++                    atypes[NumApids] = 4; // backwards compatibility
+                     char *l = strchr(q, '=');
+                     if (l) {
+                        *l++ = 0;
++                       char *t = strchr(l, '@');
++                       if (t) {
++                          *t++ = 0;
++                          atypes[NumApids] = strtol(t, NULL, 10);
++                          }
+                        strn0cpy(alangs[NumApids], l, MAXLANGCODE2);
+                        }
+                     else
+@@ -593,6 +612,7 @@
+                  p = NULL;
+                  }
+            apids[NumApids] = 0;
++           atypes[NumApids] = 0;
+            if (dpidbuf) {
+               char *p = dpidbuf;
+               char *q;
+@@ -600,9 +620,15 @@
+               char *strtok_next;
+               while ((q = strtok_r(p, ",", &strtok_next)) != NULL) {
+                     if (NumDpids < MAXDPIDS) {
++                       dtypes[NumDpids] = SI::AC3DescriptorTag; // backwards compatibility
+                        char *l = strchr(q, '=');
+                        if (l) {
+                           *l++ = 0;
++                          char *t = strchr(l, '@');
++                          if (t) {
++                             *t++ = 0;
++                             dtypes[NumDpids] = strtol(t, NULL, 10);
++                             }
+                           strn0cpy(dlangs[NumDpids], l, MAXLANGCODE2);
+                           }
+                        else
+@@ -614,6 +640,7 @@
+                     p = NULL;
+                     }
+               dpids[NumDpids] = 0;
++              dtypes[NumDpids] = 0;
+               }
+ 
+            if (caidbuf) {
+diff -ruN vdr-1.7.14/channels.h vdr-1.7.15/channels.h
+--- vdr-1.7.14/channels.h	2010-03-07 14:47:13.000000000 +0100
++++ vdr-1.7.15/channels.h	2010-06-05 15:12:54.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.h 2.10 2010/03/07 13:47:13 kls Exp $
++ * $Id: channels.h 2.12 2010/06/05 13:12:54 kls Exp $
+  */
+ 
+ #ifndef __CHANNELS_H
+@@ -104,8 +104,10 @@
+   int ppid;
+   int vtype;
+   int apids[MAXAPIDS + 1]; // list is zero-terminated
++  int atypes[MAXAPIDS + 1]; // list is zero-terminated
+   char alangs[MAXAPIDS][MAXLANGCODE2];
+   int dpids[MAXDPIDS + 1]; // list is zero-terminated
++  int dtypes[MAXAPIDS + 1]; // list is zero-terminated
+   char dlangs[MAXDPIDS][MAXLANGCODE2];
+   int spids[MAXSPIDS + 1]; // list is zero-terminated
+   char slangs[MAXSPIDS][MAXLANGCODE2];
+@@ -156,6 +158,8 @@
+   const char *Alang(int i) const { return (0 <= i && i < MAXAPIDS) ? alangs[i] : ""; }
+   const char *Dlang(int i) const { return (0 <= i && i < MAXDPIDS) ? dlangs[i] : ""; }
+   const char *Slang(int i) const { return (0 <= i && i < MAXSPIDS) ? slangs[i] : ""; }
++  int Atype(int i) const { return (0 <= i && i < MAXAPIDS) ? atypes[i] : 0; }
++  int Dtype(int i) const { return (0 <= i && i < MAXDPIDS) ? dtypes[i] : 0; }
+   uchar SubtitlingType(int i) const { return (0 <= i && i < MAXSPIDS) ? subtitlingTypes[i] : uchar(0); }
+   uint16_t CompositionPageId(int i) const { return (0 <= i && i < MAXSPIDS) ? compositionPageIds[i] : uint16_t(0); }
+   uint16_t AncillaryPageId(int i) const { return (0 <= i && i < MAXSPIDS) ? ancillaryPageIds[i] : uint16_t(0); }
+@@ -185,7 +189,7 @@
+   void SetId(int Nid, int Tid, int Sid, int Rid = 0);
+   void SetName(const char *Name, const char *ShortName, const char *Provider);
+   void SetPortalName(const char *PortalName);
+-  void SetPids(int Vpid, int Ppid, int Vtype, int *Apids, char ALangs[][MAXLANGCODE2], int *Dpids, char DLangs[][MAXLANGCODE2], int *Spids, char SLangs[][MAXLANGCODE2], int Tpid);
++  void SetPids(int Vpid, int Ppid, int Vtype, int *Apids, int *Atypes, char ALangs[][MAXLANGCODE2], int *Dpids, int *Dtypes, char DLangs[][MAXLANGCODE2], int *Spids, char SLangs[][MAXLANGCODE2], int Tpid);
+   void SetCaIds(const int *CaIds); // list must be zero-terminated
+   void SetCaDescriptors(int Level);
+   void SetLinkChannels(cLinkChannels *LinkChannels);
+diff -ruN vdr-1.7.14/config.c vdr-1.7.15/config.c
+--- vdr-1.7.14/config.c	2010-03-12 17:41:37.000000000 +0100
++++ vdr-1.7.15/config.c	2010-06-06 12:06:43.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 2.12 2010/03/12 16:41:37 kls Exp $
++ * $Id: config.c 2.13 2010/06/06 10:06:43 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -355,6 +355,7 @@
+   VpsMargin = 120;
+   RecordingDirs = 1;
+   FoldersInTimerMenu = 1;
++  NumberKeysForChars = 1;
+   VideoDisplayFormat = 1;
+   VideoFormat = 0;
+   UpdateChannels = 5;
+@@ -545,6 +546,7 @@
+   else if (!strcasecmp(Name, "VpsMargin"))           VpsMargin          = atoi(Value);
+   else if (!strcasecmp(Name, "RecordingDirs"))       RecordingDirs      = atoi(Value);
+   else if (!strcasecmp(Name, "FoldersInTimerMenu"))  FoldersInTimerMenu = atoi(Value);
++  else if (!strcasecmp(Name, "NumberKeysForChars"))  NumberKeysForChars = atoi(Value);
+   else if (!strcasecmp(Name, "VideoDisplayFormat"))  VideoDisplayFormat = atoi(Value);
+   else if (!strcasecmp(Name, "VideoFormat"))         VideoFormat        = atoi(Value);
+   else if (!strcasecmp(Name, "UpdateChannels"))      UpdateChannels     = atoi(Value);
+@@ -640,6 +642,7 @@
+   Store("VpsMargin",          VpsMargin);
+   Store("RecordingDirs",      RecordingDirs);
+   Store("FoldersInTimerMenu", FoldersInTimerMenu);
++  Store("NumberKeysForChars", NumberKeysForChars);
+   Store("VideoDisplayFormat", VideoDisplayFormat);
+   Store("VideoFormat",        VideoFormat);
+   Store("UpdateChannels",     UpdateChannels);
+diff -ruN vdr-1.7.14/config.h vdr-1.7.15/config.h
+--- vdr-1.7.14/config.h	2010-03-12 17:02:53.000000000 +0100
++++ vdr-1.7.15/config.h	2010-06-06 11:53:02.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.25 2010/03/12 16:02:53 kls Exp $
++ * $Id: config.h 2.27 2010/06/06 09:53:02 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.14"
+-#define VDRVERSNUM   10714  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.15"
++#define VDRVERSNUM   10715  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.14"
+-#define APIVERSNUM   10714  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.15"
++#define APIVERSNUM   10715  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+@@ -254,6 +254,7 @@
+   int VpsMargin;
+   int RecordingDirs;
+   int FoldersInTimerMenu;
++  int NumberKeysForChars;
+   int VideoDisplayFormat;
+   int VideoFormat;
+   int UpdateChannels;
+diff -ruN vdr-1.7.14/device.c vdr-1.7.15/device.c
+--- vdr-1.7.14/device.c	2010-02-07 12:54:42.000000000 +0100
++++ vdr-1.7.15/device.c	2010-06-03 15:35:02.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.35 2010/02/07 11:54:42 kls Exp $
++ * $Id: device.c 2.37 2010/06/03 13:35:02 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -152,7 +152,7 @@
+         esyslog("ERROR: nextCardIndex too big (%d)", nextCardIndex);
+      }
+   else if (n < 0)
+-     esyslog("ERROR: invalid value in IncCardIndex(%d)", n);
++     esyslog("ERROR: invalid value in nextCardIndex(%d)", n);
+   return nextCardIndex;
+ }
+ 
+@@ -215,7 +215,7 @@
+ 
+ static int GetClippedNumProvidedSystems(int AvailableBits, cDevice *Device)
+ {
+-  int MaxNumProvidedSystems = 1 << AvailableBits;
++  int MaxNumProvidedSystems = (1 << AvailableBits) - 1;
+   int NumProvidedSystems = Device->NumProvidedSystems();
+   if (NumProvidedSystems > MaxNumProvidedSystems) {
+      esyslog("ERROR: device %d supports %d modulation systems but cDevice::GetDevice() currently only supports %d delivery systems which should be fixed", Device->CardIndex() + 1, NumProvidedSystems, MaxNumProvidedSystems);
+@@ -281,7 +281,7 @@
+              imp <<= 1; imp |= LiveView ? !device[i]->IsPrimaryDevice() || ndr : 0;                                  // prefer the primary device for live viewing if we don't need to detach existing receivers
+              imp <<= 1; imp |= !device[i]->Receiving() && (device[i] != cTransferControl::ReceiverDevice() || device[i]->IsPrimaryDevice()) || ndr; // use receiving devices if we don't need to detach existing receivers, but avoid primary device in local transfer mode
+              imp <<= 1; imp |= device[i]->Receiving();                                                               // avoid devices that are receiving
+-             imp <<= 2; imp |= GetClippedNumProvidedSystems(2, device[i]) - 1;                                       // avoid cards which support multiple delivery systems
++             imp <<= 4; imp |= GetClippedNumProvidedSystems(4, device[i]) - 1;                                       // avoid cards which support multiple delivery systems
+              imp <<= 1; imp |= device[i] == cTransferControl::ReceiverDevice();                                      // avoid the Transfer Mode receiver device
+              imp <<= 8; imp |= min(max(device[i]->Priority() + MAXPRIORITY, 0), 0xFF);                               // use the device with the lowest priority (+MAXPRIORITY to assure that values -99..99 can be used)
+              imp <<= 8; imp |= min(max((NumUsableSlots ? SlotPriority[j] : 0) + MAXPRIORITY, 0), 0xFF);              // use the CAM slot with the lowest priority (+MAXPRIORITY to assure that values -99..99 can be used)
+diff -ruN vdr-1.7.14/device.h vdr-1.7.15/device.h
+--- vdr-1.7.14/device.h	2010-02-06 15:34:41.000000000 +0100
++++ vdr-1.7.15/device.h	2010-04-05 11:51:29.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 2.21 2010/02/06 14:34:41 kls Exp $
++ * $Id: device.h 2.22 2010/04/05 09:51:29 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -91,6 +91,9 @@
+ class cDeviceHook : public cListObject {
+ public:
+   cDeviceHook(void);
++          ///< Creates a new device hook object.
++          ///< Do not delete this object - it will be automatically deleted when the
++          ///< program ends.
+   virtual bool DeviceProvidesTransponder(const cDevice *Device, const cChannel *Channel) const;
+           ///< Returns true if the given Device can provide the given Channel's transponder.
+   };
+diff -ruN vdr-1.7.14/dvbdevice.c vdr-1.7.15/dvbdevice.c
+--- vdr-1.7.14/dvbdevice.c	2010-03-07 14:58:24.000000000 +0100
++++ vdr-1.7.15/dvbdevice.c	2010-05-01 11:47:13.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.32 2010/03/07 13:58:24 kls Exp $
++ * $Id: dvbdevice.c 2.38 2010/05/01 09:47:13 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -21,6 +21,8 @@
+ #include "menuitems.h"
+ #include "sourceparams.h"
+ 
++#define FE_CAN_TURBO_FEC  0x8000000 // TODO: remove this once it is defined in the driver
++
+ #define DVBS_TUNE_TIMEOUT  9000 //ms
+ #define DVBS_LOCK_TIMEOUT  2000 //ms
+ #define DVBC_TUNE_TIMEOUT  9000 //ms
+@@ -149,6 +151,14 @@
+   return -1;
+ }
+ 
++const char *MapToUserString(int Value, const tDvbParameterMap *Map)
++{
++  int n = DriverIndex(Value, Map);
++  if (n >= 0)
++     return Map[n].userString;
++  return "???";
++}
++
+ int MapToDriver(int Value, const tDvbParameterMap *Map)
+ {
+   int n = UserIndex(Value, Map);
+@@ -692,7 +702,22 @@
+         numProvidedSystems++;
+         if (frontendType == SYS_DVBS2)
+            numProvidedSystems++;
+-        isyslog("frontend %d/%d provides %s (\"%s\")", adapter, frontend, DeliverySystems[frontendType], frontendInfo.name);
++        char Modulations[64];
++        char *p = Modulations;
++        if (frontendInfo.caps & FE_CAN_QPSK)    { numProvidedSystems++; p += sprintf(p, ",%s", MapToUserString(QPSK, ModulationValues)); }
++        if (frontendInfo.caps & FE_CAN_QAM_16)  { numProvidedSystems++; p += sprintf(p, ",%s", MapToUserString(QAM_16, ModulationValues)); }
++        if (frontendInfo.caps & FE_CAN_QAM_32)  { numProvidedSystems++; p += sprintf(p, ",%s", MapToUserString(QAM_32, ModulationValues)); }
++        if (frontendInfo.caps & FE_CAN_QAM_64)  { numProvidedSystems++; p += sprintf(p, ",%s", MapToUserString(QAM_64, ModulationValues)); }
++        if (frontendInfo.caps & FE_CAN_QAM_128) { numProvidedSystems++; p += sprintf(p, ",%s", MapToUserString(QAM_128, ModulationValues)); }
++        if (frontendInfo.caps & FE_CAN_QAM_256) { numProvidedSystems++; p += sprintf(p, ",%s", MapToUserString(QAM_256, ModulationValues)); }
++        if (frontendInfo.caps & FE_CAN_8VSB)    { numProvidedSystems++; p += sprintf(p, ",%s", MapToUserString(VSB_8, ModulationValues)); }
++        if (frontendInfo.caps & FE_CAN_16VSB)   { numProvidedSystems++; p += sprintf(p, ",%s", MapToUserString(VSB_16, ModulationValues)); }
++        if (frontendInfo.caps & FE_CAN_TURBO_FEC){numProvidedSystems++; p += sprintf(p, ",%s", "TURBO_FEC"); }
++        if (p != Modulations)
++           p = Modulations + 1; // skips first ','
++        else
++           p = (char *)"unknown modulations";
++        isyslog("frontend %d/%d provides %s with %s (\"%s\")", adapter, frontend, DeliverySystems[frontendType], p, frontendInfo.name);
+         dvbTuner = new cDvbTuner(CardIndex() + 1, fd_frontend, adapter, frontend, frontendType);
+         }
+      }
+@@ -886,12 +911,21 @@
+ {
+   if (!ProvidesSource(Channel->Source()))
+      return false; // doesn't provide source
+-  if (!cSource::IsSat(Channel->Source()))
+-     return DeviceHooksProvidesTransponder(Channel); // source is sufficient for non sat
+   cDvbTransponderParameters dtp(Channel->Parameters());
+-  if (frontendType == SYS_DVBS && dtp.System() == SYS_DVBS2)
++  if (dtp.System() == SYS_DVBS2 && frontendType == SYS_DVBS ||
++     dtp.Modulation() == QPSK     && !(frontendInfo.caps & FE_CAN_QPSK) ||
++     dtp.Modulation() == QAM_16   && !(frontendInfo.caps & FE_CAN_QAM_16) ||
++     dtp.Modulation() == QAM_32   && !(frontendInfo.caps & FE_CAN_QAM_32) ||
++     dtp.Modulation() == QAM_64   && !(frontendInfo.caps & FE_CAN_QAM_64) ||
++     dtp.Modulation() == QAM_128  && !(frontendInfo.caps & FE_CAN_QAM_128) ||
++     dtp.Modulation() == QAM_256  && !(frontendInfo.caps & FE_CAN_QAM_256) ||
++     dtp.Modulation() == QAM_AUTO && !(frontendInfo.caps & FE_CAN_QAM_AUTO) ||
++     dtp.Modulation() == VSB_8    && !(frontendInfo.caps & FE_CAN_8VSB) ||
++     dtp.Modulation() == VSB_16   && !(frontendInfo.caps & FE_CAN_16VSB) ||
++     dtp.Modulation() == PSK_8    && !(frontendInfo.caps & FE_CAN_TURBO_FEC) && dtp.System() == SYS_DVBS) // "turbo fec" is a non standard FEC used by North American broadcasters - this is a best guess to determine this condition
+      return false; // requires modulation system which frontend doesn't provide
+-  if (!Setup.DiSEqC || Diseqcs.Get(CardIndex() + 1, Channel->Source(), Channel->Frequency(), dtp.Polarization()))
++  if (!cSource::IsSat(Channel->Source()) ||
++     !Setup.DiSEqC || Diseqcs.Get(CardIndex() + 1, Channel->Source(), Channel->Frequency(), dtp.Polarization()))
+      return DeviceHooksProvidesTransponder(Channel);
+   return false;
+ }
+diff -ruN vdr-1.7.14/dvbdevice.h vdr-1.7.15/dvbdevice.h
+--- vdr-1.7.14/dvbdevice.h	2010-02-21 15:06:08.000000000 +0100
++++ vdr-1.7.15/dvbdevice.h	2010-04-11 12:29:37.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 2.13 2010/02/21 14:06:08 kls Exp $
++ * $Id: dvbdevice.h 2.14 2010/04/11 10:29:37 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -37,6 +37,7 @@
+   const char *userString;
+   };
+ 
++const char *MapToUserString(int Value, const tDvbParameterMap *Map);
+ int MapToUser(int Value, const tDvbParameterMap *Map, const char **String = NULL);
+ int MapToDriver(int Value, const tDvbParameterMap *Map);
+ int UserIndex(int Value, const tDvbParameterMap *Map);
+diff -ruN vdr-1.7.14/dvbsubtitle.c vdr-1.7.15/dvbsubtitle.c
+--- vdr-1.7.14/dvbsubtitle.c	2010-02-07 13:08:13.000000000 +0100
++++ vdr-1.7.15/dvbsubtitle.c	2010-06-05 16:03:55.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original author: Marco Schl��ler <marco@lordzodiac.de>
+  * With some input from the "subtitle plugin" by Pekka Virtanen <pekka.virtanen@sci.fi>
+  *
+- * $Id: dvbsubtitle.c 2.4 2010/02/07 12:08:13 kls Exp $
++ * $Id: dvbsubtitle.c 2.6 2010/06/05 14:03:55 kls Exp $
+  */
+ 
+ #include "dvbsubtitle.h"
+@@ -17,6 +17,7 @@
+ #define REGION_COMPOSITION_SEGMENT 0x11
+ #define CLUT_DEFINITION_SEGMENT    0x12
+ #define OBJECT_DATA_SEGMENT        0x13
++#define DISPLAY_DEFINITION_SEGMENT 0x14
+ #define END_OF_DISPLAY_SET_SEGMENT 0x80
+ 
+ // Set these to 'true' for debug output:
+@@ -659,6 +660,11 @@
+   dvbSubtitleAssembler = new cDvbSubtitleAssembler;
+   osd = NULL;
+   frozen = false;
++  ddsVersionNumber = 0;
++  displayWidth = 720;
++  displayHeight = 576;
++  displayHorizontalOffset = 0;
++  displayVerticalOffset = 0;
+   pages = new cList<cDvbSubtitlePage>;
+   bitmaps = new cList<cDvbSubtitleBitmaps>;
+   Start();
+@@ -687,6 +693,11 @@
+   bitmaps->Clear();
+   DELETENULL(osd);
+   frozen = false;
++  ddsVersionNumber = 0;
++  displayWidth = 720;
++  displayHeight = 576;
++  displayHorizontalOffset = 0;
++  displayVerticalOffset = 0;
+   Unlock();
+ }
+ 
+@@ -842,7 +853,7 @@
+ 
+ bool cDvbSubtitleConverter::AssertOsd(void)
+ {
+-  return osd || (osd = cOsdProvider::NewOsd(0, Setup.SubtitleOffset, OSD_LEVEL_SUBTITLES));
++  return osd || (osd = cOsdProvider::NewOsd(displayHorizontalOffset, displayVerticalOffset + Setup.SubtitleOffset, OSD_LEVEL_SUBTITLES));
+ }
+ 
+ int cDvbSubtitleConverter::ExtractSegment(const uchar *Data, int Length, int64_t Pts)
+@@ -1001,6 +1012,26 @@
+                }
+             break;
+             }
++       case DISPLAY_DEFINITION_SEGMENT: {
++            dbgsegments("DISPLAY_DEFINITION_SEGMENT\n");
++            int version = (Data[6] & 0xF0) >> 4;
++            if (version != ddsVersionNumber) {
++               int displayWindowFlag   = (Data[6] & 0x08) >> 3;
++               displayHorizontalOffset = 0;
++               displayVerticalOffset   = 0;
++               displayWidth            = ((Data[7] << 8) | Data[8]) + 1;
++               displayHeight           = ((Data[9] << 8) | Data[10]) + 1;
++               if (displayWindowFlag) { 
++                  displayHorizontalOffset = (Data[11] << 8) | Data[12];                                 // displayWindowHorizontalPositionMinimum
++                  displayWidth            = ((Data[13] << 8) | Data[14]) - displayHorizontalOffset + 1; // displayWindowHorizontalPositionMaximum
++                  displayVerticalOffset   = (Data[15] << 8) | Data[16];                                 // displayWindowVerticalPositionMinimum
++                  displayHeight           = ((Data[17] << 8) | Data[18]) - displayVerticalOffset + 1;   // displayWindowVerticalPositionMaximum
++                  }
++               SetupChanged();
++               ddsVersionNumber = version;
++               }
++            break;
++            }
+        case END_OF_DISPLAY_SET_SEGMENT: {
+             dbgsegments("END_OF_DISPLAY_SET_SEGMENT\n");
+             FinishPage(page);
+diff -ruN vdr-1.7.14/dvbsubtitle.h vdr-1.7.15/dvbsubtitle.h
+--- vdr-1.7.14/dvbsubtitle.h	2010-02-07 12:55:14.000000000 +0100
++++ vdr-1.7.15/dvbsubtitle.h	2010-05-13 16:43:44.000000000 +0200
+@@ -6,7 +6,7 @@
+  *
+  * Original author: Marco Schl��ler <marco@lordzodiac.de>
+  *
+- * $Id: dvbsubtitle.h 2.2 2010/02/07 11:55:14 kls Exp $
++ * $Id: dvbsubtitle.h 2.3 2010/05/13 14:43:44 kls Exp $
+  */
+ 
+ #ifndef __DVBSUBTITLE_H
+@@ -26,6 +26,11 @@
+   cDvbSubtitleAssembler *dvbSubtitleAssembler;
+   cOsd *osd;
+   bool frozen;
++  int ddsVersionNumber;
++  int displayWidth;
++  int displayHeight;
++  int displayHorizontalOffset;
++  int displayVerticalOffset;
+   cList<cDvbSubtitlePage> *pages;
+   cList<cDvbSubtitleBitmaps> *bitmaps;
+   tColor yuv2rgb(int Y, int Cb, int Cr);
+diff -ruN vdr-1.7.14/eit.c vdr-1.7.15/eit.c
+--- vdr-1.7.14/eit.c	2010-01-08 16:17:09.000000000 +0100
++++ vdr-1.7.15/eit.c	2010-05-14 16:08:35.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 2.11 2010/01/08 15:17:09 kls Exp $
++ * $Id: eit.c 2.12 2010/05/14 14:08:35 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -257,7 +257,7 @@
+                  SI::ComponentDescriptor *cd = (SI::ComponentDescriptor *)d;
+                  uchar Stream = cd->getStreamContent();
+                  uchar Type = cd->getComponentType();
+-                 if (1 <= Stream && Stream <= 4 && Type != 0) { // 1=video, 2=audio, 3=subtitles, 4=AC3
++                 if (1 <= Stream && Stream <= 6 && Type != 0) { // 1=MPEG2-video, 2=MPEG1-audio, 3=subtitles, 4=AC3-audio, 5=H.264-video, 6=HEAAC-audio
+                     if (!Components)
+                        Components = new cComponents;
+                     char buffer[Utf8BufSize(256)];
+diff -ruN vdr-1.7.14/keys.c vdr-1.7.15/keys.c
+--- vdr-1.7.14/keys.c	2008-02-10 15:08:48.000000000 +0100
++++ vdr-1.7.15/keys.c	2010-04-05 12:05:58.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: keys.c 2.0 2008/02/10 14:08:48 kls Exp $
++ * $Id: keys.c 2.1 2010/04/05 10:05:58 kls Exp $
+  */
+ 
+ #include "keys.h"
+@@ -56,6 +56,7 @@
+                     { kRecordings,    trNOOP("Key$Recordings")  },
+                     { kSetup,         trNOOP("Key$Setup")       },
+                     { kCommands,      trNOOP("Key$Commands")    },
++                    { kUser0,         trNOOP("Key$User0")       },
+                     { kUser1,         trNOOP("Key$User1")       },
+                     { kUser2,         trNOOP("Key$User2")       },
+                     { kUser3,         trNOOP("Key$User3")       },
+diff -ruN vdr-1.7.14/keys.h vdr-1.7.15/keys.h
+--- vdr-1.7.14/keys.h	2007-08-26 14:34:50.000000000 +0200
++++ vdr-1.7.15/keys.h	2010-04-05 12:06:04.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: keys.h 2.0 2007/08/26 12:34:50 kls Exp $
++ * $Id: keys.h 2.1 2010/04/05 10:06:04 kls Exp $
+  */
+ 
+ #ifndef __KEYS_H
+@@ -50,7 +50,7 @@
+              kRecordings,
+              kSetup,
+              kCommands,
+-             kUser1, kUser2, kUser3, kUser4, kUser5, kUser6, kUser7, kUser8, kUser9,
++             kUser0, kUser1, kUser2, kUser3, kUser4, kUser5, kUser6, kUser7, kUser8, kUser9,
+              kNone,
+              kKbd,
+              // The following codes are used internally:
+diff -ruN vdr-1.7.14/menu.c vdr-1.7.15/menu.c
+--- vdr-1.7.14/menu.c	2010-03-12 17:03:07.000000000 +0100
++++ vdr-1.7.15/menu.c	2010-06-06 11:56:16.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 2.21 2010/03/12 16:03:07 kls Exp $
++ * $Id: menu.c 2.24 2010/06/06 09:56:16 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -210,16 +210,18 @@
+ {
+   channel = Channel;
+   sourceParam = NULL;
++  *name = 0;
+   if (channel) {
+      data = *channel;
++     strn0cpy(name, data.name, sizeof(name));
+      if (New) {
+         channel = NULL;
+         data.nid = 0;
+         data.tid = 0;
+         data.rid = 0;
+         }
+-     Setup();
+      }
++  Setup();
+ }
+ 
+ void cMenuEditChannel::Setup(void)
+@@ -229,7 +231,6 @@
+   Clear();
+ 
+   // Parameters for all types of sources:
+-  strn0cpy(name, data.name, sizeof(name));
+   Add(new cMenuEditStrItem( tr("Name"),          name, sizeof(name)));
+   Add(new cMenuEditSrcItem( tr("Source"),       &data.source));
+   Add(new cMenuEditIntItem( tr("Frequency"),    &data.frequency));
+@@ -2568,6 +2569,7 @@
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Menu key closes"),        &data.MenuKeyCloses));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Recording directories"),  &data.RecordingDirs));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Folders in timer menu"),  &data.FoldersInTimerMenu));
++  Add(new cMenuEditBoolItem(tr("Setup.OSD$Number keys for characters"), &data.NumberKeysForChars));
+   SetCurrent(Get(current));
+   Display();
+ }
+diff -ruN vdr-1.7.14/menuitems.c vdr-1.7.15/menuitems.c
+--- vdr-1.7.14/menuitems.c	2010-02-16 15:44:35.000000000 +0100
++++ vdr-1.7.15/menuitems.c	2010-06-06 12:37:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.c 2.6 2010/02/16 14:44:35 kls Exp $
++ * $Id: menuitems.c 2.7 2010/06/06 10:37:08 kls Exp $
+  */
+ 
+ #include "menuitems.h"
+@@ -488,6 +488,20 @@
+   return *p;
+ }
+ 
++void cMenuEditStrItem::Type(uint c)
++{
++  if (insert && lengthUtf8 < length - 1)
++     Insert();
++  valueUtf8[pos] = c;
++  if (pos < length - 2)
++     pos++;
++  if (pos >= lengthUtf8) {
++     valueUtf8[pos] = ' ';
++     valueUtf8[pos + 1] = 0;
++     lengthUtf8 = pos + 1;
++     }
++}
++
+ void cMenuEditStrItem::Insert(void)
+ {
+   memmove(valueUtf8 + pos + 1, valueUtf8 + pos, (lengthUtf8 - pos + 1) * sizeof(*valueUtf8));
+@@ -597,39 +611,43 @@
+     case k0|k_Repeat ... k9|k_Repeat:
+     case k0 ... k9: {
+                  if (InEditMode()) {
+-                    if (!SameKey) {
+-                       if (!newchar)
+-                          AdvancePos();
+-                       currentCharUtf8 = NULL;
+-                       }
+-                    if (!currentCharUtf8 || !*currentCharUtf8 || *currentCharUtf8 == '\t') {
+-                       // find the beginning of the character map entry for Key
+-                       int n = NORMALKEY(Key) - k0;
+-                       currentCharUtf8 = charMapUtf8;
+-                       while (n > 0 && *currentCharUtf8) {
+-                             if (*currentCharUtf8++ == '\t')
+-                                n--;
++                    if (Setup.NumberKeysForChars) {
++                       if (!SameKey) {
++                          if (!newchar)
++                             AdvancePos();
++                          currentCharUtf8 = NULL;
++                          }
++                       if (!currentCharUtf8 || !*currentCharUtf8 || *currentCharUtf8 == '\t') {
++                          // find the beginning of the character map entry for Key
++                          int n = NORMALKEY(Key) - k0;
++                          currentCharUtf8 = charMapUtf8;
++                          while (n > 0 && *currentCharUtf8) {
++                                if (*currentCharUtf8++ == '\t')
++                                   n--;
++                                }
++                          // find first allowed character
++                          while (*currentCharUtf8 && *currentCharUtf8 != '\t' && !IsAllowed(*currentCharUtf8))
++                                currentCharUtf8++;
++                          }
++                       if (*currentCharUtf8 && *currentCharUtf8 != '\t') {
++                          if (insert && newchar) {
++                             // create a new character in insert mode
++                             if (lengthUtf8 < length - 1)
++                                Insert();
+                              }
+-                       // find first allowed character
+-                       while (*currentCharUtf8 && *currentCharUtf8 != '\t' && !IsAllowed(*currentCharUtf8))
++                          valueUtf8[pos] = *currentCharUtf8;
++                          if (uppercase)
++                             valueUtf8[pos] = Utf8to(upper, valueUtf8[pos]);
++                          // find next allowed character
++                          do {
+                              currentCharUtf8++;
+-                       }
+-                    if (*currentCharUtf8 && *currentCharUtf8 != '\t') {
+-                       if (insert && newchar) {
+-                          // create a new character in insert mode
+-                          if (lengthUtf8 < length - 1)
+-                             Insert();
++                             } while (*currentCharUtf8 && *currentCharUtf8 != '\t' && !IsAllowed(*currentCharUtf8));
++                          newchar = false;
++                          autoAdvanceTimeout.Set(AUTO_ADVANCE_TIMEOUT);
+                           }
+-                       valueUtf8[pos] = *currentCharUtf8;
+-                       if (uppercase)
+-                          valueUtf8[pos] = Utf8to(upper, valueUtf8[pos]);
+-                       // find next allowed character
+-                       do {
+-                          currentCharUtf8++;
+-                          } while (*currentCharUtf8 && *currentCharUtf8 != '\t' && !IsAllowed(*currentCharUtf8));
+-                       newchar = false;
+-                       autoAdvanceTimeout.Set(AUTO_ADVANCE_TIMEOUT);
+                        }
++                    else
++                       Type('0' + NORMALKEY(Key) - k0);
+                     }
+                  else
+                     return cMenuEditItem::ProcessKey(Key);
+@@ -645,19 +663,8 @@
+     default:     if (InEditMode() && BASICKEY(Key) == kKbd) {
+                     int c = KEYKBD(Key);
+                     if (c <= 0xFF) { // FIXME what about other UTF-8 characters?
+-                       uint *p = IsAllowed(Utf8to(lower, c));
+-                       if (p) {
+-                          if (insert && lengthUtf8 < length - 1)
+-                             Insert();
+-                          valueUtf8[pos] = c;
+-                          if (pos < length - 2)
+-                             pos++;
+-                          if (pos >= lengthUtf8) {
+-                             valueUtf8[pos] = ' ';
+-                             valueUtf8[pos + 1] = 0;
+-                             lengthUtf8 = pos + 1;
+-                             }
+-                          }
++                       if (IsAllowed(Utf8to(lower, c)))
++                          Type(c);
+                        else {
+                           switch (c) {
+                             case 0x7F: // backspace
+diff -ruN vdr-1.7.14/menuitems.h vdr-1.7.15/menuitems.h
+--- vdr-1.7.14/menuitems.h	2010-02-21 14:58:21.000000000 +0100
++++ vdr-1.7.15/menuitems.h	2010-06-06 12:32:38.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.h 2.3 2010/02/21 13:58:21 kls Exp $
++ * $Id: menuitems.h 2.4 2010/06/06 10:32:38 kls Exp $
+  */
+ 
+ #ifndef __MENUITEMS_H
+@@ -108,6 +108,7 @@
+   void AdvancePos(void);
+   virtual void Set(void);
+   uint Inc(uint c, bool Up);
++  void Type(uint c);
+   void Insert(void);
+   void Delete(void);
+ protected:
+diff -ruN vdr-1.7.14/osd.c vdr-1.7.15/osd.c
+--- vdr-1.7.14/osd.c	2010-01-22 16:58:39.000000000 +0100
++++ vdr-1.7.15/osd.c	2010-05-02 15:56:53.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 2.9 2010/01/22 15:58:39 kls Exp $
++ * $Id: osd.c 2.10 2010/05/02 13:56:53 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -360,10 +360,10 @@
+          }
+       s = skipspace(s + 1);
+       if (strcasecmp(s, "none") == 0) {
+-         s = "#00000000";
+          NoneColorIndex = i;
+-         if (IgnoreNone)
+-            continue;
++         if (!IgnoreNone)
++            SetColor(i, clrTransparent);
++         continue;
+          }
+       if (*s != '#') {
+          esyslog("ERROR: unknown color code in XPM: '%c'", *s);
+diff -ruN vdr-1.7.14/pat.c vdr-1.7.15/pat.c
+--- vdr-1.7.14/pat.c	2010-03-06 13:00:30.000000000 +0100
++++ vdr-1.7.15/pat.c	2010-06-05 15:26:47.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.c 2.8 2010/03/06 12:00:30 kls Exp $
++ * $Id: pat.c 2.11 2010/06/05 13:26:47 kls Exp $
+  */
+ 
+ #include "pat.h"
+@@ -332,7 +332,9 @@
+         int Ppid = 0;
+         int Vtype = 0;
+         int Apids[MAXAPIDS + 1] = { 0 }; // these lists are zero-terminated
++        int Atypes[MAXDPIDS + 1] = { 0 };
+         int Dpids[MAXDPIDS + 1] = { 0 };
++        int Dtypes[MAXDPIDS + 1] = { 0 };
+         int Spids[MAXSPIDS + 1] = { 0 };
+         uchar SubtitlingTypes[MAXSPIDS + 1] = { 0 };
+         uint16_t CompositionPageIds[MAXSPIDS + 1] = { 0 };
+@@ -358,9 +360,12 @@
+                       break;
+               case 3: // STREAMTYPE_11172_AUDIO
+               case 4: // STREAMTYPE_13818_AUDIO
++              case 0x0F: // ISO/IEC 13818-7 Audio with ADTS transport sytax
++              case 0x11: // ISO/IEC 14496-3 Audio with LATM transport syntax
+                       {
+                       if (NumApids < MAXAPIDS) {
+                          Apids[NumApids] = esPid;
++                         Atypes[NumApids] = stream.getStreamType();
+                          SI::Descriptor *d;
+                          for (SI::Loop::Iterator it; (d = stream.streamDescriptors.getNext(it)); ) {
+                              switch (d->getDescriptorTag()) {
+@@ -395,12 +400,15 @@
+               //XXX case 8: // STREAMTYPE_13818_DSMCC
+                       {
+                       int dpid = 0;
++                      int dtype = 0;
+                       char lang[MAXLANGCODE1] = { 0 };
+                       SI::Descriptor *d;
+                       for (SI::Loop::Iterator it; (d = stream.streamDescriptors.getNext(it)); ) {
+                           switch (d->getDescriptorTag()) {
+                             case SI::AC3DescriptorTag:
++                            case SI::EnhancedAC3DescriptorTag:
+                                  dpid = esPid;
++                                 dtype = d->getDescriptorTag();
+                                  ProcessCaDescriptors = true;
+                                  break;
+                             case SI::SubtitlingDescriptorTag:
+@@ -441,6 +449,7 @@
+                       if (dpid) {
+                          if (NumDpids < MAXDPIDS) {
+                             Dpids[NumDpids] = dpid;
++                            Dtypes[NumDpids] = dtype;
+                             strn0cpy(DLangs[NumDpids], lang, MAXLANGCODE1);
+                             NumDpids++;
+                             }
+@@ -480,7 +489,7 @@
+                }
+             }
+         if (Setup.UpdateChannels >= 2) {
+-           Channel->SetPids(Vpid, Ppid, Vtype, Apids, ALangs, Dpids, DLangs, Spids, SLangs, Tpid);
++           Channel->SetPids(Vpid, Ppid, Vtype, Apids, Atypes, ALangs, Dpids, Dtypes, DLangs, Spids, SLangs, Tpid);
+            Channel->SetCaIds(CaDescriptors->CaIds());
+            Channel->SetSubtitlingDescriptors(SubtitlingTypes, CompositionPageIds, AncillaryPageIds);
+            }
+diff -ruN vdr-1.7.14/po/ca_ES.po vdr-1.7.15/po/ca_ES.po
+--- vdr-1.7.14/po/ca_ES.po	2010-03-12 17:41:03.000000000 +0100
++++ vdr-1.7.15/po/ca_ES.po	2010-06-06 14:03:58.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Catalanian\n"
+@@ -478,6 +478,9 @@
+ msgid "Key$Commands"
+ msgstr "Ordres"
+ 
++msgid "Key$User0"
++msgstr "Usuari 0"
++
+ msgid "Key$User1"
+ msgstr "Usuari 1"
+ 
+@@ -839,6 +842,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Guia de Programes"
+ 
+diff -ruN vdr-1.7.14/po/cs_CZ.po vdr-1.7.15/po/cs_CZ.po
+--- vdr-1.7.14/po/cs_CZ.po	2010-03-12 17:41:03.000000000 +0100
++++ vdr-1.7.15/po/cs_CZ.po	2010-06-06 14:03:58.000000000 +0200
+@@ -1,381 +1,382 @@
+ # VDR language source file.
+ # Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Vladim�r B�rta <vladimir.barta@k2atmitec.cz>, 2006, 2008
+-# Ji�� Dobr� <jdobry@centrum.cz>, 2008
++# Vladimír Bárta <vladimir.barta@k2atmitec.cz>, 2006, 2008
++# Jiří Dobrý <jdobry@centrum.cz>, 2008
++# Radek Šťastný <dedkus@gmail.com>, 2010
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 1.6.0\n"
++"Project-Id-Version: VDR 1.7.14\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+-"PO-Revision-Date: 2008-02-28 15:00+0200\n"
+-"Last-Translator: Vladim�r B�rta <vladimir.barta@k2atmitec.cz>, Ji�� Dobr� <jdobry@centrum.cz>\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
++"PO-Revision-Date: 2010-05-06 11:00+0200\n"
++"Last-Translator: Radek Šťastný <dedkus@gmail.com>\n"
+ "Language-Team: Czech\n"
+ "MIME-Version: 1.0\n"
+-"Content-Type: text/plain; charset=ISO-8859-2\n"
++"Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
+ msgid "*** Invalid Channel ***"
+-msgstr "*** Neplatn� kan�l ***"
++msgstr "*** Neplatný kanál ***"
+ 
+ msgid "Channel not available!"
+-msgstr "Kan�l nen� dostupn�!"
++msgstr "Kanál není dostupný!"
+ 
+ msgid "Can't start Transfer Mode!"
+-msgstr "Nelze za��t s p�enosem"
++msgstr "Nelze začít s přenosem"
+ 
+ msgid "off"
+ msgstr "vyp."
+ 
+ msgid "on"
+-msgstr ""
++msgstr "zap. "
+ 
+ msgid "auto"
+ msgstr "auto"
+ 
+ msgid "none"
+-msgstr "��dn�"
++msgstr "žádný"
+ 
+ msgid "Polarization"
+ msgstr "Polarizace"
+ 
+ msgid "System"
+-msgstr ""
++msgstr "Systém"
+ 
+ msgid "Srate"
+-msgstr "Srate"
++msgstr ""
+ 
+ msgid "Inversion"
+-msgstr "Inversion"
++msgstr ""
+ 
+ msgid "CoderateH"
+-msgstr "CoderateH"
++msgstr ""
+ 
+ msgid "CoderateL"
+-msgstr "CoderateL"
++msgstr ""
+ 
+ msgid "Modulation"
+ msgstr "Modulace"
+ 
+ msgid "Bandwidth"
+-msgstr "���ka p�sma"
++msgstr "Šířka pásma"
+ 
+ msgid "Transmission"
+-msgstr "P�enos"
++msgstr "Přenos"
+ 
+ msgid "Guard"
+-msgstr "Guard"
++msgstr "Ochranný interval"
+ 
+ msgid "Hierarchy"
+-msgstr "Hierarchy"
++msgstr "Hierarchický mód"
+ 
+ msgid "Rolloff"
+ msgstr ""
+ 
+ msgid "Starting EPG scan"
+-msgstr "Za��n� prohled�v�n� EPG"
++msgstr "Začíná prohledávání EPG"
+ 
+ msgid "Content$Movie/Drama"
+-msgstr ""
++msgstr "drama"
+ 
+ msgid "Content$Detective/Thriller"
+-msgstr ""
++msgstr "thriller"
+ 
+ msgid "Content$Adventure/Western/War"
+-msgstr ""
++msgstr "dobrodruřný/western/válečný"
+ 
+ msgid "Content$Science Fiction/Fantasy/Horror"
+-msgstr ""
++msgstr "Science Fiction/Fantasy/Horror"
+ 
+ msgid "Content$Comedy"
+-msgstr ""
++msgstr "komedie"
+ 
+ msgid "Content$Soap/Melodrama/Folkloric"
+-msgstr ""
++msgstr "mýdlová opera/melodrama/folklorní"
+ 
+ msgid "Content$Romance"
+-msgstr ""
++msgstr "romantický"
+ 
+ msgid "Content$Serious/Classical/Religious/Historical Movie/Drama"
+-msgstr ""
++msgstr "skutečný/klasický/náboženství/historický film/drama"
+ 
+ msgid "Content$Adult Movie/Drama"
+-msgstr ""
++msgstr "film pro dospělé/drama"
+ 
+ msgid "Content$News/Current Affairs"
+-msgstr ""
++msgstr "aktuální události"
+ 
+ msgid "Content$News/Weather Report"
+-msgstr ""
++msgstr "počasí"
+ 
+ msgid "Content$News Magazine"
+-msgstr ""
++msgstr "zprávy"
+ 
+ msgid "Content$Documentary"
+-msgstr ""
++msgstr "dokumentární"
+ 
+ msgid "Content$Discussion/Inverview/Debate"
+-msgstr ""
++msgstr "diskuze/rozhovor/debata"
+ 
+ msgid "Content$Show/Game Show"
+-msgstr ""
++msgstr "zábavné hry"
+ 
+ msgid "Content$Game Show/Quiz/Contest"
+-msgstr ""
++msgstr "soutěžní/vědomostní/soutěžní hra"
+ 
+ msgid "Content$Variety Show"
+-msgstr ""
++msgstr "varieté"
+ 
+ msgid "Content$Talk Show"
+-msgstr ""
++msgstr "diskuzní pořad"
+ 
+ msgid "Content$Sports"
+-msgstr ""
++msgstr "sport"
+ 
+ msgid "Content$Special Event"
+-msgstr ""
++msgstr "zvláštní událost"
+ 
+ msgid "Content$Sport Magazine"
+-msgstr ""
++msgstr "sportovní pořad"
+ 
+ msgid "Content$Football/Soccer"
+-msgstr ""
++msgstr "fotbal"
+ 
+ msgid "Content$Tennis/Squash"
+-msgstr ""
++msgstr "squash"
+ 
+ msgid "Content$Team Sports"
+-msgstr ""
++msgstr "týmové sporty"
+ 
+ msgid "Content$Athletics"
+-msgstr ""
++msgstr "atletika"
+ 
+ msgid "Content$Motor Sport"
+-msgstr ""
++msgstr "motorismus"
+ 
+ msgid "Content$Water Sport"
+-msgstr ""
++msgstr "vodní sporty"
+ 
+ msgid "Content$Winter Sports"
+-msgstr ""
++msgstr "zimní sporty"
+ 
+ msgid "Content$Equestrian"
+-msgstr ""
++msgstr "jezdectví"
+ 
+ msgid "Content$Martial Sports"
+-msgstr ""
++msgstr "bojové sporty"
+ 
+ msgid "Content$Children's/Youth Programme"
+-msgstr ""
++msgstr "pro děti a mládež"
+ 
+ msgid "Content$Pre-school Children's Programme"
+-msgstr ""
++msgstr "pro předškloní děti"
+ 
+ msgid "Content$Entertainment Programme for 6 to 14"
+-msgstr ""
++msgstr "zábavné pro děti od 6 do 14 let"
+ 
+ msgid "Content$Entertainment Programme for 10 to 16"
+-msgstr ""
++msgstr "zábavné pro děti od 10 do 16 let"
+ 
+ msgid "Content$Informational/Educational/School Programme"
+-msgstr ""
++msgstr "informační/zpravdajský/školní program"
+ 
+ msgid "Content$Cartoons/Puppets"
+-msgstr ""
++msgstr "kreslené / loutky"
+ 
+ msgid "Content$Music/Ballet/Dance"
+-msgstr ""
++msgstr "hudba/balet/tanec"
+ 
+ msgid "Content$Rock/Pop"
+-msgstr ""
++msgstr "rock/pop"
+ 
+ msgid "Content$Serious/Classical Music"
+-msgstr ""
++msgstr "vážná/klasická hudba"
+ 
+ msgid "Content$Folk/Tradional Music"
+-msgstr ""
++msgstr "folk/country"
+ 
+ msgid "Content$Jazz"
+-msgstr ""
++msgstr "jazz"
+ 
+ msgid "Content$Musical/Opera"
+-msgstr ""
++msgstr "muzikál/opera"
+ 
+ msgid "Content$Ballet"
+-msgstr ""
++msgstr "balet"
+ 
+ msgid "Content$Arts/Culture"
+-msgstr ""
++msgstr "umění/kultura"
+ 
+ msgid "Content$Performing Arts"
+-msgstr ""
++msgstr "múzické umění"
+ 
+ msgid "Content$Fine Arts"
+-msgstr ""
++msgstr "výtvarné umění"
+ 
+ msgid "Content$Religion"
+-msgstr ""
++msgstr "náboženství"
+ 
+ msgid "Content$Popular Culture/Traditional Arts"
+-msgstr ""
++msgstr "populární kultura/tradiční umění"
+ 
+ msgid "Content$Literature"
+-msgstr ""
++msgstr "literatura"
+ 
+ msgid "Content$Film/Cinema"
+-msgstr ""
++msgstr "film/kino"
+ 
+ msgid "Content$Experimental Film/Video"
+-msgstr ""
++msgstr "experimentální film/video"
+ 
+ msgid "Content$Broadcasting/Press"
+-msgstr ""
++msgstr "vysílání/tisk"
+ 
+ msgid "Content$New Media"
+-msgstr ""
++msgstr "nová média"
+ 
+ msgid "Content$Arts/Culture Magazine"
+-msgstr ""
++msgstr "kulturní magazín"
+ 
+ msgid "Content$Fashion"
+-msgstr ""
++msgstr "móda"
+ 
+ msgid "Content$Social/Political/Economics"
+-msgstr ""
++msgstr "sociální/politické/ekonomické"
+ 
+ msgid "Content$Magazine/Report/Documentary"
+-msgstr ""
++msgstr "časopis/report/dokumentární"
+ 
+ msgid "Content$Economics/Social Advisory"
+-msgstr ""
++msgstr "ekonomika/sociální poradenství"
+ 
+ msgid "Content$Remarkable People"
+-msgstr ""
++msgstr "významné osobnosti"
+ 
+ msgid "Content$Education/Science/Factual"
+-msgstr ""
++msgstr "vzdělávání/věda/fakta"
+ 
+ msgid "Content$Nature/Animals/Environment"
+-msgstr ""
++msgstr "příroda/zvířata/životní prostředí"
+ 
+ msgid "Content$Technology/Natural Sciences"
+-msgstr ""
++msgstr "technologie/přírodní vědy"
+ 
+ msgid "Content$Medicine/Physiology/Psychology"
+-msgstr ""
++msgstr "medicína/filozofie/psychologie"
+ 
+ msgid "Content$Foreign Countries/Expeditions"
+-msgstr ""
++msgstr "zahraničí/expedice"
+ 
+ msgid "Content$Social/Spiritual Sciences"
+-msgstr ""
++msgstr "sociální / duchovní vědy"
+ 
+ msgid "Content$Further Education"
+-msgstr ""
++msgstr "další vzdělávání"
+ 
+ msgid "Content$Languages"
+-msgstr ""
++msgstr "jazyky"
+ 
+ msgid "Content$Leisure/Hobbies"
+-msgstr ""
++msgstr "volný čas/koníčky"
+ 
+ msgid "Content$Tourism/Travel"
+-msgstr ""
++msgstr "turistika/cestování"
+ 
+ msgid "Content$Handicraft"
+-msgstr ""
++msgstr "řemesla"
+ 
+ msgid "Content$Motoring"
+-msgstr ""
++msgstr "motorismus"
+ 
+ msgid "Content$Fitness & Health"
+-msgstr ""
++msgstr "fittens a zdraví"
+ 
+ msgid "Content$Cooking"
+-msgstr ""
++msgstr "vaření"
+ 
+ msgid "Content$Advertisement/Shopping"
+-msgstr ""
++msgstr "reklama"
+ 
+ msgid "Content$Gardening"
+-msgstr ""
++msgstr "zahradnictví"
+ 
+ msgid "Content$Original Language"
+-msgstr ""
++msgstr "původní jazyky"
+ 
+ msgid "Content$Black & White"
+-msgstr ""
++msgstr "černobílé"
+ 
+ msgid "Content$Unpublished"
+-msgstr ""
++msgstr "nepublikované"
+ 
+ msgid "Content$Live Broadcast"
+-msgstr ""
++msgstr "živé vysílání"
+ 
+ #, c-format
+ msgid "ParentalRating$from %d"
+-msgstr ""
++msgstr "Rodičovká kontrola od %d"
+ 
+ msgid "No title"
+-msgstr "Bez n�zvu"
++msgstr "Bez názvu"
+ 
+ #. TRANSLATORS: The name of the language, as written natively
+ msgid "LanguageName$English"
+-msgstr "�esky"
++msgstr "Česky"
+ 
+ #. TRANSLATORS: The 3-letter code of the language
+ msgid "LanguageCode$eng"
+ msgstr "cze"
+ 
+ msgid "Phase 1: Detecting RC code type"
+-msgstr "F�ze 1: Detekce typu k�du"
++msgstr "Fáze 1: Detekce typu kódu"
+ 
+ msgid "Press any key on the RC unit"
+-msgstr "Stiskn�te libovolnou kl�vesu ovl�d�n�"
++msgstr "Stiskněte libovolnou klávesu ovládání"
+ 
+ msgid "RC code detected!"
+-msgstr "K�d byl detekov�n!"
++msgstr "Kód byl detekován!"
+ 
+ msgid "Do not press any key..."
+-msgstr "Nema�kejte ��dn� kl�vesy..."
++msgstr "Nemačkejte žádné klávesy..."
+ 
+ msgid "Phase 2: Learning specific key codes"
+-msgstr "F�ze 2: U�en� konkr�tn�ho k�du kl�ves"
++msgstr "Fáze 2: Učení konkrétního kódu kláves"
+ 
+ #, c-format
+ msgid "Press key for '%s'"
+-msgstr "Stiskn�te kl�vesu pro '%s'"
++msgstr "Stiskněte klávesu pro '%s'"
+ 
+ msgid "Press 'Up' to confirm"
+-msgstr "Stiskn�te 'Nahoru' pro potvrzen�"
++msgstr "Stiskněte 'Nahoru' pro potvrzení"
+ 
+ msgid "Press 'Down' to continue"
+-msgstr "Stiskn�te 'Dol�' pro pokra�ov�n�"
++msgstr "Stiskněte 'Dolů' pro pokračování"
+ 
+ msgid "(press 'Up' to go back)"
+-msgstr "(stiskn�te 'Nahoru' pro zp�t)"
++msgstr "(stiskněte 'Nahoru' pro zpět)"
+ 
+ msgid "(press 'Down' to end key definition)"
+-msgstr "(stiskn�te 'Dol�' pro ukon�en�)"
++msgstr "(stiskněte 'Dolů' pro ukončení)"
+ 
+ msgid "(press 'Menu' to skip this key)"
+-msgstr "(stiskn�te 'Menu' pro p�esko�en� definice kl�vesy)"
++msgstr "(stiskněte 'Menu' pro přeskočení definice klávesy)"
+ 
+ msgid "Learning Remote Control Keys"
+-msgstr "U�en� k�d� d�lkov�ho ovl�d�n�"
++msgstr "Učení kódů dálkového ovládání"
+ 
+ msgid "Phase 3: Saving key codes"
+-msgstr "F�ze 3: Ulo�en� k�d�"
++msgstr "Fáze 3: Uložení kódů"
+ 
+ msgid "Press 'Up' to save, 'Down' to cancel"
+-msgstr "Stiskn�te 'Nahoru' pro ulo�en�, 'Dol�' pro zru�en�"
++msgstr "Stiskněte 'Nahoru' pro uložení, 'Dolů' pro zrušení"
+ 
+ msgid "Key$Up"
+ msgstr "Nahoru"
+ 
+ msgid "Key$Down"
+-msgstr "Dol�"
++msgstr "Dolů"
+ 
+ msgid "Key$Menu"
+ msgstr "Menu"
+@@ -384,7 +385,7 @@
+ msgstr "Ok"
+ 
+ msgid "Key$Back"
+-msgstr "Zp�t"
++msgstr "Zpět"
+ 
+ msgid "Key$Left"
+ msgstr "Vlevo"
+@@ -393,55 +394,55 @@
+ msgstr "Vpravo"
+ 
+ msgid "Key$Red"
+-msgstr "�erven�"
++msgstr "Červený"
+ 
+ msgid "Key$Green"
+-msgstr "Zelen�"
++msgstr "Zelený"
+ 
+ msgid "Key$Yellow"
+-msgstr "�lut�"
++msgstr "Žlutý"
+ 
+ msgid "Key$Blue"
+-msgstr "Modr�"
++msgstr "Modrý"
+ 
+ msgid "Key$Info"
+ msgstr "Info"
+ 
+ msgid "Key$Play"
+-msgstr "P�ehr�t"
++msgstr "Přehrát"
+ 
+ msgid "Key$Pause"
+-msgstr "P�eru�it"
++msgstr "Přerušit"
+ 
+ msgid "Key$Stop"
+ msgstr "Zastavit"
+ 
+ msgid "Key$Record"
+-msgstr "Nahr�t"
++msgstr "Nahrát"
+ 
+ msgid "Key$FastFwd"
+-msgstr "Dop�edu"
++msgstr "Dopředu"
+ 
+ msgid "Key$FastRew"
+ msgstr "Dozadu"
+ 
+ msgid "Key$Next"
+-msgstr "D�le"
++msgstr "Dále"
+ 
+ msgid "Key$Prev"
+-msgstr "Zp�t"
++msgstr "Zpět"
+ 
+ msgid "Key$Power"
+-msgstr "Vyp�na�"
++msgstr "Vypínač"
+ 
+ msgid "Key$Channel+"
+-msgstr "Kan�l+"
++msgstr "Kanál+"
+ 
+ msgid "Key$Channel-"
+-msgstr "Kan�l-"
++msgstr "Kanál-"
+ 
+ msgid "Key$PrevChannel"
+-msgstr "P�edch�zej�c� kan�l"
++msgstr "Předcházející kanál"
+ 
+ msgid "Key$Volume+"
+ msgstr "Hlasitost+"
+@@ -462,46 +463,49 @@
+ msgstr "Program (EPG)"
+ 
+ msgid "Key$Channels"
+-msgstr "Kan�ly"
++msgstr "Kanály"
+ 
+ msgid "Key$Timers"
+-msgstr "�asova�e"
++msgstr "Časovače"
+ 
+ msgid "Key$Recordings"
+-msgstr "Nahr�vky"
++msgstr "Nahrávky"
+ 
+ msgid "Key$Setup"
+-msgstr "Nastaven�"
++msgstr "Nastavení"
+ 
+ msgid "Key$Commands"
+-msgstr "P��kazy"
++msgstr "Příkazy"
++
++msgid "Key$User0"
++msgstr "Uživatel0"
+ 
+ msgid "Key$User1"
+-msgstr "U�ivatel1"
++msgstr "Uživatel1"
+ 
+ msgid "Key$User2"
+-msgstr "U�ivatel2"
++msgstr "Uživatel2"
+ 
+ msgid "Key$User3"
+-msgstr "U�ivatel3"
++msgstr "Uživatel3"
+ 
+ msgid "Key$User4"
+-msgstr "U�ivatel4"
++msgstr "Uživatel4"
+ 
+ msgid "Key$User5"
+-msgstr "U�ivatel5"
++msgstr "Uživatel5"
+ 
+ msgid "Key$User6"
+-msgstr "U�ivatel6"
++msgstr "Uživatel6"
+ 
+ msgid "Key$User7"
+-msgstr "U�ivatel7"
++msgstr "Uživatel7"
+ 
+ msgid "Key$User8"
+-msgstr "U�ivatel8"
++msgstr "Uživatel8"
+ 
+ msgid "Key$User9"
+-msgstr "U�ivatel9"
++msgstr "Uživatel9"
+ 
+ msgid "Disk"
+ msgstr "Disk"
+@@ -510,16 +514,16 @@
+ msgstr "volno"
+ 
+ msgid "Free To Air"
+-msgstr "voln�"
++msgstr "volný"
+ 
+ msgid "encrypted"
+-msgstr "k�dovan�"
++msgstr "kódovaný"
+ 
+ msgid "Edit channel"
+-msgstr "Editace kan�lu"
++msgstr "Editace kanálu"
+ 
+ msgid "Name"
+-msgstr "N�zev"
++msgstr "Název"
+ 
+ msgid "Source"
+ msgstr "Zdroj"
+@@ -561,68 +565,68 @@
+ msgstr "Sid"
+ 
+ msgid "Channel settings are not unique!"
+-msgstr "Nastaven� kan�l� nejsou unik�tn�!"
++msgstr "Nastavení kanálu není jedinečné!"
+ 
+ msgid "Channels"
+-msgstr "Kan�ly"
++msgstr "Kanály"
+ 
+ msgid "Button$Edit"
+ msgstr "Editace"
+ 
+ msgid "Button$New"
+-msgstr "Nov�"
++msgstr "Nový"
+ 
+ msgid "Button$Delete"
+ msgstr "Smazat"
+ 
+ msgid "Button$Mark"
+-msgstr "Ozna�it"
++msgstr "Označit"
+ 
+ msgid "Channel is being used by a timer!"
+-msgstr "Kan�l je dr�en� �asova�em nahr�vek!"
++msgstr "Na kanálu se právě nahrává!!"
+ 
+ msgid "Delete channel?"
+-msgstr "Smazat kan�l?"
++msgstr "Smazat kanál?"
+ 
+ msgid "Edit folder"
+-msgstr ""
++msgstr "Změna složky"
+ 
+ msgid "New folder"
+-msgstr ""
++msgstr "Nová složka"
+ 
+ msgid "Sub folder"
+-msgstr ""
++msgstr "Podsložka"
+ 
+ msgid "Folder name already exists!"
+-msgstr ""
++msgstr "Složka již existuje!"
+ 
+ #, c-format
+ msgid "Folder name must not contain '%c'!"
+-msgstr ""
++msgstr "Jméno složky nesmí obsahovat '%c'!"
+ 
+ msgid "Button$Select"
+-msgstr ""
++msgstr "Vybrat"
+ 
+ msgid "Delete folder and all sub folders?"
+-msgstr ""
++msgstr "Smazat složku včetně podsložek?"
+ 
+ msgid "Delete folder?"
+-msgstr ""
++msgstr "Smazat složku?"
+ 
+ msgid "Edit timer"
+-msgstr "Editace �asova�e"
++msgstr "Editace nahrávání"
+ 
+ msgid "Active"
+-msgstr "Aktivn�"
++msgstr "Aktivní"
+ 
+ msgid "Channel"
+-msgstr "Kan�l"
++msgstr "Kanál"
+ 
+ msgid "Day"
+ msgstr "Den"
+ 
+ msgid "Start"
+-msgstr "Za��tek"
++msgstr "Začátek"
+ 
+ msgid "Stop"
+ msgstr "Konec"
+@@ -634,22 +638,22 @@
+ msgstr "Priorita"
+ 
+ msgid "Lifetime"
+-msgstr "�ivotnost"
++msgstr "Životnost"
+ 
+ msgid "File"
+ msgstr "Soubor"
+ 
+ msgid "Button$Folder"
+-msgstr ""
++msgstr "Složka"
+ 
+ msgid "First day"
+-msgstr "Prvn� den"
++msgstr "První den"
+ 
+ msgid "Select folder"
+-msgstr ""
++msgstr "Vybrat složku"
+ 
+ msgid "Timers"
+-msgstr "�asova�e"
++msgstr "Nahrávání"
+ 
+ msgid "Button$On/Off"
+ msgstr "Zap./Vyp."
+@@ -658,40 +662,40 @@
+ msgstr "Info"
+ 
+ msgid "Delete timer?"
+-msgstr "Smazat �asova�?"
++msgstr "Smazat nahrávání?"
+ 
+ msgid "Timer still recording - really delete?"
+-msgstr "Prob�h� nahr�v�n� - opravdu smazat?"
++msgstr "Probíhá nahrávání - opravdu smazat?"
+ 
+ msgid "Event"
+-msgstr "Ud�lost"
++msgstr "Událost"
+ 
+ msgid "Button$Timer"
+-msgstr "�asova�"
++msgstr "Nahrávání"
+ 
+ msgid "Button$Record"
+-msgstr "Nahr�t"
++msgstr "Nahrát"
+ 
+ msgid "Button$Switch"
+-msgstr "P�epnout"
++msgstr "Přepnout"
+ 
+ msgid "What's on now?"
+-msgstr "Aktu�ln� program"
++msgstr "Aktuální program"
+ 
+ msgid "What's on next?"
+-msgstr "N�sleduj�c� program"
++msgstr "Následující program"
+ 
+ msgid "Button$Next"
+-msgstr "Dal��"
++msgstr "Další"
+ 
+ msgid "Button$Now"
+-msgstr "Nyn�"
++msgstr "Nyní"
+ 
+ msgid "Button$Schedule"
+ msgstr "Program"
+ 
+ msgid "Can't switch channel!"
+-msgstr "Kan�l nelze p�epnout!"
++msgstr "Kanál nelze přepnout!"
+ 
+ #, c-format
+ msgid "Schedule - %s"
+@@ -699,50 +703,50 @@
+ 
+ #, c-format
+ msgid "This event - %s"
+-msgstr "Tato ud�lost - %s"
++msgstr "Tato událost - %s"
+ 
+ msgid "This event - all channels"
+-msgstr "Tato ud�lost - v�echny kan�ly"
++msgstr "Tato událost - všechny kanály"
+ 
+ msgid "All events - all channels"
+-msgstr "V�echny ud�lost - v�echny kan�ly"
++msgstr "Všechny události - všechny kanály"
+ 
+ #, c-format
+ msgid "Please enter %d digits!"
+-msgstr "Pros�m vlo�te %d znak�!"
++msgstr "Prosím vložte %d znaků!"
+ 
+ msgid "CAM not responding!"
+-msgstr "CAM neodpov�d�!"
++msgstr "CAM neodpovídá!"
+ 
+ msgid "Recording info"
+-msgstr "Detail nahr�vky"
++msgstr "Detail nahrávky"
+ 
+ msgid "Button$Play"
+-msgstr "P�ehr�t"
++msgstr "Přehrát"
+ 
+ msgid "Button$Rewind"
+-msgstr "Na za��tek"
++msgstr "Na začátek"
+ 
+ msgid "Recordings"
+-msgstr "Nahr�vky"
++msgstr "Nahrávky"
+ 
+ msgid "Button$Open"
+-msgstr "Otev��t"
++msgstr "Otevřít"
+ 
+ msgid "Commands"
+-msgstr "P��kazy"
++msgstr "Příkazy"
+ 
+ msgid "Error while accessing recording!"
+-msgstr "Chyba p�i p��stupu k nahr�vk�m!"
++msgstr "Chyba při přístupu k nahrávkám!"
+ 
+ msgid "Delete recording?"
+-msgstr "Smazat nahr�vku?"
++msgstr "Smazat nahrávku?"
+ 
+ msgid "Error while deleting recording!"
+-msgstr "Chyba p�i maz�n� nahr�vky!"
++msgstr "Chyba při mazání nahrávky!"
+ 
+ msgid "Recording commands"
+-msgstr "P��kazy nahr�v�n�"
++msgstr "Příkazy nahrávání"
+ 
+ msgid "never"
+ msgstr "nikdy"
+@@ -751,7 +755,7 @@
+ msgstr "podle vzhledu"
+ 
+ msgid "always"
+-msgstr "v�dy"
++msgstr "vždy"
+ 
+ msgid "OSD"
+ msgstr "OSD"
+@@ -763,108 +767,111 @@
+ msgstr "Vzhled"
+ 
+ msgid "Setup.OSD$Theme"
+-msgstr "T�ma"
++msgstr "Téma"
+ 
+ msgid "Setup.OSD$Left (%)"
+ msgstr "Vlevo (%)"
+ 
+ msgid "Setup.OSD$Top (%)"
+-msgstr "Naho�e (%)"
++msgstr "Nahoře (%)"
+ 
+ msgid "Setup.OSD$Width (%)"
+-msgstr "���ka (%)"
++msgstr "Šířka (%)"
+ 
+ msgid "Setup.OSD$Height (%)"
+-msgstr "V��ka (%)"
++msgstr "Výška (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+-msgstr "�as zobrazen� zp�vy (s)"
++msgstr "Čas zobrazení zprávy (s)"
+ 
+ msgid "Setup.OSD$Use small font"
+-msgstr "Pou��vat mal� p�smo"
++msgstr "Používat malé písmo"
+ 
+ msgid "Setup.OSD$Anti-alias"
+-msgstr "Vyhladit p�smo"
++msgstr "Vyhladit písmo"
+ 
+ msgid "Setup.OSD$Default font"
+-msgstr "V�choz� p�smo"
++msgstr "Výchozí písmo"
+ 
+ msgid "Setup.OSD$Small font"
+-msgstr "Mal� p�smo"
++msgstr "Malé písmo"
+ 
+ msgid "Setup.OSD$Fixed font"
+-msgstr "Fixn� p�smo"
++msgstr "Fixní písmo"
+ 
+ msgid "Setup.OSD$Default font size (%)"
+-msgstr "Velikost v�choz�ho p�sma (%)"
++msgstr "Velikost výchozího písma (%)"
+ 
+ msgid "Setup.OSD$Small font size (%)"
+-msgstr "Velikost mal�ho p�sma (%)"
++msgstr "Velikost malého písma (%)"
+ 
+ msgid "Setup.OSD$Fixed font size (%)"
+-msgstr "Velikost fixn�ho p�sma (%)"
++msgstr "Velikost fixního písma (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+-msgstr "Pozice informace o kan�lu"
++msgstr "Pozice informace o kanálu"
+ 
+ msgid "bottom"
+ msgstr "dole"
+ 
+ msgid "top"
+-msgstr "haho�e"
++msgstr "hahoře"
+ 
+ msgid "Setup.OSD$Channel info time (s)"
+-msgstr "�as zobr. informace o kan�lu (s)"
++msgstr "Čas zobr. informace o kanálu (s)"
+ 
+ msgid "Setup.OSD$Info on channel switch"
+-msgstr "Informace p�i zm�n� kan�lu"
++msgstr "Informace při změně kanálu"
+ 
+ msgid "Setup.OSD$Timeout requested channel info"
+-msgstr "�asov� limit informace o kan�lu"
++msgstr "Časový limit informace o kanálu"
+ 
+ msgid "Setup.OSD$Scroll pages"
+ msgstr "Rolovat strany"
+ 
+ msgid "Setup.OSD$Scroll wraps"
+-msgstr "Z konce na za��tek"
++msgstr "Z konce na začátek"
+ 
+ msgid "Setup.OSD$Menu key closes"
+-msgstr "Kl�vesa Menu zav�r�"
++msgstr "Klávesa Menu zavírá"
+ 
+ msgid "Setup.OSD$Recording directories"
+-msgstr "Seznam nahr�vek"
++msgstr "Seznam nahrávek"
+ 
+ msgid "Setup.OSD$Folders in timer menu"
++msgstr "Složky v menu časovače"
++
++msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
+ msgid "EPG"
+ msgstr "EPG"
+ 
+ msgid "Button$Scan"
+-msgstr "Sn�mat"
++msgstr "Snímat"
+ 
+ msgid "Setup.EPG$EPG scan timeout (h)"
+-msgstr "�asov� limit pro sn�m�n� EPG (h)"
++msgstr "Časový limit pro snímání EPG (h)"
+ 
+ msgid "Setup.EPG$EPG bugfix level"
+-msgstr "EPG �rove� chyb"
++msgstr "EPG úroveň chyb"
+ 
+ msgid "Setup.EPG$EPG linger time (min)"
+-msgstr "Ukazovat star�� EPG data (min)"
++msgstr "Ukazovat starší EPG data (min)"
+ 
+ msgid "Setup.EPG$Set system time"
+-msgstr "Nastavit syst�mov� �as"
++msgstr "Nastavit systémový čas"
+ 
+ msgid "Setup.EPG$Use time from transponder"
+-msgstr "Pou��t �as z kan�lu"
++msgstr "Použít čas z kanálu"
+ 
+ #. TRANSLATORS: note the plural!
+ msgid "Setup.EPG$Preferred languages"
+-msgstr "Preferovan� jazyky"
++msgstr "Preferované jazyky"
+ 
+ #. TRANSLATORS: note the singular!
+ msgid "Setup.EPG$Preferred language"
+-msgstr "Preferovan� jazyk"
++msgstr "Preferovaný jazyk"
+ 
+ msgid "pan&scan"
+ msgstr "pan&scan"
+@@ -873,43 +880,43 @@
+ msgstr "letterbox"
+ 
+ msgid "center cut out"
+-msgstr "dost�edu o��znout"
++msgstr "dostředu oříznout"
+ 
+ msgid "no"
+ msgstr "ne"
+ 
+ msgid "names only"
+-msgstr "jen n�zvy"
++msgstr "jen názvy"
+ 
+ msgid "PIDs only"
+-msgstr "jen PIDs"
++msgstr "jen PID"
+ 
+ msgid "names and PIDs"
+-msgstr "n�zvy a PIDs"
++msgstr "názvy a PID"
+ 
+ msgid "add new channels"
+-msgstr "p�idat nov� kan�ly"
++msgstr "přidat nové kanály"
+ 
+ msgid "add new transponders"
+-msgstr "p�idat nov� transpond�ry"
++msgstr "přidat nové transpondéry"
+ 
+ msgid "DVB"
+ msgstr "DVB"
+ 
+ msgid "Setup.DVB$Primary DVB interface"
+-msgstr "Prim�rn� DVB interface"
++msgstr "Primární DVB zařízení"
+ 
+ msgid "Setup.DVB$Video format"
+-msgstr "Form�t videa"
++msgstr "Formát videa"
+ 
+ msgid "Setup.DVB$Video display format"
+-msgstr "Form�t zobrazen� videa"
++msgstr "Formát zobrazení videa"
+ 
+ msgid "Setup.DVB$Use Dolby Digital"
+-msgstr "Pou��vat zvuk v Dolby Digital"
++msgstr "Používat zvuk v Dolby Digital"
+ 
+ msgid "Setup.DVB$Update channels"
+-msgstr "Aktualizace kan�l�"
++msgstr "Aktualizace kanálů"
+ 
+ msgid "Setup.DVB$Audio languages"
+ msgstr "Jazyky zvuku"
+@@ -921,43 +928,43 @@
+ msgstr "Zobrazovat titulky"
+ 
+ msgid "Setup.DVB$Subtitle languages"
+-msgstr "Jazyky titulk�"
++msgstr "Jazyky titulků"
+ 
+ msgid "Setup.DVB$Subtitle language"
+-msgstr "Jazyk titulk�"
++msgstr "Jazyk titulků"
+ 
+ msgid "Setup.DVB$Subtitle offset"
+-msgstr "Posunut� titulk�"
++msgstr "Posunutí titulků"
+ 
+ msgid "Setup.DVB$Subtitle foreground transparency"
+-msgstr "Pr�hlednost p�sma titulk�"
++msgstr "Průhlednost písma titulků"
+ 
+ msgid "Setup.DVB$Subtitle background transparency"
+-msgstr "Pr�hlednost pozad� titulk�"
++msgstr "Průhlednost pozadí titulků"
+ 
+ msgid "LNB"
+ msgstr "LNB"
+ 
+ msgid "Setup.LNB$Use DiSEqC"
+-msgstr "Pou��vat DiSEqC"
++msgstr "Používat DiSEqC"
+ 
+ msgid "Setup.LNB$SLOF (MHz)"
+ msgstr "SLOF (MHz)"
+ 
+ msgid "Setup.LNB$Low LNB frequency (MHz)"
+-msgstr "Doln� frekvence LNB (MHz)"
++msgstr "Dolní frekvence LNB (MHz)"
+ 
+ msgid "Setup.LNB$High LNB frequency (MHz)"
+-msgstr "Horn� frekvence LNB (MHz)"
++msgstr "Horní frekvence LNB (MHz)"
+ 
+ msgid "CAM reset"
+ msgstr "Reset CAMu"
+ 
+ msgid "CAM present"
+-msgstr "CAM p��tomen"
++msgstr "CAM přítomen"
+ 
+ msgid "CAM ready"
+-msgstr "CAM p�ipraven"
++msgstr "CAM připraven"
+ 
+ msgid "CAM"
+ msgstr "CAM"
+@@ -969,139 +976,139 @@
+ msgstr "Reset"
+ 
+ msgid "Opening CAM menu..."
+-msgstr "Otev�r� se menu CAM..."
++msgstr "Otevírá se menu CAM..."
+ 
+ msgid "Can't open CAM menu!"
+-msgstr "Menu CAM nen� dostupn�"
++msgstr "Menu CAM není dostupné"
+ 
+ msgid "CAM is in use - really reset?"
+-msgstr "CAM se pou��v� - opravdu restartovat?"
++msgstr "CAM se používá - opravdu restartovat?"
+ 
+ msgid "Can't reset CAM!"
+ msgstr "CAM modul nelze restartovat!"
+ 
+ msgid "do not pause live video"
+-msgstr ""
++msgstr "nepřerusovat běžící program"
+ 
+ msgid "confirm pause live video"
+-msgstr ""
++msgstr "potvdit přerušení běžícího programu"
+ 
+ msgid "pause live video"
+-msgstr ""
++msgstr "přerušit běžící program"
+ 
+ msgid "confirm"
+-msgstr ""
++msgstr "potvrdit"
+ 
+ msgid "yes"
+ msgstr "ano"
+ 
+ msgid "Recording"
+-msgstr "Nahr�v�n�"
++msgstr "Nahrávání"
+ 
+ msgid "Setup.Recording$Margin at start (min)"
+-msgstr "Nahr�vat p�ed za��tkem (min)"
++msgstr "Nahrávat před začátkem (min)"
+ 
+ msgid "Setup.Recording$Margin at stop (min)"
+-msgstr "Nahr�vat po konci (min)"
++msgstr "Nahrávat po konci (min)"
+ 
+ msgid "Setup.Recording$Primary limit"
+-msgstr "Prim�rn� limit"
++msgstr "Primární limit"
+ 
+ msgid "Setup.Recording$Default priority"
+-msgstr "V�choz� priorita"
++msgstr "Výchozí priorita"
+ 
+ msgid "Setup.Recording$Default lifetime (d)"
+-msgstr "V�choz� �ivotnost"
++msgstr "Výchozí životnost"
+ 
+ msgid "Setup.Recording$Pause key handling"
+-msgstr ""
++msgstr "Chování klávesy Přerušení"
+ 
+ msgid "Setup.Recording$Pause priority"
+-msgstr "Priorita p�eru�en�"
++msgstr "Priorita přerušení"
+ 
+ msgid "Setup.Recording$Pause lifetime (d)"
+-msgstr "�ivotnost p�eru�en� (d)"
++msgstr "Životnost přerušení (d)"
+ 
+ msgid "Setup.Recording$Use episode name"
+-msgstr "Pou��vat n�zev epizody"
++msgstr "Používat název epizody"
+ 
+ msgid "Setup.Recording$Use VPS"
+-msgstr "Pou��vat VPS"
++msgstr "Používat VPS"
+ 
+ msgid "Setup.Recording$VPS margin (s)"
+-msgstr "�asov� rezerva pro VPS (s)"
++msgstr "Časová rezerva pro VPS (s)"
+ 
+ msgid "Setup.Recording$Mark instant recording"
+-msgstr "Ozna�it okam�it� nahr�vky"
++msgstr "Označit okamžité nahrávky"
+ 
+ msgid "Setup.Recording$Name instant recording"
+-msgstr "Pojmenovat okam�it� nahr�vky"
++msgstr "Pojmenovat okamžité nahrávky"
+ 
+ msgid "Setup.Recording$Instant rec. time (min)"
+-msgstr "D�lka okam�it�ho nahr�v�n� (min)"
++msgstr "Délka okamžitého nahrávání (min)"
+ 
+ msgid "Setup.Recording$Max. video file size (MB)"
+-msgstr "Maxim�ln� velikost nahr�vky (MB)"
++msgstr "Maximální velikost nahrávky (MB)"
+ 
+ msgid "Setup.Recording$Split edited files"
+-msgstr "D�lit editovan� soubory"
++msgstr "Dělit editované soubory"
+ 
+ msgid "Setup.Recording$Delete timeshift recording"
+-msgstr ""
++msgstr "Mazat nahrávky Timeshift"
+ 
+ msgid "Replay"
+-msgstr "P�ehr�v�n�"
++msgstr "Přehrávání"
+ 
+ msgid "Setup.Replay$Multi speed mode"
+-msgstr "V�cerychlostn� m�d"
++msgstr "Vícerychlostní mód"
+ 
+ msgid "Setup.Replay$Show replay mode"
+-msgstr "Zobrazit re�im p�ehr�v�n�"
++msgstr "Zobrazit režim přehrávání"
+ 
+ msgid "Setup.Replay$Resume ID"
+-msgstr "ID obnoven�"
++msgstr "ID obnovení"
+ 
+ msgid "Miscellaneous"
+-msgstr "R�zn�"
++msgstr "Různé"
+ 
+ msgid "Setup.Miscellaneous$Min. event timeout (min)"
+-msgstr "Min. pauza mezi ud�lostmi (min)"
++msgstr "Min. pauza mezi událostmi (min)"
+ 
+ msgid "Setup.Miscellaneous$Min. user inactivity (min)"
+-msgstr "�asov� limit neaktivnosti (min)"
++msgstr "Časový limit neaktivnosti (min)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP timeout (s)"
+-msgstr "�asov� limit SVDRP (s)"
++msgstr "Časový limit SVDRP (s)"
+ 
+ msgid "Setup.Miscellaneous$Zap timeout (s)"
+-msgstr "�asov� limit Zap (s)"
++msgstr "Časový limit Zap (s)"
+ 
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+-msgstr "Prodleva p�i volb� kan�lu (ms)"
++msgstr "Prodleva při volbě kanálu (ms)"
+ 
+ msgid "Setup.Miscellaneous$Initial channel"
+-msgstr "Kan�l po spu�t�n�"
++msgstr "Kanál po spuštění"
+ 
+ msgid "Setup.Miscellaneous$as before"
+ msgstr "jako naposledy"
+ 
+ msgid "Setup.Miscellaneous$Initial volume"
+-msgstr "Hlasitost po spu�t�n�"
++msgstr "Hlasitost po spuštění"
+ 
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr ""
+ 
+ msgid "Setup.Miscellaneous$Emergency exit"
+-msgstr "Nouzov� ukon�en�"
++msgstr "Nouzové ukončení"
+ 
+ msgid "Plugins"
+ msgstr "Moduly"
+ 
+ msgid "This plugin has no setup parameters!"
+-msgstr "Modul nem� konfigura�n� parametry!"
++msgstr "Modul nemá konfigurační parametry!"
+ 
+ msgid "Setup"
+-msgstr "Nastaven�"
++msgstr "Nastavení"
+ 
+ msgid "Restart"
+ msgstr "Restart"
+@@ -1111,7 +1118,7 @@
+ 
+ #. TRANSLATORS: note the leading and trailing blanks!
+ msgid " Stop recording "
+-msgstr " Zastavit nahr�v�n� "
++msgstr " Zastavit nahrávání "
+ 
+ msgid "Schedule"
+ msgstr "Program (EPG)"
+@@ -1121,197 +1128,197 @@
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " Stop replaying"
+-msgstr " Zastavit p�ehr�v�n�"
++msgstr " Zastavit přehrávání"
+ 
+ msgid "Button$Audio"
+ msgstr "Zvuk"
+ 
+ msgid "Button$Pause"
+-msgstr "Zastavit"
++msgstr "Přerušit"
+ 
+ msgid "Button$Stop"
+-msgstr "Ukon�it"
++msgstr "Ukončit"
+ 
+ msgid "Button$Resume"
+-msgstr "Pokra�ovat"
++msgstr "Pokračovat"
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " Cancel editing"
+-msgstr " Zru�it editaci"
++msgstr " Zrušit editaci"
+ 
+ msgid "Stop recording?"
+-msgstr "Ukon�it nahr�v�n�?"
++msgstr "Ukončit nahrávání?"
+ 
+ msgid "Cancel editing?"
+-msgstr "Zru�it editaci?"
++msgstr "Zrušit editaci?"
+ 
+ msgid "No audio available!"
+-msgstr "Zvuk nen� dostupn�!"
++msgstr "Zvuk není dostupný!"
+ 
+ msgid "No subtitles"
+-msgstr "Bez titulk�"
++msgstr "Bez titulků"
+ 
+ msgid "Button$Subtitles"
+ msgstr "Titulky"
+ 
+ msgid "No subtitles available!"
+-msgstr "��dn� dostupn� titulky!"
++msgstr "Žádné dostupné titulky!"
+ 
+ msgid "Not enough disk space to start recording!"
+-msgstr "Nedostatek voln�ho m�sta k zapo�et� nahr�v�n�!"
++msgstr "Nedostatek volného místa k započetí nahrávání!"
+ 
+ msgid "No free DVB device to record!"
+-msgstr "��dn� DVB karta nen� voln� pro nahr�v�n�"
++msgstr "Žádná DVB karta není volná pro nahrávání"
+ 
+ msgid "Pausing live video..."
+-msgstr "P�eru�uje se b��c� program ..."
++msgstr "Přerušuje se běžící program ..."
+ 
+ msgid "Delete timeshift recording?"
+-msgstr ""
++msgstr "Smazat Timeshift nahrávku?"
+ 
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Skok: "
+ 
+ msgid "No editing marks defined!"
+-msgstr "Nejsou definov�ny edita�n� zna�ky!"
++msgstr "Nejsou definovány editační značky!"
+ 
+ msgid "Can't start editing process!"
+-msgstr "Nelze za��t edita�n� proces!"
++msgstr "Nelze začít editační proces!"
+ 
+ msgid "Editing process started"
+-msgstr "Edita�n� proces za�al"
++msgstr "Editační proces začal"
+ 
+ msgid "Editing process already active!"
+-msgstr "Edita�n� proces je ji� aktivn�!"
++msgstr "Editační proces je již aktivní!"
+ 
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+-msgstr " a�bc�d�e��fghi�jklmn�o�pqr�s�t�u��vwxy�z�0123456789-.,#~\\^$[]|()*+?{}/:%@&"
++msgstr " aábcčdďeéěfghiíjklmnňoópqrřsštťuúůvwxyýzž0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+-msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc��2\tdef���3\tghi�4\tjkl5\tmno��6\tpqrs��7\ttuv���8\twxyz��9"
++msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabcáč2\tdefďéě3\tghií4\tjkl5\tmnoňó6\tpqrsřš7\ttuvťúů8\twxyzýž9"
+ 
+ msgid "Button$ABC/abc"
+ msgstr "ABC/abc"
+ 
+ msgid "Button$Overwrite"
+-msgstr "P�epsat"
++msgstr "Přepsat"
+ 
+ msgid "Button$Insert"
+-msgstr "Vlo�it"
++msgstr "Vložit"
+ 
+ msgid "Plugin"
+ msgstr "Modul"
+ 
+ msgid "Up/Dn for new location - OK to move"
+-msgstr "Nahoru/Dolu pro novou pozici - Ok p�esune"
++msgstr "Nahoru/Dolu pro novou pozici - Ok přesune"
+ 
+ msgid "Channel locked (recording)!"
+-msgstr "Kan�l je blokovan� (nahr�v� se)!"
++msgstr "Kanál je blokovaný (nahrává se)!"
+ 
+ msgid "Low disk space!"
+-msgstr "Disk bude brzy zapln�n!"
++msgstr "Disk bude brzy zaplněn!"
+ 
+ msgid "Regenerating index file"
+-msgstr ""
++msgstr "Generování index souboru"
+ 
+ msgid "Index file regeneration complete"
+-msgstr ""
++msgstr "Generování index souboru dokončeno"
+ 
+ msgid "Can't shutdown - option '-s' not given!"
+-msgstr "Vypnut� nen� mo�n� - chyb� volba '-s'!"
++msgstr "Vypnutí není možné - chybí volba '-s'!"
+ 
+ msgid "Editing - shut down anyway?"
+-msgstr "Edituji - p�esto vypnout?"
++msgstr "Edituji - přesto vypnout?"
+ 
+ msgid "Recording - shut down anyway?"
+-msgstr "Syst�m je zanepr�zdn�n - p�esto vypnout?"
++msgstr "Systém nahrává - přesto vypnout?"
+ 
+ #, c-format
+ msgid "Recording in %ld minutes, shut down anyway?"
+-msgstr "Nahr�v�n� za�ne za %ld minut - p�esto vypnout?"
++msgstr "Nahrávání začne za %ld minut - přesto vypnout?"
+ 
+ msgid "shut down anyway?"
+-msgstr "p�esto vypnout?"
++msgstr "přesto vypnout?"
+ 
+ #, c-format
+ msgid "Plugin %s wakes up in %ld min, continue?"
+-msgstr "Modul %s startuje za %ld min., pokra�ovat?"
++msgstr "Modul %s startuje za %ld min., pokračovat?"
+ 
+ msgid "Editing - restart anyway?"
+-msgstr "Edituji - p�esto restartovat?"
++msgstr "Edituji - přesto restartovat?"
+ 
+ msgid "Recording - restart anyway?"
+-msgstr "Syst�m je zanepr�zdn�n - p�esto restartovat?"
++msgstr "Nahrávání - přesto restartovat?"
+ 
+ msgid "restart anyway?"
+-msgstr "p�esto restartovat?"
++msgstr "přesto restartovat?"
+ 
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Volume "
+ msgstr "Hlasitost "
+ 
+ msgid "Classic VDR"
+-msgstr "Klasick� VDR"
++msgstr "Klasické VDR"
+ 
+ msgid "ST:TNG Panels"
+ msgstr "ST:TNG konzola"
+ 
+ #. TRANSLATORS: the first character of each weekday, beginning with monday
+ msgid "MTWTFSS"
+-msgstr "P�S�PSN"
++msgstr "PÚSČPSN"
+ 
+ #. TRANSLATORS: abbreviated weekdays, beginning with monday (must all be 3 letters!)
+ msgid "MonTueWedThuFriSatSun"
+-msgstr "Po �t St �t P� So Ne "
++msgstr "Po Út St Čt Pá So Ne "
+ 
+ msgid "Monday"
+-msgstr "Pond�l�"
++msgstr "Pondělí"
+ 
+ msgid "Tuesday"
+-msgstr "�ter�"
++msgstr "Úterý"
+ 
+ msgid "Wednesday"
+-msgstr "St�eda"
++msgstr "Středa"
+ 
+ msgid "Thursday"
+-msgstr "�tvrtek"
++msgstr "Čtvrtek"
+ 
+ msgid "Friday"
+-msgstr "P�tek"
++msgstr "Pátek"
+ 
+ msgid "Saturday"
+ msgstr "Sobota"
+ 
+ msgid "Sunday"
+-msgstr "Ned�le"
++msgstr "Neděle"
+ 
+ msgid "Upcoming recording!"
+-msgstr "Brzo za�ne nahr�v�n�!"
++msgstr "Brzo začne nahrávání!"
+ 
+ msgid "Pause live video?"
+-msgstr ""
++msgstr "Přerušit běžící program?"
+ 
+ msgid "Recording started"
+-msgstr "Za�alo nahr�v�n�"
++msgstr "Začalo nahrávání"
+ 
+ msgid "VDR will shut down later - press Power to force"
+-msgstr "Vypnut� VDR bude odlo�eno - vypnete kl�vesou Power"
++msgstr "Vypnutí VDR bude odloženo - vypnete klávesou Power"
+ 
+ msgid "Press any key to cancel shutdown"
+-msgstr "Jak�koliv kl�vesa zru�� vypnut�"
++msgstr "Jakákoliv klávesa zruší vypnutí"
+ 
+ msgid "Switching primary DVB..."
+-msgstr "P�epnout prim�rn� DVB..."
++msgstr "Přepnout primární DVB..."
+ 
+ msgid "Editing process failed!"
+-msgstr "Edita�n� proces selhal!"
++msgstr "Editační proces selhal!"
+ 
+ msgid "Editing process finished"
+-msgstr "Edita�n� proces skon�il"
++msgstr "Editační proces skončil"
+ 
+ msgid "Press any key to cancel restart"
+-msgstr "Jak�koliv kl�vesa zru�� restart"
++msgstr "Jakákoliv klávesa zruší restart"
+ 
+ #, c-format
+ msgid "VDR will shut down in %s minutes"
+diff -ruN vdr-1.7.14/po/da_DK.po vdr-1.7.15/po/da_DK.po
+--- vdr-1.7.14/po/da_DK.po	2010-03-12 17:41:03.000000000 +0100
++++ vdr-1.7.15/po/da_DK.po	2010-06-06 14:03:58.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish\n"
+@@ -475,6 +475,9 @@
+ msgid "Key$Commands"
+ msgstr "Kommandoer"
+ 
++msgid "Key$User0"
++msgstr "Bruger0"
++
+ msgid "Key$User1"
+ msgstr "Bruger1"
+ 
+@@ -836,6 +839,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.14/po/de_DE.po vdr-1.7.15/po/de_DE.po
+--- vdr-1.7.14/po/de_DE.po	2010-03-12 17:41:03.000000000 +0100
++++ vdr-1.7.15/po/de_DE.po	2010-06-06 14:03:58.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2010-01-16 16:46+0100\n"
+ "Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
+ "Language-Team: German\n"
+@@ -475,6 +475,9 @@
+ msgid "Key$Commands"
+ msgstr "Befehle"
+ 
++msgid "Key$User0"
++msgstr "Benutzer0"
++
+ msgid "Key$User1"
+ msgstr "Benutzer1"
+ 
+@@ -836,6 +839,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr "Verzeichnisse im Timer-Men�"
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr "Nummerntasten f�r Zeichen"
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.14/po/el_GR.po vdr-1.7.15/po/el_GR.po
+--- vdr-1.7.14/po/el_GR.po	2010-03-12 17:41:03.000000000 +0100
++++ vdr-1.7.15/po/el_GR.po	2010-06-06 14:03:58.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek\n"
+@@ -475,6 +475,9 @@
+ msgid "Key$Commands"
+ msgstr "�������"
+ 
++msgid "Key$User0"
++msgstr ""
++
+ msgid "Key$User1"
+ msgstr ""
+ 
+@@ -836,6 +839,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "������������ ������ ������������"
+ 
+diff -ruN vdr-1.7.14/po/es_ES.po vdr-1.7.15/po/es_ES.po
+--- vdr-1.7.14/po/es_ES.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/es_ES.po	2010-06-06 14:03:58.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Spanish\n"
+@@ -476,6 +476,9 @@
+ msgid "Key$Commands"
+ msgstr "�rdenes"
+ 
++msgid "Key$User0"
++msgstr "Usuario 0"
++
+ msgid "Key$User1"
+ msgstr "Usuario 1"
+ 
+@@ -837,6 +840,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Gu�a de Programaci�n"
+ 
+diff -ruN vdr-1.7.14/po/et_EE.po vdr-1.7.15/po/et_EE.po
+--- vdr-1.7.14/po/et_EE.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/et_EE.po	2010-06-06 14:03:58.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
+ "Language-Team: Estonian\n"
+@@ -475,6 +475,9 @@
+ msgid "Key$Commands"
+ msgstr "K�sud"
+ 
++msgid "Key$User0"
++msgstr "Lisaklahv0"
++
+ msgid "Key$User1"
+ msgstr "Lisaklahv1"
+ 
+@@ -834,6 +837,9 @@
+ msgstr "Kausta nime salvestamine"
+ 
+ msgid "Setup.OSD$Folders in timer menu"
++msgstr "Kaustad taimeri men��s"
++
++msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
+ msgid "EPG"
+@@ -911,7 +917,7 @@
+ msgstr "Kanalite uuendamine"
+ 
+ msgid "Setup.DVB$Audio languages"
+-msgstr "Audio keeli"
++msgstr "Audio keeled"
+ 
+ msgid "Setup.DVB$Audio language"
+ msgstr "Audio keel"
+@@ -920,7 +926,7 @@
+ msgstr "Subtiitrite kuvamine"
+ 
+ msgid "Setup.DVB$Subtitle languages"
+-msgstr "Subtiitrite keeli"
++msgstr "Subtiitrite keeled"
+ 
+ msgid "Setup.DVB$Subtitle language"
+ msgstr "Subtiitri keel"
+@@ -989,7 +995,7 @@
+ msgstr "peatada"
+ 
+ msgid "confirm"
+-msgstr ""
++msgstr "kinnitada"
+ 
+ msgid "yes"
+ msgstr "jah"
+@@ -1046,13 +1052,13 @@
+ msgstr "Failide jupitamine"
+ 
+ msgid "Setup.Recording$Delete timeshift recording"
+-msgstr ""
++msgstr "Kustutada ajanihke salvestus"
+ 
+ msgid "Replay"
+ msgstr "Taasesitus"
+ 
+ msgid "Setup.Replay$Multi speed mode"
+-msgstr "Multi-kiiruse moodus"
++msgstr "Mitmekiiruse moodus"
+ 
+ msgid "Setup.Replay$Show replay mode"
+ msgstr "Korduse moodus"
+@@ -1166,7 +1172,7 @@
+ msgstr "Otse�lekande peatamine..."
+ 
+ msgid "Delete timeshift recording?"
+-msgstr ""
++msgstr "Kustutada ajanihke salvestus?"
+ 
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+diff -ruN vdr-1.7.14/po/fi_FI.po vdr-1.7.15/po/fi_FI.po
+--- vdr-1.7.14/po/fi_FI.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/fi_FI.po	2010-06-06 14:03:58.000000000 +0200
+@@ -2,7 +2,7 @@
+ # Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Hannu Savolainen <hannu@opensound.com>, 2002
+-# Jaakko Hyv�tti <jaakko@hyvatti.iki.fi>, 2002, 2003
++# Jaakko Hyvätti <jaakko@hyvatti.iki.fi>, 2002, 2003
+ # Niko Tarnanen <niko.tarnanen@hut.fi>, 2003
+ # Rolf Ahrenberg <rahrenbe@cc.hut.fi>, 2003, 2004, 2005, 2006, 2007, 2008
+ #
+@@ -10,34 +10,34 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+ "Language-Team: Finnish\n"
+ "MIME-Version: 1.0\n"
+-"Content-Type: text/plain; charset=ISO-8859-15\n"
++"Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Virheellinen kanavavalinta ***"
+ 
+ msgid "Channel not available!"
+-msgstr "Kanava ei ole k�ytett�viss�!"
++msgstr "Kanava ei ole käytettävissä!"
+ 
+ msgid "Can't start Transfer Mode!"
+-msgstr "Siirtotilan aloitus ep�onnistui!"
++msgstr "Siirtotilan aloitus epäonnistui!"
+ 
+ msgid "off"
+ msgstr "poissa"
+ 
+ msgid "on"
+-msgstr "p��ll�"
++msgstr "päällä"
+ 
+ msgid "auto"
+ msgstr "auto"
+ 
+ msgid "none"
+-msgstr "tyhj�"
++msgstr "tyhjä"
+ 
+ msgid "Polarization"
+ msgstr "Polarisaatio"
+@@ -67,7 +67,7 @@
+ msgstr "Transmissio"
+ 
+ msgid "Guard"
+-msgstr "Suojav�li"
++msgstr "Suojaväli"
+ 
+ msgid "Hierarchy"
+ msgstr "Hierarkia"
+@@ -76,13 +76,13 @@
+ msgstr "Rolloff"
+ 
+ msgid "Starting EPG scan"
+-msgstr "Ohjelmaoppaan p�ivitys aloitettu"
++msgstr "Ohjelmaoppaan päivitys aloitettu"
+ 
+ msgid "Content$Movie/Drama"
+ msgstr "Elokuva/draama"
+ 
+ msgid "Content$Detective/Thriller"
+-msgstr "Etsiv�/trilleri"
++msgstr "Etsivä/trilleri"
+ 
+ msgid "Content$Adventure/Western/War"
+ msgstr "Seikkailu/western/sota"
+@@ -109,7 +109,7 @@
+ msgstr "Uutiset/ajankohtaisohjelma"
+ 
+ msgid "Content$News/Weather Report"
+-msgstr "Uutiset/s��tiedot"
++msgstr "Uutiset/säätiedot"
+ 
+ msgid "Content$News Magazine"
+ msgstr "Uutismakasiini"
+@@ -118,7 +118,7 @@
+ msgstr "Dokumentti"
+ 
+ msgid "Content$Discussion/Inverview/Debate"
+-msgstr "Keskustelu/haastattelu/v�ittely"
++msgstr "Keskustelu/haastattelu/väittely"
+ 
+ msgid "Content$Show/Game Show"
+ msgstr "Show/visailu"
+@@ -172,7 +172,7 @@
+ msgstr "Lasten ja nuorten ohjelma"
+ 
+ msgid "Content$Pre-school Children's Programme"
+-msgstr "Alle kouluik�isten ohjelma"
++msgstr "Alle kouluikäisten ohjelma"
+ 
+ msgid "Content$Entertainment Programme for 6 to 14"
+ msgstr "Viihdeohjelma 6-14 vuotiaille"
+@@ -232,7 +232,7 @@
+ msgstr "Kokeellinen elokuva/video"
+ 
+ msgid "Content$Broadcasting/Press"
+-msgstr "Televisio/radio/lehdist�"
++msgstr "Televisio/radio/lehdistö"
+ 
+ msgid "Content$New Media"
+ msgstr "Uusmedia"
+@@ -253,19 +253,19 @@
+ msgstr "Talous/yhteiskunnallinen neuvonta"
+ 
+ msgid "Content$Remarkable People"
+-msgstr "Merkitt�v�t henkil�t"
++msgstr "Merkittävät henkilöt"
+ 
+ msgid "Content$Education/Science/Factual"
+ msgstr "Koulutus/tiede"
+ 
+ msgid "Content$Nature/Animals/Environment"
+-msgstr "Luonto/el�imet/ymp�rist�"
++msgstr "Luonto/eläimet/ympäristö"
+ 
+ msgid "Content$Technology/Natural Sciences"
+ msgstr "Teknologia/luonnontiede"
+ 
+ msgid "Content$Medicine/Physiology/Psychology"
+-msgstr "L��ketiede/fysiologia/psykologia"
++msgstr "Lääketiede/fysiologia/psykologia"
+ 
+ msgid "Content$Foreign Countries/Expeditions"
+ msgstr "Vieraat maat/tutkimusretket"
+@@ -286,7 +286,7 @@
+ msgstr "Turismi/matkustaminen"
+ 
+ msgid "Content$Handicraft"
+-msgstr "K�sity�t"
++msgstr "Käsityöt"
+ 
+ msgid "Content$Motoring"
+ msgstr "Autoilu"
+@@ -304,7 +304,7 @@
+ msgstr "Puutarhanhoito"
+ 
+ msgid "Content$Original Language"
+-msgstr "Alkuper�iskieli"
++msgstr "Alkuperäiskieli"
+ 
+ msgid "Content$Black & White"
+ msgstr "Mustavalkoinen"
+@@ -313,14 +313,14 @@
+ msgstr "Julkaisematon"
+ 
+ msgid "Content$Live Broadcast"
+-msgstr "Suoral�hetys"
++msgstr "Suoralähetys"
+ 
+ #, c-format
+ msgid "ParentalRating$from %d"
+ msgstr "K-%d"
+ 
+ msgid "No title"
+-msgstr "Ei esityst�"
++msgstr "Ei esitystä"
+ 
+ #. TRANSLATORS: The name of the language, as written natively
+ msgid "LanguageName$English"
+@@ -334,47 +334,47 @@
+ msgstr "Vaihe 1: Koodauksen tunnistaminen"
+ 
+ msgid "Press any key on the RC unit"
+-msgstr "Paina mit� tahansa kaukos��timen n�pp�int�"
++msgstr "Paina mitä tahansa kaukosäätimen näppäintä"
+ 
+ msgid "RC code detected!"
+-msgstr "N�pp�inpainallus vastaanotettu!"
++msgstr "Näppäinpainallus vastaanotettu!"
+ 
+ msgid "Do not press any key..."
+-msgstr "�l� paina kaukos��timen n�pp�imi�..."
++msgstr "Älä paina kaukosäätimen näppäimiä..."
+ 
+ msgid "Phase 2: Learning specific key codes"
+-msgstr "Vaihe 2: N�pp�inkoodien opettelu"
++msgstr "Vaihe 2: Näppäinkoodien opettelu"
+ 
+ #, c-format
+ msgid "Press key for '%s'"
+-msgstr "Paina n�pp�int� toiminnolle '%s'"
++msgstr "Paina näppäintä toiminnolle '%s'"
+ 
+ msgid "Press 'Up' to confirm"
+-msgstr "Hyv�ksy painamalla 'Yl�s'"
++msgstr "Hyväksy painamalla 'Ylös'"
+ 
+ msgid "Press 'Down' to continue"
+ msgstr "Jatka painamalla 'Alas'"
+ 
+ msgid "(press 'Up' to go back)"
+-msgstr "(palaa takaisin painamalla 'Yl�s')"
++msgstr "(palaa takaisin painamalla 'Ylös')"
+ 
+ msgid "(press 'Down' to end key definition)"
+ msgstr "(lopeta opettaminen painamalla 'Alas')"
+ 
+ msgid "(press 'Menu' to skip this key)"
+-msgstr "n�pp�imen puuttuessa paina 'Valikko'"
++msgstr "näppäimen puuttuessa paina 'Valikko'"
+ 
+ msgid "Learning Remote Control Keys"
+-msgstr "Kaukos��timen opettaminen"
++msgstr "Kaukosäätimen opettaminen"
+ 
+ msgid "Phase 3: Saving key codes"
+-msgstr "Vaihe 3: N�pp�inkoodien tallentaminen"
++msgstr "Vaihe 3: Näppäinkoodien tallentaminen"
+ 
+ msgid "Press 'Up' to save, 'Down' to cancel"
+-msgstr "Paina 'Yl�s' tallentaaksesi ja 'Alas' peruuttaaksesi"
++msgstr "Paina 'Ylös' tallentaaksesi ja 'Alas' peruuttaaksesi"
+ 
+ msgid "Key$Up"
+-msgstr "Yl�s"
++msgstr "Ylös"
+ 
+ msgid "Key$Down"
+ msgstr "Alas"
+@@ -398,7 +398,7 @@
+ msgstr "Punainen"
+ 
+ msgid "Key$Green"
+-msgstr "Vihre�"
++msgstr "Vihreä"
+ 
+ msgid "Key$Yellow"
+ msgstr "Keltainen"
+@@ -446,16 +446,16 @@
+ msgstr "Edellinen kanava"
+ 
+ msgid "Key$Volume+"
+-msgstr "��nenvoimakkuus +"
++msgstr "Äänenvoimakkuus +"
+ 
+ msgid "Key$Volume-"
+-msgstr "��nenvoimakkuus -"
++msgstr "Äänenvoimakkuus -"
+ 
+ msgid "Key$Mute"
+ msgstr "Mykistys"
+ 
+ msgid "Key$Audio"
+-msgstr "��ni"
++msgstr "Ääni"
+ 
+ msgid "Key$Subtitles"
+ msgstr "Tekstitys"
+@@ -478,32 +478,35 @@
+ msgid "Key$Commands"
+ msgstr "Komennot"
+ 
++msgid "Key$User0"
++msgstr "Lisänäppäin 0"
++
+ msgid "Key$User1"
+-msgstr "Lis�n�pp�in 1"
++msgstr "Lisänäppäin 1"
+ 
+ msgid "Key$User2"
+-msgstr "Lis�n�pp�in 2"
++msgstr "Lisänäppäin 2"
+ 
+ msgid "Key$User3"
+-msgstr "Lis�n�pp�in 3"
++msgstr "Lisänäppäin 3"
+ 
+ msgid "Key$User4"
+-msgstr "Lis�n�pp�in 4"
++msgstr "Lisänäppäin 4"
+ 
+ msgid "Key$User5"
+-msgstr "Lis�n�pp�in 5"
++msgstr "Lisänäppäin 5"
+ 
+ msgid "Key$User6"
+-msgstr "Lis�n�pp�in 6"
++msgstr "Lisänäppäin 6"
+ 
+ msgid "Key$User7"
+-msgstr "Lis�n�pp�in 7"
++msgstr "Lisänäppäin 7"
+ 
+ msgid "Key$User8"
+-msgstr "Lis�n�pp�in 8"
++msgstr "Lisänäppäin 8"
+ 
+ msgid "Key$User9"
+-msgstr "Lis�n�pp�in 9"
++msgstr "Lisänäppäin 9"
+ 
+ msgid "Disk"
+ msgstr "Levy"
+@@ -524,7 +527,7 @@
+ msgstr "Nimi"
+ 
+ msgid "Source"
+-msgstr "L�hde"
++msgstr "Lähde"
+ 
+ msgid "Frequency"
+ msgstr "Taajuus"
+@@ -536,10 +539,10 @@
+ msgstr "PCR-PID"
+ 
+ msgid "Apid1"
+-msgstr "��ni-PID (1)"
++msgstr "Ääni-PID (1)"
+ 
+ msgid "Apid2"
+-msgstr "��ni-PID (2)"
++msgstr "Ääni-PID (2)"
+ 
+ msgid "Dpid1"
+ msgstr "Dolby-PID (1)"
+@@ -563,7 +566,7 @@
+ msgstr "Palvelu-ID"
+ 
+ msgid "Channel settings are not unique!"
+-msgstr "Kanava-asetukset eiv�t ole yksil�lliset!"
++msgstr "Kanava-asetukset eivät ole yksilölliset!"
+ 
+ msgid "Channels"
+ msgstr "Kanavat"
+@@ -578,10 +581,10 @@
+ msgstr "Poista"
+ 
+ msgid "Button$Mark"
+-msgstr "Siirr�"
++msgstr "Siirrä"
+ 
+ msgid "Channel is being used by a timer!"
+-msgstr "Kanava on ajastimen k�yt�ss�!"
++msgstr "Kanava on ajastimen käytössä!"
+ 
+ msgid "Delete channel?"
+ msgstr "Poistetaanko kanava?"
+@@ -600,7 +603,7 @@
+ 
+ #, c-format
+ msgid "Folder name must not contain '%c'!"
+-msgstr "Kansion nimess� ei saa olla '%c'-merkki�!"
++msgstr "Kansion nimessä ei saa olla '%c'-merkkiä!"
+ 
+ msgid "Button$Select"
+ msgstr "Valitse"
+@@ -621,7 +624,7 @@
+ msgstr "Kanava"
+ 
+ msgid "Day"
+-msgstr "P�iv�"
++msgstr "Päivä"
+ 
+ msgid "Start"
+ msgstr "Aloitus"
+@@ -636,7 +639,7 @@
+ msgstr "Prioriteetti"
+ 
+ msgid "Lifetime"
+-msgstr "Elinik�"
++msgstr "Elinikä"
+ 
+ msgid "File"
+ msgstr "Tiedosto"
+@@ -645,7 +648,7 @@
+ msgstr "Kansio"
+ 
+ msgid "First day"
+-msgstr "1. p�iv�"
++msgstr "1. päivä"
+ 
+ msgid "Select folder"
+ msgstr "Valitse kansio"
+@@ -654,7 +657,7 @@
+ msgstr "Ajastimet"
+ 
+ msgid "Button$On/Off"
+-msgstr "P��ll�/Pois"
++msgstr "Päällä/Pois"
+ 
+ msgid "Button$Info"
+ msgstr "Tiedot"
+@@ -663,7 +666,7 @@
+ msgstr "Poistetaanko ajastin?"
+ 
+ msgid "Timer still recording - really delete?"
+-msgstr "Ajastettu tallennus k�ynniss� - poistetaanko silti?"
++msgstr "Ajastettu tallennus käynnissä - poistetaanko silti?"
+ 
+ msgid "Event"
+ msgstr "Tapahtuma"
+@@ -701,17 +704,17 @@
+ 
+ #, c-format
+ msgid "This event - %s"
+-msgstr "T�m� tapahtuma - %s"
++msgstr "Tämä tapahtuma - %s"
+ 
+ msgid "This event - all channels"
+-msgstr "T�m� tapahtuma - kaikki kanavat"
++msgstr "Tämä tapahtuma - kaikki kanavat"
+ 
+ msgid "All events - all channels"
+ msgstr "Kaikki tapahtumat - kaikki kanavat"
+ 
+ #, c-format
+ msgid "Please enter %d digits!"
+-msgstr "Sy�t� %d numeroa!"
++msgstr "Syötä %d numeroa!"
+ 
+ msgid "CAM not responding!"
+ msgstr "CA-moduuli ei vastaa!"
+@@ -735,13 +738,13 @@
+ msgstr "Komennot"
+ 
+ msgid "Error while accessing recording!"
+-msgstr "Tallenteen toistaminen ep�onnistui!"
++msgstr "Tallenteen toistaminen epäonnistui!"
+ 
+ msgid "Delete recording?"
+ msgstr "Poistetaanko tallenne?"
+ 
+ msgid "Error while deleting recording!"
+-msgstr "Tallenteen poistaminen ep�onnistui!"
++msgstr "Tallenteen poistaminen epäonnistui!"
+ 
+ msgid "Recording commands"
+ msgstr "Tallennekomennot"
+@@ -756,7 +759,7 @@
+ msgstr "aina"
+ 
+ msgid "OSD"
+-msgstr "Kuvaruutun�ytt�"
++msgstr "Kuvaruutunäyttö"
+ 
+ msgid "Setup.OSD$Language"
+ msgstr "Kieli"
+@@ -783,10 +786,10 @@
+ msgstr "Viestien esitysaika (s)"
+ 
+ msgid "Setup.OSD$Use small font"
+-msgstr "K�yt� pieni� kirjasimia"
++msgstr "Käytä pieniä kirjasimia"
+ 
+ msgid "Setup.OSD$Anti-alias"
+-msgstr "K�yt� reunan pehmennyst�"
++msgstr "Käytä reunan pehmennystä"
+ 
+ msgid "Setup.OSD$Default font"
+ msgstr "Oletuskirjasintyyppi"
+@@ -795,7 +798,7 @@
+ msgstr "Pieni kirjasintyyppi"
+ 
+ msgid "Setup.OSD$Fixed font"
+-msgstr "Tasav�linen kirjasintyyppi"
++msgstr "Tasavälinen kirjasintyyppi"
+ 
+ msgid "Setup.OSD$Default font size (%)"
+ msgstr "Oletuskirjasintyypin koko (%)"
+@@ -804,7 +807,7 @@
+ msgstr "Pienen kirjasintyypin koko (%)"
+ 
+ msgid "Setup.OSD$Fixed font size (%)"
+-msgstr "Tasav�lisen kirjasintyypin koko (%)"
++msgstr "Tasavälisen kirjasintyypin koko (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Kanavatiedon sijainti"
+@@ -813,13 +816,13 @@
+ msgstr "alareuna"
+ 
+ msgid "top"
+-msgstr "yl�reuna"
++msgstr "yläreuna"
+ 
+ msgid "Setup.OSD$Channel info time (s)"
+ msgstr "Kanavatiedon esitysaika (s)"
+ 
+ msgid "Setup.OSD$Info on channel switch"
+-msgstr "N�yt� kanavatieto vaihdettaessa"
++msgstr "Näytä kanavatieto vaihdettaessa"
+ 
+ msgid "Setup.OSD$Timeout requested channel info"
+ msgstr "Sulje erikseen avattu kanavatieto"
+@@ -828,31 +831,34 @@
+ msgstr "Valikoiden vieritys sivuttain"
+ 
+ msgid "Setup.OSD$Scroll wraps"
+-msgstr "Valikoiden vieritys ymp�ri"
++msgstr "Valikoiden vieritys ympäri"
+ 
+ msgid "Setup.OSD$Menu key closes"
+-msgstr "Sulje valikkon�pp�imell�"
++msgstr "Sulje valikkonäppäimellä"
+ 
+ msgid "Setup.OSD$Recording directories"
+-msgstr "N�yt� tallennehakemistot"
++msgstr "Näytä tallennehakemistot"
+ 
+ msgid "Setup.OSD$Folders in timer menu"
++msgstr "Näytä kansiot ajastinvalikossa"
++
++msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
+ msgid "EPG"
+ msgstr "Ohjelmaopas"
+ 
+ msgid "Button$Scan"
+-msgstr "P�ivit�"
++msgstr "Päivitä"
+ 
+ msgid "Setup.EPG$EPG scan timeout (h)"
+-msgstr "Ohjelmaoppaan taustap�ivitys (h)"
++msgstr "Ohjelmaoppaan taustapäivitys (h)"
+ 
+ msgid "Setup.EPG$EPG bugfix level"
+ msgstr "Ohjelmaoppaan korjaustaso"
+ 
+ msgid "Setup.EPG$EPG linger time (min)"
+-msgstr "Vanha tieto n�kyy (min)"
++msgstr "Vanha tieto näkyy (min)"
+ 
+ msgid "Setup.EPG$Set system time"
+ msgstr "Tahdista kellonaika"
+@@ -905,22 +911,22 @@
+ msgstr "Kuvasuhde"
+ 
+ msgid "Setup.DVB$Video display format"
+-msgstr "N�ytt�muoto"
++msgstr "Näyttömuoto"
+ 
+ msgid "Setup.DVB$Use Dolby Digital"
+-msgstr "K�yt� Dolby Digital -��nt�"
++msgstr "Käytä Dolby Digital -ääntä"
+ 
+ msgid "Setup.DVB$Update channels"
+-msgstr "P�ivit� kanavat"
++msgstr "Päivitä kanavat"
+ 
+ msgid "Setup.DVB$Audio languages"
+-msgstr "��nen kielet"
++msgstr "Äänen kielet"
+ 
+ msgid "Setup.DVB$Audio language"
+-msgstr "��nen kieli"
++msgstr "Äänen kieli"
+ 
+ msgid "Setup.DVB$Display subtitles"
+-msgstr "N�yt� tekstitys"
++msgstr "Näytä tekstitys"
+ 
+ msgid "Setup.DVB$Subtitle languages"
+ msgstr "Tekstityskielet"
+@@ -932,16 +938,16 @@
+ msgstr "Tekstityksen tasaus"
+ 
+ msgid "Setup.DVB$Subtitle foreground transparency"
+-msgstr "Tekstityksen l�pin�kyvyys"
++msgstr "Tekstityksen läpinäkyvyys"
+ 
+ msgid "Setup.DVB$Subtitle background transparency"
+-msgstr "Tekstityksen taustan l�pin�kyvyys"
++msgstr "Tekstityksen taustan läpinäkyvyys"
+ 
+ msgid "LNB"
+ msgstr "LNB"
+ 
+ msgid "Setup.LNB$Use DiSEqC"
+-msgstr "K�yt� DiSEqC-kytkint�"
++msgstr "Käytä DiSEqC-kytkintä"
+ 
+ msgid "Setup.LNB$SLOF (MHz)"
+ msgstr "LNB-rajataajuus (MHz)"
+@@ -950,7 +956,7 @@
+ msgstr "LNB-alataajuus (MHz)"
+ 
+ msgid "Setup.LNB$High LNB frequency (MHz)"
+-msgstr "LNB-yl�taajuus (MHz)"
++msgstr "LNB-ylätaajuus (MHz)"
+ 
+ msgid "CAM reset"
+ msgstr "CAM nollaus"
+@@ -977,25 +983,25 @@
+ msgstr "CA-moduulin valikko ei saatavilla"
+ 
+ msgid "CAM is in use - really reset?"
+-msgstr "CA-moduuli k�yt�ss� - nollataanko?"
++msgstr "CA-moduuli käytössä - nollataanko?"
+ 
+ msgid "Can't reset CAM!"
+-msgstr "CA-moduulin nollaus ep�onnistui!"
++msgstr "CA-moduulin nollaus epäonnistui!"
+ 
+ msgid "do not pause live video"
+-msgstr "�l� pys�yt� l�hetyst�"
++msgstr "älä pysäytä lähetystä"
+ 
+ msgid "confirm pause live video"
+-msgstr "varmista l�hetyksen pys�ytt�minen"
++msgstr "varmista lähetyksen pysäyttäminen"
+ 
+ msgid "pause live video"
+-msgstr "pys�yt� l�hetys"
++msgstr "pysäytä lähetys"
+ 
+ msgid "confirm"
+-msgstr ""
++msgstr "varmista"
+ 
+ msgid "yes"
+-msgstr "kyll�"
++msgstr "kyllä"
+ 
+ msgid "Recording"
+ msgstr "Tallennus"
+@@ -1013,22 +1019,22 @@
+ msgstr "Tallenteen oletusprioriteetti"
+ 
+ msgid "Setup.Recording$Default lifetime (d)"
+-msgstr "Tallenteen oletuselinik� (d)"
++msgstr "Tallenteen oletuselinikä (d)"
+ 
+ msgid "Setup.Recording$Pause key handling"
+-msgstr "Taukon�pp�imen toiminta"
++msgstr "Taukonäppäimen toiminta"
+ 
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Taukotallenteen prioriteetti"
+ 
+ msgid "Setup.Recording$Pause lifetime (d)"
+-msgstr "Taukotallenteen elinik� (d)"
++msgstr "Taukotallenteen elinikä (d)"
+ 
+ msgid "Setup.Recording$Use episode name"
+-msgstr "K�yt� jakson nime�"
++msgstr "Käytä jakson nimeä"
+ 
+ msgid "Setup.Recording$Use VPS"
+-msgstr "K�yt� VPS-toimintoa"
++msgstr "Käytä VPS-toimintoa"
+ 
+ msgid "Setup.Recording$VPS margin (s)"
+ msgstr "VPS-toiminnon aloitusmarginaali (s)"
+@@ -1037,7 +1043,7 @@
+ msgstr "Merkitse pikatallenne"
+ 
+ msgid "Setup.Recording$Name instant recording"
+-msgstr "Nime� pikatallenne"
++msgstr "Nimeä pikatallenne"
+ 
+ msgid "Setup.Recording$Instant rec. time (min)"
+ msgstr "Pikatallennuksen kesto (min)"
+@@ -1049,16 +1055,16 @@
+ msgstr "Jaottele muokatut tallenteet"
+ 
+ msgid "Setup.Recording$Delete timeshift recording"
+-msgstr ""
++msgstr "Poista ajansiirtotallenne"
+ 
+ msgid "Replay"
+ msgstr "Toisto"
+ 
+ msgid "Setup.Replay$Multi speed mode"
+-msgstr "K�yt� toiston moninopeustilaa"
++msgstr "Käytä toiston moninopeustilaa"
+ 
+ msgid "Setup.Replay$Show replay mode"
+-msgstr "N�yt� toiston tila"
++msgstr "Näytä toiston tila"
+ 
+ msgid "Setup.Replay$Resume ID"
+ msgstr "Tallenteen paluutunniste"
+@@ -1070,7 +1076,7 @@
+ msgstr "Tapahtuman odotusaika (min)"
+ 
+ msgid "Setup.Miscellaneous$Min. user inactivity (min)"
+-msgstr "K�ytt�j�toiminnon odotusaika (min)"
++msgstr "Käyttäjätoiminnon odotusaika (min)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP timeout (s)"
+ msgstr "SVDRP-komennon odotusaika (s)"
+@@ -1079,37 +1085,37 @@
+ msgstr "Kanavavalinnan odotusaika (s)"
+ 
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+-msgstr "Kanavasy�tteen odotusaika (ms)"
++msgstr "Kanavasyötteen odotusaika (ms)"
+ 
+ msgid "Setup.Miscellaneous$Initial channel"
+-msgstr "Kanava k�ynnistett�ess�"
++msgstr "Kanava käynnistettäessä"
+ 
+ msgid "Setup.Miscellaneous$as before"
+ msgstr "edellinen"
+ 
+ msgid "Setup.Miscellaneous$Initial volume"
+-msgstr "��nenvoimakkuus k�ynnistett�ess�"
++msgstr "Äänenvoimakkuus käynnistettäessä"
+ 
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Kanavien rullaus"
+ 
+ msgid "Setup.Miscellaneous$Emergency exit"
+-msgstr "K�yt� h�t�sammutusta"
++msgstr "Käytä hätäsammutusta"
+ 
+ msgid "Plugins"
+ msgstr "Laajennokset"
+ 
+ msgid "This plugin has no setup parameters!"
+-msgstr "T�ll� laajennoksella ei ole asetuksia!"
++msgstr "Tällä laajennoksella ei ole asetuksia!"
+ 
+ msgid "Setup"
+ msgstr "Asetukset"
+ 
+ msgid "Restart"
+-msgstr "K�ynnist� uudelleen"
++msgstr "Käynnistä uudelleen"
+ 
+ msgid "Really restart?"
+-msgstr "K�ynnistet��nk� uudelleen?"
++msgstr "Käynnistetäänkö uudelleen?"
+ 
+ #. TRANSLATORS: note the leading and trailing blanks!
+ msgid " Stop recording "
+@@ -1126,7 +1132,7 @@
+ msgstr " Lopeta toisto"
+ 
+ msgid "Button$Audio"
+-msgstr "��ni"
++msgstr "Ääni"
+ 
+ msgid "Button$Pause"
+ msgstr "Tauko"
+@@ -1148,10 +1154,10 @@
+ msgstr "Perutaanko muokkaus?"
+ 
+ msgid "No audio available!"
+-msgstr "��nen kieli ei ole valittavissa!"
++msgstr "Äänen kieli ei ole valittavissa!"
+ 
+ msgid "No subtitles"
+-msgstr "Ei tekstityst�"
++msgstr "Ei tekstitystä"
+ 
+ msgid "Button$Subtitles"
+ msgstr "Tekstitys"
+@@ -1160,38 +1166,38 @@
+ msgstr "Tekstitys ei ole valittavissa!"
+ 
+ msgid "Not enough disk space to start recording!"
+-msgstr "Tallennustilan puute est�� tallennuksen!"
++msgstr "Tallennustilan puute estää tallennuksen!"
+ 
+ msgid "No free DVB device to record!"
+-msgstr "Ei vapaata DVB-viritint� tallennukselle!"
++msgstr "Ei vapaata DVB-viritintä tallennukselle!"
+ 
+ msgid "Pausing live video..."
+-msgstr "Pys�ytet��n l�hetys..."
++msgstr "Pysäytetään lähetys..."
+ 
+ msgid "Delete timeshift recording?"
+-msgstr ""
++msgstr "Poistetaanko ajansiirtotallenne?"
+ 
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Siirry: "
+ 
+ msgid "No editing marks defined!"
+-msgstr "Muokkausmerkinn�t puuttuvat!"
++msgstr "Muokkausmerkinnät puuttuvat!"
+ 
+ msgid "Can't start editing process!"
+-msgstr "Muokkauksen aloitus ep�onnistui!"
++msgstr "Muokkauksen aloitus epäonnistui!"
+ 
+ msgid "Editing process started"
+ msgstr "Muokkaus aloitettu"
+ 
+ msgid "Editing process already active!"
+-msgstr "Muokkaus on jo k�ynniss�!"
++msgstr "Muokkaus on jo käynnissä!"
+ 
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+-msgstr " abcdefghijklmnopqrstuvwxyz���0123456789-.,#~\\^$[]|()*+?{}/:%@&"
++msgstr " abcdefghijklmnopqrstuvwxyzåäö0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+-msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc��2\tdef3\tghi4\tjkl5\tmno�6\tpqrs7\ttuv8\twxyz9"
++msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabcäå2\tdef3\tghi4\tjkl5\tmnoö6\tpqrs7\ttuv8\twxyz9"
+ 
+ msgid "Button$ABC/abc"
+ msgstr "ABC/abc"
+@@ -1200,16 +1206,16 @@
+ msgstr "Korvaa"
+ 
+ msgid "Button$Insert"
+-msgstr "Lis��"
++msgstr "Lisää"
+ 
+ msgid "Plugin"
+ msgstr "Laajennos"
+ 
+ msgid "Up/Dn for new location - OK to move"
+-msgstr "'Yl�s/Alas' uusi paikka - 'OK' hyv�ksy"
++msgstr "'Ylös/Alas' uusi paikka - 'OK' hyväksy"
+ 
+ msgid "Channel locked (recording)!"
+-msgstr "Kanava lukittu (tallennus k�ynniss�)!"
++msgstr "Kanava lukittu (tallennus käynnissä)!"
+ 
+ msgid "Low disk space!"
+ msgstr "Tallennustila loppumassa!"
+@@ -1238,20 +1244,20 @@
+ 
+ #, c-format
+ msgid "Plugin %s wakes up in %ld min, continue?"
+-msgstr "Laajennos %s her�� %ld minuutin kuluttua - sammutetaanko?"
++msgstr "Laajennos %s herää %ld minuutin kuluttua - sammutetaanko?"
+ 
+ msgid "Editing - restart anyway?"
+-msgstr "Muokkaus kesken - k�ynnistet��nk� uudelleen?"
++msgstr "Muokkaus kesken - käynnistetäänkö uudelleen?"
+ 
+ msgid "Recording - restart anyway?"
+-msgstr "Tallennus kesken - k�ynnistet��nk� uudelleen?"
++msgstr "Tallennus kesken - käynnistetäänkö uudelleen?"
+ 
+ msgid "restart anyway?"
+-msgstr "k�ynnistet��nk� uudelleen?"
++msgstr "käynnistetäänkö uudelleen?"
+ 
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Volume "
+-msgstr "��nenvoimakkuus "
++msgstr "Äänenvoimakkuus "
+ 
+ msgid "Classic VDR"
+ msgstr "Klassinen VDR"
+@@ -1292,28 +1298,28 @@
+ msgstr "Tallennus on alkamassa!"
+ 
+ msgid "Pause live video?"
+-msgstr "Pys�ytet��nk� l�hetys?"
++msgstr "Pysäytetäänkö lähetys?"
+ 
+ msgid "Recording started"
+ msgstr "Tallennus aloitettu"
+ 
+ msgid "VDR will shut down later - press Power to force"
+-msgstr "VDR sammuu my�hemmin - pakota virtan�pp�imell�"
++msgstr "VDR sammuu myöhemmin - pakota virtanäppäimellä"
+ 
+ msgid "Press any key to cancel shutdown"
+-msgstr "Peru sammutus painamalla mit� tahansa n�pp�int�"
++msgstr "Peru sammutus painamalla mitä tahansa näppäintä"
+ 
+ msgid "Switching primary DVB..."
+ msgstr "Vaihdetaan ensisijaista DVB-sovitinta..."
+ 
+ msgid "Editing process failed!"
+-msgstr "Muokkaus ep�onnistui!"
++msgstr "Muokkaus epäonnistui!"
+ 
+ msgid "Editing process finished"
+ msgstr "Muokkaus valmis"
+ 
+ msgid "Press any key to cancel restart"
+-msgstr "Peru uudelleenk�ynnistys painamalla mit� tahansa n�pp�int�"
++msgstr "Peru uudelleenkäynnistys painamalla mitä tahansa näppäintä"
+ 
+ #, c-format
+ msgid "VDR will shut down in %s minutes"
+diff -ruN vdr-1.7.14/po/fr_FR.po vdr-1.7.15/po/fr_FR.po
+--- vdr-1.7.14/po/fr_FR.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/fr_FR.po	2010-06-06 14:03:58.000000000 +0200
+@@ -13,7 +13,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2008-02-27 18:14+0100\n"
+ "Last-Translator: Jean-Claude Repetto <jc@repetto.org>\n"
+ "Language-Team: French\n"
+@@ -481,6 +481,9 @@
+ msgid "Key$Commands"
+ msgstr "Commandes"
+ 
++msgid "Key$User0"
++msgstr "Utilisateur0"
++
+ msgid "Key$User1"
+ msgstr "Utilisateur1"
+ 
+@@ -842,6 +845,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Guide des programmes"
+ 
+diff -ruN vdr-1.7.14/po/hr_HR.po vdr-1.7.15/po/hr_HR.po
+--- vdr-1.7.14/po/hr_HR.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/hr_HR.po	2010-06-06 14:03:58.000000000 +0200
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian\n"
+@@ -477,6 +477,9 @@
+ msgid "Key$Commands"
+ msgstr "Naredbe"
+ 
++msgid "Key$User0"
++msgstr "Korisnik0"
++
+ msgid "Key$User1"
+ msgstr "Korisnik1"
+ 
+@@ -838,6 +841,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG (elektronski programski vodi�)"
+ 
+diff -ruN vdr-1.7.14/po/hu_HU.po vdr-1.7.15/po/hu_HU.po
+--- vdr-1.7.14/po/hu_HU.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/hu_HU.po	2010-06-06 14:03:58.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2007-12-01 21:42+0200\n"
+ "Last-Translator: Istv�n F�ley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian\n"
+@@ -478,6 +478,9 @@
+ msgid "Key$Commands"
+ msgstr "Parancsok"
+ 
++msgid "Key$User0"
++msgstr "Felhaszn�l�0"
++
+ msgid "Key$User1"
+ msgstr "Felhaszn�l�1"
+ 
+@@ -839,6 +842,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.14/po/it_IT.po vdr-1.7.15/po/it_IT.po
+--- vdr-1.7.14/po/it_IT.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/it_IT.po	2010-06-06 14:03:58.000000000 +0200
+@@ -5,14 +5,14 @@
+ # Antonio Ospite <ospite@studenti.unina.it>, 2003, 2006
+ # Sean Carlos <seanc@libero.it>, 2005
+ # Nino Gerbino <ngerb@interfree.it>, 2006
+-# Diego Pierotto <vdr-italian@tiscali.it>, 2007, 2008
++# Diego Pierotto <vdr-italian@tiscali.it>, 2007, 2008, 2010
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+-"PO-Revision-Date: 2010-01-31 23:06+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
++"PO-Revision-Date: 2010-03-28 22:49+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian\n"
+ "MIME-Version: 1.0\n"
+@@ -482,6 +482,9 @@
+ msgid "Key$Commands"
+ msgstr "Comandi"
+ 
++msgid "Key$User0"
++msgstr "Utente0"
++
+ msgid "Key$User1"
+ msgstr "Utente1"
+ 
+@@ -841,6 +844,9 @@
+ msgstr "Directory di registrazione"
+ 
+ msgid "Setup.OSD$Folders in timer menu"
++msgstr "Cartelle nel menu timer"
++
++msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
+ msgid "EPG"
+@@ -996,7 +1002,7 @@
+ msgstr "pausa video dal vivo"
+ 
+ msgid "confirm"
+-msgstr ""
++msgstr "conferma"
+ 
+ msgid "yes"
+ msgstr "sì"
+@@ -1053,7 +1059,7 @@
+ msgstr "Dividi i file modificati"
+ 
+ msgid "Setup.Recording$Delete timeshift recording"
+-msgstr ""
++msgstr "Elimina registrazione timeshift"
+ 
+ msgid "Replay"
+ msgstr "Riproduzione"
+@@ -1173,7 +1179,7 @@
+ msgstr "Pausa del canale in visione..."
+ 
+ msgid "Delete timeshift recording?"
+-msgstr ""
++msgstr "Eliminare registrazione timeshift?"
+ 
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+@@ -1192,10 +1198,10 @@
+ msgstr "Processo di modifica già attivo!"
+ 
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+-msgstr " aáàbcdeéèfghiìîjklmnoòpqrstuùvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&°"
++msgstr " aáàbcdeéèfghiíìjklmnoóòpqrstuúùvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&°"
+ 
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+-msgstr " 0\t-.,1#~\\^$[]|()*+°?{}/:%@&\taàbc2\tdeèf3\tghiì4\tjkl5\tmnoò6\tpqrs7\ttuùv8\twxyz9"
++msgstr " 0\t-.,1#~\\^$[]|()*+°?{}/:%@&\taáàbc2\tdeéèf3\tghiíì4\tjkl5\tmnoóò6\tpqrs7\ttuúùv8\twxyz9"
+ 
+ msgid "Button$ABC/abc"
+ msgstr "ABC/abc"
+diff -ruN vdr-1.7.14/po/lt_LT.po vdr-1.7.15/po/lt_LT.po
+--- vdr-1.7.14/po/lt_LT.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/lt_LT.po	2010-06-06 14:03:58.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.12\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2010-02-22 18:05+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian\n"
+@@ -475,6 +475,9 @@
+ msgid "Key$Commands"
+ msgstr "Komandos"
+ 
++msgid "Key$User0"
++msgstr "Vartotojas0"
++
+ msgid "Key$User1"
+ msgstr "Vartotojas1"
+ 
+@@ -836,6 +839,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Elektroninis programų gidas (EPG)"
+ 
+diff -ruN vdr-1.7.14/po/mk_MK.po vdr-1.7.15/po/mk_MK.po
+--- vdr-1.7.14/po/mk_MK.po	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.7.15/po/mk_MK.po	2010-06-06 14:03:58.000000000 +0200
+@@ -0,0 +1,1324 @@
++# VDR language source file.
++# Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
++# This file is distributed under the same license as the VDR package.
++# Dimitar Petrovski <dimeptr@gmail.com>, 2009
++#
++msgid ""
++msgstr ""
++"Project-Id-Version: VDR-1.7.14\n"
++"Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
++"PO-Revision-Date: 2010-03-11 00:54+0100\n"
++"Last-Translator: Dimitar Petrovski <dimeptr@gmail.com>\n"
++"Language-Team: Macedonian <en@li.org>\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"X-Generator: KBabel 1.11.4\n"
++
++msgid "*** Invalid Channel ***"
++msgstr "*** Невалиден Канал ***"
++
++msgid "Channel not available!"
++msgstr "Каналот е недостапен!"
++
++msgid "Can't start Transfer Mode!"
++msgstr "Невозможно е да се започне пренос!!"
++
++msgid "off"
++msgstr "исклучи"
++
++msgid "on"
++msgstr "вклучи"
++
++msgid "auto"
++msgstr "автоматски"
++
++msgid "none"
++msgstr "ништо"
++
++msgid "Polarization"
++msgstr "Поларизација"
++
++msgid "System"
++msgstr "Систем"
++
++msgid "Srate"
++msgstr "Srate"
++
++msgid "Inversion"
++msgstr "Инверзија"
++
++msgid "CoderateH"
++msgstr "CoderateH"
++
++msgid "CoderateL"
++msgstr "CoderateL"
++
++msgid "Modulation"
++msgstr "Модулација"
++
++msgid "Bandwidth"
++msgstr "Пропусност"
++
++msgid "Transmission"
++msgstr "Пренос"
++
++msgid "Guard"
++msgstr "Заштита"
++
++msgid "Hierarchy"
++msgstr "Хиерархија"
++
++msgid "Rolloff"
++msgstr "Рол-оф"
++
++msgid "Starting EPG scan"
++msgstr "Започнувам скенирање на EPG"
++
++msgid "Content$Movie/Drama"
++msgstr "Филм/Драма"
++
++msgid "Content$Detective/Thriller"
++msgstr "Детективски/Трилер"
++
++msgid "Content$Adventure/Western/War"
++msgstr "Авантура/Вестерн/Воен"
++
++msgid "Content$Science Fiction/Fantasy/Horror"
++msgstr "Научна фантастика/Фантазија/Хорор"
++
++msgid "Content$Comedy"
++msgstr "Комедија"
++
++msgid "Content$Soap/Melodrama/Folkloric"
++msgstr "Сапуница/Мелодрама/Фолклорен"
++
++msgid "Content$Romance"
++msgstr "Романса"
++
++msgid "Content$Serious/Classical/Religious/Historical Movie/Drama"
++msgstr "Сериозен/Класичен/Религиозен/Историски/Драма"
++
++msgid "Content$Adult Movie/Drama"
++msgstr "Филм за возрасни/Драма"
++
++msgid "Content$News/Current Affairs"
++msgstr "Вести/Тековни настани"
++
++msgid "Content$News/Weather Report"
++msgstr "Вести/Временска прогноза"
++
++msgid "Content$News Magazine"
++msgstr "Магазин"
++
++msgid "Content$Documentary"
++msgstr "Документарен"
++
++msgid "Content$Discussion/Inverview/Debate"
++msgstr "Дискусија/Интервју/Дебата"
++
++msgid "Content$Show/Game Show"
++msgstr "Шоу/Забавно шоу"
++
++msgid "Content$Game Show/Quiz/Contest"
++msgstr "Забавно шоу/Квиз/Натпревар"
++
++msgid "Content$Variety Show"
++msgstr "Разнолико шоу"
++
++msgid "Content$Talk Show"
++msgstr "Разговорно шоу"
++
++msgid "Content$Sports"
++msgstr "Спорт"
++
++msgid "Content$Special Event"
++msgstr "Специјален настан"
++
++msgid "Content$Sport Magazine"
++msgstr "Спортски магазин"
++
++msgid "Content$Football/Soccer"
++msgstr "Фудбал"
++
++msgid "Content$Tennis/Squash"
++msgstr "Тенис/Сквош"
++
++msgid "Content$Team Sports"
++msgstr "Тимски спортови"
++
++msgid "Content$Athletics"
++msgstr "Атлетика"
++
++msgid "Content$Motor Sport"
++msgstr "Мото спорт"
++
++msgid "Content$Water Sport"
++msgstr "Воден спорт"
++
++msgid "Content$Winter Sports"
++msgstr "Зимски спорт"
++
++msgid "Content$Equestrian"
++msgstr "Коњички"
++
++msgid "Content$Martial Sports"
++msgstr "Борилачки спорт"
++
++msgid "Content$Children's/Youth Programme"
++msgstr "Детски/Младински програм"
++
++msgid "Content$Pre-school Children's Programme"
++msgstr "Предшколски програм"
++
++msgid "Content$Entertainment Programme for 6 to 14"
++msgstr "Забавна програма од 6 до 14"
++
++msgid "Content$Entertainment Programme for 10 to 16"
++msgstr "Забавна програма од 10 до 16"
++
++msgid "Content$Informational/Educational/School Programme"
++msgstr "Информативен/Образовен/Училишен програм"
++
++msgid "Content$Cartoons/Puppets"
++msgstr "Цртани/Куклени"
++
++msgid "Content$Music/Ballet/Dance"
++msgstr "Музика/Балет/Танц"
++
++msgid "Content$Rock/Pop"
++msgstr "Рок/Поп"
++
++msgid "Content$Serious/Classical Music"
++msgstr "Сериозна/Класична музика"
++
++msgid "Content$Folk/Tradional Music"
++msgstr "Фолк/Народна музика"
++
++msgid "Content$Jazz"
++msgstr "Џез"
++
++msgid "Content$Musical/Opera"
++msgstr "Музички/Опера"
++
++msgid "Content$Ballet"
++msgstr "Балет"
++
++msgid "Content$Arts/Culture"
++msgstr "Уметност/Култура"
++
++msgid "Content$Performing Arts"
++msgstr "Сценска уметност"
++
++msgid "Content$Fine Arts"
++msgstr "Применета уметност"
++
++msgid "Content$Religion"
++msgstr "Религија"
++
++msgid "Content$Popular Culture/Traditional Arts"
++msgstr "Популарна култура/Традиционална уметност"
++
++msgid "Content$Literature"
++msgstr "Литература"
++
++msgid "Content$Film/Cinema"
++msgstr "Филм/Кино"
++
++msgid "Content$Experimental Film/Video"
++msgstr "Експериментален филм/Видео"
++
++msgid "Content$Broadcasting/Press"
++msgstr "Радиодифузно/Печат"
++
++msgid "Content$New Media"
++msgstr "Нов медиум"
++
++msgid "Content$Arts/Culture Magazine"
++msgstr "Уметност/Културен магазин"
++
++msgid "Content$Fashion"
++msgstr "Мода"
++
++msgid "Content$Social/Political/Economics"
++msgstr "Социјален/Политички/Економски"
++
++msgid "Content$Magazine/Report/Documentary"
++msgstr "Магазин/Извештај/Докуметарец"
++
++msgid "Content$Economics/Social Advisory"
++msgstr "Економија/Социјален совети"
++
++msgid "Content$Remarkable People"
++msgstr "Исклучителни луѓе"
++
++msgid "Content$Education/Science/Factual"
++msgstr "Образовен/Научен/Фактички"
++
++msgid "Content$Nature/Animals/Environment"
++msgstr "Природа/Животни/Околина"
++
++msgid "Content$Technology/Natural Sciences"
++msgstr "Технологија/Природни науки"
++
++msgid "Content$Medicine/Physiology/Psychology"
++msgstr "Медицина/Физиологија/Психологија"
++
++msgid "Content$Foreign Countries/Expeditions"
++msgstr "Странски земји/Експедиции"
++
++msgid "Content$Social/Spiritual Sciences"
++msgstr "Социален/Духовни науки"
++
++msgid "Content$Further Education"
++msgstr "Понатамошно образование"
++
++msgid "Content$Languages"
++msgstr "Јазици"
++
++msgid "Content$Leisure/Hobbies"
++msgstr "Одмор/Хоби"
++
++msgid "Content$Tourism/Travel"
++msgstr "Туризам/Патувања"
++
++msgid "Content$Handicraft"
++msgstr "Ракотворби"
++
++msgid "Content$Motoring"
++msgstr "Возење"
++
++msgid "Content$Fitness & Health"
++msgstr "Фитнес и здравје"
++
++msgid "Content$Cooking"
++msgstr "Готвење"
++
++msgid "Content$Advertisement/Shopping"
++msgstr "Рекламирање/Шопинг"
++
++msgid "Content$Gardening"
++msgstr "Градинарство"
++
++msgid "Content$Original Language"
++msgstr "Оригинален јазик"
++
++msgid "Content$Black & White"
++msgstr "Црно бело"
++
++msgid "Content$Unpublished"
++msgstr "Необјавено"
++
++msgid "Content$Live Broadcast"
++msgstr "Емитување во живо"
++
++#, c-format
++msgid "ParentalRating$from %d"
++msgstr "Препорачливо од %d год"
++
++msgid "No title"
++msgstr "Без наслов"
++
++#. TRANSLATORS: The name of the language, as written natively
++msgid "LanguageName$English"
++msgstr "Македонски"
++
++#. TRANSLATORS: The 3-letter code of the language
++msgid "LanguageCode$eng"
++msgstr "mkd"
++
++msgid "Phase 1: Detecting RC code type"
++msgstr "Фаза 1: Детекција на типот на далечински управувач "
++
++msgid "Press any key on the RC unit"
++msgstr "Притиснете копче на далечинскиот управувач"
++
++msgid "RC code detected!"
++msgstr "Кодот е детектиран!"
++
++msgid "Do not press any key..."
++msgstr "Не притискај никое копче..."
++
++msgid "Phase 2: Learning specific key codes"
++msgstr "Фаза 2: Учење на специфични кодови"
++
++#, c-format
++msgid "Press key for '%s'"
++msgstr "Притисни копче за '%s'"
++
++msgid "Press 'Up' to confirm"
++msgstr "Притисни 'Горе' за потврда"
++
++msgid "Press 'Down' to continue"
++msgstr "Притисни 'Доле' за да продолжиш"
++
++msgid "(press 'Up' to go back)"
++msgstr "(притисни 'Горе' за назад)"
++
++msgid "(press 'Down' to end key definition)"
++msgstr "(притисни'Доле' за крај)"
++
++msgid "(press 'Menu' to skip this key)"
++msgstr "(притисни 'Мени' за прескокнување на ова копче)"
++
++msgid "Learning Remote Control Keys"
++msgstr "Учење на коппчињата на далечинскиот управувач"
++
++msgid "Phase 3: Saving key codes"
++msgstr "Фаза 3: Зачувување на кодовите"
++
++msgid "Press 'Up' to save, 'Down' to cancel"
++msgstr "Притисни 'Горе' за потврда, 'Доле' за откажување"
++
++msgid "Key$Up"
++msgstr "Горе"
++
++msgid "Key$Down"
++msgstr "Доле"
++
++msgid "Key$Menu"
++msgstr "Мени"
++
++msgid "Key$Ok"
++msgstr "Ок"
++
++msgid "Key$Back"
++msgstr "Назад"
++
++msgid "Key$Left"
++msgstr "Лево"
++
++msgid "Key$Right"
++msgstr "Десно"
++
++msgid "Key$Red"
++msgstr "Црвено"
++
++msgid "Key$Green"
++msgstr "Зелено"
++
++msgid "Key$Yellow"
++msgstr "Жолто"
++
++msgid "Key$Blue"
++msgstr "Сино"
++
++msgid "Key$Info"
++msgstr "Инфо"
++
++msgid "Key$Play"
++msgstr "Старт"
++
++msgid "Key$Pause"
++msgstr "Пауза"
++
++msgid "Key$Stop"
++msgstr "Стоп"
++
++msgid "Key$Record"
++msgstr "Снимај"
++
++msgid "Key$FastFwd"
++msgstr "Напред"
++
++msgid "Key$FastRew"
++msgstr "Назад"
++
++msgid "Key$Next"
++msgstr "Следно"
++
++msgid "Key$Prev"
++msgstr "Претходно"
++
++msgid "Key$Power"
++msgstr "Исклучи"
++
++msgid "Key$Channel+"
++msgstr "Канал+"
++
++msgid "Key$Channel-"
++msgstr "Канал-"
++
++msgid "Key$PrevChannel"
++msgstr "ПретходенКанал"
++
++msgid "Key$Volume+"
++msgstr "Глас+"
++
++msgid "Key$Volume-"
++msgstr "Глас-"
++
++msgid "Key$Mute"
++msgstr "Без звук"
++
++msgid "Key$Audio"
++msgstr "Аудио"
++
++msgid "Key$Subtitles"
++msgstr "Титл"
++
++msgid "Key$Schedule"
++msgstr "Распоред"
++
++msgid "Key$Channels"
++msgstr "Канали"
++
++msgid "Key$Timers"
++msgstr "Тајмери"
++
++msgid "Key$Recordings"
++msgstr "Снимки"
++
++msgid "Key$Setup"
++msgstr "Уредување"
++
++msgid "Key$Commands"
++msgstr "Наредби"
++
++msgid "Key$User0"
++msgstr "Корисник0"
++
++msgid "Key$User1"
++msgstr "Корисник1"
++
++msgid "Key$User2"
++msgstr "Корисник2"
++
++msgid "Key$User3"
++msgstr "Корисник3"
++
++msgid "Key$User4"
++msgstr "Корисник4"
++
++msgid "Key$User5"
++msgstr "Корисник5"
++
++msgid "Key$User6"
++msgstr "Корисник6"
++
++msgid "Key$User7"
++msgstr "Корисник7"
++
++msgid "Key$User8"
++msgstr "Корисник8"
++
++msgid "Key$User9"
++msgstr "Корисник9"
++
++msgid "Disk"
++msgstr "Диск"
++
++msgid "free"
++msgstr "слободен"
++
++msgid "Free To Air"
++msgstr "Слободно"
++
++msgid "encrypted"
++msgstr "енкриптиран"
++
++msgid "Edit channel"
++msgstr "Уреди канал"
++
++msgid "Name"
++msgstr "Име"
++
++msgid "Source"
++msgstr "Извор"
++
++msgid "Frequency"
++msgstr "Фрекфенција"
++
++msgid "Vpid"
++msgstr "Vpid"
++
++msgid "Ppid"
++msgstr "Ppid"
++
++msgid "Apid1"
++msgstr "Apid1"
++
++msgid "Apid2"
++msgstr "Apid2"
++
++msgid "Dpid1"
++msgstr "Dpid1"
++
++msgid "Dpid2"
++msgstr "Dpid2"
++
++msgid "Spid1"
++msgstr "Spid1"
++
++msgid "Spid2"
++msgstr "Spid2"
++
++msgid "Tpid"
++msgstr "Tpid"
++
++msgid "CA"
++msgstr "Кодирање (CA)"
++
++msgid "Sid"
++msgstr "Sid"
++
++msgid "Channel settings are not unique!"
++msgstr "Уредбите на каналот не се уникатни!"
++
++msgid "Channels"
++msgstr "Канали"
++
++msgid "Button$Edit"
++msgstr "Измени"
++
++msgid "Button$New"
++msgstr "Нов"
++
++msgid "Button$Delete"
++msgstr "Избриши"
++
++msgid "Button$Mark"
++msgstr "Обележи"
++
++msgid "Channel is being used by a timer!"
++msgstr "Каналот е мометално зафатен од тајмер!"
++
++msgid "Delete channel?"
++msgstr "Избриши канал?"
++
++msgid "Edit folder"
++msgstr "Уреди директориум"
++
++msgid "New folder"
++msgstr "Нов директориум"
++
++msgid "Sub folder"
++msgstr "Поддиректориум"
++
++msgid "Folder name already exists!"
++msgstr "Името веќе постои"
++
++#, c-format
++msgid "Folder name must not contain '%c'!"
++msgstr "Името на директориумот не смее да содржи '%c'"
++
++msgid "Button$Select"
++msgstr "Избери"
++
++msgid "Delete folder and all sub folders?"
++msgstr "Избриши директориум со сите поддиректориуми?"
++
++msgid "Delete folder?"
++msgstr "Избриши директориум?"
++
++msgid "Edit timer"
++msgstr "Уреди тајмер"
++
++msgid "Active"
++msgstr "Активен"
++
++msgid "Channel"
++msgstr "Канал"
++
++msgid "Day"
++msgstr "Ден"
++
++msgid "Start"
++msgstr "Почеток"
++
++msgid "Stop"
++msgstr "Крај"
++
++msgid "VPS"
++msgstr "VPS"
++
++msgid "Priority"
++msgstr "Приоритет"
++
++msgid "Lifetime"
++msgstr "Траење"
++
++msgid "File"
++msgstr "Датотека"
++
++msgid "Button$Folder"
++msgstr "Директориум"
++
++msgid "First day"
++msgstr "Прв ден"
++
++msgid "Select folder"
++msgstr "Избери директориум"
++
++msgid "Timers"
++msgstr "Тајмери"
++
++msgid "Button$On/Off"
++msgstr "Де/Активирај"
++
++msgid "Button$Info"
++msgstr "Инфо"
++
++msgid "Delete timer?"
++msgstr "Избриши тајмер?"
++
++msgid "Timer still recording - really delete?"
++msgstr "Тајмерот сеуште снима - бриши?"
++
++msgid "Event"
++msgstr "Емисија"
++
++msgid "Button$Timer"
++msgstr "Тајмер"
++
++msgid "Button$Record"
++msgstr "Сними"
++
++msgid "Button$Switch"
++msgstr "Смени"
++
++msgid "What's on now?"
++msgstr "Што е моментално на програмата?"
++
++msgid "What's on next?"
++msgstr "Што следи?"
++
++msgid "Button$Next"
++msgstr "Следи"
++
++msgid "Button$Now"
++msgstr "Моментално"
++
++msgid "Button$Schedule"
++msgstr "Распоред"
++
++msgid "Can't switch channel!"
++msgstr "Невозможно е да се смени канал!"
++
++#, c-format
++msgid "Schedule - %s"
++msgstr "Распоред - %s"
++
++#, c-format
++msgid "This event - %s"
++msgstr "Овој настан - %s"
++
++msgid "This event - all channels"
++msgstr "Овој настан - сите канали"
++
++msgid "All events - all channels"
++msgstr "Сите настани - сите канали"
++
++#, c-format
++msgid "Please enter %d digits!"
++msgstr "Внеси %d цифри!"
++
++msgid "CAM not responding!"
++msgstr "CAM не одговара!"
++
++msgid "Recording info"
++msgstr "Детали на снимката"
++
++msgid "Button$Play"
++msgstr "Старт"
++
++msgid "Button$Rewind"
++msgstr "Премотај"
++
++msgid "Recordings"
++msgstr "Снимки"
++
++msgid "Button$Open"
++msgstr "Отвори"
++
++msgid "Commands"
++msgstr "Наредби"
++
++msgid "Error while accessing recording!"
++msgstr "Грешка при пристап до снимката!"
++
++msgid "Delete recording?"
++msgstr "Избриши снимка?"
++
++msgid "Error while deleting recording!"
++msgstr "Грешка при бришење на снимката!"
++
++msgid "Recording commands"
++msgstr "Наредби за снимање"
++
++msgid "never"
++msgstr "никогаш"
++
++msgid "skin dependent"
++msgstr "зависно од фасада"
++
++msgid "always"
++msgstr "секогаш"
++
++msgid "OSD"
++msgstr "OSD"
++
++msgid "Setup.OSD$Language"
++msgstr "Јазик"
++
++msgid "Setup.OSD$Skin"
++msgstr "Фасада"
++
++msgid "Setup.OSD$Theme"
++msgstr "Тема"
++
++msgid "Setup.OSD$Left (%)"
++msgstr "Лево (%)"
++
++msgid "Setup.OSD$Top (%)"
++msgstr "Горе (%)"
++
++msgid "Setup.OSD$Width (%)"
++msgstr "Ширина (%)"
++
++msgid "Setup.OSD$Height (%)"
++msgstr "Висина (%)"
++
++msgid "Setup.OSD$Message time (s)"
++msgstr "Време за приказ на пораките (сек)"
++
++msgid "Setup.OSD$Use small font"
++msgstr "Користи мал фонт"
++
++msgid "Setup.OSD$Anti-alias"
++msgstr "Anti-alias"
++
++msgid "Setup.OSD$Default font"
++msgstr "Основен фонт"
++
++msgid "Setup.OSD$Small font"
++msgstr "Мал фонт"
++
++msgid "Setup.OSD$Fixed font"
++msgstr "Непроменлив фонт"
++
++msgid "Setup.OSD$Default font size (%)"
++msgstr "Големина на основниот фонт (%)"
++
++msgid "Setup.OSD$Small font size (%)"
++msgstr "Големина на малиот фонт (%)"
++
++msgid "Setup.OSD$Fixed font size (%)"
++msgstr "Големина на непроменливиот фонт (%)"
++
++msgid "Setup.OSD$Channel info position"
++msgstr "Позиција на информациите за каналот"
++
++msgid "bottom"
++msgstr "дно"
++
++msgid "top"
++msgstr "врв"
++
++msgid "Setup.OSD$Channel info time (s)"
++msgstr "Време за приказ на информациите за каналот (сек)"
++
++msgid "Setup.OSD$Info on channel switch"
++msgstr "Информации при промена на канал"
++
++msgid "Setup.OSD$Timeout requested channel info"
++msgstr "Прекин на приказ на информации за каналот"
++
++msgid "Setup.OSD$Scroll pages"
++msgstr "Листај по страници"
++
++msgid "Setup.OSD$Scroll wraps"
++msgstr "Скокни од крај на почеток"
++
++msgid "Setup.OSD$Menu key closes"
++msgstr "Копчето Мени затвара"
++
++msgid "Setup.OSD$Recording directories"
++msgstr "Директориум за снимки"
++
++msgid "Setup.OSD$Folders in timer menu"
++msgstr "Директориуми во менито за тајмер"
++
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
++msgid "EPG"
++msgstr "EPG (електронски водич на програми)"
++
++msgid "Button$Scan"
++msgstr "Барај"
++
++msgid "Setup.EPG$EPG scan timeout (h)"
++msgstr "Време до барање на EPG (ч)"
++
++msgid "Setup.EPG$EPG bugfix level"
++msgstr "Ниво на поправка на EPG грешки"
++
++msgid "Setup.EPG$EPG linger time (min)"
++msgstr "Време на задржување на EPG (мин)"
++
++msgid "Setup.EPG$Set system time"
++msgstr "Намести системско време"
++
++msgid "Setup.EPG$Use time from transponder"
++msgstr "Користи време од транспондер"
++
++#. TRANSLATORS: note the plural!
++msgid "Setup.EPG$Preferred languages"
++msgstr "Омилени јазици"
++
++#. TRANSLATORS: note the singular!
++msgid "Setup.EPG$Preferred language"
++msgstr "Омилен јазик"
++
++msgid "pan&scan"
++msgstr "прошири и барај"
++
++msgid "letterbox"
++msgstr "плико"
++
++msgid "center cut out"
++msgstr "исечи средина"
++
++msgid "no"
++msgstr "не"
++
++msgid "names only"
++msgstr "само имиња"
++
++msgid "PIDs only"
++msgstr "Само PID-ови"
++
++msgid "names and PIDs"
++msgstr "имиња и идентификатори (PIDs)"
++
++msgid "add new channels"
++msgstr "додај нови канали"
++
++msgid "add new transponders"
++msgstr "додај нови транспондери"
++
++msgid "DVB"
++msgstr "DVB"
++
++msgid "Setup.DVB$Primary DVB interface"
++msgstr "Примарен DVB уред"
++
++msgid "Setup.DVB$Video format"
++msgstr "Видео формат"
++
++msgid "Setup.DVB$Video display format"
++msgstr "Формат на видeo приказ"
++
++msgid "Setup.DVB$Use Dolby Digital"
++msgstr "Користи Dolby Digital"
++
++msgid "Setup.DVB$Update channels"
++msgstr "Ажурирај канали"
++
++msgid "Setup.DVB$Audio languages"
++msgstr "Аудио јазици"
++
++msgid "Setup.DVB$Audio language"
++msgstr "Аудио јазик"
++
++msgid "Setup.DVB$Display subtitles"
++msgstr "Прикажи титл"
++
++msgid "Setup.DVB$Subtitle languages"
++msgstr "Јазици на титл"
++
++msgid "Setup.DVB$Subtitle language"
++msgstr "Јазик на титл"
++
++msgid "Setup.DVB$Subtitle offset"
++msgstr "Поместување на титл"
++
++msgid "Setup.DVB$Subtitle foreground transparency"
++msgstr "Провидност на титлот"
++
++msgid "Setup.DVB$Subtitle background transparency"
++msgstr "Провидност на позадината на титлот"
++
++msgid "LNB"
++msgstr "LNB"
++
++msgid "Setup.LNB$Use DiSEqC"
++msgstr "Користи DiSEqC"
++
++msgid "Setup.LNB$SLOF (MHz)"
++msgstr "Фрекфенција на преклоп SLOF (MHz)"
++
++msgid "Setup.LNB$Low LNB frequency (MHz)"
++msgstr "Долна LNB фрекфенција (MHz)"
++
++msgid "Setup.LNB$High LNB frequency (MHz)"
++msgstr "Форна LNB фрекфенција (MHz)"
++
++msgid "CAM reset"
++msgstr "Рестартирај CAM"
++
++msgid "CAM present"
++msgstr "CAM присутен"
++
++msgid "CAM ready"
++msgstr "CAM спремен"
++
++msgid "CAM"
++msgstr "CAM"
++
++msgid "Button$Menu"
++msgstr "Мени"
++
++msgid "Button$Reset"
++msgstr "Ресетирај"
++
++msgid "Opening CAM menu..."
++msgstr "Отварам CAM мени..."
++
++msgid "Can't open CAM menu!"
++msgstr "Неуспешно отварање на CAM менито!"
++
++msgid "CAM is in use - really reset?"
++msgstr "CAM е во употреба - рестартирај?"
++
++msgid "Can't reset CAM!"
++msgstr "Неуспешно рестартирање на CAM-от!"
++
++msgid "do not pause live video"
++msgstr "не паузирај пренос во живо"
++
++msgid "confirm pause live video"
++msgstr "потврди пауза на пренос во живо"
++
++msgid "pause live video"
++msgstr "пауза на пренос во живо"
++
++msgid "confirm"
++msgstr "потврди"
++
++msgid "yes"
++msgstr "да"
++
++msgid "Recording"
++msgstr "Снимање"
++
++msgid "Setup.Recording$Margin at start (min)"
++msgstr "Резерва на почеток на снимање (мин)"
++
++msgid "Setup.Recording$Margin at stop (min)"
++msgstr "Резерва на крајот на снимање (мин)"
++
++msgid "Setup.Recording$Primary limit"
++msgstr "Стандардно огранучување"
++
++msgid "Setup.Recording$Default priority"
++msgstr "Зададен приоритет"
++
++msgid "Setup.Recording$Default lifetime (d)"
++msgstr "Стандардно веметраење (денови)"
++
++msgid "Setup.Recording$Pause key handling"
++msgstr "Подесување на копчето пауза"
++
++msgid "Setup.Recording$Pause priority"
++msgstr "Приоритет на пауза"
++
++msgid "Setup.Recording$Pause lifetime (d)"
++msgstr "Траење на пауза (денови)"
++
++msgid "Setup.Recording$Use episode name"
++msgstr "Користи име на епизода"
++
++msgid "Setup.Recording$Use VPS"
++msgstr "Користи VPS"
++
++msgid "Setup.Recording$VPS margin (s)"
++msgstr "Временска резерва на VPS (сек)"
++
++msgid "Setup.Recording$Mark instant recording"
++msgstr "Означи директно снимање"
++
++msgid "Setup.Recording$Name instant recording"
++msgstr "Име на директно снимање"
++
++msgid "Setup.Recording$Instant rec. time (min)"
++msgstr "Траење на директно снимање (мин)"
++
++msgid "Setup.Recording$Max. video file size (MB)"
++msgstr "Максимална големина на датотека (MB)"
++
++msgid "Setup.Recording$Split edited files"
++msgstr "Раздвои уредени датотеки"
++
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr "Избриши временски поместена снимка"
++
++msgid "Replay"
++msgstr "Репродукција"
++
++msgid "Setup.Replay$Multi speed mode"
++msgstr "Повеќебрзински режим"
++
++msgid "Setup.Replay$Show replay mode"
++msgstr "Прикажи начин на пуштање"
++
++msgid "Setup.Replay$Resume ID"
++msgstr "ID на продолжеток"
++
++msgid "Miscellaneous"
++msgstr "Разно"
++
++msgid "Setup.Miscellaneous$Min. event timeout (min)"
++msgstr "Минимално време на тајмаут (мин)"
++
++msgid "Setup.Miscellaneous$Min. user inactivity (min)"
++msgstr "Минимум неактивност на корисникот (мин)"
++
++msgid "Setup.Miscellaneous$SVDRP timeout (s)"
++msgstr "SVDRP тајмаут (сек)"
++
++msgid "Setup.Miscellaneous$Zap timeout (s)"
++msgstr "Зап тајмаут (сек)"
++
++msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
++msgstr "Тајмаут за внес на канал (ms)"
++
++msgid "Setup.Miscellaneous$Initial channel"
++msgstr "Почетен канал"
++
++msgid "Setup.Miscellaneous$as before"
++msgstr "како претходно"
++
++msgid "Setup.Miscellaneous$Initial volume"
++msgstr "Почетна јачина на звук"
++
++msgid "Setup.Miscellaneous$Channels wrap"
++msgstr "Премотување канали"
++
++msgid "Setup.Miscellaneous$Emergency exit"
++msgstr "Итен излез"
++
++msgid "Plugins"
++msgstr "Додатоци"
++
++msgid "This plugin has no setup parameters!"
++msgstr "Овој додаток нема параметри!"
++
++msgid "Setup"
++msgstr "Уредување"
++
++msgid "Restart"
++msgstr "Рестартирање"
++
++msgid "Really restart?"
++msgstr "Рестартирање?"
++
++#. TRANSLATORS: note the leading and trailing blanks!
++msgid " Stop recording "
++msgstr " Запри снимање "
++
++msgid "Schedule"
++msgstr "Распоред"
++
++msgid "VDR"
++msgstr "VDR"
++
++#. TRANSLATORS: note the leading blank!
++msgid " Stop replaying"
++msgstr " Запри пуштање"
++
++msgid "Button$Audio"
++msgstr "Аудио"
++
++msgid "Button$Pause"
++msgstr "Пауза"
++
++msgid "Button$Stop"
++msgstr "Стоп"
++
++msgid "Button$Resume"
++msgstr "Продолжи"
++
++#. TRANSLATORS: note the leading blank!
++msgid " Cancel editing"
++msgstr " Откажи уредување"
++
++msgid "Stop recording?"
++msgstr "Запри снимање?"
++
++msgid "Cancel editing?"
++msgstr "Запри уредување?"
++
++msgid "No audio available!"
++msgstr "Аудио недостапно!"
++
++msgid "No subtitles"
++msgstr "Без титл"
++
++msgid "Button$Subtitles"
++msgstr "Титл"
++
++msgid "No subtitles available!"
++msgstr "Титлови недостапни!"
++
++msgid "Not enough disk space to start recording!"
++msgstr "Нема доволно празен простор за снимање!"
++
++msgid "No free DVB device to record!"
++msgstr "Нема слободни DVB уреди за снимање!"
++
++msgid "Pausing live video..."
++msgstr "Пауза на пренос во живо..."
++
++msgid "Delete timeshift recording?"
++msgstr "Избриши временски поместена снимка?"
++
++#. TRANSLATORS: note the trailing blank!
++msgid "Jump: "
++msgstr "Скокни:"
++
++msgid "No editing marks defined!"
++msgstr "Нема одредено ознаки за сечење!"
++
++msgid "Can't start editing process!"
++msgstr "Не може да почне уредување!"
++
++msgid "Editing process started"
++msgstr "Уредувањето започна"
++
++msgid "Editing process already active!"
++msgstr "Уредувањето е веќе во тек!!"
++
++msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
++msgstr "абвгдѓежзѕијклљмнњопрстќуфхцчџш0123456789-.,#~\\^$[]|()*+?{}/:%@&"
++
++msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
++msgstr "0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabcабвг2\tdefдѓеж3\tghiзѕиј4\tjklклљм5\tmnoнњоп6\tpqrsрстќ7\ttuvуфхц8\twxyzчџш9"
++
++msgid "Button$ABC/abc"
++msgstr "АБВ/абв"
++
++msgid "Button$Overwrite"
++msgstr "Препиши"
++
++msgid "Button$Insert"
++msgstr "Вметни"
++
++msgid "Plugin"
++msgstr "Додаток"
++
++msgid "Up/Dn for new location - OK to move"
++msgstr "Горе/Доле за нова позиција - OK за потврда"
++
++msgid "Channel locked (recording)!"
++msgstr "Каналот е заклучен (снимање)!"
++
++msgid "Low disk space!"
++msgstr "Малку простор на дискот!"
++
++msgid "Regenerating index file"
++msgstr "Регенерирање на индекс датотека"
++
++msgid "Index file regeneration complete"
++msgstr "Регенерирањето на индексот заврши"
++
++msgid "Can't shutdown - option '-s' not given!"
++msgstr "Невозможно гаснење - недостасува опцијата '-s'!"
++
++msgid "Editing - shut down anyway?"
++msgstr "Уредување во тек - исклучи?"
++
++msgid "Recording - shut down anyway?"
++msgstr "Снимање во тек - исклучи?"
++
++#, c-format
++msgid "Recording in %ld minutes, shut down anyway?"
++msgstr "Снимање уште %ld минути - исклучи?"
++
++msgid "shut down anyway?"
++msgstr "сеедно исклучи?"
++
++#, c-format
++msgid "Plugin %s wakes up in %ld min, continue?"
++msgstr "Додатокот %s се подига за %ld мин, продолжи?"
++
++msgid "Editing - restart anyway?"
++msgstr "Уредување во тек - рестартирај?"
++
++msgid "Recording - restart anyway?"
++msgstr "Снимање во тек - рестартирај?"
++
++msgid "restart anyway?"
++msgstr "сеедно рестартирај?"
++
++#. TRANSLATORS: note the trailing blank!
++msgid "Volume "
++msgstr "Глас"
++
++msgid "Classic VDR"
++msgstr "Класичен VDR"
++
++msgid "ST:TNG Panels"
++msgstr "ST:TNG Панели"
++
++#. TRANSLATORS: the first character of each weekday, beginning with monday
++msgid "MTWTFSS"
++msgstr "ПВСЧПСН"
++
++#. TRANSLATORS: abbreviated weekdays, beginning with monday (must all be 3 letters!)
++msgid "MonTueWedThuFriSatSun"
++msgstr "ПонВтоСреЧетПетСабНед"
++
++msgid "Monday"
++msgstr "Понеделник"
++
++msgid "Tuesday"
++msgstr "Вторник"
++
++msgid "Wednesday"
++msgstr "Среда"
++
++msgid "Thursday"
++msgstr "Четврток"
++
++msgid "Friday"
++msgstr "Петок"
++
++msgid "Saturday"
++msgstr "Сабота"
++
++msgid "Sunday"
++msgstr "Недела"
++
++msgid "Upcoming recording!"
++msgstr "Претстои снимање!"
++
++msgid "Pause live video?"
++msgstr "Паузирај пренос во живо?"
++
++msgid "Recording started"
++msgstr "Снимањето почна"
++
++msgid "VDR will shut down later - press Power to force"
++msgstr "VDR ќе се исклучи подоцна - притиснете Исклучи за присилно исклучување"
++
++msgid "Press any key to cancel shutdown"
++msgstr "Притиснете копче за отказ на исклучување"
++
++msgid "Switching primary DVB..."
++msgstr "Промена на примарниот DVB уред..."
++
++msgid "Editing process failed!"
++msgstr "Сечењето е неуспешно!"
++
++msgid "Editing process finished"
++msgstr "Сечењето заврши"
++
++msgid "Press any key to cancel restart"
++msgstr "Притиснете копче за откажување на рестарт"
++
++#, c-format
++msgid "VDR will shut down in %s minutes"
++msgstr "VDR ќе се исклучи за %s минути"
+diff -ruN vdr-1.7.14/po/nl_NL.po vdr-1.7.15/po/nl_NL.po
+--- vdr-1.7.14/po/nl_NL.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/nl_NL.po	2010-06-06 14:03:58.000000000 +0200
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2008-02-26 17:20+0100\n"
+ "Last-Translator: Johan Schuring <johan.schuring@vetteblei.nl>\n"
+ "Language-Team: Dutch\n"
+@@ -479,6 +479,9 @@
+ msgid "Key$Commands"
+ msgstr "Commando's"
+ 
++msgid "Key$User0"
++msgstr "Gebruiker0"
++
+ msgid "Key$User1"
+ msgstr "Gebruiker1"
+ 
+@@ -840,6 +843,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.14/po/nn_NO.po vdr-1.7.15/po/nn_NO.po
+--- vdr-1.7.14/po/nn_NO.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/nn_NO.po	2010-06-06 14:03:58.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian\n"
+@@ -476,6 +476,9 @@
+ msgid "Key$Commands"
+ msgstr "Kommandoer"
+ 
++msgid "Key$User0"
++msgstr ""
++
+ msgid "Key$User1"
+ msgstr ""
+ 
+@@ -837,6 +840,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Programoversikt"
+ 
+diff -ruN vdr-1.7.14/po/pl_PL.po vdr-1.7.15/po/pl_PL.po
+--- vdr-1.7.14/po/pl_PL.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/pl_PL.po	2010-06-06 14:03:58.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2008-03-09 12:59+0100\n"
+ "Last-Translator: Michael Rakowski <mrak@gmx.de>\n"
+ "Language-Team:  Polish\n"
+@@ -476,6 +476,9 @@
+ msgid "Key$Commands"
+ msgstr "Polecenia"
+ 
++msgid "Key$User0"
++msgstr "U�ytkownik 0"
++
+ msgid "Key$User1"
+ msgstr "U�ytkownik 1"
+ 
+@@ -837,6 +840,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.14/po/pt_PT.po vdr-1.7.15/po/pt_PT.po
+--- vdr-1.7.14/po/pt_PT.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/pt_PT.po	2010-06-06 14:03:58.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2008-03-18 17:04+0100\n"
+ "Last-Translator: anonymous\n"
+ "Language-Team: Portuguese\n"
+@@ -475,6 +475,9 @@
+ msgid "Key$Commands"
+ msgstr "Comandos"
+ 
++msgid "Key$User0"
++msgstr "Definida0"
++
+ msgid "Key$User1"
+ msgstr "Definida1"
+ 
+@@ -836,6 +839,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Guia de programa��o"
+ 
+diff -ruN vdr-1.7.14/po/ro_RO.po vdr-1.7.15/po/ro_RO.po
+--- vdr-1.7.14/po/ro_RO.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/ro_RO.po	2010-06-06 14:03:58.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.12\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2010-02-11 13:38+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+ "Language-Team: Romanian\n"
+@@ -478,6 +478,9 @@
+ msgid "Key$Commands"
+ msgstr "Comenzi"
+ 
++msgid "Key$User0"
++msgstr "Utilizator0"
++
+ msgid "Key$User1"
+ msgstr "Utilizator1"
+ 
+@@ -839,6 +842,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.14/po/ru_RU.po vdr-1.7.15/po/ru_RU.po
+--- vdr-1.7.14/po/ru_RU.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/ru_RU.po	2010-06-06 14:03:58.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2008-12-15 14:37+0100\n"
+ "Last-Translator: Oleg Roitburd <oleg@roitburd.de>\n"
+ "Language-Team: Russian\n"
+@@ -476,6 +476,9 @@
+ msgid "Key$Commands"
+ msgstr "�������"
+ 
++msgid "Key$User0"
++msgstr "������������0"
++
+ msgid "Key$User1"
+ msgstr "������������1"
+ 
+@@ -837,6 +840,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "�������"
+ 
+diff -ruN vdr-1.7.14/po/sk_SK.po vdr-1.7.15/po/sk_SK.po
+--- vdr-1.7.14/po/sk_SK.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/sk_SK.po	2010-06-06 14:03:59.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2009-09-30 12:50+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak\n"
+@@ -476,6 +476,9 @@
+ msgid "Key$Commands"
+ msgstr "Pr�kazy"
+ 
++msgid "Key$User0"
++msgstr "U��vate�0"
++
+ msgid "Key$User1"
+ msgstr "U��vate�1"
+ 
+@@ -837,6 +840,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.14/po/sl_SI.po vdr-1.7.15/po/sl_SI.po
+--- vdr-1.7.14/po/sl_SI.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/sl_SI.po	2010-06-06 14:03:59.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2008-02-28 19:44+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian\n"
+@@ -476,6 +476,9 @@
+ msgid "Key$Commands"
+ msgstr "Ukazi"
+ 
++msgid "Key$User0"
++msgstr "Uporabnik0"
++
+ msgid "Key$User1"
+ msgstr "Uporabnik1"
+ 
+@@ -837,6 +840,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Programski vodnik"
+ 
+diff -ruN vdr-1.7.14/po/sv_SE.po vdr-1.7.15/po/sv_SE.po
+--- vdr-1.7.14/po/sv_SE.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/sv_SE.po	2010-06-06 14:03:59.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2008-03-12 18:25+0100\n"
+ "Last-Translator: Magnus Andersson <svankan@bahnhof.se>\n"
+ "Language-Team: Swedish\n"
+@@ -478,6 +478,9 @@
+ msgid "Key$Commands"
+ msgstr "Kommandon"
+ 
++msgid "Key$User0"
++msgstr "Anv�ndare0"
++
+ msgid "Key$User1"
+ msgstr "Anv�ndare1"
+ 
+@@ -839,6 +842,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.14/po/tr_TR.po vdr-1.7.15/po/tr_TR.po
+--- vdr-1.7.14/po/tr_TR.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/tr_TR.po	2010-06-06 14:03:59.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay Yolge�en <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish\n"
+@@ -475,6 +475,9 @@
+ msgid "Key$Commands"
+ msgstr "Komutlar"
+ 
++msgid "Key$User0"
++msgstr "Kullan�c�0"
++
+ msgid "Key$User1"
+ msgstr "Kullan�c�1"
+ 
+@@ -836,6 +839,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+diff -ruN vdr-1.7.14/po/uk_UA.po vdr-1.7.15/po/uk_UA.po
+--- vdr-1.7.14/po/uk_UA.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/uk_UA.po	2010-06-06 14:03:59.000000000 +0200
+@@ -1,14 +1,14 @@
+ # VDR language source file.
+ # Copyright (C) 2008 Klaus Schmidinger <kls@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Yarema Aka Knedlyk <yupadmin@gmail.com>, 2007, 2008
++# Yarema Aka Knedlyk <yupadmin@gmail.com>, 2007, 2008, 2010
+ #
+ msgid ""
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+-"PO-Revision-Date: 2009-05-31 13:17+0200\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
++"PO-Revision-Date: 2010-04-25 16:35+0200\n"
+ "Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian\n"
+ "MIME-Version: 1.0\n"
+@@ -34,7 +34,7 @@
+ msgstr "авто"
+ 
+ msgid "none"
+-msgstr "нічого"
++msgstr "нема"
+ 
+ msgid "Polarization"
+ msgstr "Поляризація"
+@@ -76,245 +76,245 @@
+ msgstr "Починаю EPG-сканування"
+ 
+ msgid "Content$Movie/Drama"
+-msgstr ""
++msgstr "Фільм/Драма"
+ 
+ msgid "Content$Detective/Thriller"
+-msgstr ""
++msgstr "Детектив/Тріллер"
+ 
+ msgid "Content$Adventure/Western/War"
+-msgstr ""
++msgstr "Пригоди/Вестерн/Війна"
+ 
+ msgid "Content$Science Fiction/Fantasy/Horror"
+-msgstr ""
++msgstr "Наукова фантастика/Фантастика/Жахи"
+ 
+ msgid "Content$Comedy"
+-msgstr ""
++msgstr "Комедія"
+ 
+ msgid "Content$Soap/Melodrama/Folkloric"
+-msgstr ""
++msgstr "Мильна опера/Мелодрама/Фольклор"
+ 
+ msgid "Content$Romance"
+-msgstr ""
++msgstr "Романс"
+ 
+ msgid "Content$Serious/Classical/Religious/Historical Movie/Drama"
+-msgstr ""
++msgstr "Серйозне/Класика/Релігія/Історія/Драма"
+ 
+ msgid "Content$Adult Movie/Drama"
+-msgstr ""
++msgstr "Кіно для дорослих/Драма"
+ 
+ msgid "Content$News/Current Affairs"
+-msgstr ""
++msgstr "Новини/Поточні події"
+ 
+ msgid "Content$News/Weather Report"
+-msgstr ""
++msgstr "Новини/Спорт"
+ 
+ msgid "Content$News Magazine"
+-msgstr ""
++msgstr "Журнал новин"
+ 
+ msgid "Content$Documentary"
+-msgstr ""
++msgstr "Документальне"
+ 
+ msgid "Content$Discussion/Inverview/Debate"
+-msgstr ""
++msgstr "Дискусія/Інтерв’ю/Дебати"
+ 
+ msgid "Content$Show/Game Show"
+-msgstr ""
++msgstr "Шоу//Ігри"
+ 
+ msgid "Content$Game Show/Quiz/Contest"
+-msgstr ""
++msgstr "Ігрове шоу/Тести"
+ 
+ msgid "Content$Variety Show"
+-msgstr ""
++msgstr "Вар’єте"
+ 
+ msgid "Content$Talk Show"
+-msgstr ""
++msgstr "Ток шоу"
+ 
+ msgid "Content$Sports"
+-msgstr ""
++msgstr "Спорт"
+ 
+ msgid "Content$Special Event"
+-msgstr ""
++msgstr "Спеціальні події"
+ 
+ msgid "Content$Sport Magazine"
+-msgstr ""
++msgstr "Спортивний журнал"
+ 
+ msgid "Content$Football/Soccer"
+-msgstr ""
++msgstr "Футбол"
+ 
+ msgid "Content$Tennis/Squash"
+-msgstr ""
++msgstr "Теніс/Сквош"
+ 
+ msgid "Content$Team Sports"
+-msgstr ""
++msgstr "Спортивні команди"
+ 
+ msgid "Content$Athletics"
+-msgstr ""
++msgstr "Атлетика"
+ 
+ msgid "Content$Motor Sport"
+-msgstr ""
++msgstr "Моторний спорт"
+ 
+ msgid "Content$Water Sport"
+-msgstr ""
++msgstr "Водний спорт"
+ 
+ msgid "Content$Winter Sports"
+-msgstr ""
++msgstr "Зимовий спорт"
+ 
+ msgid "Content$Equestrian"
+-msgstr ""
++msgstr "Кінний спорт"
+ 
+ msgid "Content$Martial Sports"
+-msgstr ""
++msgstr "Військовий спорт"
+ 
+ msgid "Content$Children's/Youth Programme"
+-msgstr ""
++msgstr "Дитяче/Молодіжні програми"
+ 
+ msgid "Content$Pre-school Children's Programme"
+-msgstr ""
++msgstr "Дошкільні дитячі програми"
+ 
+ msgid "Content$Entertainment Programme for 6 to 14"
+-msgstr ""
++msgstr "Програми для дітей від 6 до 14 років"
+ 
+ msgid "Content$Entertainment Programme for 10 to 16"
+-msgstr ""
++msgstr "Програми для дітей від 10 до 16 років"
+ 
+ msgid "Content$Informational/Educational/School Programme"
+-msgstr ""
++msgstr "Інформаційні/Навчальні/Шкільна програма"
+ 
+ msgid "Content$Cartoons/Puppets"
+-msgstr ""
++msgstr "Мультфільми"
+ 
+ msgid "Content$Music/Ballet/Dance"
+-msgstr ""
++msgstr "Музика/Балет/Танці"
+ 
+ msgid "Content$Rock/Pop"
+-msgstr ""
++msgstr "Рок/Поп"
+ 
+ msgid "Content$Serious/Classical Music"
+-msgstr ""
++msgstr "Серйозна/Класична музика"
+ 
+ msgid "Content$Folk/Tradional Music"
+-msgstr ""
++msgstr "Фльк/Традиційна музика"
+ 
+ msgid "Content$Jazz"
+-msgstr ""
++msgstr "Джаз"
+ 
+ msgid "Content$Musical/Opera"
+-msgstr ""
++msgstr "Мюзикл/Опера"
+ 
+ msgid "Content$Ballet"
+-msgstr ""
++msgstr "Балет"
+ 
+ msgid "Content$Arts/Culture"
+-msgstr ""
++msgstr "Мистецтво/Культура"
+ 
+ msgid "Content$Performing Arts"
+-msgstr ""
++msgstr "Дресирування"
+ 
+ msgid "Content$Fine Arts"
+-msgstr ""
++msgstr "Образотворче мистецтво"
+ 
+ msgid "Content$Religion"
+-msgstr ""
++msgstr "Релігія"
+ 
+ msgid "Content$Popular Culture/Traditional Arts"
+-msgstr ""
++msgstr "Популярна культура/Традиційне мистецтво"
+ 
+ msgid "Content$Literature"
+-msgstr ""
++msgstr "Література"
+ 
+ msgid "Content$Film/Cinema"
+-msgstr ""
++msgstr "Кінофільм"
+ 
+ msgid "Content$Experimental Film/Video"
+-msgstr ""
++msgstr "Експериментальний фільм/Відео"
+ 
+ msgid "Content$Broadcasting/Press"
+-msgstr ""
++msgstr "Трансляція/Преса"
+ 
+ msgid "Content$New Media"
+-msgstr ""
++msgstr "Нові медія"
+ 
+ msgid "Content$Arts/Culture Magazine"
+-msgstr ""
++msgstr "Мистецтво/Культурний журнал"
+ 
+ msgid "Content$Fashion"
+-msgstr ""
++msgstr "Мода"
+ 
+ msgid "Content$Social/Political/Economics"
+-msgstr ""
++msgstr "Соцільне/Політичне/Економічне"
+ 
+ msgid "Content$Magazine/Report/Documentary"
+-msgstr ""
++msgstr "Журнал/Рапорт/Документальне"
+ 
+ msgid "Content$Economics/Social Advisory"
+-msgstr ""
++msgstr "Економіка/Соціальний порадник"
+ 
+ msgid "Content$Remarkable People"
+-msgstr ""
++msgstr "Незвичайні люди"
+ 
+ msgid "Content$Education/Science/Factual"
+-msgstr ""
++msgstr "Навчання/Наука/Факти"
+ 
+ msgid "Content$Nature/Animals/Environment"
+-msgstr ""
++msgstr "Природа/Тварини/Навколишнє оточення"
+ 
+ msgid "Content$Technology/Natural Sciences"
+-msgstr ""
++msgstr "Технологія/Природничі науки"
+ 
+ msgid "Content$Medicine/Physiology/Psychology"
+-msgstr ""
++msgstr "Медицина/Фізіологія/Психологія"
+ 
+ msgid "Content$Foreign Countries/Expeditions"
+-msgstr ""
++msgstr "Зарубіжні країни/Експедиції"
+ 
+ msgid "Content$Social/Spiritual Sciences"
+-msgstr ""
++msgstr "Соціальна/Духовна наука"
+ 
+ msgid "Content$Further Education"
+-msgstr ""
++msgstr "Дальше навчання"
+ 
+ msgid "Content$Languages"
+-msgstr ""
++msgstr "Мови"
+ 
+ msgid "Content$Leisure/Hobbies"
+-msgstr ""
++msgstr "Відпочинок/Хоббі"
+ 
+ msgid "Content$Tourism/Travel"
+-msgstr ""
++msgstr "Туризм/Подорожі"
+ 
+ msgid "Content$Handicraft"
+-msgstr ""
++msgstr "Ремісниче"
+ 
+ msgid "Content$Motoring"
+-msgstr ""
++msgstr "Автомобільна справа"
+ 
+ msgid "Content$Fitness & Health"
+-msgstr ""
++msgstr "Фітнес і здоров’я"
+ 
+ msgid "Content$Cooking"
+-msgstr ""
++msgstr "Готування їжі"
+ 
+ msgid "Content$Advertisement/Shopping"
+-msgstr ""
++msgstr "Реклама/Закупи"
+ 
+ msgid "Content$Gardening"
+-msgstr ""
++msgstr "Сад/Город"
+ 
+ msgid "Content$Original Language"
+-msgstr ""
++msgstr "Оригінальна мова"
+ 
+ msgid "Content$Black & White"
+-msgstr ""
++msgstr "Чорне і біле"
+ 
+ msgid "Content$Unpublished"
+-msgstr ""
++msgstr "Неопубліковане"
+ 
+ msgid "Content$Live Broadcast"
+-msgstr ""
++msgstr "Трансляція"
+ 
+ #, c-format
+ msgid "ParentalRating$from %d"
+-msgstr ""
++msgstr "з %d"
+ 
+ msgid "No title"
+ msgstr "Без назви"
+@@ -337,7 +337,7 @@
+ msgstr "Визначено код пульта!"
+ 
+ msgid "Do not press any key..."
+-msgstr "Не натискайте кнопки..."
++msgstr "Не натискайте жодної кнопки..."
+ 
+ msgid "Phase 2: Learning specific key codes"
+ msgstr "Крок 2: Приписування кодів для відповідних кнопок"
+@@ -458,7 +458,7 @@
+ msgstr "Субтитри"
+ 
+ msgid "Key$Schedule"
+-msgstr "Телегід"
++msgstr "Програма"
+ 
+ msgid "Key$Channels"
+ msgstr "Канали"
+@@ -475,6 +475,9 @@
+ msgid "Key$Commands"
+ msgstr "Команди"
+ 
++msgid "Key$User0"
++msgstr "Користувач0"
++
+ msgid "Key$User1"
+ msgstr "Користувач1"
+ 
+@@ -575,7 +578,7 @@
+ msgstr "Видалити"
+ 
+ msgid "Button$Mark"
+-msgstr "Перемістити"
++msgstr "Помітити"
+ 
+ msgid "Channel is being used by a timer!"
+ msgstr "Канал зайнятий таймером!"
+@@ -584,29 +587,29 @@
+ msgstr "Видалити канал?"
+ 
+ msgid "Edit folder"
+-msgstr ""
++msgstr "Редагувати каталог"
+ 
+ msgid "New folder"
+-msgstr ""
++msgstr "Новий каталог"
+ 
+ msgid "Sub folder"
+-msgstr ""
++msgstr "Підкаталог"
+ 
+ msgid "Folder name already exists!"
+-msgstr ""
++msgstr "Назва каталогу вже існує!"
+ 
+ #, c-format
+ msgid "Folder name must not contain '%c'!"
+-msgstr ""
++msgstr "Назва каталогу не повинна містити '%c'!"
+ 
+ msgid "Button$Select"
+-msgstr ""
++msgstr "Вибрати"
+ 
+ msgid "Delete folder and all sub folders?"
+-msgstr ""
++msgstr "Видалити каталог і всі підкаталоги?"
+ 
+ msgid "Delete folder?"
+-msgstr ""
++msgstr "Видалити каталог?"
+ 
+ msgid "Edit timer"
+ msgstr "Налаштування таймера"
+@@ -639,13 +642,13 @@
+ msgstr "Файл"
+ 
+ msgid "Button$Folder"
+-msgstr ""
++msgstr "Каталог"
+ 
+ msgid "First day"
+ msgstr "Перший день"
+ 
+ msgid "Select folder"
+-msgstr ""
++msgstr "Вибрати каталог"
+ 
+ msgid "Timers"
+ msgstr "Таймери"
+@@ -708,7 +711,7 @@
+ 
+ #, c-format
+ msgid "Please enter %d digits!"
+-msgstr "Натисніть %d цифри!"
++msgstr "Введіть %d цифри!"
+ 
+ msgid "CAM not responding!"
+ msgstr "CAM не відповідає!"
+@@ -753,7 +756,7 @@
+ msgstr "завжди"
+ 
+ msgid "OSD"
+-msgstr "OSD меню"
++msgstr "Меню"
+ 
+ msgid "Setup.OSD$Language"
+ msgstr "Мова"
+@@ -777,10 +780,10 @@
+ msgstr "Висота (%)"
+ 
+ msgid "Setup.OSD$Message time (s)"
+-msgstr "Тривалість показу повідомлень (сек)"
++msgstr "Час показу повідомлень (сек)"
+ 
+ msgid "Setup.OSD$Use small font"
+-msgstr "Використовувати малий фонт"
++msgstr "Викор. малий фонт"
+ 
+ msgid "Setup.OSD$Anti-alias"
+ msgstr "Згладжування фонтів"
+@@ -795,7 +798,7 @@
+ msgstr "Фіксований фонт"
+ 
+ msgid "Setup.OSD$Default font size (%)"
+-msgstr "Размір фонта для меню (%)"
++msgstr "Розмір типового фонта (%)"
+ 
+ msgid "Setup.OSD$Small font size (%)"
+ msgstr "Размір малого фонта (%)"
+@@ -804,7 +807,7 @@
+ msgstr "Размір фіксованого фонта (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+-msgstr "Положення вікна інформації про канал"
++msgstr "Положення інформації про канал"
+ 
+ msgid "bottom"
+ msgstr "внизу"
+@@ -816,10 +819,10 @@
+ msgstr "Показ інформації про канал (сек)"
+ 
+ msgid "Setup.OSD$Info on channel switch"
+-msgstr "Показ канал-інфо при переключанні "
++msgstr "Інфо при переключанні каналу"
+ 
+ msgid "Setup.OSD$Timeout requested channel info"
+-msgstr "Інформацію про канал закрити"
++msgstr "Час очікування інфо про канал"
+ 
+ msgid "Setup.OSD$Scroll pages"
+ msgstr "Прокрутка сторінок меню"
+@@ -834,19 +837,22 @@
+ msgstr "Каталоги зберігання записів"
+ 
+ msgid "Setup.OSD$Folders in timer menu"
++msgstr "Каталоги в меню таймера"
++
++msgid "Setup.OSD$Number keys for characters"
+ msgstr ""
+ 
+ msgid "EPG"
+-msgstr "Телегід"
++msgstr "Телегід (EPG)"
+ 
+ msgid "Button$Scan"
+ msgstr "Сканувати"
+ 
+ msgid "Setup.EPG$EPG scan timeout (h)"
+-msgstr "Затримка сканування телегіда (ч)"
++msgstr "Затримка сканування телегіда (г)"
+ 
+ msgid "Setup.EPG$EPG bugfix level"
+-msgstr "Рівень корекції помилок"
++msgstr "Рівень корекції помилок EPG"
+ 
+ msgid "Setup.EPG$EPG linger time (min)"
+ msgstr "Зберігання застарілих даних (хв)"
+@@ -855,7 +861,7 @@
+ msgstr "Встановити системий час"
+ 
+ msgid "Setup.EPG$Use time from transponder"
+-msgstr "Використати час транспондера"
++msgstr "Викор. час з транспондера"
+ 
+ #. TRANSLATORS: note the plural!
+ msgid "Setup.EPG$Preferred languages"
+@@ -905,10 +911,10 @@
+ msgstr "Формат зображення відео"
+ 
+ msgid "Setup.DVB$Use Dolby Digital"
+-msgstr "Використовувати Dolby Digital"
++msgstr "Викор. Dolby Digital"
+ 
+ msgid "Setup.DVB$Update channels"
+-msgstr "Оновлювати настройки каналів"
++msgstr "Оновлювати канали"
+ 
+ msgid "Setup.DVB$Audio languages"
+ msgstr "Бажані мови (звук)"
+@@ -974,7 +980,7 @@
+ msgstr "Меню CAM-модуля недоступне!"
+ 
+ msgid "CAM is in use - really reset?"
+-msgstr "CAM використовується - дійсно перезавантажити?"
++msgstr "CAM використовується - дійсно перезапустити?"
+ 
+ msgid "Can't reset CAM!"
+ msgstr "Помилка перезапуску CAM-модуля!"
+@@ -989,7 +995,7 @@
+ msgstr "призупинити перегляд"
+ 
+ msgid "confirm"
+-msgstr ""
++msgstr "підтвердити"
+ 
+ msgid "yes"
+ msgstr "так"
+@@ -1022,10 +1028,10 @@
+ msgstr "Зберігання відкладеного перегляду (дні)"
+ 
+ msgid "Setup.Recording$Use episode name"
+-msgstr "Використовувати назву епізоду"
++msgstr "Викор. назву епізоду"
+ 
+ msgid "Setup.Recording$Use VPS"
+-msgstr "Використовувати сигнали VPS"
++msgstr "Викор. VPS"
+ 
+ msgid "Setup.Recording$VPS margin (s)"
+ msgstr "Буферний час VPS (сек)"
+@@ -1043,10 +1049,10 @@
+ msgstr "Макс. размір відеофайлу (Мб)"
+ 
+ msgid "Setup.Recording$Split edited files"
+-msgstr "Ділити відредаговані файли"
++msgstr "Поділити відредаговані файли"
+ 
+ msgid "Setup.Recording$Delete timeshift recording"
+-msgstr ""
++msgstr "Видалити записи з зсувом по часу"
+ 
+ msgid "Replay"
+ msgstr "Перегляд"
+@@ -1058,7 +1064,7 @@
+ msgstr "Віображати режим перегляду"
+ 
+ msgid "Setup.Replay$Resume ID"
+-msgstr "ID перегляду"
++msgstr "ID продовження"
+ 
+ msgid "Miscellaneous"
+ msgstr "Різне"
+@@ -1088,7 +1094,7 @@
+ msgstr "Гучність при включенні"
+ 
+ msgid "Setup.Miscellaneous$Channels wrap"
+-msgstr ""
++msgstr "Кінець каналів"
+ 
+ msgid "Setup.Miscellaneous$Emergency exit"
+ msgstr "Аварійний вихід"
+@@ -1136,13 +1142,13 @@
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " Cancel editing"
+-msgstr " Перервати монтаж запису"
++msgstr " Перервати монтаж"
+ 
+ msgid "Stop recording?"
+ msgstr "Припинити запис?"
+ 
+ msgid "Cancel editing?"
+-msgstr "Перервати редактування?"
++msgstr "Перервати монтаж?"
+ 
+ msgid "No audio available!"
+ msgstr "Відсутній звук!"
+@@ -1166,7 +1172,7 @@
+ msgstr "Режим відкладеного перегляду..."
+ 
+ msgid "Delete timeshift recording?"
+-msgstr ""
++msgstr "Видалити запис з часовим зсувом?"
+ 
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+@@ -1212,10 +1218,10 @@
+ msgstr "Недостатньо місця на диску!"
+ 
+ msgid "Regenerating index file"
+-msgstr ""
++msgstr "Регенерація файлу індексів"
+ 
+ msgid "Index file regeneration complete"
+-msgstr ""
++msgstr "Регенерацію файлу індексу завершено"
+ 
+ msgid "Can't shutdown - option '-s' not given!"
+ msgstr "Виключенння неможливе - не задано параметр '-s'!"
+@@ -1286,10 +1292,10 @@
+ msgstr "Неділя"
+ 
+ msgid "Upcoming recording!"
+-msgstr "Запис скоро почнеться"
++msgstr "Запис скоро почнеться!"
+ 
+ msgid "Pause live video?"
+-msgstr "Режим відкладеного перегляду..."
++msgstr "Призупинити перегляд?"
+ 
+ msgid "Recording started"
+ msgstr "Запис почався"
+diff -ruN vdr-1.7.14/po/zh_CN.po vdr-1.7.15/po/zh_CN.po
+--- vdr-1.7.14/po/zh_CN.po	2010-03-12 17:41:04.000000000 +0100
++++ vdr-1.7.15/po/zh_CN.po	2010-06-06 14:03:59.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-03-12 16:49+0100\n"
++"POT-Creation-Date: 2010-06-06 12:52+0200\n"
+ "PO-Revision-Date: 2009-09-23 23:50+0800\n"
+ "Last-Translator: Nan Feng <nfgx@21cn.com>\n"
+ "Language-Team: Chinese\n"
+@@ -478,6 +478,9 @@
+ msgid "Key$Commands"
+ msgstr "命令"
+ 
++msgid "Key$User0"
++msgstr "用户0"
++
+ msgid "Key$User1"
+ msgstr "用户1"
+ 
+@@ -839,6 +842,9 @@
+ msgid "Setup.OSD$Folders in timer menu"
+ msgstr ""
+ 
++msgid "Setup.OSD$Number keys for characters"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "电子节目单设置"
+ 
+diff -ruN vdr-1.7.14/remux.c vdr-1.7.15/remux.c
+--- vdr-1.7.14/remux.c	2010-02-28 15:42:07.000000000 +0100
++++ vdr-1.7.15/remux.c	2010-06-05 15:32:15.000000000 +0200
+@@ -1,10 +1,10 @@
+ /*
+- * remux.h: Tools for detecting frames and handling PAT/PMT
++ * remux.c: Tools for detecting frames and handling PAT/PMT
+  *
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 2.42 2010/02/28 14:42:07 kls Exp $
++ * $Id: remux.c 2.47 2010/06/05 13:32:15 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -188,10 +188,10 @@
+   return i;
+ }
+ 
+-int cPatPmtGenerator::MakeAC3Descriptor(uchar *Target)
++int cPatPmtGenerator::MakeAC3Descriptor(uchar *Target, uchar Type)
+ {
+   int i = 0;
+-  Target[i++] = SI::AC3DescriptorTag;
++  Target[i++] = Type;
+   Target[i++] = 0x01; // length
+   Target[i++] = 0x00;
+   IncEsInfoLength(i);
+@@ -219,11 +219,17 @@
+ {
+   int i = 0;
+   Target[i++] = SI::ISO639LanguageDescriptorTag;
+-  Target[i++] = 0x04; // length
+-  Target[i++] = *Language++;
+-  Target[i++] = *Language++;
+-  Target[i++] = *Language++;
+-  Target[i++] = 0x01; // audio type
++  int Length = i++;
++  Target[Length] = 0x00; // length
++  for (const char *End = Language + strlen(Language); Language < End; ) {
++      Target[i++] = *Language++;
++      Target[i++] = *Language++;
++      Target[i++] = *Language++;
++      Target[i++] = 0x01;     // audio type
++      Target[Length] += 0x04; // length
++      if (*Language == '+')
++         Language++;
++      }
+   IncEsInfoLength(i);
+   return i;
+ }
+@@ -315,15 +321,13 @@
+      if (Vpid)
+         i += MakeStream(buf + i, Channel->Vtype(), Vpid);
+      for (int n = 0; Channel->Apid(n); n++) {
+-         i += MakeStream(buf + i, 0x04, Channel->Apid(n));
++         i += MakeStream(buf + i, Channel->Atype(n), Channel->Apid(n));
+          const char *Alang = Channel->Alang(n);
+          i += MakeLanguageDescriptor(buf + i, Alang);
+-         if (Alang[3] == '+')
+-            i += MakeLanguageDescriptor(buf + i, Alang + 3);
+          }
+      for (int n = 0; Channel->Dpid(n); n++) {
+          i += MakeStream(buf + i, 0x06, Channel->Dpid(n));
+-         i += MakeAC3Descriptor(buf + i);
++         i += MakeAC3Descriptor(buf + i, Channel->Dtype(n));
+          i += MakeLanguageDescriptor(buf + i, Channel->Dlang(n));
+          }
+      for (int n = 0; Channel->Spid(n); n++) {
+@@ -506,6 +510,8 @@
+                       break;
+            case 0x03: // STREAMTYPE_11172_AUDIO
+            case 0x04: // STREAMTYPE_13818_AUDIO
++           case 0x0F: // ISO/IEC 13818-7 Audio with ADTS transport sytax
++           case 0x11: // ISO/IEC 14496-3 Audio with LATM transport syntax
+                       {
+                       if (NumApids < MAXAPIDS) {
+                          apids[NumApids] = stream.getPid();
+@@ -546,13 +552,16 @@
+            case 0x06: // STREAMTYPE_13818_PES_PRIVATE
+                       {
+                       int dpid = 0;
++                      int dtype = 0;
+                       char lang[MAXLANGCODE1] = "";
+                       SI::Descriptor *d;
+                       for (SI::Loop::Iterator it; (d = stream.streamDescriptors.getNext(it)); ) {
+                           switch (d->getDescriptorTag()) {
+                             case SI::AC3DescriptorTag:
++                            case SI::EnhancedAC3DescriptorTag:
+                                  dbgpatpmt(" AC3");
+                                  dpid = stream.getPid();
++                                 dtype = d->getDescriptorTag();
+                                  break;
+                             case SI::SubtitlingDescriptorTag:
+                                  dbgpatpmt(" subtitling");
+@@ -599,7 +608,7 @@
+                       if (dpid) {
+                          if (NumDpids < MAXDPIDS) {
+                             dpids[NumDpids] = dpid;
+-                            dtypes[NumDpids] = stream.getStreamType();
++                            dtypes[NumDpids] = dtype;
+                             strn0cpy(dlangs[NumDpids], lang, sizeof(dlangs[NumDpids]));
+                             if (updatePrimaryDevice && Setup.UseDolbyDigital)
+                                cDevice::PrimaryDevice()->SetAvailableTrack(ttDolby, NumDpids, dpid, lang);
+@@ -659,6 +668,10 @@
+   if (length + Length > size) {
+      size = max(KILOBYTE(2), length + Length);
+      data = (uchar *)realloc(data, size);
++     if (!data) {
++        Reset();
++        return;
++        }
+      }
+   memcpy(data + length, Data, Length);
+   length += Length;
+@@ -817,7 +830,7 @@
+                  if (synced && Processed)
+                     return Processed;
+                  if (Length < MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE)
+-                    return 0; // need more data, in case the frame type is not stored in the first TS packet
++                    return Processed; // need more data, in case the frame type is not stored in the first TS packet
+                  if (!frameDuration) {
+                     // frame duration unknown, so collect a sequence of PTS values:
+                     if (numPtsValues < MaxPtsValues && numIFrames < 2) { // collect a sequence containing at least two I-frames
+diff -ruN vdr-1.7.14/remux.h vdr-1.7.15/remux.h
+--- vdr-1.7.14/remux.h	2010-01-29 17:51:26.000000000 +0100
++++ vdr-1.7.15/remux.h	2010-06-05 15:27:55.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 2.24 2010/01/29 16:51:26 kls Exp $
++ * $Id: remux.h 2.26 2010/06/05 13:27:55 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+@@ -84,7 +84,8 @@
+ 
+ inline int TsPayloadOffset(const uchar *p)
+ {
+-  return (p[3] & TS_ADAPT_FIELD_EXISTS) ? p[4] + 5 : 4;
++  int o = (p[3] & TS_ADAPT_FIELD_EXISTS) ? p[4] + 5 : 4;
++  return o <= TS_SIZE ? o : TS_SIZE;
+ }
+ 
+ inline int TsGetPayload(const uchar **p)
+@@ -168,7 +169,7 @@
+   void IncEsInfoLength(int Length);
+ protected:
+   int MakeStream(uchar *Target, uchar Type, int Pid);
+-  int MakeAC3Descriptor(uchar *Target);
++  int MakeAC3Descriptor(uchar *Target, uchar Type);
+   int MakeSubtitlingDescriptor(uchar *Target, const char *Language, uchar SubtitlingType, uint16_t CompositionPageId, uint16_t AncillaryPageId);
+   int MakeLanguageDescriptor(uchar *Target, const char *Language);
+   int MakeCRC(uchar *Target, const uchar *Data, int Length);
+diff -ruN vdr-1.7.14/sdt.c vdr-1.7.15/sdt.c
+--- vdr-1.7.14/sdt.c	2009-12-23 17:02:47.000000000 +0100
++++ vdr-1.7.15/sdt.c	2010-05-16 16:23:21.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sdt.c 2.4 2009/12/23 16:02:47 kls Exp $
++ * $Id: sdt.c 2.5 2010/05/16 14:23:21 kls Exp $
+  */
+ 
+ #include "sdt.h"
+@@ -55,6 +55,7 @@
+                    case 0x02: // digital radio sound service
+                    case 0x04: // NVOD reference service
+                    case 0x05: // NVOD time-shifted service
++                   case 0x16: // digital SD television service
+                    case 0x19: // digital HD television service
+                         {
+                         char NameBuf[Utf8BufSize(1024)];
+diff -ruN vdr-1.7.14/svdrpsend.pl vdr-1.7.15/svdrpsend.pl
+--- vdr-1.7.14/svdrpsend.pl	2001-02-18 14:51:12.000000000 +0100
++++ vdr-1.7.15/svdrpsend.pl	2010-04-02 14:22:01.000000000 +0200
+@@ -7,13 +7,13 @@
+ Usage: $0 options command...
+ 
+ Options: -d hostname        destination hostname (default: localhost)
+-         -p port            SVDRP port number (default: 2001)
++         -p port            SVDRP port number (default: 6419)
+ };
+ 
+ die $Usage if (!$ARGV[0] || !getopts("d:p:"));
+ 
+ $Dest = $opt_d  || "localhost";
+-$Port = $opt_p  || 2001;
++$Port = $opt_p  || 6419;
+ $Cmd  = "@ARGV" || Error("missing command");
+ 
+ $Timeout = 10; # max. seconds to wait for response
+diff -ruN vdr-1.7.14/vdr.1 vdr-1.7.15/vdr.1
+--- vdr-1.7.14/vdr.1	2010-01-02 13:08:40.000000000 +0100
++++ vdr-1.7.15/vdr.1	2010-04-02 14:22:08.000000000 +0200
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.1 2.4 2010/01/02 12:08:40 kls Exp $
++.\" $Id: vdr.1 2.5 2010/04/02 12:22:08 kls Exp $
+ .\"
+ .TH vdr 1 "10 Feb 2008" "1.6" "Video Disk Recorder"
+ .SH NAME
+@@ -37,7 +37,7 @@
+ (RCU) or the "Linux Infrared Remote Control" (LIRC).
+ 
+ Remote access is possible via the "Simple Video Disk Recorder Protocol" (SVDRP),
+-which can be accessed on port 2001, for instance by \fBtelnet\fR.
++which can be accessed on port 6419, for instance by \fBtelnet\fR.
+ .SH OPTIONS
+ .TP
+ .BI \-a\  cmd ,\ \-\-audio= cmd
+@@ -124,7 +124,7 @@
+ .TP
+ .BI \-p\  port ,\ \-\-port= port
+ Use \fIport\fR for SVDRP. A value of \fB0\fR turns off SVDRP.
+-The default SVDRP port is \fB2001\fR.
++The default SVDRP port is \fB6419\fR.
+ You need to edit the file \fIsvdrphosts.conf\fR in order to enable
+ access to the SVDRP port.
+ .TP
+diff -ruN vdr-1.7.14/vdr.5 vdr-1.7.15/vdr.5
+--- vdr-1.7.14/vdr.5	2010-03-06 15:04:54.000000000 +0100
++++ vdr-1.7.15/vdr.5	2010-05-16 14:15:48.000000000 +0200
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 2.17 2010/03/06 14:04:54 kls Exp $
++.\" $Id: vdr.5 2.19 2010/05/16 12:15:48 kls Exp $
+ .\"
+ .TH vdr 5 "10 Feb 2008" "1.6" "Video Disk Recorder Files"
+ .SH NAME
+@@ -204,6 +204,13 @@
+ 
+ .B ...:101=deu,102=eng+spa;103=deu,104=eng:...
+ 
++The audio type is appended with a separating '@' character, as in
++
++.B ...:101=deu@4,102=eng+spa@4,105=@4:...
++
++Note that if there is no language code, there still is the separating '='
++if there is an audio type.
++
+ .TP
+ .B TPID
+ The teletext PID.
+@@ -463,7 +470,9 @@
+ 
+ may be inserted in the \fIdiseqc.conf\fR file, defining the devices that are able
+ to receive the satellites following thereafter. In this case, only the devices
+-1, 2 and 4 would be able to receive any satellites following this line.
++1, 2 and 4 would be able to receive any satellites following this line and up
++to the next such line, or the end of the file. Devices may be listed more than
++once.
+ .SS REMOTE CONTROL KEYS
+ The file \fIremote.conf\fR contains the key assignments for all remote control
+ units. Each line consists of one key assignment in the following format:
+diff -ruN vdr-1.7.14/vdr.c vdr-1.7.15/vdr.c
+--- vdr-1.7.14/vdr.c	2010-02-21 15:08:09.000000000 +0100
++++ vdr-1.7.15/vdr.c	2010-04-05 12:06:16.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 2.17 2010/02/21 14:08:09 kls Exp $
++ * $Id: vdr.c 2.19 2010/04/05 10:06:16 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -177,7 +177,7 @@
+ 
+   // Command line options:
+ 
+-#define DEFAULTSVDRPPORT 2001
++#define DEFAULTSVDRPPORT 6419
+ #define DEFAULTWATCHDOG     0 // seconds
+ #define DEFAULTCONFDIR CONFDIR
+ #define DEFAULTPLUGINDIR PLUGINDIR
+@@ -992,7 +992,7 @@
+           case kRecordings: DirectMainFunction(osRecordings); break;
+           case kSetup:      DirectMainFunction(osSetup); break;
+           case kCommands:   DirectMainFunction(osCommands); break;
+-          case kUser1 ... kUser9: cRemote::PutMacro(key); key = kNone; break;
++          case kUser0 ... kUser9: cRemote::PutMacro(key); key = kNone; break;
+           case k_Plugin: {
+                const char *PluginName = cRemote::GetPlugin();
+                if (PluginName) {

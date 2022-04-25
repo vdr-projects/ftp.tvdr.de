@@ -1,0 +1,342 @@
+diff -ruN VDR-1.6.0-2/CONTRIBUTORS VDR-1.6.0-3/CONTRIBUTORS
+--- VDR-1.6.0-2/CONTRIBUTORS	2008-09-06 16:46:56.000000000 +0200
++++ VDR-1.6.0-3/CONTRIBUTORS	2012-02-14 14:57:04.000000000 +0100
+@@ -2363,3 +2363,13 @@
+ 
+ Winfried Köhler <w_koehl@gmx.de>
+  for fixing wrong value for TableIdBAT in libsi/si.h
++
++Ralf Schueler <dl4mw@schueler.ws>
++ for backporting "Changed cDvbDevice::GrabImage() to use V4L" from version 1.7.3
++ to 1.6.0-3
++ for backporting "Added some missing 'const' keywords to avoid compilation errors
++ with gcc 4.4" from version 1.7.8 to 1.6.0-3
++ for backporting "Modified cSVDRP::CmdGRAB() to avoid writing into const data"
++ from version 1.7.8 to 1.6.0-3
++ for backporting "Fixed cRecordings::DelByName() to avoid compilation errors with
++ gcc 4.4" from version 1.7.9 to 1.6.0-3
+diff -ruN VDR-1.6.0-2/HISTORY VDR-1.6.0-3/HISTORY
+--- VDR-1.6.0-2/HISTORY	2008-09-06 16:36:51.000000000 +0200
++++ VDR-1.6.0-3/HISTORY	2012-02-14 14:57:00.000000000 +0100
+@@ -5758,3 +5758,14 @@
+ - Fixed wrong value for TableIdBAT in libsi/si.h (thanks to Winfried Köhler).
+ - Removed unneeded include files <linux/dvb/dmx.h> und <time.h> from remux.h
+   (reported by Tobias Grimm).
++
++2012-02-14: Version 1.6.0-3
++
++- Changed cDvbDevice::GrabImage() to use V4L2
++  (backport from version 1.7.3, thanks to Ralf Schueler).
++- Added some missing 'const' keywords to avoid compilation errors with gcc 4.4
++  (backport from version 1.7.8, thanks to Ralf Schueler).
++- Modified cSVDRP::CmdGRAB() to avoid writing into const data
++  (backport from version 1.7.8, thanks to Ralf Schueler).
++- Fixed cRecordings::DelByName() to avoid compilation errors with gcc 4.4
++  (backport from version 1.7.9, thanks to Ralf Schueler).
+diff -ruN VDR-1.6.0-2/config.h VDR-1.6.0-3/config.h
+--- VDR-1.6.0-2/config.h	2008-09-07 11:33:03.000000000 +0200
++++ VDR-1.6.0-3/config.h	2012-02-14 13:16:31.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.310.1.2 2008/09/07 09:33:03 kls Exp $
++ * $Id: config.h 1.310.1.3 2012/02/14 12:16:31 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,7 +22,7 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.6.0-2"
++#define VDRVERSION  "1.6.0-3"
+ #define VDRVERSNUM   10600  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+diff -ruN VDR-1.6.0-2/dvbdevice.c VDR-1.6.0-3/dvbdevice.c
+--- VDR-1.6.0-2/dvbdevice.c	2008-02-09 17:11:44.000000000 +0100
++++ VDR-1.6.0-3/dvbdevice.c	2012-02-14 13:36:30.000000000 +0100
+@@ -4,13 +4,13 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.170 2008/02/09 16:11:44 kls Exp $
++ * $Id: dvbdevice.c 1.170.1.1 2012/02/14 12:36:30 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+ #include <errno.h>
+ #include <limits.h>
+-#include <linux/videodev.h>
++#include <linux/videodev2.h>
+ #include <linux/dvb/audio.h>
+ #include <linux/dvb/dmx.h>
+ #include <linux/dvb/frontend.h>
+@@ -521,69 +521,103 @@
+   int videoDev = open(buffer, O_RDWR);
+   if (videoDev >= 0) {
+      uchar *result = NULL;
+-     struct video_mbuf mbuf;
+-     if (ioctl(videoDev, VIDIOCGMBUF, &mbuf) == 0) {
+-        int msize = mbuf.size;
+-        unsigned char *mem = (unsigned char *)mmap(0, msize, PROT_READ | PROT_WRITE, MAP_SHARED, videoDev, 0);
+-        if (mem && mem != (unsigned char *)-1) {
+-           // set up the size and RGB
+-           struct video_capability vc;
+-           if (ioctl(videoDev, VIDIOCGCAP, &vc) == 0) {
+-              struct video_mmap vm;
+-              vm.frame = 0;
+-              if ((SizeX > 0) && (SizeX <= vc.maxwidth) &&
+-                  (SizeY > 0) && (SizeY <= vc.maxheight)) {
+-                 vm.width = SizeX;
+-                 vm.height = SizeY;
+-                 }
+-              else {
+-                 vm.width = vc.maxwidth;
+-                 vm.height = vc.maxheight;
+-                 }
+-              vm.format = VIDEO_PALETTE_RGB24;
+-              if (ioctl(videoDev, VIDIOCMCAPTURE, &vm) == 0 && ioctl(videoDev, VIDIOCSYNC, &vm.frame) == 0) {
+-                 // make RGB out of BGR:
+-                 int memsize = vm.width * vm.height;
+-                 unsigned char *mem1 = mem;
+-                 for (int i = 0; i < memsize; i++) {
+-                     unsigned char tmp = mem1[2];
+-                     mem1[2] = mem1[0];
+-                     mem1[0] = tmp;
+-                     mem1 += 3;
+-                     }
+-
+-                 if (Quality < 0)
+-                    Quality = 100;
+-
+-                 dsyslog("grabbing to %s %d %d %d", Jpeg ? "JPEG" : "PNM", Quality, vm.width, vm.height);
+-                 if (Jpeg) {
+-                    // convert to JPEG:
+-                    result = RgbToJpeg(mem, vm.width, vm.height, Size, Quality);
+-                    if (!result)
+-                       esyslog("ERROR: failed to convert image to JPEG");
+-                    }
+-                 else {
+-                    // convert to PNM:
+-                    char buf[32];
+-                    snprintf(buf, sizeof(buf), "P6\n%d\n%d\n255\n", vm.width, vm.height);
+-                    int l = strlen(buf);
+-                    int bytes = memsize * 3;
+-                    Size = l + bytes;
+-                    result = MALLOC(uchar, Size);
+-                    if (result) {
+-                       memcpy(result, buf, l);
+-                       memcpy(result + l, mem, bytes);
++     // set up the size and RGB
++     v4l2_format fmt;
++     memset(&fmt, 0, sizeof(fmt));
++     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
++     fmt.fmt.pix.width = SizeX;
++     fmt.fmt.pix.height = SizeY;
++     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_BGR24;
++     fmt.fmt.pix.field = V4L2_FIELD_ANY;
++     if (ioctl(videoDev, VIDIOC_S_FMT, &fmt) == 0) {
++        v4l2_requestbuffers reqBuf;
++        memset(&reqBuf, 0, sizeof(reqBuf));
++        reqBuf.count = 2;
++        reqBuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
++        reqBuf.memory = V4L2_MEMORY_MMAP;
++        if (ioctl(videoDev, VIDIOC_REQBUFS, &reqBuf) >= 0) {
++           v4l2_buffer mbuf;
++           memset(&mbuf, 0, sizeof(mbuf));
++           mbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
++           mbuf.memory = V4L2_MEMORY_MMAP;
++           if (ioctl(videoDev, VIDIOC_QUERYBUF, &mbuf) == 0) {
++              int msize = mbuf.length;
++              unsigned char *mem = (unsigned char *)mmap(0, msize, PROT_READ | PROT_WRITE, MAP_SHARED, videoDev, 0);
++              if (mem && mem != (unsigned char *)-1) {
++                 v4l2_buffer buf;
++                 memset(&buf, 0, sizeof(buf));
++                 buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
++                 buf.memory = V4L2_MEMORY_MMAP;
++                 buf.index = 0;
++                 if (ioctl(videoDev, VIDIOC_QBUF, &buf) == 0) {
++                    v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
++                    if (ioctl (videoDev, VIDIOC_STREAMON, &type) == 0) {
++                       memset(&buf, 0, sizeof(buf));
++                       buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
++                       buf.memory = V4L2_MEMORY_MMAP;
++                       buf.index = 0;
++                       if (ioctl(videoDev, VIDIOC_DQBUF, &buf) == 0) {
++                          if (ioctl(videoDev, VIDIOC_STREAMOFF, &type) == 0) {
++                             // make RGB out of BGR:
++                             int memsize = fmt.fmt.pix.width * fmt.fmt.pix.height;
++                             unsigned char *mem1 = mem;
++                             for (int i = 0; i < memsize; i++) {
++                                 unsigned char tmp = mem1[2];
++                                 mem1[2] = mem1[0];
++                                 mem1[0] = tmp;
++                                 mem1 += 3;
++                                 }
++
++                             if (Quality < 0)
++                                Quality = 100;
++
++                             dsyslog("grabbing to %s %d %d %d", Jpeg ? "JPEG" : "PNM", Quality, fmt.fmt.pix.width, fmt.fmt.pix.height);
++                             if (Jpeg) {
++                                // convert to JPEG:
++                                result = RgbToJpeg(mem, fmt.fmt.pix.width, fmt.fmt.pix.height, Size, Quality);
++                                if (!result)
++                                   esyslog("ERROR: failed to convert image to JPEG");
++                                }
++                             else {
++                                // convert to PNM:
++                                char buf[32];
++                                snprintf(buf, sizeof(buf), "P6\n%d\n%d\n255\n", fmt.fmt.pix.width, fmt.fmt.pix.height);
++                                int l = strlen(buf);
++                                int bytes = memsize * 3;
++                                Size = l + bytes;
++                                result = MALLOC(uchar, Size);
++                                if (result) {
++                                   memcpy(result, buf, l);
++                                   memcpy(result + l, mem, bytes);
++                                   }
++                                else
++                                   esyslog("ERROR: failed to convert image to PNM");
++                                }
++                             }
++                          else
++                             esyslog("ERROR: video device VIDIOC_STREAMOFF failed");
++                          }
++                       else
++                          esyslog("ERROR: video device VIDIOC_DQBUF failed");
+                        }
+                     else
+-                       esyslog("ERROR: failed to convert image to PNM");
++                       esyslog("ERROR: video device VIDIOC_STREAMON failed");
+                     }
++                 else
++                    esyslog("ERROR: video device VIDIOC_QBUF failed");
++                 munmap(mem, msize);
+                  }
++              else
++                 esyslog("ERROR: failed to memmap video device");
+               }
+-           munmap(mem, msize);
++           else
++              esyslog("ERROR: video device VIDIOC_QUERYBUF failed");
+            }
+         else
+-           esyslog("ERROR: failed to memmap video device");
++           esyslog("ERROR: video device VIDIOC_REQBUFS failed");
+         }
++     else
++        esyslog("ERROR: video device VIDIOC_S_FMT failed");
+      close(videoDev);
+      return result;
+      }
+diff -ruN VDR-1.6.0-2/dvbdevice.h VDR-1.6.0-3/dvbdevice.h
+--- VDR-1.6.0-2/dvbdevice.h	2008-02-08 14:48:31.000000000 +0100
++++ VDR-1.6.0-3/dvbdevice.h	2012-02-14 13:46:35.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 1.47 2008/02/08 13:48:31 kls Exp $
++ * $Id: dvbdevice.h 1.47.1.1 2012/02/14 12:46:35 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -15,8 +15,8 @@
+ #include "device.h"
+ #include "dvbspu.h"
+ 
+-#if DVB_API_VERSION != 3
+-#error VDR requires Linux DVB driver API version 3!
++#if (DVB_API_VERSION << 8 | DVB_API_VERSION_MINOR) < 0x0300
++#error VDR requires Linux DVB driver API version 3.0 or higher!
+ #endif
+ 
+ #define MAXDVBDEVICES  8
+diff -ruN VDR-1.6.0-2/recording.c VDR-1.6.0-3/recording.c
+--- VDR-1.6.0-2/recording.c	2008-02-24 11:28:53.000000000 +0100
++++ VDR-1.6.0-3/recording.c	2012-02-14 14:57:25.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 1.162 2008/02/24 10:28:53 kls Exp $
++ * $Id: recording.c 1.162.1.2 2012/02/14 13:57:25 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -509,8 +509,8 @@
+      Utf8Strn0Cpy(SubtitleBuffer, Subtitle, MAX_SUBTITLE_LENGTH);
+      Subtitle = SubtitleBuffer;
+      }
+-  char *macroTITLE   = strstr(Timer->File(), TIMERMACRO_TITLE);
+-  char *macroEPISODE = strstr(Timer->File(), TIMERMACRO_EPISODE);
++  const char *macroTITLE   = strstr(Timer->File(), TIMERMACRO_TITLE);
++  const char *macroEPISODE = strstr(Timer->File(), TIMERMACRO_EPISODE);
+   if (macroTITLE || macroEPISODE) {
+      name = strdup(Timer->File());
+      name = strreplace(name, TIMERMACRO_TITLE, Title);
+@@ -551,7 +551,7 @@
+   sortBuffer = NULL;
+   fileName = strdup(FileName);
+   FileName += strlen(VideoDirectory) + 1;
+-  char *p = strrchr(FileName, '/');
++  const char *p = strrchr(FileName, '/');
+ 
+   name = NULL;
+   info = new cRecordingInfo;
+@@ -1022,7 +1022,7 @@
+   if (recording) {
+      cThreadLock DeletedRecordingsLock(&DeletedRecordings);
+      Del(recording, false);
+-     char *ext = strrchr(recording->FileName(), '.');
++     char *ext = strrchr(recording->fileName, '.');
+      if (ext) {
+         strncpy(ext, DELEXT, strlen(ext));
+         recording->fileSizeMB = DirSizeMB(recording->FileName());
+diff -ruN VDR-1.6.0-2/svdrp.c VDR-1.6.0-3/svdrp.c
+--- VDR-1.6.0-2/svdrp.c	2008-05-02 16:29:16.000000000 +0200
++++ VDR-1.6.0-3/svdrp.c	2012-02-14 14:55:52.000000000 +0100
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 1.109.1.1 2008/05/02 14:29:16 kls Exp $
++ * $Id: svdrp.c 1.109.1.3 2012/02/14 13:55:52 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -736,7 +736,7 @@
+      char *strtok_next;
+      FileName = strtok_r(p, delim, &strtok_next);
+      // image type:
+-     char *Extension = strrchr(FileName, '.');
++     const char *Extension = strrchr(FileName, '.');
+      if (Extension) {
+         if (strcasecmp(Extension, ".jpg") == 0 || strcasecmp(Extension, ".jpeg") == 0)
+            Jpeg = true;
+@@ -795,16 +795,17 @@
+      char RealFileName[PATH_MAX];
+      if (FileName) {
+         if (grabImageDir) {
+-           cString s;
+-           char *slash = strrchr(FileName, '/');
++           cString s(FileName);
++           FileName = s;
++           const char *slash = strrchr(FileName, '/');
+            if (!slash) {
+               s = AddDirectory(grabImageDir, FileName);
+               FileName = s;
+               }
+            slash = strrchr(FileName, '/'); // there definitely is one
+-           *slash = 0;
+-           char *r = realpath(FileName, RealFileName);
+-           *slash = '/';
++           cString t(s);
++           t.Truncate(slash - FileName);
++           char *r = realpath(t, RealFileName);
+            if (!r) {
+               LOG_ERROR_STR(FileName);
+               Reply(501, "Invalid file name \"%s\"", FileName);

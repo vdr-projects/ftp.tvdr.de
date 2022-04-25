@@ -1,0 +1,4199 @@
+diff -ruN vdr-2.4.1/CONTRIBUTORS vdr-2.4.4/CONTRIBUTORS
+--- vdr-2.4.1/CONTRIBUTORS	2019-05-31 15:21:02.000000000 +0200
++++ vdr-2.4.4/CONTRIBUTORS	2020-07-10 11:06:21.000000000 +0200
+@@ -275,7 +275,7 @@
+ Wolfgang Henselmann-Weiss <Wolfgang_Henselmann@betaresearch.de>
+  for fixing calculating the timeout value in cFile::FileReady()
+ 
+-Uwe Scheffler <linux_dvb@uni.de>
++Uwe Scheffler <scheffler.u@web.de>
+  for his help in keeping 'channels.conf.cable' and 'channels.conf.terr' up to date
+  for helping to test new DVB-T handling
+  for reporting a bug in switching the video format in the Setup/DVB menu
+@@ -285,6 +285,7 @@
+  for reporting a black screen while a "Recording started" message is displayed
+  for reporting a problem with the lock on the Channels list in cDisplayChannel still
+  being held when Flush() was called
++ for reporting a problem with failed tuning in SCR systems
+ 
+ Matjaz Thaler <matjaz.thaler@guest.arnes.si>
+  for improving AC3 decoding when replaying DVDs
+@@ -2270,9 +2271,6 @@
+ J�rgen Schneider <ivory7@gmx.de>
+  for a patch that was used as a base to fix handling multi byte key sequences
+  in cKbdRemote
+- for reporting a possible discrepancy of the primary device number in the LSTD and
+- PRIM commands
+- for adding support for EAC3 audio from other sources
+ 
+ Christian Wieninger <cwieninger@gmx.de>
+  for suggesting to add cMenuEditStrItem::InEditMode()
+@@ -2442,6 +2440,7 @@
+  "Edit recording" menu
+  for suggesting to add a confirmation before renaming a recording to its folder name
+  for reporting a problem with data loss in case renaming a recording fails
++ for adding support for HEVC-video and AC-4-audio
+ 
+ Pekka Mauno <pekka.mauno@iki.fi>
+  for fixing cSchedule::GetFollowingEvent() in case there is currently no present
+@@ -2494,6 +2493,11 @@
+  for adding a manual page for 'svdrpsend'
+  for adding a missing dependency to the Makefile to avoid error messages in the
+  clean-plugins target
++ for adding optional verbose output to the libsi Makefile
++ for making the call to pkg_config configurable via the PKG_CONFIG macro
++ for fixing a typo in svdrp.c
++ for suggesting to add CPPFLAGS to CXXFLAGS to allow extra preprocessor flags to be
++ given when doing make
+ 
+ Helge Lenz <h.lenz@gmx.de>
+  for reporting a bug in setting the 'Delta' parameter when calling the shutdown
+@@ -2746,10 +2750,18 @@
+  for enhancing the SVDRP command CLRE to allow clearing the EPG data of a particular
+  channel
+ 
+-Winfried Koehler <w_koehl@gmx.de>
++Winfried K�hler <w_koehl@gmx.de>
+  for fixing finding new transponders
++ for fixing wrong value for TableIdBAT in libsi/si.h
+  for reporting a compiler warning in calculations involving FramesPerSecond()
++ for making several code modifications to avoid compiler warnings
++ for improving the description of the transponder parameters in vdr.5
++ for reporting a necessary fix in the description of cReceiver in PLUGINS.html,
++ regarding detaching a receiver from its device before deleting it
+  for fixing some copy&paste errors in PLUGINS.html
++ for fixing the size of cChannel::dtypes[]
++ for adding a device hook for detecting whether a device provides EIT data
++ for improving deleting plugins in case the plugin uses its own memory management
+ 
+ Hans-Werner Hilse <hilse@web.de>
+  for adding the command line option --userdump to enable core dumps in case VDR
+@@ -2816,13 +2828,6 @@
+  binary distributions to have full control over whether or not to use the --vfat
+  option at runtime
+ 
+-Winfried K�hler <w_koehl@gmx.de>
+- for fixing wrong value for TableIdBAT in libsi/si.h
+- for making several code modifications to avoid compiler warnings
+- for improving the description of the transponder parameters in vdr.5
+- for reporting a necessary fix in the description of cReceiver in PLUGINS.html,
+- regarding detaching a receiver from its device before deleting it
+-
+ Igor M. Liplianin <liplianin@tut.by>
+  for a patch that was used to convert VDR to the S2API driver API
+ 
+@@ -2858,6 +2863,7 @@
+  for reporting a problem in processing SVDRP client responses in case the caller doesn't
+  want the actual response strings
+  for reporting a bug in handling the tfRecording flag in the SVDRP commands MODT and UPDT
++ for adding a missing '-D' to the 'plugins' target of the Makefile
+ 
+ Timo Helkio <timolavi@mbnet.fi>
+  for reporting a hangup when replaying a TS recording with subtitles activated
+@@ -2918,6 +2924,9 @@
+  order to avoid discontinuities
+  for setting the environment variables HOME, USER, LOGNAME and SHELL accordingly
+  when switching to a less privileged user id
++ for reporting a bug in moving channels between number groups in SVDRP's MOVC command
++ for fixing compatibility with current versions of glibc
++ for suggesting to make the SVDRP command DELC accept a channel id
+ 
+ Rene van den Braken <rene@vandenbraken.name>
+  for reporting a bug in writing the PCR pid into the PMT in
+@@ -3417,6 +3426,7 @@
+  for fixing regenerating the index of audio recordings
+  for implementing the SVDRP commands 'LSTD' and 'PRIM'
+  for adding some comments regarding font height
++ for reporting a possible problem with plugins calling IsOpen() in ~cDisplayChannel()
+ 
+ Eike Sauer <EikeSauer@t-online.de>
+  for reporting a problem with channels that need more than 5 TS packets for detecting
+@@ -3508,6 +3518,8 @@
+  too early
+  for reporting a bug in using the default sort mode in a video directory without a
+  ".sort" file
++ for reporting faulty memory handling in cString::Append()
++ for adding failsafe defaults for 'make LCLBLD=1' to the Makefile
+ 
+ Tobias Faust <tobias.faust@gmx.de>
+  for the original "jumpingseconds" patch
+@@ -3585,6 +3597,27 @@
+  for fixing updating the checksum in the CA table after mapping EMM PIDs for MTD
+  for fixing a compiler warning in ExchangeChars()
+  for suggesting to add __attribute__((packed)) to tIndexPes and tIndexTs
++ for helping with the implementation of retuning if the received transponder's SDT
++ doesn't contain the expected values for NID and TID
++ for adding the language code for Bulgarian
++ for a patch that was used as a base for fixing handling multi part ExtendedEventDescriptors
++ where only the first part contains information about the character table
++ for suggesting to check and report whether the given value is valid when setting the
++ override character table
++ for adding codes for more languages and special audio tracks
++ for adding cMtdCamSlot::TsPostProcess()
++ for adding cMtdHandler::StopDecrypting()
++ for adding support for detecting new channels broadcast in HEVC
++ for adding support for detecting 'advanced codec digital radio sound service'
++ for adding handling shared PMT pids and multiple PMT sections
++ for changing the country code in the generated ParentalRatingDescriptor from 'DEU' to
++ '902' to make it valid for all countries
++ for adjusting device selection in GetDeviceForTransponder() to that in GetDevice()
++ for adding CRC check of the CAT in cCaPidReceiver::Receive()
++ for reporting that the 'else if' branch in cDevice::GetDeviceForTransponder() hasn't
++ been active since version 1.7.29
++ for fixing handling inactive shared CA pids
++ for implementing handling multi packet CATs with MTD
+ 
+ Ulrich Eckhardt <uli@uli-eckhardt.de>
+  for reporting a problem with shutdown after user inactivity in case a plugin is
+@@ -3592,3 +3625,11 @@
+ 
+ Stian B. Barmen <stian@barmen.nu>
+  for reporting missing EPG data on channels from Canal Digital Norway
++
++J�rgen Schneider <jsffm@web.de>
++ for reporting a possible discrepancy of the primary device number in the LSTD and
++ PRIM commands
++ for adding support for EAC3 audio from other sources
++
++Stefan Verse <Verse@amotronics.de>
++ for fixing an occasional black screen when switching channels
+diff -ruN vdr-2.4.1/HISTORY vdr-2.4.4/HISTORY
+--- vdr-2.4.1/HISTORY	2019-06-16 11:15:44.000000000 +0200
++++ vdr-2.4.4/HISTORY	2020-08-02 10:55:08.000000000 +0200
+@@ -5957,7 +5957,7 @@
+ - Fixed cDevice::PlayTsAudio() and made cDevice::PlayTsVideo() return 0 if
+   PlayVideo() didn't play anything.
+ - Added an 'int' typecast to calculations involving FramesPerSecond() to avoid
+-  compiler warnings (reported by Winfried Koehler).
++  compiler warnings (reported by Winfried K�hler).
+ - Fixed detecting frames for pure audio recordings.
+ - Fixed editing PES recordings. The frame type in the index.vdr file generated for
+   the edited PES recording is set to 1 for I-frames and 2 for all others (P- and
+@@ -9419,3 +9419,96 @@
+   the call is now automatically forwarded to QueueMessage().
+ - Fixed handling the S2SatelliteDeliverySystemDescriptor for transponders broadcasting
+   in "backwards compatibility mode" according to ETSI EN 300 468 (thanks to Onur Sent�rk).
++
++2020-05-18: Version 2.4.2
++
++- Fixed moving channels between number groups in SVDRP's MOVC command and the Channels
++  menu, in case a channel is moved to a higher number and into a numbered group
++  (reported by Manuel Reimer).
++- Now retuning if the received transponder's SDT doesn't contain the expected values
++  for NID and TID (thanks to Uwe Scheffler for reporting a problem with failed tuning
++  in SCR systems, and Helmut Binder for helping with the implementation).
++- Fixed compatibility with current versions of glibc (thanks to Manuel Reimer).
++- The SVDRP command DELC now also accepts a channel id (suggested by Manuel Reimer).
++- Fixed dropping capabilities in case cap_sys_time is not available.
++- Added the language code for Bulgarian (thanks to Helmut Binder).
++- Fixed handling multi part ExtendedEventDescriptors where only the first part
++  contains information about the character table (based on a patch from Helmut Binder).
++- When setting the system character table, it is no longer checked against the known
++  entries that are hard coded in libsi/si.c, but rather given to iconv_open() and the
++  result of that call is used to check whether the given name is valid.
++- Checking whether the system character table is "single byte" is now done by checking
++  the result of a sample call to iconv().
++- Setting the override character table now checks and reports whether the given value
++  is valid (suggested by Helmut Binder).
++- The isSingleByte parameter in the call to getCharacterTable() is deprecated and only
++  present for backwards compatibility.
++- Fixed a possible crash in case replay is started and stopped in rapid sequence, by
++  adding missing locking to cControl::Control(). The caller of this function must now
++  provide a cMutexLock which stays alive as long as the result of this call is used.
++  The old version of this function is still there for backwards compatibility with
++  plugins, because this problem appears to occur only under very rare circumstances.
++  Authors of plugins that use this function should switch to the new version, because
++  the old one is deprecated and will be removed in a future version.
++  The version numbers (both VDRVERSNUM and APIVERSNUM) have been bumped to 2.4.2, so
++  that plugins can detect the presence of the new cControl::Control().
++
++2020-06-27: Version 2.4.3
++
++- Added a missing '-D' to the 'plugins' target of the Makefile (thanks to Johann
++  Friedrichs).
++- Fixed the size of cChannel::dtypes[] (thanks to Winfried K�hler).
++  The version numbers (both VDRVERSNUM and APIVERSNUM) have been bumped to 2.4.3 to
++  indicate this change.
++- Added a device hook for detecting whether a device provides EIT data (thanks to
++  Winfried K�hler).
++- Fixed memory handling in cString::Append() (reported by Stefan Herdler).
++- Revised 'Fixed a possible deadlock when detaching a receiver from a device' from
++  version 2.3.9, which sometimes caused a black screen when switching channels
++  (thanks to Stefan Verse).
++- Added failsafe defaults for 'make LCLBLD=1' to the Makefile (thanks to Stefan
++  Herdler).
++- Added codes for more languages and special audio tracks (thanks to Helmut Binder).
++- Added cMtdCamSlot::TsPostProcess() (thanks to Helmut Binder).
++- Added cMtdHandler::StopDecrypting() (thanks to Helmut Binder).
++- Added support for detecting new channels broadcast in HEVC (thanks to Helmut Binder).
++- Added support for detecting 'advanced codec digital radio sound service' (thanks to
++  Helmut Binder).
++- Added handling shared PMT pids and multiple PMT sections (thanks to Helmut Binder).
++- Changed the country code in the generated ParentalRatingDescriptor from 'DEU' to
++  '902' to make it valid for all countries (thanks to Helmut Binder).
++- Added optional verbose output to the libsi Makefile (thanks to Tobias Grimm).
++- Made the call to pkg_config configurable via the PKG_CONFIG macro, which is necessary
++  for cross-building VDR (thanks to Tobias Grimm). Plugin authors may want to modify
++  their Makefiles accordingly by adding the line 'PKG_CONFIG ?= pkg-config' and
++  replacing every occurrence of 'pkg-config' with '$(PKG_CONFIG)', as can be seen in
++  the Makefiles of the plugins that come with the VDR source.
++- Fixed a typo in svdrp.c (thanks to Tobias Grimm).
++- Added support for HEVC-video and AC-4-audio (thanks to Christoph Haubrich).
++- Added a comment about the semantics of cTimeMs::Set().
++- Adjusted device selection in GetDeviceForTransponder() to that in GetDevice() (thanks
++  to Helmut Binder).
++- Now adding CPPFLAGS to CXXFLAGS to allow extra preprocessor flags to be given when
++  doing make (suggested by Tobisa Grimm).
++- Added CRC check of the CAT in cCaPidReceiver::Receive() (thanks to Helmut Binder).
++- Fixed the 'else if' branch in cDevice::GetDeviceForTransponder(), which hasn't
++  been active since version 1.7.29 (reported by Helmut Binder). The original purpose of
++  this branch was to use a device that is currently not recording for switching to the
++  transponder of an upcoming VPS timer. However, this caused problems with more than
++  two bonded devices, which was "fixed" in version 1.7.29. Apparently this fix merely
++  rendered the whole code branch inactive. Now this branch is only executed for devices
++  that are not bonded.
++
++2020-08-02: Version 2.4.4
++
++- Improved deleting plugins in case the plugin uses its own memory management (thanks
++  to Winfried K�hler). Plugins that have been compiled with previous versions of VDR
++  do not need to be recompiled, they will silently be handled as before.
++- Now setting currentDisplayChannel = NULL before calling cStatus::MsgOsdClear() in
++  ~cDisplayChannel(), to avoid possible problems in case a plugin calls IsOpen()
++  (reported by Thomas Reufer).
++- Fixed handling inactive shared CA pids (thanks to Helmut Binder).
++- Implemented handling multi packet CATs with MTD (thanks to Helmut Binder).
++- Fixed a possible 'invalid lock sequence' when switching to an unavailable channel
++  with the main menu open.
++- Official release.
+diff -ruN vdr-2.4.1/MANUAL vdr-2.4.4/MANUAL
+--- vdr-2.4.1/MANUAL	2018-04-10 15:50:16.000000000 +0200
++++ vdr-2.4.4/MANUAL	2020-03-29 17:53:48.000000000 +0200
+@@ -1131,7 +1131,7 @@
+                          The time (in milliseconds) between two subsequent key
+                          presses generated by the remote control's repeat function.
+                          If the remote control in use has a repeat delta that is
+-                         longer than that given in this parameter, that longer delay
++                         longer than that given in this parameter, that longer delta
+                          will prevail.
+   Initial channel =      The channel ID of the channel that shall be tuned to when
+                          VDR starts. Default is empty, which means that it will
+diff -ruN vdr-2.4.1/Makefile vdr-2.4.4/Makefile
+--- vdr-2.4.1/Makefile	2019-05-05 15:31:56.000000000 +0200
++++ vdr-2.4.4/Makefile	2020-06-27 11:13:04.000000000 +0200
+@@ -4,23 +4,26 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 4.6 2019/05/05 13:31:56 kls Exp $
++# $Id: Makefile 4.10 2020/06/27 09:13:04 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+ # Compiler flags:
+ 
++PKG_CONFIG ?= pkg-config
++
+ CC       ?= gcc
+ CFLAGS   ?= -g -O3 -Wall
+ 
+ CXX      ?= g++
+ CXXFLAGS ?= -g -O3 -Wall -Werror=overloaded-virtual -Wno-parentheses
++CXXFLAGS += $(CPPFLAGS)
+ 
+ CDEFINES  = -D_GNU_SOURCE
+ CDEFINES += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
+ 
+-LIBS      = -ljpeg -lpthread -ldl -lcap -lrt $(shell pkg-config --libs freetype2 fontconfig)
+-INCLUDES ?= $(shell pkg-config --cflags freetype2 fontconfig)
++LIBS      = -ljpeg -lpthread -ldl -lcap -lrt $(shell $(PKG_CONFIG) --libs freetype2 fontconfig)
++INCLUDES ?= $(shell $(PKG_CONFIG) --cflags freetype2 fontconfig)
+ 
+ # Directories:
+ 
+@@ -28,6 +31,14 @@
+ LSIDIR    ?= $(CWD)/libsi
+ PLUGINDIR ?= $(CWD)/PLUGINS
+ 
++# Failsafe defaults for "make LCLBLD=1":
++ifdef LCLBLD
++DESTDIR   ?= $(CWD)
++LOCDIR    ?= $(CWD)/locale
++HDRDIR    ?= $(CWD)/include
++LIBDIR    ?= $(PLUGINDIR)/lib
++endif
++
+ DESTDIR   ?=
+ VIDEODIR  ?= /srv/vdr/video
+ CONFDIR   ?= /var/lib/vdr
+@@ -99,14 +110,14 @@
+ DEFINES += -DVDR_USER=\"$(VDR_USER)\"
+ endif
+ ifdef BIDI
+-INCLUDES += $(shell pkg-config --cflags fribidi)
++INCLUDES += $(shell $(PKG_CONFIG) --cflags fribidi)
+ DEFINES += -DBIDI
+-LIBS += $(shell pkg-config --libs fribidi)
++LIBS += $(shell $(PKG_CONFIG) --libs fribidi)
+ endif
+ ifdef SDNOTIFY
+-INCLUDES += $(shell pkg-config --silence-errors --cflags libsystemd-daemon || pkg-config --cflags libsystemd)
++INCLUDES += $(shell $(PKG_CONFIG) --silence-errors --cflags libsystemd-daemon || $(PKG_CONFIG) --cflags libsystemd)
+ DEFINES += -DSDNOTIFY
+-LIBS += $(shell pkg-config --silence-errors --libs libsystemd-daemon || pkg-config --libs libsystemd)
++LIBS += $(shell $(PKG_CONFIG) --silence-errors --libs libsystemd-daemon || $(PKG_CONFIG) --libs libsystemd)
+ endif
+ 
+ LIRC_DEVICE ?= /var/run/lirc/lircd
+@@ -244,7 +255,7 @@
+ 	    INCLUDES="-I$(CWD)/include"\
+ 	    $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" VDRDIR="$(CWD)" || failed="$$failed $$i";\
+ 	    if [ -n "$(LCLBLD)" ] ; then\
+-	       (cd $(PLUGINDIR)/src/$$i; for l in `find -name "libvdr-*.so" -o -name "lib$$i-*.so"`; do install $$l $(LIBDIR)/`basename $$l`.$(APIVERSION); done);\
++	       (cd $(PLUGINDIR)/src/$$i; for l in `find -name "libvdr-*.so" -o -name "lib$$i-*.so"`; do install -D $$l $(LIBDIR)/`basename $$l`.$(APIVERSION); done);\
+ 	       if [ -d $(PLUGINDIR)/src/$$i/po ]; then\
+ 	          for l in `ls $(PLUGINDIR)/src/$$i/po/*.mo`; do\
+ 	              install -D -m644 $$l $(LOCDIR)/`basename $$l | cut -d. -f1`/LC_MESSAGES/vdr-$$i.mo;\
+diff -ruN vdr-2.4.1/PLUGINS/src/epgtableid0/Makefile vdr-2.4.4/PLUGINS/src/epgtableid0/Makefile
+--- vdr-2.4.1/PLUGINS/src/epgtableid0/Makefile	2017-05-29 10:30:00.000000000 +0200
++++ vdr-2.4.4/PLUGINS/src/epgtableid0/Makefile	2020-06-22 17:08:46.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.2 2017/05/29 08:30:00 kls Exp $
++# $Id: Makefile 4.3 2020/06/22 15:08:46 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,8 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
++PKG_CONFIG ?= pkg-config
++PKGCFG = $(if $(VDRDIR),$(shell $(PKG_CONFIG) --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." $(PKG_CONFIG) --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+diff -ruN vdr-2.4.1/PLUGINS/src/hello/Makefile vdr-2.4.4/PLUGINS/src/hello/Makefile
+--- vdr-2.4.1/PLUGINS/src/hello/Makefile	2017-05-29 10:26:45.000000000 +0200
++++ vdr-2.4.4/PLUGINS/src/hello/Makefile	2020-06-22 17:08:46.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.2 2017/05/29 08:26:45 kls Exp $
++# $Id: Makefile 4.3 2020/06/22 15:08:46 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,8 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
++PKG_CONFIG ?= pkg-config
++PKGCFG = $(if $(VDRDIR),$(shell $(PKG_CONFIG) --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." $(PKG_CONFIG) --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ LOCDIR = $(call PKGCFG,locdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+diff -ruN vdr-2.4.1/PLUGINS/src/osddemo/Makefile vdr-2.4.4/PLUGINS/src/osddemo/Makefile
+--- vdr-2.4.1/PLUGINS/src/osddemo/Makefile	2017-05-29 10:30:08.000000000 +0200
++++ vdr-2.4.4/PLUGINS/src/osddemo/Makefile	2020-06-22 17:08:46.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.2 2017/05/29 08:30:08 kls Exp $
++# $Id: Makefile 4.3 2020/06/22 15:08:46 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,8 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
++PKG_CONFIG ?= pkg-config
++PKGCFG = $(if $(VDRDIR),$(shell $(PKG_CONFIG) --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." $(PKG_CONFIG) --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+diff -ruN vdr-2.4.1/PLUGINS/src/pictures/Makefile vdr-2.4.4/PLUGINS/src/pictures/Makefile
+--- vdr-2.4.1/PLUGINS/src/pictures/Makefile	2017-05-29 10:30:55.000000000 +0200
++++ vdr-2.4.4/PLUGINS/src/pictures/Makefile	2020-06-22 17:08:46.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.2 2017/05/29 08:30:55 kls Exp $
++# $Id: Makefile 4.3 2020/06/22 15:08:46 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,8 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
++PKG_CONFIG ?= pkg-config
++PKGCFG = $(if $(VDRDIR),$(shell $(PKG_CONFIG) --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." $(PKG_CONFIG) --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ LOCDIR = $(call PKGCFG,locdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+diff -ruN vdr-2.4.1/PLUGINS/src/servicedemo/Makefile vdr-2.4.4/PLUGINS/src/servicedemo/Makefile
+--- vdr-2.4.1/PLUGINS/src/servicedemo/Makefile	2017-05-29 10:31:07.000000000 +0200
++++ vdr-2.4.4/PLUGINS/src/servicedemo/Makefile	2020-06-22 17:08:46.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.2 2017/05/29 08:31:07 kls Exp $
++# $Id: Makefile 4.3 2020/06/22 15:08:46 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -17,7 +17,8 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
++PKG_CONFIG ?= pkg-config
++PKGCFG = $(if $(VDRDIR),$(shell $(PKG_CONFIG) --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." $(PKG_CONFIG) --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+diff -ruN vdr-2.4.1/PLUGINS/src/skincurses/HISTORY vdr-2.4.4/PLUGINS/src/skincurses/HISTORY
+--- vdr-2.4.1/PLUGINS/src/skincurses/HISTORY	2019-03-12 13:26:05.000000000 +0100
++++ vdr-2.4.4/PLUGINS/src/skincurses/HISTORY	2020-05-11 12:23:15.000000000 +0200
+@@ -145,3 +145,10 @@
+ 2019-03-12: Version 2.4.1
+ 
+ - Changes for ncurses version 6 (thanks to Ulrick Eckhardt).
++
++2020-05-11: Version 2.4.2
++
++- Fixed 'Changes for ncurses version 6'.
++- Reacting to changes in screen size.
++- Simplified color handling.
++- Using 'stdscr' directly instead of an additional window.
+diff -ruN vdr-2.4.1/PLUGINS/src/skincurses/Makefile vdr-2.4.4/PLUGINS/src/skincurses/Makefile
+--- vdr-2.4.1/PLUGINS/src/skincurses/Makefile	2017-05-29 10:31:02.000000000 +0200
++++ vdr-2.4.4/PLUGINS/src/skincurses/Makefile	2020-06-22 17:08:46.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.2 2017/05/29 08:31:02 kls Exp $
++# $Id: Makefile 4.3 2020/06/22 15:08:46 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,8 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
++PKG_CONFIG ?= pkg-config
++PKGCFG = $(if $(VDRDIR),$(shell $(PKG_CONFIG) --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." $(PKG_CONFIG) --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ LOCDIR = $(call PKGCFG,locdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+diff -ruN vdr-2.4.1/PLUGINS/src/skincurses/skincurses.c vdr-2.4.4/PLUGINS/src/skincurses/skincurses.c
+--- vdr-2.4.1/PLUGINS/src/skincurses/skincurses.c	2019-03-12 13:24:34.000000000 +0100
++++ vdr-2.4.4/PLUGINS/src/skincurses/skincurses.c	2020-05-11 12:23:15.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: skincurses.c 4.4 2019/03/12 12:24:34 kls Exp $
++ * $Id: skincurses.c 4.6 2020/05/11 10:23:15 kls Exp $
+  */
+ 
+ #include <ncurses.h>
+@@ -12,7 +12,7 @@
+ #include <vdr/skins.h>
+ #include <vdr/videodir.h>
+ 
+-static const char *VERSION        = "2.4.1";
++static const char *VERSION        = "2.4.2";
+ static const char *DESCRIPTION    = trNOOP("A text only skin");
+ static const char *MAINMENUENTRY  = NULL;
+ 
+@@ -60,9 +60,7 @@
+ class cCursesOsd : public cOsd {
+ private:
+   WINDOW *savedRegion;
+-  WINDOW *window;
+-  enum { MaxColorPairs = 16 };
+-  int colorPairs[MaxColorPairs];
++  cVector<int> colorPairs;
+   void SetColor(int colorFg, int colorBg = clrBackground);
+ public:
+   cCursesOsd(int Left, int Top);
+@@ -79,40 +77,34 @@
+ {
+   savedRegion = NULL;
+ 
+-  memset(colorPairs, 0x00, sizeof(colorPairs));
+   start_color();
+   leaveok(stdscr, true);
++  refresh(); // to react on changes to screen size
+ 
+-  window = subwin(stdscr, ScOsdHeight, ScOsdWidth, 0, 0);
+-  syncok(window, true);
++  int begy, begx;
++  int maxy, maxx;
++  getmaxyx(stdscr, maxy, maxx);
++  getbegyx(stdscr, begy, begx);
++  ScOsdWidth  = maxx - begx;
++  ScOsdHeight = maxy - begy;
+ }
+ 
+ cCursesOsd::~cCursesOsd()
+ {
+-  if (window) {
+-     werase(window);
+-     Flush();
+-     delwin(window);
+-     window = NULL;
+-     }
++  erase();
++  Flush();
+ }
+ 
+ void cCursesOsd::SetColor(int colorFg, int colorBg)
+ {
+   int color = (colorBg << 16) | colorFg | 0x80000000;
+-  for (int i = 0; i < MaxColorPairs; i++) {
+-      if (!colorPairs[i]) {
+-         colorPairs[i] = color;
+-         init_pair(i + 1, colorFg, colorBg);
+-         //XXX??? attron(COLOR_PAIR(WHITE_ON_BLUE));
+-         wattrset(window, COLOR_PAIR(i + 1));
+-         break;
+-         }
+-      else if (color == colorPairs[i]) {
+-         wattrset(window, COLOR_PAIR(i + 1));
+-         break;
+-         }
+-      }
++  int i = colorPairs.IndexOf(color);
++  if (i < 0) {
++     colorPairs.Append(color);
++     i = colorPairs.Size() - 1;
++     init_pair(i + 1, colorFg, colorBg);
++     }
++  attrset(COLOR_PAIR(i + 1));
+ }
+ 
+ void cCursesOsd::SaveRegion(int x1, int y1, int x2, int y2)
+@@ -122,17 +114,14 @@
+      savedRegion = NULL;
+      }
+   savedRegion = newwin(y2 - y1 + 1, x2 - x1 + 1, y1, x1);
+-  copywin(window, savedRegion, y1, x1, 0, 0, y2 - y1, x2 - x1, false);
++  if (savedRegion)
++     copywin(stdscr, savedRegion, y1, x1, 0, 0, y2 - y1, x2 - x1, false);
+ }
+ 
+ void cCursesOsd::RestoreRegion(void)
+ {
+-  int begy, begx;
+-  int maxy, maxx;
+-  getmaxyx(savedRegion, maxy,maxx);
+-  getbegyx(savedRegion, begy,begx);
+   if (savedRegion) {
+-     copywin(savedRegion, window, 0, 0, begy, begx, maxy - begy, maxx - begx, false);
++     overwrite(savedRegion, stdscr);
+      delwin(savedRegion);
+      savedRegion = NULL;
+      }
+@@ -172,18 +161,22 @@
+         }
+      }
+   SetColor(ColorFg, ColorBg);
+-  wmove(window, y, x); // ncurses wants 'y' before 'x'!
+-  waddnstr(window, s, Width ? Width : ScOsdWidth - x);
++  mvaddnstr(y, x, s, Width ? Width : ScOsdWidth - x);
+ }
+ 
+ void cCursesOsd::DrawRectangle(int x1, int y1, int x2, int y2, tColor Color)
+ {
+   SetColor(Color, Color);
+-  for (int y = y1; y <= y2; y++) {
+-      wmove(window, y, x1); // ncurses wants 'y' before 'x'!
+-      whline(window, ' ', x2 - x1 + 1);
+-      }
+-  wsyncup(window); // shouldn't be necessary because of 'syncok()', but w/o it doesn't work
++  int dx = x2 - x1;
++  int dy = y2 - y1;
++  if (dx >= dy) {
++     for (int y = y1; y <= y2; y++)
++         mvhline(y, x1, ' ', dx + 1);
++     }
++  else {
++     for (int x = x1; x <= x2; x++)
++         mvvline(y1, x, ' ', dy + 1);
++     }
+ }
+ 
+ void cCursesOsd::Flush(void)
+@@ -831,16 +824,8 @@
+ bool cPluginSkinCurses::Initialize(void)
+ {
+   // Initialize any background activities the plugin shall perform.
+-  WINDOW *w = initscr();
+-  int begy, begx;
+-  int maxy, maxx;
+-  getmaxyx(w, maxy,maxx);
+-  getbegyx(w, begy,begx);
+-  if (w) {
+-     ScOsdWidth  = maxx - begx + 1;
+-     ScOsdHeight = maxy - begy + 1;
++  if (initscr())
+      return true;
+-     }
+   return false;
+ }
+ 
+diff -ruN vdr-2.4.1/PLUGINS/src/status/Makefile vdr-2.4.4/PLUGINS/src/status/Makefile
+--- vdr-2.4.1/PLUGINS/src/status/Makefile	2017-05-29 10:30:32.000000000 +0200
++++ vdr-2.4.4/PLUGINS/src/status/Makefile	2020-06-22 17:08:46.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.2 2017/05/29 08:30:32 kls Exp $
++# $Id: Makefile 4.3 2020/06/22 15:08:46 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,8 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
++PKG_CONFIG ?= pkg-config
++PKGCFG = $(if $(VDRDIR),$(shell $(PKG_CONFIG) --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." $(PKG_CONFIG) --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+diff -ruN vdr-2.4.1/PLUGINS/src/svdrpdemo/Makefile vdr-2.4.4/PLUGINS/src/svdrpdemo/Makefile
+--- vdr-2.4.1/PLUGINS/src/svdrpdemo/Makefile	2017-05-29 10:30:42.000000000 +0200
++++ vdr-2.4.4/PLUGINS/src/svdrpdemo/Makefile	2020-06-22 17:08:46.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 4.2 2017/05/29 08:30:42 kls Exp $
++# $Id: Makefile 4.3 2020/06/22 15:08:46 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,8 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
++PKG_CONFIG ?= pkg-config
++PKGCFG = $(if $(VDRDIR),$(shell $(PKG_CONFIG) --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." $(PKG_CONFIG) --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+diff -ruN vdr-2.4.1/PLUGINS.html vdr-2.4.4/PLUGINS.html
+--- vdr-2.4.1/PLUGINS.html	2018-04-10 15:50:22.000000000 +0200
++++ vdr-2.4.4/PLUGINS.html	2020-06-10 16:52:43.000000000 +0200
+@@ -2025,8 +2025,9 @@
+ <b>Device hooks</b>
+ <p>
+ VDR has builtin facilities that select which device is able to provide a given
+-transponder. However, there may be situations where the setup is so special
+-that it requires considerations that exceed the scope of the core VDR code.
++transponder, or, which device may provide EIT data. However, there may be
++situations where the setup is so special that it requires considerations that
++exceed the scope of the core VDR code.
+ This is where <i>device hooks</i> can be used.
+ 
+ <p><table><tr><td class="code"><pre>
+@@ -2034,6 +2035,7 @@
+ public:
+   cMyDeviceHook(void);
+   virtual bool DeviceProvidesTransponder(const cDevice *Device, const cChannel *Channel) const;
++  virtual bool DeviceProvidesEIT(const cDevice *Device) const;
+   };
+ </pre></td></tr></table><p>
+ 
+@@ -2048,6 +2050,19 @@
+      return false;
+   return true;
+ }
++</pre></td></tr></table><p>
++
++In its <tt>DeviceProvidesEIT()</tt> function the device hook can take
++whatever actions are necessary to determine whether the given Device can
++provide EIT data, as in
++
++<p><table><tr><td class="code"><pre>
++bool cMyDeviceHook::DeviceProvidesEIT(const cDevice *Device) const
++{
++  if (<i>condition where Device can't provide EIT data</i>)
++     return false;
++  return true;
++}
+ </pre></td></tr></table><p>
+ 
+ A plugin that creates a derived cDeviceHook shall do so in its <tt>Initialize()</tt>
+diff -ruN vdr-2.4.1/channels.c vdr-2.4.4/channels.c
+--- vdr-2.4.1/channels.c	2017-06-10 17:08:56.000000000 +0200
++++ vdr-2.4.4/channels.c	2020-04-11 11:22:05.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 4.5 2017/06/10 15:08:56 kls Exp $
++ * $Id: channels.c 4.6 2020/04/11 09:22:05 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -946,6 +946,25 @@
+       }
+ }
+ 
++bool cChannels::MoveNeedsDecrement(cChannel *From, cChannel *To)
++{
++  int Number = From->Number();
++  if (Number < To->Number()) {
++     for (cChannel *Channel = Next(From); Channel; Channel = Next(Channel)) {
++         if (Channel == To)
++            break;
++         if (Channel->GroupSep()) {
++            if (Channel->Number() > Number)
++               Number = Channel->Number();
++            }
++         else
++            Number++;
++         }
++     return Number == To->Number();
++     }
++  return false;
++}
++
+ void cChannels::Del(cChannel *Channel)
+ {
+   UnhashChannel(Channel);
+diff -ruN vdr-2.4.1/channels.h vdr-2.4.4/channels.h
+--- vdr-2.4.1/channels.h	2017-06-10 17:06:40.000000000 +0200
++++ vdr-2.4.4/channels.h	2020-06-10 16:00:36.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.h 4.3 2017/06/10 15:06:40 kls Exp $
++ * $Id: channels.h 4.5 2020/06/10 14:00:36 kls Exp $
+  */
+ 
+ #ifndef __CHANNELS_H
+@@ -105,7 +105,7 @@
+   int atypes[MAXAPIDS + 1]; // list is zero-terminated
+   char alangs[MAXAPIDS][MAXLANGCODE2];
+   int dpids[MAXDPIDS + 1]; // list is zero-terminated
+-  int dtypes[MAXAPIDS + 1]; // list is zero-terminated
++  int dtypes[MAXDPIDS + 1]; // list is zero-terminated
+   char dlangs[MAXDPIDS][MAXLANGCODE2];
+   int spids[MAXSPIDS + 1]; // list is zero-terminated
+   char slangs[MAXSPIDS][MAXLANGCODE2];
+@@ -230,6 +230,7 @@
+   int GetNextNormal(int Idx) const;  ///< Get next normal channel (not group)
+   int GetPrevNormal(int Idx) const;  ///< Get previous normal channel (not group)
+   void ReNumber(void);               ///< Recalculate 'number' based on channel type
++  bool MoveNeedsDecrement(cChannel *From, cChannel *To); // Detect special case when moving a channel (closely related to Renumber())
+   void Del(cChannel *Channel);       ///< Delete the given Channel from the list
+   const cChannel *GetByNumber(int Number, int SkipGap = 0) const;
+   cChannel *GetByNumber(int Number, int SkipGap = 0) { return const_cast<cChannel *>(static_cast<const cChannels *>(this)->GetByNumber(Number, SkipGap)); }
+diff -ruN vdr-2.4.1/ci.c vdr-2.4.4/ci.c
+--- vdr-2.4.1/ci.c	2019-05-28 17:01:29.000000000 +0200
++++ vdr-2.4.4/ci.c	2020-07-10 11:06:21.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 4.26 2019/05/28 15:01:29 kls Exp $
++ * $Id: ci.c 4.31 2020/07/10 09:06:21 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -118,9 +118,11 @@
+ private:
+   int catVersion;
+   cVector<int> emmPids;
+-  uchar buffer[2048]; // 11 bit length, max. 2048 byte
++  uchar buffer[1024]; // CAT table length: 10 bit -> max. 1021 + 3 bytes
+   uchar *bufp;
+-  uchar mtdCatBuffer[TS_SIZE]; // TODO: handle multi packet CATs!
++  #define CAT_MAXPACKETS  6 // 6 * 184 = 1104 bytes for CAT table
++  uchar mtdCatBuffer[CAT_MAXPACKETS][TS_SIZE]; // TODO: handle multi table CATs!
++  int mtdNumCatPackets;
+   int length;
+   cMutex mutex;
+   bool handlingPid;
+@@ -147,6 +149,7 @@
+ {
+   catVersion = -1;
+   bufp = NULL;
++  mtdNumCatPackets = 0;
+   length = 0;
+   handlingPid = false;
+   cMutexLock MutexLock(&mutex);
+@@ -185,30 +188,34 @@
+      const uchar *p = NULL;
+      if (TsPayloadStart(Data)) {
+         if (Data[5] == SI::TableIdCAT) {
+-           length = (int(Data[6] & 0x03) << 8) | Data[7]; // section length
++           length = (int(Data[6] & 0x0F) << 8) | Data[7]; // section length (12 bit field)
+            if (length > 5) {
+               int v = (Data[10] & 0x3E) >> 1; // version number
+               if (v != catVersion) {
+                  if (Data[11] == 0 && Data[12] == 0) { // section number, last section number
+-                    if (length > TS_SIZE - 8) {
+-                       if (MtdCamSlot)
+-                          esyslog("ERROR: need to implement multi packet CAT handling for MTD!");
+-                       int n = TS_SIZE - 13;
+-                       memcpy(buffer, Data + 13, n);
++                    length += 3; // with TableIdCAT -> Data[5]
++                    if (length > TS_SIZE - 5) {
++                       int n = TS_SIZE - 5;
++                       memcpy(buffer, Data + 5, n);
+                        bufp = buffer + n;
+-                       length -= n + 5; // 5 = header
++                       length -= n;
+                        }
+                     else {
+-                       p = Data + 13; // no need to copy the data
+-                       length -= 5; // header
++                       p = Data + 5; // no need to copy the data
++                       }
++                    if (MtdCamSlot) {
++                       mtdNumCatPackets = 0;
++                       memcpy(mtdCatBuffer[mtdNumCatPackets++], Data, TS_SIZE);
+                        }
+                     }
+                  else
+                     dsyslog("multi table CAT section - unhandled!");
+                  catVersion = v;
+                  }
+-              else if (MtdCamSlot)
+-                 MtdCamSlot->PutCat(mtdCatBuffer, TS_SIZE);
++              else if (MtdCamSlot) {
++                 for (int i = 0; i < mtdNumCatPackets; i++)
++                     MtdCamSlot->PutCat(mtdCatBuffer[i], TS_SIZE);
++                 }
+               }
+            }
+         }
+@@ -222,6 +229,8 @@
+               p = buffer;
+               length = bufp - buffer;
+               }
++           if (MtdCamSlot)
++              memcpy(mtdCatBuffer[mtdNumCatPackets++], Data, TS_SIZE);
+            }
+         else {
+            esyslog("ERROR: buffer overflow in cCaPidReceiver::Receive()");
+@@ -230,38 +239,49 @@
+            }
+         }
+      if (p) {
+-        DelEmmPids();
+-        for (int i = 0; i < length - 4; i++) { // -4 = checksum
+-            if (p[i] == 0x09) {
+-               int CaId = int(p[i + 2] << 8) | p[i + 3];
+-               int EmmPid = Peek13(p + i + 4);
+-               AddEmmPid(EmmPid);
+-               if (MtdCamSlot)
+-                  MtdMapPid(const_cast<uchar *>(p + i + 4), MtdCamSlot->MtdMapper());
+-               switch (CaId >> 8) {
+-                 case 0x01: for (int j = i + 7; j < p[i + 1] + 2; j += 4) {
+-                                EmmPid = Peek13(p + j);
+-                                AddEmmPid(EmmPid);
+-                                if (MtdCamSlot)
+-                                   MtdMapPid(const_cast<uchar *>(p + j), MtdCamSlot->MtdMapper());
+-                                }
+-                            break;
+-                 }
+-               i += p[i + 1] + 2 - 1; // -1 to compensate for the loop increment
++        if (!SI::CRC32::crc32((const char *)p, length, 0xFFFFFFFF)) { // <TableIdCAT,....,crc32>
++           DelEmmPids();
++           for (int i = 8; i < length - 4; i++) { // -4 = checksum
++               if (p[i] == 0x09) {
++                  int CaId = int(p[i + 2] << 8) | p[i + 3];
++                  int EmmPid = Peek13(p + i + 4);
++                  AddEmmPid(EmmPid);
++                  if (MtdCamSlot)
++                     MtdMapPid(const_cast<uchar *>(p + i + 4), MtdCamSlot->MtdMapper());
++                  switch (CaId >> 8) {
++                    case 0x01: for (int j = i + 7; j < i + p[i + 1] + 2; j += 4) {
++                                   EmmPid = Peek13(p + j);
++                                   AddEmmPid(EmmPid);
++                                   if (MtdCamSlot)
++                                      MtdMapPid(const_cast<uchar *>(p + j), MtdCamSlot->MtdMapper());
++                                   }
++                               break;
++                    }
++                  i += p[i + 1] + 2 - 1; // -1 to compensate for the loop increment
++                  }
+                }
+-            }
+-        if (MtdCamSlot) {
+-           if (!bufp && length) {
+-              // update crc32 - but only single packet CAT is handled for now:
+-              uint32_t crc = SI::CRC32::crc32((const char *)p - 8, length + 8 - 4, 0xFFFFFFFF); // <TableIdCAT....>[crc32]
++           if (MtdCamSlot) {
++              // update crc32
++              uint32_t crc = SI::CRC32::crc32((const char *)p, length - 4, 0xFFFFFFFF); // <TableIdCAT....>[crc32]
+               uchar *c = const_cast<uchar *>(p + length - 4);
+               *c++ = crc >> 24;
+               *c++ = crc >> 16;
+               *c++ = crc >> 8;
+               *c++ = crc;
++              // modify CAT packets
++              const uchar *t = p;
++              for (int i = 0, j = 5; i < mtdNumCatPackets; i++, j = 4) {
++                  int n = min(length, TS_SIZE - j);
++                  memcpy(mtdCatBuffer[i] + j, t, n);
++                  t += n;
++                  length -= n;
++                  MtdCamSlot->PutCat(mtdCatBuffer[i], TS_SIZE);
++                  }
+               }
+-           memcpy(mtdCatBuffer, Data, TS_SIZE);
+-           MtdCamSlot->PutCat(mtdCatBuffer, TS_SIZE);
++           }
++        else {
++           esyslog("ERROR: wrong checksum in CAT");
++           catVersion = -1;
+            }
+         p = NULL;
+         bufp = NULL;
+@@ -587,6 +607,7 @@
+ class cCiTransportConnection {
+ private:
+   enum eState { stIDLE, stCREATION, stACTIVE, stDELETION };
++  cMutex mutex;
+   cCamSlot *camSlot;
+   uint8_t tcid;
+   eState state;
+@@ -1811,6 +1832,7 @@
+ 
+ bool cCiTransportConnection::TsPostProcess(uint8_t *TsPacket)
+ {
++  cMutexLock MutexLock(&mutex);
+   if (tsPostProcessor)
+      return tsPostProcessor->TsPostProcess(TsPacket);
+   return false;
+@@ -2549,7 +2571,7 @@
+      return;
+   int CaPids2[MAXRECEIVEPIDS + 1];
+   for (cCiCaProgramData *p = caProgramList.First(); p; p = caProgramList.Next(p)) {
+-      if (p->programNumber != ProgramNumber) {
++      if (p->Active()) {
+          if (GetCaPids(source, transponder, p->programNumber, CaSystemIds, MAXRECEIVEPIDS + 1, CaPids2) > 0) {
+             int *pCaPids2 = CaPids2;
+             while (*pCaPids2) {
+@@ -2755,9 +2777,13 @@
+ void cCamSlot::StopDecrypting(void)
+ {
+   cMutexLock MutexLock(&mutex);
++  if (mtdHandler) {
++     mtdHandler->StopDecrypting();
++     return;
++     }
+   if (caProgramList.Count()) {
+      caProgramList.Clear();
+-     if (!dynamic_cast<cMtdCamSlot *>(this))
++     if (!dynamic_cast<cMtdCamSlot *>(this) || !MasterSlot()->IsDecrypting())
+         SendCaPmt(CPCI_NOT_SELECTED);
+      }
+ }
+diff -ruN vdr-2.4.1/config.h vdr-2.4.4/config.h
+--- vdr-2.4.1/config.h	2019-06-16 11:13:45.000000000 +0200
++++ vdr-2.4.4/config.h	2020-07-15 17:13:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 4.16 2019/06/16 09:13:45 kls Exp $
++ * $Id: config.h 4.19 2020/07/15 15:13:08 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.4.1"
+-#define VDRVERSNUM   20401  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.4.4"
++#define VDRVERSNUM   20404  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "2.4.1"
+-#define APIVERSNUM   20401  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "2.4.3"
++#define APIVERSNUM   20403  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-2.4.1/device.c vdr-2.4.4/device.c
+--- vdr-2.4.1/device.c	2019-05-28 16:50:11.000000000 +0200
++++ vdr-2.4.4/device.c	2020-07-13 10:16:41.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 4.30 2019/05/28 14:50:11 kls Exp $
++ * $Id: device.c 4.35 2020/07/13 08:16:41 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -58,6 +58,11 @@
+   return true;
+ }
+ 
++bool cDeviceHook::DeviceProvidesEIT(const cDevice *Device) const
++{
++  return true;
++}
++
+ // --- cDevice ---------------------------------------------------------------
+ 
+ // The minimum number of unknown PS1 packets to consider this a "pre 1.3.19 private stream":
+@@ -421,8 +426,8 @@
+             return d; // if any device is tuned to the transponder, we're done
+          if (d->ProvidesTransponder(Channel)) {
+             if (d->MaySwitchTransponder(Channel))
+-               Device = d; // this device may switch to the transponder without disturbing any receiver or live view
+-            else if (!d->Occupied() && d->MaySwitchTransponder(Channel)) { // MaySwitchTransponder() implicitly calls Occupied()
++               return d; // this device may switch to the transponder without disturbing any receiver or live view
++            else if (!d->Occupied() && !d->IsBonded()) { // MaySwitchTransponder() implicitly calls Occupied()
+                if (d->Priority() < Priority && (!Device || d->Priority() < Device->Priority()))
+                   Device = d; // use this one only if no other with less impact can be found
+                }
+@@ -718,6 +723,17 @@
+   return true;
+ }
+ 
++bool cDevice::DeviceHooksProvidesEIT(void) const
++{
++  cDeviceHook *Hook = deviceHooks.First();
++  while (Hook) {
++        if (!Hook->DeviceProvidesEIT(this))
++           return false;
++        Hook = deviceHooks.Next(Hook);
++        }
++  return true;
++}
++
+ bool cDevice::ProvidesTransponder(const cChannel *Channel) const
+ {
+   return false;
+@@ -792,9 +808,9 @@
+   for (int i = 3; i--;) {
+       switch (SetChannel(Channel, LiveView)) {
+         case scrOk:           return true;
+-        case scrNotAvailable: Skins.Message(mtInfo, tr("Channel not available!"));
++        case scrNotAvailable: Skins.QueueMessage(mtInfo, tr("Channel not available!"));
+                               return false;
+-        case scrNoTransfer:   Skins.Message(mtError, tr("Can't start Transfer Mode!"));
++        case scrNoTransfer:   Skins.QueueMessage(mtError, tr("Can't start Transfer Mode!"));
+                               return false;
+         case scrFailed:       break; // loop will retry
+         default:              esyslog("ERROR: invalid return value from SetChannel");
+@@ -1806,17 +1822,16 @@
+   bool receiversLeft = false;
+   mutexReceiver.Lock();
+   for (int i = 0; i < MAXRECEIVERS; i++) {
+-      if (receiver[i] == Receiver) {
++      if (receiver[i] == Receiver)
+          receiver[i] = NULL;
+-         Receiver->device = NULL;
+-         Receiver->Activate(false);
+-         for (int n = 0; n < Receiver->numPids; n++)
+-             DelPid(Receiver->pids[n]);
+-         }
+       else if (receiver[i])
+          receiversLeft = true;
+       }
+   mutexReceiver.Unlock();
++  Receiver->device = NULL;
++  Receiver->Activate(false);
++  for (int n = 0; n < Receiver->numPids; n++)
++      DelPid(Receiver->pids[n]);
+   if (camSlot) {
+      if (Receiver->priority > MINPRIORITY) { // priority check to avoid an infinite loop with the CAM slot's caPidReceiver
+         camSlot->StartDecrypting();
+diff -ruN vdr-2.4.1/device.h vdr-2.4.4/device.h
+--- vdr-2.4.1/device.h	2019-05-28 16:47:09.000000000 +0200
++++ vdr-2.4.4/device.h	2020-06-27 12:24:46.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 4.13 2019/05/28 14:47:09 kls Exp $
++ * $Id: device.h 4.17 2020/06/27 10:24:46 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -95,6 +95,8 @@
+           ///< program ends.
+   virtual bool DeviceProvidesTransponder(const cDevice *Device, const cChannel *Channel) const;
+           ///< Returns true if the given Device can provide the given Channel's transponder.
++  virtual bool DeviceProvidesEIT(const cDevice *Device) const;
++          ///< Returns true if the given Device can provide EIT data.
+   };
+ 
+ /// The cDevice class is the base from which actual devices can be derived.
+@@ -209,6 +211,11 @@
+          ///< device (On = false), it should do so in this function.
+          ///< A derived class must call the MakePrimaryDevice() function of its
+          ///< base class.
++  virtual bool IsBonded(void) const { return false; }
++         ///< Returns true if this device is bonded to an other device.
++         ///< Only implemented by cDvbDevice and used in GetDeviceForTransponder().
++         ///< May be dropped in a future version, if a better solution is found.
++         ///< Do not use otherwise!
+ public:
+   bool IsPrimaryDevice(void) const { return this == primaryDevice && HasDecoder(); }
+   int CardIndex(void) const { return cardIndex; }
+@@ -236,6 +243,7 @@
+   static cList<cDeviceHook> deviceHooks;
+ protected:
+   bool DeviceHooksProvidesTransponder(const cChannel *Channel) const;
++  bool DeviceHooksProvidesEIT(void) const;
+ 
+ // SPU facilities
+ 
+@@ -332,7 +340,7 @@
+          ///< Returns true if it is ok to switch to the Channel's transponder on this
+          ///< device, without disturbing any other activities. If an occupied timeout
+          ///< has been set for this device, and that timeout has not yet expired,
+-         ///< this function returns false,
++         ///< this function returns false.
+   bool SwitchChannel(const cChannel *Channel, bool LiveView);
+          ///< Switches the device to the given Channel, initiating transfer mode
+          ///< if necessary.
+@@ -450,6 +458,8 @@
+        ///< Attaches the given filter to this device.
+   void Detach(cFilter *Filter);
+        ///< Detaches the given filter from this device.
++  const cSdtFilter *SdtFilter(void) const { return sdtFilter; }
++  cSectionHandler *SectionHandler(void) const { return sectionHandler; }
+ 
+ // Common Interface facilities:
+ 
+diff -ruN vdr-2.4.1/dvbdevice.c vdr-2.4.4/dvbdevice.c
+--- vdr-2.4.1/dvbdevice.c	2019-05-28 16:40:49.000000000 +0200
++++ vdr-2.4.4/dvbdevice.c	2020-06-10 16:52:43.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 4.21 2019/05/28 14:40:49 kls Exp $
++ * $Id: dvbdevice.c 4.23 2020/06/10 14:52:43 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -1701,6 +1701,7 @@
+                      }
+                   }
+                tunerStatus = tsTuned;
++               device->SectionHandler()->SetStatus(true); // may have been turned off when retuning
+                Timer.Set(tuneTimeout + (scr ? rand() % SCR_RANDOM_TIMEOUT : 0));
+                if (positioner)
+                   continue;
+@@ -1733,6 +1734,14 @@
+                      isyslog("frontend %d/%d regained lock on channel %d (%s), tp %d", adapter, frontend, channel.Number(), channel.Name(), channel.Transponder());
+                      LostLock = false;
+                      }
++                  if (device->SdtFilter()->TransponderWrong()) {
++                     isyslog("frontend %d/%d is not receiving transponder %d for channel %d (%s) - retuning", adapter, frontend, channel.Transponder(), channel.Number(), channel.Name());
++                     device->SectionHandler()->SetStatus(false);
++                     tunerStatus = tsSet;
++                     lastDiseqc = NULL;
++                     lastSource = 0;
++                     continue;
++                     }
+                   tunerStatus = tsLocked;
+                   locked.Broadcast();
+                   lastTimeoutReport = 0;
+@@ -2235,7 +2244,7 @@
+ 
+ bool cDvbDevice::ProvidesEIT(void) const
+ {
+-  return dvbTuner != NULL;
++  return dvbTuner != NULL && DeviceHooksProvidesEIT();
+ }
+ 
+ int cDvbDevice::NumProvidedSystems(void) const
+diff -ruN vdr-2.4.1/dvbdevice.h vdr-2.4.4/dvbdevice.h
+--- vdr-2.4.1/dvbdevice.h	2019-03-10 13:01:15.000000000 +0100
++++ vdr-2.4.4/dvbdevice.h	2020-06-27 12:24:46.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 4.6 2019/03/10 12:01:15 kls Exp $
++ * $Id: dvbdevice.h 4.7 2020/06/27 10:24:46 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -179,6 +179,7 @@
+          ///< Returns true if any devices are available.
+ protected:
+   int adapter, frontend;
++  virtual bool IsBonded(void) const { return bondedDevice; }
+ private:
+   int fd_dvr, fd_ca;
+   bool checkTsBuffer;
+diff -ruN vdr-2.4.1/dvbsubtitle.c vdr-2.4.4/dvbsubtitle.c
+--- vdr-2.4.1/dvbsubtitle.c	2015-03-25 13:37:08.000000000 +0100
++++ vdr-2.4.4/dvbsubtitle.c	2020-05-15 14:32:51.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original author: Marco Schluessler <marco@lordzodiac.de>
+  * With some input from the "subtitles plugin" by Pekka Virtanen <pekka.virtanen@sci.fi>
+  *
+- * $Id: dvbsubtitle.c 4.1 2015/03/25 12:37:08 kls Exp $
++ * $Id: dvbsubtitle.c 4.2 2020/05/15 12:32:51 kls Exp $
+  */
+ 
+ #include "dvbsubtitle.h"
+@@ -479,11 +479,10 @@
+      for (int i = 0; i < NumberOfCodes; i++)
+          txt[i] = Data[i * 2 + 1];
+      txt[NumberOfCodes] = 0;
+-     bool singleByte;
+      const uchar *from = (uchar *)txt;
+      int len = NumberOfCodes;
+-     const char *CharacterTable = SI::getCharacterTable(from, len, &singleByte);
+-     dbgobjects(" table %s single %d raw '%s'", CharacterTable, singleByte, from);
++     const char *CharacterTable = SI::getCharacterTable(from, len);
++     dbgobjects(" table %s raw '%s'", CharacterTable, from);
+      cCharSetConv conv(CharacterTable, cCharSetConv::SystemCharacterTable());
+      const char *s = conv.Convert((const char *)from);
+      dbgobjects(" conv '%s'", s);
+diff -ruN vdr-2.4.1/eit.c vdr-2.4.4/eit.c
+--- vdr-2.4.1/eit.c	2019-05-20 11:55:22.000000000 +0200
++++ vdr-2.4.4/eit.c	2020-06-23 11:27:09.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 4.7 2019/05/20 09:55:22 kls Exp $
++ * $Id: eit.c 4.10 2020/06/23 09:27:09 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -302,11 +302,15 @@
+             case SI::ComponentDescriptorTag: {
+                  SI::ComponentDescriptor *cd = (SI::ComponentDescriptor *)d;
+                  uchar Stream = cd->getStreamContent();
++                 uchar Ext = cd->getStreamContentExt();
+                  uchar Type = cd->getComponentType();
+-                 if (1 <= Stream && Stream <= 6 && Type != 0) { // 1=MPEG2-video, 2=MPEG1-audio, 3=subtitles, 4=AC3-audio, 5=H.264-video, 6=HEAAC-audio
++                 if ((1 <= Stream && Stream <= 6 && Type != 0) // 1=MPEG2-video, 2=MPEG1-audio, 3=subtitles, 4=AC3-audio, 5=H.264-video, 6=HEAAC-audio
++                    || (Stream == 9 && Ext < 2)) {             // 0x09=HEVC-video, 0x19=AC-4-audio
+                     if (!Components)
+                        Components = new cComponents;
+                     char buffer[Utf8BufSize(256)];
++                    if (Stream == 9)
++                       Stream |= Ext << 4;
+                     Components->SetComponent(Components->NumComponents(), Stream, Type, I18nNormalizeLanguageCode(cd->languageCode), cd->description.getText(buffer, sizeof(buffer)));
+                     }
+                  }
+@@ -391,7 +395,9 @@
+   if (abs(diff) > MAX_TIME_DIFF) {
+      mutex.Lock();
+      if (abs(diff) > MAX_ADJ_DIFF) {
+-        if (stime(&dvbtim) == 0)
++        timespec ts = {};
++        ts.tv_sec = dvbtim;
++        if (clock_settime(CLOCK_REALTIME, &ts) == 0)
+            isyslog("system time changed from %s (%ld) to %s (%ld)", *TimeToString(loctim), loctim, *TimeToString(dvbtim), dvbtim);
+         else
+            esyslog("ERROR while setting system time: %m");
+diff -ruN vdr-2.4.1/i18n.c vdr-2.4.4/i18n.c
+--- vdr-2.4.1/i18n.c	2012-09-01 12:53:43.000000000 +0200
++++ vdr-2.4.4/i18n.c	2020-06-15 17:57:32.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 4.0 2012/09/01 10:53:43 kls Exp $
++ * $Id: i18n.c 4.2 2020/06/15 15:57:32 kls Exp $
+  */
+ 
+ /*
+@@ -37,32 +37,57 @@
+ const char *LanguageCodeList[] = {
+   "eng,dos",
+   "deu,ger",
+-  "slv,slo",
+-  "ita",
++  "alb,sqi",
++  "ara",
++  "bos",
++  "bul",
++  "cat,cln",
++  "chi,zho",
++  "cze,ces",
++  "dan",
+   "dut,nla,nld",
+-  "prt",
++  "ell,gre",
++  "esl,spa",
++  "est",
++  "eus,baq",
++  "fin,suo",
+   "fra,fre",
++  "hrv",
++  "hun",
++  "iri,gle", // 'NorDig'
++  "ita",
++  "jpn",
++  "lav",
++  "lit",
++  "ltz",
++  "mac,mkd",
++  "mlt",
+   "nor",
+-  "fin,suo",
+   "pol",
+-  "esl,spa",
+-  "ell,gre",
+-  "sve,swe",
++  "por",
+   "rom,rum",
+-  "hun",
+-  "cat,cln",
+   "rus",
++  "slk,slo",
++  "slv",
++  "smi",     // 'NorDig' Sami language (Norway, Sweden, Finnland, Russia)
+   "srb,srp,scr,scc",
+-  "hrv",
+-  "est",
+-  "dan",
+-  "cze,ces",
++  "sve,swe",
+   "tur",
+   "ukr",
+-  "ara",
+   NULL
+   };
+ 
++struct tSpecialLc { const char *Code; const char *Name; };
++const struct tSpecialLc SpecialLanguageCodeList[] = {
++  { "qaa", trNOOP("LanguageName$original language (qaa)") },
++  { "mis", trNOOP("LanguageName$uncoded languages (mis)") },
++  { "mul", trNOOP("LanguageName$multiple languages (mul)") },
++  { "nar", trNOOP("LanguageName$narrative (nar)") },
++  { "und", trNOOP("LanguageName$undetermined (und)") },
++  { "zxx", trNOOP("LanguageName$no linguistic content (zxx)") },
++  { NULL, NULL }
++  };
++
+ static cString I18nLocaleDir;
+ 
+ static cStringList LanguageLocales;
+@@ -70,6 +95,7 @@
+ static cStringList LanguageCodes;
+ 
+ static int NumLocales = 1;
++static int NumLanguages = 1;
+ static int CurrentLanguage = 0;
+ 
+ static bool ContainsCode(const char *Codes, const char *Code)
+@@ -100,6 +126,17 @@
+   ++_nl_msg_cat_cntr;
+ }
+ 
++static void SetLanguageNames(void)
++{
++  // Update the translation for special language codes:
++  int i = NumLanguages;
++  for (const struct tSpecialLc *slc = SpecialLanguageCodeList; slc->Code; slc++) {
++      const char *TranslatedName = gettext(slc->Name);
++      free(LanguageNames[i]);
++      LanguageNames[i++] = strdup(TranslatedName != slc->Name ? TranslatedName : SkipContext(slc->Name));
++      }
++}
++
+ void I18nInitialize(const char *LocaleDir)
+ {
+   I18nLocaleDir = LocaleDir;
+@@ -144,6 +181,7 @@
+      dsyslog("found %d locales in %s", NumLocales - 1, *I18nLocaleDir);
+      }
+   // Prepare any known language codes for which there was no locale:
++  NumLanguages = NumLocales;
+   for (const char **lc = LanguageCodeList; *lc; lc++) {
+       bool Found = false;
+       for (int i = 0; i < LanguageCodes.Size(); i++) {
+@@ -154,11 +192,18 @@
+           }
+       if (!Found) {
+          dsyslog("no locale for language code '%s'", *lc);
++         NumLanguages++;
+          LanguageLocales.Append(strdup(I18N_DEFAULT_LOCALE));
+          LanguageNames.Append(strdup(*lc));
+          LanguageCodes.Append(strdup(*lc));
+          }
+       }
++  // Add special language codes and names:
++  for (const struct tSpecialLc *slc = SpecialLanguageCodeList; slc->Code; slc++) {
++      const char *TranslatedName = gettext(slc->Name);
++      LanguageNames.Append(strdup( TranslatedName != slc->Name ? TranslatedName : SkipContext(slc->Name)));
++      LanguageCodes.Append(strdup(slc->Code));
++      }
+ }
+ 
+ void I18nRegister(const char *Plugin)
+@@ -174,6 +219,7 @@
+      if (i >= 0) {
+         CurrentLanguage = i;
+         SetEnvLanguage(Locale);
++        SetLanguageNames();
+         }
+      else
+         dsyslog("unknown locale: '%s'", Locale);
+@@ -187,7 +233,7 @@
+ 
+ void I18nSetLanguage(int Language)
+ {
+-  if (Language < LanguageNames.Size()) {
++  if (Language < NumLanguages) {
+      CurrentLanguage = Language;
+      I18nSetLocale(I18nLocale(CurrentLanguage));
+      }
+diff -ruN vdr-2.4.1/libsi/Makefile vdr-2.4.4/libsi/Makefile
+--- vdr-2.4.1/libsi/Makefile	2017-05-29 10:33:15.000000000 +0200
++++ vdr-2.4.4/libsi/Makefile	2020-06-22 16:31:10.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a libsi
+ #
+-# $Id: Makefile 4.2 2017/05/29 08:33:15 kls Exp $
++# $Id: Makefile 4.3 2020/06/22 14:31:10 kls Exp $
+ 
+ ### The archiver options:
+ 
+@@ -11,6 +11,15 @@
+ 
+ -include ../Make.config
+ 
++# Output control
++
++ifdef VERBOSE
++Q =
++else
++Q = @
++endif
++export Q
++
+ ### The object files (add further files here):
+ 
+ OBJS = util.o si.o section.o descriptor.o
+@@ -19,7 +28,7 @@
+ 
+ %.o: %.c
+ 	@echo CC libsi/$@
+-	@$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) $<
++	$(Q)$(CXX) $(CXXFLAGS) -c $(DEFINES) $(INCLUDES) -o $@ $<
+ 
+ ### Dependencies:
+ 
+diff -ruN vdr-2.4.1/libsi/descriptor.c vdr-2.4.4/libsi/descriptor.c
+--- vdr-2.4.1/libsi/descriptor.c	2019-03-15 17:12:43.000000000 +0100
++++ vdr-2.4.4/libsi/descriptor.c	2020-06-23 11:27:09.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: descriptor.c 4.1 2019/03/15 16:12:43 kls Exp $
++ *   $Id: descriptor.c 4.3 2020/06/23 09:27:09 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -90,17 +90,21 @@
+ }
+ 
+ char *ExtendedEventDescriptors::getText(char *buffer, int size, const char *separation1, const char *separation2) {
++   int tmpsize = size;
++   char tmpbuf[tmpsize];
++   const char *fromCode = NULL;
+    int index=0, len;
+    for (int i=0;i<length;i++) {
+       ExtendedEventDescriptor *d=(ExtendedEventDescriptor *)array[i];
+       if (!d)
+          continue;
+-      d->text.getText(buffer+index, size);
+-      len = strlen(buffer+index);
++      d->text.getText(tmpbuf+index, tmpsize, &fromCode);
++      len = strlen(tmpbuf+index);
+       index += len;
+-      size -= len;
++      tmpsize -= len;
+    }
+-
++   index = convertCharacterTable(tmpbuf, strlen(tmpbuf), buffer, size, fromCode);
++   size -= index;
+    int sepLen1 = strlen(separation1);
+    int sepLen2 = strlen(separation2);
+    bool separated = false;
+@@ -563,6 +567,10 @@
+    return s->stream_content;
+ }
+ 
++int ComponentDescriptor::getStreamContentExt() const {
++   return s->stream_content_ext;
++}
++
+ int ComponentDescriptor::getComponentType() const {
+    return s->component_type;
+ }
+diff -ruN vdr-2.4.1/libsi/descriptor.h vdr-2.4.4/libsi/descriptor.h
+--- vdr-2.4.1/libsi/descriptor.h	2019-03-15 17:12:09.000000000 +0100
++++ vdr-2.4.4/libsi/descriptor.h	2020-06-23 11:27:09.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: descriptor.h 4.1 2019/03/15 16:12:09 kls Exp $
++ *   $Id: descriptor.h 4.2 2020/06/23 09:27:09 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -295,6 +295,7 @@
+ class ComponentDescriptor : public Descriptor {
+ public:
+    int getStreamContent() const;
++   int getStreamContentExt() const;
+    int getComponentType() const;
+    int getComponentTag() const;
+    char languageCode[4];
+diff -ruN vdr-2.4.1/libsi/headers.h vdr-2.4.4/libsi/headers.h
+--- vdr-2.4.1/libsi/headers.h	2013-10-30 11:16:18.000000000 +0100
++++ vdr-2.4.4/libsi/headers.h	2020-06-23 11:27:09.000000000 +0200
+@@ -10,7 +10,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: headers.h 4.0 2013/10/30 10:16:18 kls Exp $
++ *   $Id: headers.h 4.1 2020/06/23 09:27:09 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -1176,11 +1176,11 @@
+    u_char descriptor_tag                         :8;
+    u_char descriptor_length                      :8;
+ #if BYTE_ORDER == BIG_ENDIAN
+-   u_char reserved                               :4;
++   u_char stream_content_ext                     :4;
+    u_char stream_content                         :4;
+ #else
+    u_char stream_content                         :4;
+-   u_char reserved                               :4;
++   u_char stream_content_ext                     :4;
+ #endif
+    u_char component_type                         :8;
+    u_char component_tag                          :8;
+diff -ruN vdr-2.4.1/libsi/si.c vdr-2.4.4/libsi/si.c
+--- vdr-2.4.1/libsi/si.c	2015-02-10 14:42:41.000000000 +0100
++++ vdr-2.4.4/libsi/si.c	2020-05-15 13:31:40.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.c 4.0 2015/02/10 13:42:41 kls Exp $
++ *   $Id: si.c 4.2 2020/05/15 11:31:40 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -230,14 +230,14 @@
+    return data;
+ }
+ 
+-char *String::getText(char *buffer, int size) {
++char *String::getText(char *buffer, int size, const char **fromCode) {
+    int len=getLength();
+    if (len < 0 || len >= size) {
+       strncpy(buffer, "text error", size);
+       buffer[size-1] = 0;
+       return buffer;
+    }
+-   decodeText(buffer, size);
++   decodeText(buffer, size, fromCode);
+    return buffer;
+ }
+ 
+@@ -311,7 +311,7 @@
+ 
+ #define NumEntries(Table) (sizeof(Table) / sizeof(char *))
+ 
+-static const char *SystemCharacterTable = NULL;
++static char *SystemCharacterTable = NULL;
+ bool SystemCharacterTableIsSingleByte = true;
+ 
+ bool systemCharacterTableIsSingleByte(void)
+@@ -321,32 +321,42 @@
+ 
+ static char *OverrideCharacterTable = NULL;
+ 
+-void SetOverrideCharacterTable(const char *CharacterTable)
++bool SetOverrideCharacterTable(const char *CharacterTable)
+ {
+   free(OverrideCharacterTable);
+   OverrideCharacterTable = CharacterTable ? strdup(CharacterTable) : NULL;
++   if (OverrideCharacterTable) {
++      // Check whether the character table is known:
++      iconv_t cd = iconv_open(SystemCharacterTable, OverrideCharacterTable);
++      if (cd != (iconv_t)-1) {
++         iconv_close(cd);
++         return true;
++      }
++   }
++   return false;
+ }
+ 
+ bool SetSystemCharacterTable(const char *CharacterTable) {
+-   if (CharacterTable) {
+-      for (unsigned int i = 0; i < NumEntries(CharacterTables1); i++) {
+-         if (CharacterTables1[i] && strcasecmp(CharacterTable, CharacterTables1[i]) == 0) {
+-            SystemCharacterTable = CharacterTables1[i];
+-            SystemCharacterTableIsSingleByte = i <= SingleByteLimit;
+-            return true;
++   free(SystemCharacterTable);
++   SystemCharacterTable = CharacterTable ? strdup(CharacterTable) : NULL;
++   SystemCharacterTableIsSingleByte = true;
++   if (SystemCharacterTable) {
++      // Check whether the character table is known and "single byte":
++      char a[] = "�";
++      char *pa = a;
++      char b[10];
++      char *pb = b;
++      size_t la = strlen(a);
++      size_t lb = sizeof(b);
++      iconv_t cd = iconv_open(SystemCharacterTable, "ISO-8859-1");
++      if (cd != (iconv_t)-1) {
++         if (iconv(cd, &pa, &la, &pb, &lb) != size_t(-1)) {
++            *pb = 0;
++            SystemCharacterTableIsSingleByte = strlen(b) == 1;
+          }
++         iconv_close(cd);
++         return true;
+       }
+-      for (unsigned int i = 0; i < NumEntries(CharacterTables2); i++) {
+-         if (CharacterTables2[i] && strcasecmp(CharacterTable, CharacterTables2[i]) == 0) {
+-            SystemCharacterTable = CharacterTables2[i];
+-            SystemCharacterTableIsSingleByte = true;
+-            return true;
+-         }
+-      }
+-   } else {
+-      SystemCharacterTable = NULL;
+-      SystemCharacterTableIsSingleByte = true;
+-      return true;
+    }
+    return false;
+ }
+@@ -386,9 +396,25 @@
+    return cs;
+ }
+ 
+-bool convertCharacterTable(const char *from, size_t fromLength, char *to, size_t toLength, const char *fromCode)
++// A similar version is used in VDR/tools.c:
++static int Utf8CharLen(const char *s)
++{
++  if (SystemCharacterTableIsSingleByte)
++     return 1;
++#define MT(s, m, v) ((*(s) & (m)) == (v)) // Mask Test
++  if (MT(s, 0xE0, 0xC0) && MT(s + 1, 0xC0, 0x80))
++     return 2;
++  if (MT(s, 0xF0, 0xE0) && MT(s + 1, 0xC0, 0x80) && MT(s + 2, 0xC0, 0x80))
++     return 3;
++  if (MT(s, 0xF8, 0xF0) && MT(s + 1, 0xC0, 0x80) && MT(s + 2, 0xC0, 0x80) && MT(s + 3, 0xC0, 0x80))
++     return 4;
++  return 1;
++}
++
++size_t convertCharacterTable(const char *from, size_t fromLength, char *to, size_t toLength, const char *fromCode)
+ {
+-  if (SystemCharacterTable) {
++  char *result = to;
++  if (SystemCharacterTable && fromCode) {
+      iconv_t cd = iconv_open(SystemCharacterTable, fromCode);
+      if (cd != (iconv_t)-1) {
+         char *fromPtr = (char *)from;
+@@ -407,29 +433,44 @@
+         }
+         *to = 0;
+         iconv_close(cd);
+-        return true;
+      }
+   }
+-  return false;
+-}
+-
+-// A similar version is used in VDR/tools.c:
+-static int Utf8CharLen(const char *s)
+-{
+-  if (SystemCharacterTableIsSingleByte)
+-     return 1;
+-#define MT(s, m, v) ((*(s) & (m)) == (v)) // Mask Test
+-  if (MT(s, 0xE0, 0xC0) && MT(s + 1, 0xC0, 0x80))
+-     return 2;
+-  if (MT(s, 0xF0, 0xE0) && MT(s + 1, 0xC0, 0x80) && MT(s + 2, 0xC0, 0x80))
+-     return 3;
+-  if (MT(s, 0xF8, 0xF0) && MT(s + 1, 0xC0, 0x80) && MT(s + 2, 0xC0, 0x80) && MT(s + 3, 0xC0, 0x80))
+-     return 4;
+-  return 1;
++  else {
++     size_t len = fromLength;
++     if (len >= toLength)
++        len = toLength - 1;
++     strncpy(to, from, len);
++     to[len] = 0;
++  }
++  // Handle control codes:
++  to = result;
++  size_t len = strlen(to);
++  while (len > 0) {
++     int l = Utf8CharLen(to);
++     if (l <= 2) {
++        unsigned char *p = (unsigned char *)to;
++        if (l == 2 && *p == 0xC2) // UTF-8 sequence
++           p++;
++        bool Move = true;
++        switch (*p) {
++          case 0x8A: *to = '\n'; break;
++          case 0xA0: *to = ' ';  break;
++          default:   Move = false;
++        }
++        if (l == 2 && Move) {
++           memmove(p, p + 1, len - 1); // we also copy the terminating 0!
++           len -= 1;
++           l = 1;
++        }
++     }
++     to += l;
++     len -= l;
++  }
++  return strlen(result);
+ }
+ 
+ // originally from libdtv, Copyright Rolf Hakenes <hakenes@hippomi.de>
+-void String::decodeText(char *buffer, int size) {
++void String::decodeText(char *buffer, int size, const char **fromCode) {
+    const unsigned char *from=data.getData(0);
+    char *to=buffer;
+    int len=getLength();
+@@ -437,38 +478,17 @@
+       *to = '\0';
+       return;
+    }
+-   bool singleByte;
+-   const char *cs = getCharacterTable(from, len, &singleByte);
+-   if (singleByte && SystemCharacterTableIsSingleByte || !convertCharacterTable((const char *)from, len, to, size, cs)) {
++   const char *cs = getCharacterTable(from, len);
++   if (fromCode) {
+       if (len >= size)
+          len = size - 1;
+-      strncpy(to, (const char *)from, len);
+-      to[len] = 0;
++      strncpy(buffer, (const char *)from, len);
++      buffer[len] = 0;
++      if (!*fromCode)
++         *fromCode = cs;
+    }
+    else
+-      len = strlen(to); // might have changed
+-   // Handle control codes:
+-   while (len > 0) {
+-      int l = Utf8CharLen(to);
+-      if (l <= 2) {
+-         unsigned char *p = (unsigned char *)to;
+-         if (l == 2 && *p == 0xC2) // UTF-8 sequence
+-            p++;
+-         bool Move = true;
+-         switch (*p) {
+-           case 0x8A: *to = '\n'; break;
+-           case 0xA0: *to = ' ';  break;
+-           default:   Move = false;
+-         }
+-         if (l == 2 && Move) {
+-            memmove(p, p + 1, len - 1); // we also copy the terminating 0!
+-            len -= 1;
+-            l = 1;
+-         }
+-      }
+-      to += l;
+-      len -= l;
+-   }
++      convertCharacterTable((const char *)from, len, to, size, cs);
+ }
+ 
+ void String::decodeText(char *buffer, char *shortVersion, int sizeBuffer, int sizeShortVersion) {
+diff -ruN vdr-2.4.1/libsi/si.h vdr-2.4.4/libsi/si.h
+--- vdr-2.4.1/libsi/si.h	2015-02-10 14:54:28.000000000 +0100
++++ vdr-2.4.4/libsi/si.h	2020-05-15 14:32:51.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.h 4.0 2015/02/10 13:54:28 kls Exp $
++ *   $Id: si.h 4.3 2020/05/15 12:32:51 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -508,7 +508,10 @@
+    //so the maximum there is 256.
+    //returns the given buffer for convenience.
+    //The emphasis marks 0x86 and 0x87 are still available.
+-   char *getText(char *buffer, int size);
++   //If fromCode is given, the string will be copied into buffer in its raw form,
++   //without conversion, and he code table of the string is returned in this variable
++   //if it is NULL.
++   char *getText(char *buffer, int size, const char **fromCode = NULL);
+    //The same semantics as for getText(char*) apply.
+    //The short version of the text according to ETSI TR 101 211 (chapter 4.6)
+    //will be written into the shortVersion buffer (which should, therefore, have the same
+@@ -518,13 +521,15 @@
+    char *getText(char *buffer, char *shortVersion, int sizeBuffer, int sizeShortVersion);
+ protected:
+    virtual void Parse() {}
+-   void decodeText(char *buffer, int size);
++   void decodeText(char *buffer, int size, const char **fromCode = NULL);
+    void decodeText(char *buffer, char *shortVersion, int sizeBuffer, int sizeShortVersion);
+ };
+ 
+ // Set the character table to use for strings that do not begin with a character
+ // table indicator. Call with NULL to turn this off.
+-void SetOverrideCharacterTable(const char *CharacterTable);
++// Must be called *after* SetSystemCharacterTable()!
++// Returns true if the character table was recognized.
++bool SetOverrideCharacterTable(const char *CharacterTable);
+ // Call this function to set the system character table. CharacterTable is a string
+ // like "iso8859-15" or "utf-8" (case insensitive).
+ // Returns true if the character table was recognized.
+@@ -533,8 +538,11 @@
+ // a string indicating that table. If no table can be determined, the
+ // default ISO6937 is returned. If a table can be determined, the buffer
+ // and length are adjusted accordingly.
++// The isSingleByte parameter is deprecated and only present for backwards compatibility.
+ const char *getCharacterTable(const unsigned char *&buffer, int &length, bool *isSingleByte = NULL);
+-bool convertCharacterTable(const char *from, size_t fromLength, char *to, size_t toLength, const char *fromCode);
++// Copies 'from' to 'to' and converts characters according to 'fromCode', if given.
++// Returns the length of the resulting string.
++size_t convertCharacterTable(const char *from, size_t fromLength, char *to, size_t toLength, const char *fromCode);
+ bool systemCharacterTableIsSingleByte(void);
+ 
+ } //end of namespace
+diff -ruN vdr-2.4.1/menu.c vdr-2.4.4/menu.c
+--- vdr-2.4.1/menu.c	2019-05-28 17:24:43.000000000 +0200
++++ vdr-2.4.4/menu.c	2020-07-01 17:05:17.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 4.80 2019/05/28 15:24:43 kls Exp $
++ * $Id: menu.c 4.83 2020/07/01 15:05:17 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -516,7 +516,6 @@
+         Channels->Del(Channel);
+         cOsdMenu::Del(Index);
+         Propagate(Channels);
+-        Channels->SetModifiedByUser();
+         isyslog("channel %d deleted", DeletedChannel);
+         Deleted = true;
+         if (CurrentChannel && CurrentChannel->Number() != CurrentChannelNr) {
+@@ -541,10 +540,14 @@
+      if (FromChannel && ToChannel) {
+         int FromNumber = FromChannel->Number();
+         int ToNumber = ToChannel->Number();
++        if (Channels->MoveNeedsDecrement(FromChannel, ToChannel)) {
++           ToChannel = Channels->Prev(ToChannel); // cListBase::Move() doesn't know about the channel list's numbered groups!
++           To--;
++           }
+         Channels->Move(FromChannel, ToChannel);
+         cOsdMenu::Move(From, To);
++        SetCurrent(Get(To));
+         Propagate(Channels);
+-        Channels->SetModifiedByUser();
+         isyslog("channel %d moved to %d", FromNumber, ToNumber);
+         if (CurrentChannel && CurrentChannel->Number() != CurrentChannelNr) {
+            if (!cDevice::PrimaryDevice()->Replaying() || cDevice::PrimaryDevice()->Transferring())
+@@ -2728,7 +2731,8 @@
+   if (buttonDeleteMarks && Interface->Confirm(tr("Delete editing marks for this recording?"))) {
+      if (cMarks::DeleteMarksFile(recording)) {
+         SetHelpKeys();
+-        if (cControl *Control = cControl::Control(true)) {
++        cMutexLock ControlMutexLock;
++        if (cControl *Control = cControl::Control(ControlMutexLock, true)) {
+            if (const cRecording *Recording = Control->GetRecording()) {
+               if (strcmp(recording->FileName(), Recording->FileName()) == 0)
+                  Control->ClearEditingMarks();
+@@ -4454,7 +4458,11 @@
+ {
+   bool result = false;
+ 
+-  bool NewReplaying = cControl::Control() != NULL;
++  bool NewReplaying = false;
++  {
++    cMutexLock ControlMutexLock;
++    NewReplaying = cControl::Control(ControlMutexLock) != NULL;
++  }
+   if (Force || NewReplaying != replaying) {
+      replaying = NewReplaying;
+      // Replay control:
+@@ -4678,8 +4686,8 @@
+ cDisplayChannel::~cDisplayChannel()
+ {
+   delete displayChannel;
+-  cStatus::MsgOsdClear();
+   currentDisplayChannel = NULL;
++  cStatus::MsgOsdClear();
+ }
+ 
+ void cDisplayChannel::DisplayChannel(void)
+diff -ruN vdr-2.4.1/mtd.c vdr-2.4.4/mtd.c
+--- vdr-2.4.1/mtd.c	2019-05-28 16:59:47.000000000 +0200
++++ vdr-2.4.4/mtd.c	2020-06-16 16:33:32.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: mtd.c 1.14 2019/05/28 14:59:47 kls Exp $
++ * $Id: mtd.c 1.16 2020/06/16 14:33:32 kls Exp $
+  */
+ 
+ #include "mtd.h"
+@@ -112,6 +112,14 @@
+       }
+ }
+ 
++void cMtdHandler::StopDecrypting(void)
++{
++  for (int i = 0; i < camSlots.Size(); i++) {
++      if (camSlots[i]->Device())
++         camSlots[i]->StopDecrypting();
++      }
++}
++
+ void cMtdHandler::CancelActivation(void)
+ {
+   for (int i = 0; i < camSlots.Size(); i++)
+@@ -292,8 +300,6 @@
+ void cMtdCamSlot::StopDecrypting(void)
+ {
+   cCamSlot::StopDecrypting();
+-  if (!MasterSlot()->IsDecrypting())
+-     MasterSlot()->StopDecrypting();
+   cMutexLock MutexLock(&clearMutex);
+   mtdMapper->Clear();
+   mtdBuffer->Clear();
+@@ -337,6 +343,11 @@
+   return d;
+ }
+ 
++bool cMtdCamSlot::TsPostProcess(uchar *Data)
++{
++  return MasterSlot()->TsPostProcess(Data);
++}
++
+ void cMtdCamSlot::InjectEit(int Sid)
+ {
+   MasterSlot()->InjectEit(mtdMapper->RealToUniqSid(Sid));
+diff -ruN vdr-2.4.1/mtd.h vdr-2.4.4/mtd.h
+--- vdr-2.4.1/mtd.h	2019-05-28 17:00:10.000000000 +0200
++++ vdr-2.4.4/mtd.h	2020-06-16 16:33:32.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: mtd.h 1.9 2019/05/28 15:00:10 kls Exp $
++ * $Id: mtd.h 1.11 2020/06/16 14:33:32 kls Exp $
+  */
+ 
+ #ifndef __MTD_H
+@@ -132,6 +132,8 @@
+       ///< Returns true if any of the active MTD CAM slots is currently decrypting.
+   void StartDecrypting(void);
+       ///< Tells all active MTD CAM slots to start decrypting.
++  void StopDecrypting(void);
++      ///< Tells all active MTD CAM slots to stop decrypting.
+   void CancelActivation(void);
+       ///< Tells all active MTD CAM slots to cancel activation.
+   bool IsActivating(void);
+@@ -172,6 +174,7 @@
+   virtual void StartDecrypting(void);
+   virtual void StopDecrypting(void);
+   virtual uchar *Decrypt(uchar *Data, int &Count);
++  virtual bool TsPostProcess(uchar *Data);
+   virtual void InjectEit(int Sid);
+   int PutData(const uchar *Data, int Count);
+   int PutCat(const uchar *Data, int Count);
+diff -ruN vdr-2.4.1/newplugin vdr-2.4.4/newplugin
+--- vdr-2.4.1/newplugin	2017-05-29 10:55:21.000000000 +0200
++++ vdr-2.4.4/newplugin	2020-06-22 17:08:46.000000000 +0200
+@@ -12,7 +12,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: newplugin 4.3 2017/05/29 08:55:21 kls Exp $
++# $Id: newplugin 4.4 2020/06/22 15:08:46 kls Exp $
+ 
+ $PLUGIN_NAME = $ARGV[0] || die "Usage: newplugin <name>\n";
+ 
+@@ -75,7 +75,8 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = \$(if \$(VDRDIR),\$(shell pkg-config --variable=\$(1) \$(VDRDIR)/vdr.pc),\$(shell PKG_CONFIG_PATH="\$\$PKG_CONFIG_PATH:../../.." pkg-config --variable=\$(1) vdr))
++PKG_CONFIG ?= pkg-config
++PKGCFG = \$(if \$(VDRDIR),\$(shell $(PKG_CONFIG) --variable=\$(1) \$(VDRDIR)/vdr.pc),\$(shell PKG_CONFIG_PATH="\$\$PKG_CONFIG_PATH:../../.." $(PKG_CONFIG) --variable=\$(1) vdr))
+ LIBDIR = \$(call PKGCFG,libdir)
+ LOCDIR = \$(call PKGCFG,locdir)
+ PLGCFG = \$(call PKGCFG,plgcfg)
+diff -ruN vdr-2.4.1/pat.c vdr-2.4.4/pat.c
+--- vdr-2.4.1/pat.c	2019-03-15 11:14:35.000000000 +0100
++++ vdr-2.4.4/pat.c	2020-06-19 14:19:15.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.c 4.5 2019/03/15 10:14:35 kls Exp $
++ * $Id: pat.c 4.6 2020/06/19 12:19:15 kls Exp $
+  */
+ 
+ #include "pat.h"
+@@ -280,6 +280,54 @@
+   return CaDescriptorHandler.GetPmtPid(Source, Transponder, ServiceId);
+ }
+ 
++// --- cPmtPidEntry ----------------------------------------------------------
++
++class cPmtPidEntry : public cListObject {
++private:
++  int pid;
++  bool complete;
++public:
++  cPmtPidEntry(int Pid);
++  int Pid(void) { return pid; }
++  int Complete(void) { return complete; }
++  void SetComplete(bool State) { complete = State; }
++  };
++
++cPmtPidEntry::cPmtPidEntry(int Pid)
++{
++  pid = Pid;
++  complete = false;
++}
++
++// --- cPmtSidEntry ----------------------------------------------------------
++
++class cPmtSidEntry : public cListObject {
++private:
++  int sid;
++  int pid;
++  cPmtPidEntry *pidEntry;
++  int version;
++  bool received;
++public:
++  cPmtSidEntry(int Sid, int Pid, cPmtPidEntry *PidEntry);
++  int Sid(void) { return sid; }
++  int Pid(void) { return pid; }
++  cPmtPidEntry *PidEntry(void) { return pidEntry; }
++  int Version(void) { return version; }
++  int Received(void) { return received; }
++  void SetVersion(int Version) { version = Version; }
++  void SetReceived(bool State) { received = State; }
++  };
++
++cPmtSidEntry::cPmtSidEntry(int Sid, int Pid, cPmtPidEntry *PidEntry)
++{
++  sid = Sid;
++  pid = Pid;
++  pidEntry = PidEntry;
++  version = -1;
++  received = false;
++}
++
+ // --- cPatFilter ------------------------------------------------------------
+ 
+ //#define DEBUG_PAT_PMT
+@@ -307,24 +355,47 @@
+ {
+   cMutexLock MutexLock(&mutex);
+   patVersion = -1;
+-  pmtIndex = -1;
+-  numPmtEntries = 0;
++  sectionSyncer.Reset();
++  if (Sid != 0 && activePmt)
++     Del(activePmt->Pid(), SI::TableIdPMT);
++  activePmt = NULL;
+   if (Sid >= 0) {
+      sid = Sid;
+      DBGLOG("PAT filter trigger SID %d", Sid);
+      }
+ }
+ 
++bool cPatFilter::PmtPidComplete(int PmtPid)
++{
++  for (cPmtSidEntry *se = pmtSidList.First(); se; se = pmtSidList.Next(se)) {
++      if (se->Pid() == PmtPid && !se->Received())
++         return false;
++      }
++  return true;
++}
++
++void cPatFilter::PmtPidReset(int PmtPid)
++{
++  for (cPmtSidEntry *se = pmtSidList.First(); se; se = pmtSidList.Next(se)) {
++      if (se->Pid() == PmtPid)
++         se->SetReceived(false);
++      }
++}
++
+ bool cPatFilter::PmtVersionChanged(int PmtPid, int Sid, int Version, bool SetNewVersion)
+ {
+-  int Id = MakePmtId(PmtPid, Sid);
+-  for (int i = 0; i < numPmtEntries; i++) {
+-      if (pmtId[i] == Id) {
+-         if (pmtVersion[i] != Version) {
++  int i = 0;
++  for (cPmtSidEntry *se = pmtSidList.First(); se; se = pmtSidList.Next(se), i++) {
++      if (se->Sid() == Sid && se->Pid() == PmtPid) {
++         if (!se->Received()) {
++            se->SetReceived(true);
++            if (PmtPidComplete(PmtPid))
++               se->PidEntry()->SetComplete(true);
++            }
++         if (se->Version() != Version) {
++            DBGLOG("PMT %d  %2d %5d/%d %2d -> %2d", Transponder(), i, PmtPid, Sid, se->Version(), Version);
+             if (SetNewVersion)
+-               pmtVersion[i] = Version;
+-            else
+-               DBGLOG("PMT %d  %2d %5d %2d -> %2d", Transponder(), i, PmtPid, pmtVersion[i], Version);
++               se->SetVersion(Version);
+             return true;
+             }
+          break;
+@@ -335,10 +406,12 @@
+ 
+ void cPatFilter::SwitchToNextPmtPid(void)
+ {
+-  if (pmtIndex >= 0) {
+-     Del(GetPmtPid(pmtIndex), SI::TableIdPMT);
+-     pmtIndex = (pmtIndex + 1) % numPmtEntries;
+-     Add(GetPmtPid(pmtIndex), SI::TableIdPMT);
++  if (activePmt) {
++     Del(activePmt->Pid(), SI::TableIdPMT);
++     if (!(activePmt = pmtPidList.Next(activePmt)))
++        activePmt = pmtPidList.First();
++     PmtPidReset(activePmt->Pid());
++     Add(activePmt->Pid(), SI::TableIdPMT);
+      }
+ }
+ 
+@@ -350,32 +423,48 @@
+         SI::PAT pat(Data, false);
+         if (!pat.CheckCRCAndParse())
+            return;
+-        if (pat.getVersionNumber() != patVersion) {
+-           DBGLOG("PAT %d %d -> %d", Transponder(), patVersion, pat.getVersionNumber());
+-           if (pmtIndex >= 0) {
+-              Del(GetPmtPid(pmtIndex), SI::TableIdPMT);
+-              pmtIndex = -1;
++        if (sectionSyncer.Sync(pat.getVersionNumber(), pat.getSectionNumber(), pat.getLastSectionNumber())) {
++           DBGLOG("PAT %d %d -> %d %d/%d", Transponder(), patVersion, pat.getVersionNumber(), pat.getSectionNumber(), pat.getLastSectionNumber());
++           if (pat.getVersionNumber() != patVersion) {
++              if (pat.getLastSectionNumber() > 0)
++                 DBGLOG("  PAT %d: %d sections", Transponder(), pat.getLastSectionNumber() + 1);
++              if (activePmt) {
++                 Del(activePmt->Pid(), SI::TableIdPMT);
++                 activePmt = NULL;
++                 }
++              pmtSidList.Clear();
++              pmtPidList.Clear();
++              patVersion = pat.getVersionNumber();
+               }
+-           numPmtEntries = 0;
+            SI::PAT::Association assoc;
+            for (SI::Loop::Iterator it; pat.associationLoop.getNext(assoc, it); ) {
+-               if (!assoc.isNITPid() && numPmtEntries < MAXPMTENTRIES) {
+-                  DBGLOG("    PMT pid %2d %5d  SID %5d", numPmtEntries, assoc.getPid(), assoc.getServiceId());
+-                  pmtId[numPmtEntries] = MakePmtId(assoc.getPid(), assoc.getServiceId());
+-                  pmtVersion[numPmtEntries] = -1;
++               if (!assoc.isNITPid()) {
++                  int PmtPid = assoc.getPid();
++                  cPmtPidEntry *pPid = NULL;
++                  int PidIndex = 0;
++                  for (pPid = pmtPidList.First(); pPid && pPid->Pid() != PmtPid; pPid = pmtPidList.Next(pPid))
++                      PidIndex++;
++                  if (!pPid) { // new PMT Pid
++                     pPid = new cPmtPidEntry(PmtPid);
++                     pmtPidList.Add(pPid);
++                     }
++                  pmtSidList.Add(new cPmtSidEntry(assoc.getServiceId(), PmtPid, pPid));
++                  DBGLOG("    PMT pid %2d/%2d %5d  SID %5d", PidIndex, pmtSidList.Count() - 1, PmtPid, assoc.getServiceId());
+                   if (sid == assoc.getServiceId()) {
+-                     pmtIndex = numPmtEntries;
+-                     DBGLOG("sid = %d pmtIndex = %d", sid, pmtIndex);
++                     activePmt = pPid;
++                     DBGLOG("sid = %d pidIndex = %d", sid, PidIndex);
+                      }
+-                  numPmtEntries++;
+                   }
+                }
+-           if (numPmtEntries > 0 && pmtIndex < 0)
+-              pmtIndex = 0;
+-           if (pmtIndex >= 0)
+-              Add(GetPmtPid(pmtIndex), SI::TableIdPMT);
+-           patVersion = pat.getVersionNumber();
+-           timer.Set(PMT_SCAN_TIMEOUT);
++           if (sectionSyncer.Complete()) { // all PAT sections done
++              if (pmtPidList.Count() != pmtSidList.Count())
++                 DBGLOG("  PAT %d: shared PMT PIDs", Transponder());
++              if (pmtSidList.Count() && !activePmt)
++                 activePmt = pmtPidList.First();
++              if (activePmt)
++                 Add(activePmt->Pid(), SI::TableIdPMT);
++              timer.Set(PMT_SCAN_TIMEOUT);
++              }
+            }
+         }
+      }
+@@ -384,8 +473,9 @@
+      SI::PMT pmt(Data, false);
+      if (!pmt.CheckCRCAndParse())
+         return;
+-     if (!PmtVersionChanged(Pid, pmt.getTableIdExtension(), pmt.getVersionNumber())) {
+-        SwitchToNextPmtPid();
++     if (!PmtVersionChanged(Pid, pmt.getTableIdExtension(), pmt.getVersionNumber(), true)) {
++        if (activePmt && activePmt->Complete())
++           SwitchToNextPmtPid();
+         return;
+         }
+      cStateKey StateKey;
+@@ -393,8 +483,8 @@
+      if (!Channels)
+         return;
+      bool ChannelsModified = false;
+-     PmtVersionChanged(Pid, pmt.getTableIdExtension(), pmt.getVersionNumber(), true);
+-     SwitchToNextPmtPid();
++     if (activePmt && activePmt->Complete())
++        SwitchToNextPmtPid();
+      cChannel *Channel = Channels->GetByServiceID(Source(), Transponder(), pmt.getServiceId());
+      if (Channel) {
+         SI::CaDescriptor *d;
+@@ -636,8 +726,8 @@
+      StateKey.Remove(ChannelsModified);
+      }
+   if (timer.TimedOut()) {
+-     if (pmtIndex >= 0)
+-        DBGLOG("PMT timeout %d", pmtIndex);
++     if (activePmt)
++        DBGLOG("PMT timeout Pid %d", activePmt->Pid());
+      SwitchToNextPmtPid();
+      timer.Set(PMT_SCAN_TIMEOUT);
+      }
+diff -ruN vdr-2.4.1/pat.h vdr-2.4.4/pat.h
+--- vdr-2.4.1/pat.h	2016-12-23 15:03:24.000000000 +0100
++++ vdr-2.4.4/pat.h	2020-06-19 14:19:15.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.h 4.1 2016/12/23 14:03:24 kls Exp $
++ * $Id: pat.h 4.2 2020/06/19 12:19:15 kls Exp $
+  */
+ 
+ #ifndef __PAT_H
+@@ -14,20 +14,21 @@
+ #include "filter.h"
+ #include "thread.h"
+ 
+-#define MAXPMTENTRIES 64
++class cPmtPidEntry;
++class cPmtSidEntry;
+ 
+ class cPatFilter : public cFilter {
+ private:
+   cMutex mutex;
+   cTimeMs timer;
+   int patVersion;
+-  int pmtIndex;
+-  int pmtId[MAXPMTENTRIES];
+-  int pmtVersion[MAXPMTENTRIES];
+-  int numPmtEntries;
+   int sid;
+-  int GetPmtPid(int Index) { return pmtId[Index] & 0x0000FFFF; }
+-  int MakePmtId(int PmtPid, int Sid) { return PmtPid | (Sid << 16); }
++  cPmtPidEntry *activePmt;
++  cList<cPmtPidEntry> pmtPidList;
++  cList<cPmtSidEntry> pmtSidList;
++  cSectionSyncer sectionSyncer;
++  bool PmtPidComplete(int PmtPid);
++  void PmtPidReset(int PmtPid);
+   bool PmtVersionChanged(int PmtPid, int Sid, int Version, bool SetNewVersion = false);
+   void SwitchToNextPmtPid(void);
+ protected:
+diff -ruN vdr-2.4.1/player.c vdr-2.4.4/player.c
+--- vdr-2.4.1/player.c	2012-04-28 13:52:50.000000000 +0200
++++ vdr-2.4.4/player.c	2020-05-18 18:47:29.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: player.c 4.0 2012/04/28 11:52:50 kls Exp $
++ * $Id: player.c 4.1 2020/05/18 16:47:29 kls Exp $
+  */
+ 
+ #include "player.h"
+@@ -70,16 +70,24 @@
+   return "";
+ }
+ 
++#if DEPRECATED_CCONTROL
+ cControl *cControl::Control(bool Hidden)
+ {
+   cMutexLock MutexLock(&mutex);
+   return (control && (!control->hidden || Hidden)) ? control : NULL;
+ }
++#endif
++
++cControl *cControl::Control(cMutexLock &MutexLock, bool Hidden)
++{
++  MutexLock.Lock(&mutex);
++  return (control && (!control->hidden || Hidden)) ? control : NULL;
++}
+ 
+ void cControl::Launch(cControl *Control)
+ {
+   cMutexLock MutexLock(&mutex);
+-  cControl *c = control; // keeps control from pointing to uninitialized memory
++  cControl *c = control; // keeps control from pointing to uninitialized memory TODO obsolete once DEPRECATED_CCONTROL is gone
+   control = Control;
+   delete c;
+ }
+diff -ruN vdr-2.4.1/player.h vdr-2.4.4/player.h
+--- vdr-2.4.1/player.h	2018-02-01 16:34:51.000000000 +0100
++++ vdr-2.4.4/player.h	2020-05-18 18:47:29.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: player.h 4.4 2018/02/01 15:34:51 kls Exp $
++ * $Id: player.h 4.5 2020/05/18 16:47:29 kls Exp $
+  */
+ 
+ #ifndef __PLAYER_H
+@@ -114,10 +114,21 @@
+   static void Launch(cControl *Control);
+   static void Attach(void);
+   static void Shutdown(void);
++#define DEPRECATED_CCONTROL 1
++#if DEPRECATED_CCONTROL
+   static cControl *Control(bool Hidden = false);
++         ///< Old version of this function, for backwards compatibility with plugins.
++         ///< Plugins should be changed to use the new version below, which does
++         ///< proper locking.
++         ///< Use of this function may result in program crashes in case replay is
++         ///< stopped immediately after starting it.
++#endif
++  static cControl *Control(cMutexLock &MutexLock, bool Hidden = false);
+          ///< Returns the current replay control (if any) in case it is currently
+          ///< visible. If Hidden is true, the control will be returned even if it is
+          ///< currently hidden.
++         ///< The given MutexLock must live as long as the replay control is accessed,
++         ///< and must go out of scope as soon as the control is no longer accessed.
+   };
+ 
+ #endif //__PLAYER_H
+diff -ruN vdr-2.4.1/plugin.c vdr-2.4.4/plugin.c
+--- vdr-2.4.1/plugin.c	2015-04-18 16:51:20.000000000 +0200
++++ vdr-2.4.4/plugin.c	2020-06-29 11:29:06.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: plugin.c 4.1 2015/04/18 14:51:20 kls Exp $
++ * $Id: plugin.c 4.2 2020/06/29 09:29:06 kls Exp $
+  */
+ 
+ #include "plugin.h"
+@@ -182,11 +182,15 @@
+   args = Args ? strdup(Args) : NULL;
+   handle = NULL;
+   plugin = NULL;
++  destroy = NULL;
+ }
+ 
+ cDll::~cDll()
+ {
+-  delete plugin;
++  if (destroy)
++     destroy(plugin);
++  else
++     delete plugin; // silently fall back for plugins compiled with VDR version <= 2.4.3
+   if (handle)
+      dlclose(handle);
+   free(args);
+@@ -223,10 +227,11 @@
+   handle = dlopen(fileName, RTLD_NOW);
+   const char *error = dlerror();
+   if (!error) {
+-     void *(*creator)(void);
+-     creator = (void *(*)(void))dlsym(handle, "VDRPluginCreator");
++     typedef cPlugin *create_t(void);
++     create_t *create = (create_t *)dlsym(handle, "VDRPluginCreator");
+      if (!(error = dlerror()))
+-        plugin = (cPlugin *)creator();
++        plugin = create();
++     destroy = (destroy_t *)dlsym(handle, "VDRPluginDestroyer");
+      }
+   if (!error) {
+      if (plugin && args) {
+diff -ruN vdr-2.4.1/plugin.h vdr-2.4.4/plugin.h
+--- vdr-2.4.1/plugin.h	2012-09-01 15:08:54.000000000 +0200
++++ vdr-2.4.4/plugin.h	2020-06-29 11:29:06.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: plugin.h 4.0 2012/09/01 13:08:54 kls Exp $
++ * $Id: plugin.h 4.1 2020/06/29 09:29:06 kls Exp $
+  */
+ 
+ #ifndef __PLUGIN_H
+@@ -15,7 +15,9 @@
+ #include "osdbase.h"
+ #include "tools.h"
+ 
+-#define VDRPLUGINCREATOR(PluginClass) extern "C" void *VDRPluginCreator(void) { return new PluginClass; }
++#define VDRPLUGINCREATOR(PluginClass) \
++  extern "C" void *VDRPluginCreator(void) { return new PluginClass; } \
++  extern "C" void VDRPluginDestroyer(PluginClass *p) { delete p; }
+ 
+ class cPlugin {
+   friend class cDll;
+@@ -71,6 +73,8 @@
+   char *args;
+   void *handle;
+   cPlugin *plugin;
++  typedef void destroy_t(cPlugin *);
++  destroy_t *destroy;
+ public:
+   cDll(const char *FileName, const char *Args);
+   virtual ~cDll();
+diff -ruN vdr-2.4.1/po/ar.po vdr-2.4.4/po/ar.po
+--- vdr-2.4.1/po/ar.po	2018-04-10 15:22:23.000000000 +0200
++++ vdr-2.4.4/po/ar.po	2020-06-15 17:57:32.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2008-10-16 11:16-0400\n"
+ "Last-Translator: Osama Alrawab <alrawab@hotmail.com>\n"
+ "Language-Team: Arabic <ar@li.org>\n"
+@@ -347,6 +347,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "ara"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "التحقق من مفاتيح وحدة التحكم"
+ 
+diff -ruN vdr-2.4.1/po/ca_ES.po vdr-2.4.4/po/ca_ES.po
+--- vdr-2.4.1/po/ca_ES.po	2018-04-10 15:22:23.000000000 +0200
++++ vdr-2.4.4/po/ca_ES.po	2020-06-15 17:57:32.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Catalan <vdr@linuxtv.org>\n"
+@@ -346,6 +346,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "cat"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Fase 1: Detectant el tipus de receptor"
+ 
+diff -ruN vdr-2.4.1/po/cs_CZ.po vdr-2.4.4/po/cs_CZ.po
+--- vdr-2.4.1/po/cs_CZ.po	2018-04-10 15:22:20.000000000 +0200
++++ vdr-2.4.4/po/cs_CZ.po	2020-06-15 17:57:32.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2010-05-06 11:00+0200\n"
+ "Last-Translator: Aleš Juřík <ajurik@quick.cz>\n"
+ "Language-Team: Czech <vdr@linuxtv.org>\n"
+@@ -346,6 +346,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "cze"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Fáze 1: Detekce typu kódu"
+ 
+diff -ruN vdr-2.4.1/po/da_DK.po vdr-2.4.4/po/da_DK.po
+--- vdr-2.4.1/po/da_DK.po	2018-04-10 15:22:26.000000000 +0200
++++ vdr-2.4.4/po/da_DK.po	2020-06-15 17:57:32.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish <vdr@linuxtv.org>\n"
+@@ -343,6 +343,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "dan"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Fase 1: Detekterer fjernbetjenings-kodetype"
+ 
+diff -ruN vdr-2.4.1/po/de_DE.po vdr-2.4.4/po/de_DE.po
+--- vdr-2.4.1/po/de_DE.po	2018-04-10 15:22:27.000000000 +0200
++++ vdr-2.4.4/po/de_DE.po	2020-06-15 17:57:32.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2015-02-10 13:45+0100\n"
+ "Last-Translator: Klaus Schmidinger <vdr@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
+@@ -344,6 +344,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "deu"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr "Originalton (qaa)"
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr "einzelne andere Sprachen (mis)"
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr "mehrere Sprachen (mul)"
++
++msgid "LanguageName$narrative (nar)"
++msgstr "Audiodeskription (nar)"
++
++msgid "LanguageName$undetermined (und)"
++msgstr "unbestimmt (und)"
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr "kein sprachlicher Inhalt (zxx)"
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Phase 1: System der Fernbedienung ermitteln"
+ 
+diff -ruN vdr-2.4.1/po/el_GR.po vdr-2.4.4/po/el_GR.po
+--- vdr-2.4.1/po/el_GR.po	2018-04-10 15:22:29.000000000 +0200
++++ vdr-2.4.4/po/el_GR.po	2020-06-15 17:57:32.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek <vdr@linuxtv.org>\n"
+@@ -343,6 +343,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "ell"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "���� 1: ��������� ������ RC"
+ 
+diff -ruN vdr-2.4.1/po/es_ES.po vdr-2.4.4/po/es_ES.po
+--- vdr-2.4.1/po/es_ES.po	2018-04-10 15:22:26.000000000 +0200
++++ vdr-2.4.4/po/es_ES.po	2020-06-15 17:57:32.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2015-02-19 23:00+0100\n"
+ "Last-Translator: Gabriel Bonich <gbonich@gmail.com>\n"
+ "Language-Team: Spanish <vdr@linuxtv.org>\n"
+@@ -344,6 +344,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "esl"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Fase 1: Detectando tipo de mando"
+ 
+diff -ruN vdr-2.4.1/po/et_EE.po vdr-2.4.4/po/et_EE.po
+--- vdr-2.4.1/po/et_EE.po	2018-04-10 15:22:21.000000000 +0200
++++ vdr-2.4.4/po/et_EE.po	2020-06-15 17:57:32.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
+ "Language-Team: Estonian <vdr@linuxtv.org>\n"
+@@ -343,6 +343,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "est"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Samm 1: Kodeerimissüsteemi tuvastamine"
+ 
+diff -ruN vdr-2.4.1/po/fi_FI.po vdr-2.4.4/po/fi_FI.po
+--- vdr-2.4.1/po/fi_FI.po	2018-04-10 15:22:25.000000000 +0200
++++ vdr-2.4.4/po/fi_FI.po	2020-06-15 17:57:32.000000000 +0200
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Matti Lehtimäki <matti.lehtimaki@gmail.com>\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
+@@ -347,6 +347,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "fin"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Vaihe 1: Koodauksen tunnistaminen"
+ 
+diff -ruN vdr-2.4.1/po/fr_FR.po vdr-2.4.4/po/fr_FR.po
+--- vdr-2.4.1/po/fr_FR.po	2018-04-14 10:49:04.000000000 +0200
++++ vdr-2.4.4/po/fr_FR.po	2020-06-15 17:57:32.000000000 +0200
+@@ -18,7 +18,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2018-04-14 10:16+0100\n"
+ "Last-Translator: Bernard Jaulin <bernard.jaulin@gmail.com>\n"
+ "Language-Team: French <vdr@linuxtv.org>\n"
+@@ -354,6 +354,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "fra"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Phase 1 : Détection du type de télécommande"
+ 
+diff -ruN vdr-2.4.1/po/hr_HR.po vdr-2.4.4/po/hr_HR.po
+--- vdr-2.4.1/po/hr_HR.po	2018-04-10 15:22:24.000000000 +0200
++++ vdr-2.4.4/po/hr_HR.po	2020-06-15 17:57:32.000000000 +0200
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian <vdr@linuxtv.org>\n"
+@@ -345,6 +345,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "hrv"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Faza 1: detektiranje k�da daljinskog upravlja�a"
+ 
+diff -ruN vdr-2.4.1/po/hu_HU.po vdr-2.4.4/po/hu_HU.po
+--- vdr-2.4.1/po/hu_HU.po	2018-04-10 15:22:14.000000000 +0200
++++ vdr-2.4.4/po/hu_HU.po	2020-06-15 17:57:32.000000000 +0200
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2018-04-09 21:42+0300\n"
+ "Last-Translator: István Füley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian <vdr@linuxtv.org>\n"
+@@ -348,6 +348,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "hun"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Első lépés: távirányító kódjának meghatározása"
+ 
+diff -ruN vdr-2.4.1/po/it_IT.po vdr-2.4.4/po/it_IT.po
+--- vdr-2.4.1/po/it_IT.po	2018-04-10 15:22:24.000000000 +0200
++++ vdr-2.4.4/po/it_IT.po	2020-06-15 17:57:32.000000000 +0200
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2018-04-06 19:13+0100\n"
+ "Last-Translator: Gringo <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
+@@ -349,6 +349,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "ita"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Fase 1: Rilevamento tipo codice RC"
+ 
+diff -ruN vdr-2.4.1/po/lt_LT.po vdr-2.4.4/po/lt_LT.po
+--- vdr-2.4.1/po/lt_LT.po	2018-04-10 15:22:29.000000000 +0200
++++ vdr-2.4.4/po/lt_LT.po	2020-06-15 17:57:32.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2015-02-11 14:02+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian <vdr@linuxtv.org>\n"
+@@ -343,6 +343,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "lit"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "1 žingsnis: Nustatinėjamas distancinio pulto kodo tipas"
+ 
+diff -ruN vdr-2.4.1/po/mk_MK.po vdr-2.4.4/po/mk_MK.po
+--- vdr-2.4.1/po/mk_MK.po	2018-04-10 15:27:53.000000000 +0200
++++ vdr-2.4.4/po/mk_MK.po	2020-06-15 17:57:32.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2018-03-31 21:47+0100\n"
+ "Last-Translator: Dimitar Petrovski <dimeptr@gmail.com>\n"
+ "Language-Team: Macedonian <kde-i18n-doc@kde.org>\n"
+@@ -345,6 +345,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "mkd"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Фаза 1: Детекција на типот на далечински управувач"
+ 
+diff -ruN vdr-2.4.1/po/nl_NL.po vdr-2.4.4/po/nl_NL.po
+--- vdr-2.4.1/po/nl_NL.po	2018-04-10 15:22:19.000000000 +0200
++++ vdr-2.4.4/po/nl_NL.po	2020-06-15 17:57:32.000000000 +0200
+@@ -13,7 +13,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2015-02-10 19:43+0100\n"
+ "Last-Translator: Erik Oomen <oomen.e@gmail.com>\n"
+ "Language-Team: Dutch <vdr@linuxtv.org>\n"
+@@ -349,6 +349,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "dut"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Fase 1: detecteren type afstandsbediening"
+ 
+diff -ruN vdr-2.4.1/po/nn_NO.po vdr-2.4.4/po/nn_NO.po
+--- vdr-2.4.1/po/nn_NO.po	2018-04-10 15:22:21.000000000 +0200
++++ vdr-2.4.4/po/nn_NO.po	2020-06-15 17:57:32.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian Nynorsk <vdr@linuxtv.org>\n"
+@@ -344,6 +344,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "nor"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Fase 1: Finne fjernkontroll-kodetype"
+ 
+diff -ruN vdr-2.4.1/po/pl_PL.po vdr-2.4.4/po/pl_PL.po
+--- vdr-2.4.1/po/pl_PL.po	2018-04-10 15:22:25.000000000 +0200
++++ vdr-2.4.4/po/pl_PL.po	2020-06-15 17:57:32.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2018-02-19 00:42+0100\n"
+ "Last-Translator: Tomasz Maciej Nowak <tmn505@gmail.com>\n"
+ "Language-Team: Polish <vdr@linuxtv.org>\n"
+@@ -348,6 +348,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "pol"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Etap 1: Wykrywanie rodzaju kodu pilota"
+ 
+diff -ruN vdr-2.4.1/po/pt_PT.po vdr-2.4.4/po/pt_PT.po
+--- vdr-2.4.1/po/pt_PT.po	2018-04-10 15:22:19.000000000 +0200
++++ vdr-2.4.4/po/pt_PT.po	2020-06-15 17:57:32.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2010-03-28 22:49+0100\n"
+ "Last-Translator: Cris Silva <hudokkow@gmail.com>\n"
+ "Language-Team: Portuguese <vdr@linuxtv.org>\n"
+@@ -344,6 +344,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "prt"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Fase 1: A detectar c�digo RC"
+ 
+diff -ruN vdr-2.4.1/po/ro_RO.po vdr-2.4.4/po/ro_RO.po
+--- vdr-2.4.1/po/ro_RO.po	2018-04-10 15:22:22.000000000 +0200
++++ vdr-2.4.4/po/ro_RO.po	2020-06-15 17:57:32.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2015-02-11 22:26+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+ "Language-Team: Romanian <vdr@linuxtv.org>\n"
+@@ -345,6 +345,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "rom"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Faza 1: Detecţia tipului telecomenzii"
+ 
+diff -ruN vdr-2.4.1/po/ru_RU.po vdr-2.4.4/po/ru_RU.po
+--- vdr-2.4.1/po/ru_RU.po	2018-04-10 15:22:28.000000000 +0200
++++ vdr-2.4.4/po/ru_RU.po	2020-06-15 17:57:32.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2016-12-27 17:13+0100\n"
+ "Last-Translator: Pridvorov Andrey <ua0lnj@bk.ru>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
+@@ -344,6 +344,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "rus"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Шаг 1: Определение типа кода пульта"
+ 
+diff -ruN vdr-2.4.1/po/sk_SK.po vdr-2.4.4/po/sk_SK.po
+--- vdr-2.4.1/po/sk_SK.po	2018-04-10 15:22:26.000000000 +0200
++++ vdr-2.4.4/po/sk_SK.po	2020-06-15 17:57:32.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2015-02-17 18:59+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak <vdr@linuxtv.org>\n"
+@@ -344,6 +344,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "slk"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Krok 1: Detekcia typu dia�kov�ho ovl�dania"
+ 
+diff -ruN vdr-2.4.1/po/sl_SI.po vdr-2.4.4/po/sl_SI.po
+--- vdr-2.4.1/po/sl_SI.po	2018-04-10 15:22:25.000000000 +0200
++++ vdr-2.4.4/po/sl_SI.po	2020-06-15 17:57:32.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2013-03-04 12:46+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian <vdr@linuxtv.org>\n"
+@@ -344,6 +344,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "slv"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Faza 1: Sprejemanje IR kode"
+ 
+diff -ruN vdr-2.4.1/po/sr_RS.po vdr-2.4.4/po/sr_RS.po
+--- vdr-2.4.1/po/sr_RS.po	2018-04-10 15:22:19.000000000 +0200
++++ vdr-2.4.4/po/sr_RS.po	2020-06-15 17:57:32.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2013-03-16 15:05+0100\n"
+ "Last-Translator: Zoran Turalija <zoran.turalija@gmail.com>\n"
+ "Language-Team: Serbian <vdr@linuxtv.org>\n"
+@@ -344,6 +344,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "scc"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Faza 1: detekcija k�da daljinskog upravlja�a"
+ 
+diff -ruN vdr-2.4.1/po/sv_SE.po vdr-2.4.4/po/sv_SE.po
+--- vdr-2.4.1/po/sv_SE.po	2018-04-10 15:22:22.000000000 +0200
++++ vdr-2.4.4/po/sv_SE.po	2020-06-15 17:57:32.000000000 +0200
+@@ -12,7 +12,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2015-02-12 21:58+0100\n"
+ "Last-Translator: Magnus Sirvi� <sirwio@hotmail.com>\n"
+ "Language-Team: Swedish <vdr@linuxtv.org>\n"
+@@ -348,6 +348,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "sve"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Steg1: Identifierar typ av fj�rrkontroll"
+ 
+diff -ruN vdr-2.4.1/po/tr_TR.po vdr-2.4.4/po/tr_TR.po
+--- vdr-2.4.1/po/tr_TR.po	2018-04-10 15:22:20.000000000 +0200
++++ vdr-2.4.4/po/tr_TR.po	2020-06-15 17:57:32.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay Yolge�en <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish <vdr@linuxtv.org>\n"
+@@ -343,6 +343,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "tur"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Faz 1: Kumandan�n kodu aran�yor"
+ 
+diff -ruN vdr-2.4.1/po/uk_UA.po vdr-2.4.4/po/uk_UA.po
+--- vdr-2.4.1/po/uk_UA.po	2018-04-10 15:22:24.000000000 +0200
++++ vdr-2.4.4/po/uk_UA.po	2020-06-15 17:57:32.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-18 19:42+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2018-03-18 20:00+0100\n"
+ "Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian <vdr@linuxtv.org>\n"
+@@ -344,6 +344,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "ukr"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "Крок 1: Визначення типу коду пульта"
+ 
+diff -ruN vdr-2.4.1/po/zh_CN.po vdr-2.4.4/po/zh_CN.po
+--- vdr-2.4.1/po/zh_CN.po	2018-04-10 15:28:10.000000000 +0200
++++ vdr-2.4.4/po/zh_CN.po	2020-06-15 17:57:32.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
++"POT-Creation-Date: 2020-06-15 17:50+0200\n"
+ "PO-Revision-Date: 2013-03-04 14:52+0800\n"
+ "Last-Translator: NFVDR <nfvdr@live.com>\n"
+ "Language-Team: Chinese (simplified) <nfvdr@live.com>\n"
+@@ -345,6 +345,24 @@
+ msgid "LanguageCode$eng"
+ msgstr "中文"
+ 
++msgid "LanguageName$original language (qaa)"
++msgstr ""
++
++msgid "LanguageName$uncoded languages (mis)"
++msgstr ""
++
++msgid "LanguageName$multiple languages (mul)"
++msgstr ""
++
++msgid "LanguageName$narrative (nar)"
++msgstr ""
++
++msgid "LanguageName$undetermined (und)"
++msgstr ""
++
++msgid "LanguageName$no linguistic content (zxx)"
++msgstr ""
++
+ msgid "Phase 1: Detecting RC code type"
+ msgstr "阶段 1: 检测RC代码类型"
+ 
+diff -ruN vdr-2.4.1/recording.h vdr-2.4.4/recording.h
+--- vdr-2.4.1/recording.h	2018-02-13 09:44:19.000000000 +0100
++++ vdr-2.4.4/recording.h	2020-03-29 17:50:22.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 4.8 2018/02/13 08:44:19 kls Exp $
++ * $Id: recording.h 4.9 2020/03/29 15:50:22 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -254,8 +254,6 @@
+        ///< Touches the '.update' file in the video directory, so that other
+        ///< instances of VDR that access the same video directory can be triggered
+        ///< to update their recordings list.
+-       ///< This function is 'const', because it doesn't actually modify the list
+-       ///< of recordings.
+   static bool NeedsUpdate(void);
+   void ResetResume(const char *ResumeFileName = NULL);
+   void ClearSortNames(void);
+diff -ruN vdr-2.4.1/remux.c vdr-2.4.4/remux.c
+--- vdr-2.4.1/remux.c	2019-03-15 11:14:35.000000000 +0100
++++ vdr-2.4.4/remux.c	2020-06-22 14:15:52.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 4.8 2019/03/15 10:14:35 kls Exp $
++ * $Id: remux.c 4.9 2020/06/22 12:15:52 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -962,9 +962,9 @@
+ {
+   *p++ = SI::ParentalRatingDescriptorTag;
+   *p++ = 0x04; // descriptor length
+-  *p++ = 'D';  // country code
+-  *p++ = 'E';
+-  *p++ = 'U';
++  *p++ = '9';  // country code "902" ("All countries") -> EN 300 468 / 6.2.28; www.dvbservices.com/country_codes/index.php
++  *p++ = '0';
++  *p++ = '2';
+   *p++ = ParentalRating;
+   return p;
+ }
+diff -ruN vdr-2.4.1/sdt.c vdr-2.4.4/sdt.c
+--- vdr-2.4.1/sdt.c	2015-08-02 13:33:23.000000000 +0200
++++ vdr-2.4.4/sdt.c	2020-06-16 16:50:07.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sdt.c 4.5 2015/08/02 11:33:23 kls Exp $
++ * $Id: sdt.c 4.8 2020/06/16 14:50:07 kls Exp $
+  */
+ 
+ #include "sdt.h"
+@@ -23,8 +23,13 @@
+ cSdtFilter::cSdtFilter(cPatFilter *PatFilter)
+ {
+   source = cSource::stNone;
++  lastSource = cSource::stNone;
++  lastTransponder = 0;
++  lastNid = 0;
++  lastTid = 0;
+   patFilter = PatFilter;
+-  Set(0x11, 0x42);  // SDT
++  transponderState = tsUnknown;
++  Set(0x11, 0x42);  // SDT actual TS
+ }
+ 
+ void cSdtFilter::SetStatus(bool On)
+@@ -34,6 +39,7 @@
+   sectionSyncer.Reset();
+   if (!On)
+      source = cSource::stNone;
++  transponderState = tsUnknown;
+ }
+ 
+ void cSdtFilter::Trigger(int Source)
+@@ -45,11 +51,37 @@
+ void cSdtFilter::Process(u_short Pid, u_char Tid, const u_char *Data, int Length)
+ {
+   cMutexLock MutexLock(&mutex);
+-  if (!(source && Transponder()))
+-     return;
+   SI::SDT sdt(Data, false);
+   if (!sdt.CheckCRCAndParse())
+      return;
++  if (transponderState == tsUnknown) {
++     // The transponder can be verified with any section, no sync required:
++     int Nid = sdt.getOriginalNetworkId();
++     int Tid = sdt.getTransportStreamId();
++     if (Source() != lastSource || !ISTRANSPONDER(Transponder(), lastTransponder)) {
++        // We expect a change in NID/TID:
++        if (Nid && Tid && Nid == lastNid && Tid == lastTid) {
++           transponderState = tsWrong;
++           dsyslog("SDT: channel %d NID/TID (%d/%d) not found, got %d/%d", Channel()->Number(), Channel()->Nid(), Channel()->Tid(), Nid, Tid);
++           return;
++           }
++        }
++     // NID/TID is acceptable:
++     lastSource = Source();
++     lastTransponder = Transponder();
++     lastNid = Nid;
++     lastTid = Tid;
++     if (Nid == Channel()->Nid() && Tid == Channel()->Tid()) {
++        // NID/TID correspond with the channel data:
++        transponderState = tsVerified;
++        }
++     else {
++        // NID/TID differ from the channel data, but we accept it, since this *is* the data for this transponder:
++        transponderState = tsAccepted;
++        }
++     }
++  if (!(source && Transponder()))
++     return;
+   if (!sectionSyncer.Sync(sdt.getVersionNumber(), sdt.getSectionNumber(), sdt.getLastSectionNumber()))
+      return;
+   cStateKey StateKey;
+@@ -79,8 +111,11 @@
+                    case 0x02: // digital radio sound service
+                    case 0x04: // NVOD reference service
+                    case 0x05: // NVOD time-shifted service
++                   case 0x0A: // advanced codec digital radio sound service
+                    case 0x16: // digital SD television service
+                    case 0x19: // digital HD television service
++                   case 0x1F: // HEVC digital television service
++                   case 0x20: // HEVC UHD digital television service
+                         {
+                         char NameBuf[Utf8BufSize(1024)];
+                         char ShortNameBuf[Utf8BufSize(1024)];
+diff -ruN vdr-2.4.1/sdt.h vdr-2.4.4/sdt.h
+--- vdr-2.4.1/sdt.h	2014-03-10 15:40:54.000000000 +0100
++++ vdr-2.4.4/sdt.h	2020-05-04 10:50:20.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sdt.h 4.0 2014/03/10 14:40:54 kls Exp $
++ * $Id: sdt.h 4.1 2020/05/04 08:50:20 kls Exp $
+  */
+ 
+ #ifndef __SDT_H
+@@ -15,16 +15,24 @@
+ 
+ class cSdtFilter : public cFilter {
+ private:
++  enum eTransponderState { tsUnknown, tsWrong, tsAccepted, tsVerified };
+   cMutex mutex;
+   cSectionSyncer sectionSyncer;
+   int source;
++  int lastSource;
++  int lastTransponder;
++  int lastNid;
++  int lastTid;
+   cPatFilter *patFilter;
++  enum eTransponderState transponderState;
+ protected:
+   virtual void Process(u_short Pid, u_char Tid, const u_char *Data, int Length);
+ public:
+   cSdtFilter(cPatFilter *PatFilter);
+   virtual void SetStatus(bool On);
+   void Trigger(int Source);
++  bool TransponderVerified(void) const { return transponderState == tsVerified; } // returns true if the expected NIT/TID have been received in the SDT
++  bool TransponderWrong(void) const { return transponderState == tsWrong; } // returns true if an expected change of NIT/TID has not happened
+   };
+ 
+ #endif //__SDT_H
+diff -ruN vdr-2.4.1/skinlcars.c vdr-2.4.4/skinlcars.c
+--- vdr-2.4.1/skinlcars.c	2017-11-08 11:10:30.000000000 +0100
++++ vdr-2.4.4/skinlcars.c	2020-05-18 18:47:29.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinlcars.c 4.6 2017/11/08 10:10:30 kls Exp $
++ * $Id: skinlcars.c 4.7 2020/05/18 16:47:29 kls Exp $
+  */
+ 
+ // "Star Trek: The Next Generation"(R) is a registered trademark of Paramount Pictures,
+@@ -1741,12 +1741,13 @@
+ {
+   if (MenuCategory() == mcMain) {
+      cDevice *Device = cDevice::PrimaryDevice();
++     cMutexLock ControlMutexLock;
+      if (!Device->Replaying() || Device->Transferring()) {
+         LOCK_CHANNELS_READ;
+         const cChannel *Channel = Channels->GetByNumber(cDevice::PrimaryDevice()->CurrentChannel());
+         DrawLive(Channel);
+         }
+-     else if (cControl *Control = cControl::Control(true))
++     else if (cControl *Control = cControl::Control(ControlMutexLock, true))
+         DrawPlay(Control);
+      DrawTimers();
+      DrawDevices();
+diff -ruN vdr-2.4.1/svdrp.c vdr-2.4.4/svdrp.c
+--- vdr-2.4.1/svdrp.c	2019-05-06 17:11:15.000000000 +0200
++++ vdr-2.4.4/svdrp.c	2020-06-22 22:59:49.000000000 +0200
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 4.39 2019/05/06 15:11:15 kls Exp $
++ * $Id: svdrp.c 4.43 2020/06/22 20:59:49 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -840,8 +840,8 @@
+   "    Used by peer-to-peer connections between VDRs to tell the other VDR\n"
+   "    to establish a connection to this VDR. The name is the SVDRP host name\n"
+   "    of this VDR, which may differ from its DNS name.",
+-  "DELC <number>\n"
+-  "    Delete channel.",
++  "DELC <number> | <id>\n"
++  "    Delete the channel with the given number or channel id.",
+   "DELR <id>\n"
+   "    Delete the recording with the given id. Before a recording can be\n"
+   "    deleted, an LSTR command should have been executed in order to retrieve\n"
+@@ -970,7 +970,7 @@
+   "    Make the device with the given number the primary device.\n"
+   "    Without option it returns the currently active primary device in the same\n"
+   "    format as used by the LSTD command.",
+-  "PUTE [ file ]\n"
++  "PUTE [ <file> ]\n"
+   "    Put data into the EPG list. The data entered has to strictly follow the\n"
+   "    format defined in vdr(5) for the 'epg.data' file.  A '.' on a line\n"
+   "    by itself terminates the input and starts processing of the data (all\n"
+@@ -1379,49 +1379,50 @@
+ void cSVDRPServer::CmdDELC(const char *Option)
+ {
+   if (*Option) {
+-     if (isnumber(Option)) {
+-        LOCK_TIMERS_READ;
+-        LOCK_CHANNELS_WRITE;
+-        Channels->SetExplicitModify();
+-        if (cChannel *Channel = Channels->GetByNumber(strtol(Option, NULL, 10))) {
+-           if (const cTimer *Timer = Timers->UsesChannel(Channel)) {
+-              Reply(550, "Channel \"%s\" is in use by timer %s", Option, *Timer->ToDescr());
++     LOCK_TIMERS_READ;
++     LOCK_CHANNELS_WRITE;
++     Channels->SetExplicitModify();
++     cChannel *Channel = NULL;
++     if (isnumber(Option))
++        Channel = Channels->GetByNumber(strtol(Option, NULL, 10));
++     else
++        Channel = Channels->GetByChannelID(tChannelID::FromString(Option));
++     if (Channel) {
++        if (const cTimer *Timer = Timers->UsesChannel(Channel)) {
++           Reply(550, "Channel \"%s\" is in use by timer %s", Option, *Timer->ToDescr());
++           return;
++           }
++        int CurrentChannelNr = cDevice::CurrentChannel();
++        cChannel *CurrentChannel = Channels->GetByNumber(CurrentChannelNr);
++        if (CurrentChannel && Channel == CurrentChannel) {
++           int n = Channels->GetNextNormal(CurrentChannel->Index());
++           if (n < 0)
++              n = Channels->GetPrevNormal(CurrentChannel->Index());
++           if (n < 0) {
++              Reply(501, "Can't delete channel \"%s\" - list would be empty", Option);
+               return;
+               }
+-           int CurrentChannelNr = cDevice::CurrentChannel();
+-           cChannel *CurrentChannel = Channels->GetByNumber(CurrentChannelNr);
+-           if (CurrentChannel && Channel == CurrentChannel) {
+-              int n = Channels->GetNextNormal(CurrentChannel->Index());
+-              if (n < 0)
+-                 n = Channels->GetPrevNormal(CurrentChannel->Index());
+-              if (n < 0) {
+-                 Reply(501, "Can't delete channel \"%s\" - list would be empty", Option);
+-                 return;
+-                 }
+-              CurrentChannel = Channels->Get(n);
+-              CurrentChannelNr = 0; // triggers channel switch below
+-              }
+-           Channels->Del(Channel);
+-           Channels->ReNumber();
+-           Channels->SetModifiedByUser();
+-           Channels->SetModified();
+-           isyslog("SVDRP %s < %s deleted channel %s", Setup.SVDRPHostName, *clientName, Option);
+-           if (CurrentChannel && CurrentChannel->Number() != CurrentChannelNr) {
+-              if (!cDevice::PrimaryDevice()->Replaying() || cDevice::PrimaryDevice()->Transferring())
+-                 Channels->SwitchTo(CurrentChannel->Number());
+-              else
+-                 cDevice::SetCurrentChannel(CurrentChannel->Number());
+-              }
+-           Reply(250, "Channel \"%s\" deleted", Option);
++           CurrentChannel = Channels->Get(n);
++           CurrentChannelNr = 0; // triggers channel switch below
+            }
+-        else
+-           Reply(501, "Channel \"%s\" not defined", Option);
++        Channels->Del(Channel);
++        Channels->ReNumber();
++        Channels->SetModifiedByUser();
++        Channels->SetModified();
++        isyslog("SVDRP %s < %s deleted channel %s", Setup.SVDRPHostName, *clientName, Option);
++        if (CurrentChannel && CurrentChannel->Number() != CurrentChannelNr) {
++           if (!cDevice::PrimaryDevice()->Replaying() || cDevice::PrimaryDevice()->Transferring())
++              Channels->SwitchTo(CurrentChannel->Number());
++           else
++              cDevice::SetCurrentChannel(CurrentChannel->Number());
++           }
++        Reply(250, "Channel \"%s\" deleted", Option);
+         }
+      else
+-        Reply(501, "Error in channel number \"%s\"", Option);
++        Reply(501, "Channel \"%s\" not defined", Option);
+      }
+   else
+-     Reply(501, "Missing channel number");
++     Reply(501, "Missing channel number or id");
+ }
+ 
+ static cString RecordingInUseMessage(int Reason, const char *RecordingId, cRecording *Recording)
+@@ -2008,7 +2009,7 @@
+                  Channels->ReNumber();
+                  Channels->SetModifiedByUser();
+                  Channels->SetModified();
+-                 isyslog("SVDRP %s < %s modifed channel %d %s", Setup.SVDRPHostName, *clientName, Channel->Number(), *Channel->ToText());
++                 isyslog("SVDRP %s < %s modified channel %d %s", Setup.SVDRPHostName, *clientName, Channel->Number(), *Channel->ToText());
+                  Reply(250, "%d %s", Channel->Number(), *Channel->ToText());
+                  }
+               else
+@@ -2087,6 +2088,8 @@
+                  int FromNumber = FromChannel->Number();
+                  int ToNumber = ToChannel->Number();
+                  if (FromNumber != ToNumber) {
++                    if (Channels->MoveNeedsDecrement(FromChannel, ToChannel))
++                       ToChannel = Channels->Prev(ToChannel); // cListBase::Move() doesn't know about the channel list's numbered groups!
+                     Channels->Move(FromChannel, ToChannel);
+                     Channels->ReNumber();
+                     Channels->SetModifiedByUser();
+diff -ruN vdr-2.4.1/thread.h vdr-2.4.4/thread.h
+--- vdr-2.4.1/thread.h	2018-03-04 12:27:55.000000000 +0100
++++ vdr-2.4.4/thread.h	2020-03-29 17:53:48.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.h 4.4 2018/03/04 11:27:55 kls Exp $
++ * $Id: thread.h 4.5 2020/03/29 15:53:48 kls Exp $
+  */
+ 
+ #ifndef __THREAD_H
+@@ -33,7 +33,7 @@
+   bool Wait(int TimeoutMs = 0);
+        ///< Waits at most TimeoutMs milliseconds for a call to Signal(), or
+        ///< forever if TimeoutMs is 0.
+-       ///< Returns true if Signal() has been called, false it the given
++       ///< Returns true if Signal() has been called, false if the given
+        ///< timeout has expired.
+   void Signal(void);
+        ///< Signals a caller of Wait() that the condition it is waiting for is met.
+diff -ruN vdr-2.4.1/tools.c vdr-2.4.4/tools.c
+--- vdr-2.4.1/tools.c	2018-03-04 11:28:04.000000000 +0100
++++ vdr-2.4.4/tools.c	2020-06-10 22:52:10.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 4.11 2018/03/04 10:28:04 kls Exp $
++ * $Id: tools.c 4.12 2020/06/10 20:52:10 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -1099,12 +1099,16 @@
+ 
+ cString &cString::Append(const char *String)
+ {
+-  int l1 = strlen(s);
+-  int l2 = strlen(String);
+-  char *p = (char *)realloc(s, l1 + l2 + 1);
+-  if (p != s)
+-     strcpy(p, s);
+-  strcpy(p + l1, String);
++  if (String) {
++     int l1 = s ? strlen(s) : 0;
++     int l2 = strlen(String);
++     if (char *p = (char *)realloc(s, l1 + l2 + 1)) {
++        s = p;
++        strcpy(s + l1, String);
++        }
++     else
++        esyslog("ERROR: out of memory");
++     }
+   return *this;
+ }
+ 
+diff -ruN vdr-2.4.1/tools.h vdr-2.4.4/tools.h
+--- vdr-2.4.1/tools.h	2018-03-04 15:06:36.000000000 +0100
++++ vdr-2.4.4/tools.h	2020-06-23 17:52:29.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 4.16 2018/03/04 14:06:36 kls Exp $
++ * $Id: tools.h 4.17 2020/06/23 15:52:29 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -376,6 +376,12 @@
+       ///< time.
+   static uint64_t Now(void);
+   void Set(int Ms = 0);
++      ///< Sets the timer. If Ms is 0, call Elapsed() to get the number of milliseconds
++      ///< since the timer has been set. If Ms is greater than 0, TimedOut() returns
++      ///< true as soon as Ms milliseconds have passed since calling Set(). If Ms is
++      ///< negative, results are undefined.
++      ///< Depending on the value of Ms, an object of cTimeMs can handle either
++      ///< timeouts or elapsed times, not both at the same time.
+   bool TimedOut(void) const;
+   uint64_t Elapsed(void) const;
+   };
+diff -ruN vdr-2.4.1/vdr.c vdr-2.4.4/vdr.c
+--- vdr-2.4.1/vdr.c	2019-05-23 11:48:35.000000000 +0200
++++ vdr-2.4.4/vdr.c	2020-05-18 18:47:29.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 4.30 2019/05/23 09:48:35 kls Exp $
++ * $Id: vdr.c 4.33 2020/05/18 16:47:29 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -131,20 +131,18 @@
+      fprintf(stderr, "vdr: cap_get_proc failed: %s\n", strerror(errno));
+      return false;
+      }
+-  char *caps_text = cap_to_text(caps_all, NULL);
+-  if (!caps_text) {
+-     fprintf(stderr, "vdr: cap_to_text failed: %s\n", strerror(errno));
+-     return false;
+-     }
+-  if (cap_free(caps_all)) {
+-     fprintf(stderr, "vdr: cap_free failed: %s\n", strerror(errno));
++  cap_flag_value_t cap_flag_value;
++  if (cap_get_flag(caps_all, CAP_SYS_TIME, CAP_PERMITTED , &cap_flag_value)) {
++     fprintf(stderr, "vdr: cap_get_flag failed: %s\n", strerror(errno));
+      return false;
+      }
+   cap_t caps;
+-  if (strstr(caps_text,"cap_sys_time"))
++  if (cap_flag_value == CAP_SET)
+      caps = cap_from_text("= cap_sys_nice,cap_sys_time,cap_net_raw=ep");
+-  else
++  else {
++     fprintf(stdout,"vdr: OS does not support cap_sys_time\n");
+      caps = cap_from_text("= cap_sys_nice,cap_net_raw=ep");
++     }
+   if (!caps) {
+      fprintf(stderr, "vdr: cap_from_text failed: %s\n", strerror(errno));
+      return false;
+@@ -728,8 +726,8 @@
+      isyslog("use of environment variable VDR_CHARSET_OVERRIDE (%s) is deprecated!", DeprecatedVdrCharsetOverride);
+ #endif
+   if (OverrideCharacterTable) {
+-     isyslog("override character table is '%s'", OverrideCharacterTable);
+-     SI::SetOverrideCharacterTable(OverrideCharacterTable);
++     bool known = SI::SetOverrideCharacterTable(OverrideCharacterTable);
++     isyslog("override character table is '%s' - %s", OverrideCharacterTable, known ? "known" : "unknown");
+      }
+ 
+   // Initialize internationalization:
+@@ -1198,8 +1196,19 @@
+         // Queued messages:
+         Skins.ProcessQueuedMessages();
+         // User Input:
+-        cOsdObject *Interact = Menu ? Menu : cControl::Control();
+-        eKeys key = Interface->GetKey(!Interact || !Interact->NeedsFastResponse());
++        bool NeedsFastResponse = Menu && Menu->NeedsFastResponse();
++        if (!NeedsFastResponse) {
++           // Must limit the scope of ControlMutexLock here to not hold the lock during the call to Interface->GetKey().
++           cMutexLock ControlMutexLock;
++           cControl *Control = cControl::Control(ControlMutexLock);
++           NeedsFastResponse = Control && Control->NeedsFastResponse();
++           }
++        eKeys key = Interface->GetKey(!NeedsFastResponse);
++        cOsdObject *Interact = Menu;
++        cMutexLock ControlMutexLock;
++        cControl *Control = NULL;
++        if (!Menu)
++           Interact = Control = cControl::Control(ControlMutexLock);
+         if (ISREALKEY(key)) {
+            EITScanner.Activity();
+            // Cancel shutdown countdown:
+@@ -1217,9 +1226,9 @@
+                bool WasMenu = Interact && Interact->IsMenu();
+                if (Menu)
+                   DELETE_MENU;
+-               else if (cControl::Control()) {
++               else if (Control) {
+                   if (cOsd::IsOpen())
+-                     cControl::Control()->Hide();
++                     Control->Hide();
+                   else
+                      WasOpen = false;
+                   }
+@@ -1235,9 +1244,9 @@
+                   }
+                else if (!Menu) {
+                   IsInfoMenu = true;
+-                  if (cControl::Control()) {
+-                     cControl::Control()->Hide();
+-                     Menu = cControl::Control()->GetInfo();
++                  if (Control) {
++                     Control->Hide();
++                     Menu = Control->GetInfo();
+                      if (Menu)
+                         Menu->Show();
+                      else
+@@ -1254,8 +1263,8 @@
+           // Direct main menu functions:
+           #define DirectMainFunction(function)\
+             { DELETE_MENU;\
+-            if (cControl::Control())\
+-               cControl::Control()->Hide();\
++            if (Control)\
++               Control->Hide();\
+             Menu = new cMenuMain(function);\
+             key = kNone; } // nobody else needs to see this key
+           case kSchedule:   DirectMainFunction(osSchedule); break;
+@@ -1269,8 +1278,8 @@
+                const char *PluginName = cRemote::GetPlugin();
+                if (PluginName) {
+                   DELETE_MENU;
+-                  if (cControl::Control())
+-                     cControl::Control()->Hide();
++                  if (Control)
++                     Control->Hide();
+                   cPlugin *plugin = cPluginManager::GetPlugin(PluginName);
+                   if (plugin) {
+                      Menu = plugin->MainMenuAction();
+@@ -1292,7 +1301,7 @@
+                   Menu = new cDisplayChannel(NORMALKEY(key));
+                   continue;
+                   }
+-               else if (cDisplayChannel::IsOpen() || cControl::Control()) {
++               else if (cDisplayChannel::IsOpen() || Control) {
+                   Interact->ProcessKey(key);
+                   continue;
+                   }
+@@ -1320,8 +1329,8 @@
+                break;
+           // Audio track control:
+           case kAudio:
+-               if (cControl::Control())
+-                  cControl::Control()->Hide();
++               if (Control)
++                  Control->Hide();
+                if (!cDisplayTracks::IsOpen()) {
+                   DELETE_MENU;
+                   Menu = cDisplayTracks::Create();
+@@ -1332,8 +1341,8 @@
+                break;
+           // Subtitle track control:
+           case kSubtitles:
+-               if (cControl::Control())
+-                  cControl::Control()->Hide();
++               if (Control)
++                  Control->Hide();
+                if (!cDisplaySubtitleTracks::IsOpen()) {
+                   DELETE_MENU;
+                   Menu = cDisplaySubtitleTracks::Create();
+@@ -1345,7 +1354,7 @@
+           // Pausing live video:
+           case kPlayPause:
+           case kPause:
+-               if (!cControl::Control()) {
++               if (!Control) {
+                   DELETE_MENU;
+                   if (Setup.PauseKeyHandling) {
+                      if (Setup.PauseKeyHandling > 1 || Interface->Confirm(tr("Pause live video?"))) {
+@@ -1358,7 +1367,7 @@
+                break;
+           // Instant recording:
+           case kRecord:
+-               if (!cControl::Control()) {
++               if (!Control) {
+                   if (Setup.RecordKeyHandling) {
+                      if (Setup.RecordKeyHandling > 1 || Interface->Confirm(tr("Start recording?"))) {
+                         if (cRecordControls::Start())
+@@ -1397,15 +1406,16 @@
+                break;
+           default: break;
+           }
+-        Interact = Menu ? Menu : cControl::Control(); // might have been closed in the mean time
++        Interact = Menu ? Menu : Control; // might have been closed in the mean time
+         if (Interact) {
+            LastInteract = Now;
+            eOSState state = Interact->ProcessKey(key);
+-           if (state == osUnknown && Interact != cControl::Control()) {
+-              if (ISMODELESSKEY(key) && cControl::Control()) {
+-                 state = cControl::Control()->ProcessKey(key);
++           if (state == osUnknown && Interact != Control) {
++              if (ISMODELESSKEY(key) && Control) {
++                 state = Control->ProcessKey(key);
+                  if (state == osEnd) {
+                     // let's not close a menu when replay ends:
++                    Control = NULL;
+                     cControl::Shutdown();
+                     continue;
+                     }
+@@ -1424,15 +1434,18 @@
+                             break;
+              case osRecordings:
+                             DELETE_MENU;
++                            Control = NULL;
+                             cControl::Shutdown();
+                             Menu = new cMenuMain(osRecordings, true);
+                             break;
+              case osReplay: DELETE_MENU;
++                            Control = NULL;
+                             cControl::Shutdown();
+                             cControl::Launch(new cReplayControl);
+                             break;
+              case osStopReplay:
+                             DELETE_MENU;
++                            Control = NULL;
+                             cControl::Shutdown();
+                             break;
+              case osPlugin: DELETE_MENU;
+@@ -1443,8 +1456,10 @@
+              case osBack:
+              case osEnd:    if (Interact == Menu)
+                                DELETE_MENU;
+-                            else
++                            else {
++                               Control = NULL;
+                                cControl::Shutdown();
++                               }
+                             break;
+              default:       ;
+              }
+@@ -1489,6 +1504,7 @@
+              // Instant resume of the last viewed recording:
+              case kPlay:
+                   if (cReplayControl::LastReplayed()) {
++                     Control = NULL;
+                      cControl::Shutdown();
+                      cControl::Launch(new cReplayControl);
+                      }
+@@ -1514,6 +1530,7 @@
+         int NewPrimaryDVB = Setup.PrimaryDVB;
+         if (NewPrimaryDVB != OldPrimaryDVB) {
+            DELETE_MENU;
++           Control = NULL;
+            cControl::Shutdown();
+            Skins.QueueMessage(mtInfo, tr("Switching primary DVB..."));
+            cOsdProvider::Shutdown();
+@@ -1534,7 +1551,7 @@
+               ShutdownHandler.countdown.Cancel();
+            }
+ 
+-        if (!cControl::Control() && !cRecordControls::Active() && !RecordingsHandler.Active() && (Now - cRemote::LastActivity()) > ACTIVITYTIMEOUT) {
++        if (!Control && !cRecordControls::Active() && !RecordingsHandler.Active() && (Now - cRemote::LastActivity()) > ACTIVITYTIMEOUT) {
+            // Shutdown:
+            // Check whether VDR will be ready for shutdown in SHUTDOWNWAIT seconds:
+            time_t Soon = Now + SHUTDOWNWAIT;

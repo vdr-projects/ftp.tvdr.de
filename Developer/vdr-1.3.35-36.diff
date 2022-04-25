@@ -1,0 +1,915 @@
+diff -ruN vdr-1.3.35/CONTRIBUTORS vdr-1.3.36/CONTRIBUTORS
+--- vdr-1.3.35/CONTRIBUTORS	2005-10-31 14:14:26.000000000 +0100
++++ vdr-1.3.36/CONTRIBUTORS	2005-11-05 16:48:05.000000000 +0100
+@@ -203,6 +203,8 @@
+  for pointing out that recordings with empty episode names were not listed correctly
+  in the LSTR command
+  for fixing a memory leak in the SVDRP command LSTE
++ for reporting a problem with the EPG scan disturbing players that have also set
++ live PIDs
+ 
+ Ulrich Röder <roeder@efr-net.de>
+  for pointing out that there are channels that have a symbol rate higher than 27500
+@@ -792,6 +794,9 @@
+  for pointing out that the SVDRP command DELR deleted recordings that are currently
+  being written to by a timer
+  for fixing a crash in cConfig::Load() when compiling on the PPC
++ for reporting '\n' in an esyslog() call in osd.c
++ for reporting missing '&' in the SetAreas() example in PLUGINS.html
++ for reporting a memory leak in cString::operator=()
+ 
+ Malcolm Caldwell <malcolm.caldwell@ntu.edu.au>
+  for modifying LOF handling to allow for C-band reception
+@@ -854,6 +859,7 @@
+ Andreas Mair <Andreas.Mair@linogate.com>
+  for reporting a short display of the main menu if a plugin displays its own OSD and
+  is started through a user defined key macro
++ for reporting a problem with extremely long summary fields in timers
+ 
+ Olivier Jacques <jacquesolivier@hotmail.com>)
+  for translating OSD texts to the French language
+@@ -1237,6 +1243,7 @@
+  for fixing detecting short channel names for "Kabel Deutschland"
+  for reporting that the FATALERRNO macro needs to check for a non-zero errno value
+  for reporting missing mutex locks in cCiMenu::Abort() and cCiEnquiry::Abort()
++ for fixing a race condition in the SPU decoder
+ 
+ Jürgen Schmitz <j.schmitz@web.de>
+  for reporting a bug in displaying the current channel when switching via the SVDRP
+@@ -1319,6 +1326,8 @@
+ 
+ Joachim Wilke <vdr@joachim-wilke.de>
+  for reporting missing calls to cStatus::MsgOsdClear() in cSkins::Message()
++ for fixing a NULL pointer access with the cUnbufferedFile when a replay session
++ runs all the way until the end of the recording
+ 
+ Sascha Klek <sklek@gmx.de>
+  for reporting a problem with the '0' key in the "Day" item of the "Timers" menu
+@@ -1497,6 +1506,7 @@
+ 
+ Marko Mäkelä <marko.makela@hut.fi>
+  for making repeat keys be ignored when waiting for a keypress to cancel an operation
++ for reporting that a menu was automatically closed when a replay ends
+ 
+ Patrick Rother <krd-vdr@gulu.net>
+  for reporting a bug in defining timers that only differ in the day of week
+@@ -1523,3 +1533,6 @@
+ 
+ Ralf Müller <ralf@bj-ig.de>
+  for a patch that was used to implement cUnbufferedFile
++
++Maarten Wisse <Maarten.Wisse@urz.uni-hd.de>
++ for translating OSD texts to the Dutch language
+diff -ruN vdr-1.3.35/HISTORY vdr-1.3.36/HISTORY
+--- vdr-1.3.35/HISTORY	2005-10-31 14:13:18.000000000 +0100
++++ vdr-1.3.36/HISTORY	2005-11-06 11:34:13.000000000 +0100
+@@ -2386,7 +2386,7 @@
+ - Fixed the URL to the 'Doxygen' tool in INSTALL (thanks to Dirk Essl).
+ - Removed the obsolete chapter "Stopping a recording on the primary DVB interface"
+   from MANUAL.
+-- Completed dutch language texts (thanks to Hans Dingemans).
++- Completed Dutch language texts (thanks to Hans Dingemans).
+ - Made 'diseqc.conf' a required file only if Setup.DiSEqC is activated (thanks to
+   Thomas Schmidt).
+ - VDR now starts up even if 'keymacros.conf' references a plugin that is currently
+@@ -3434,7 +3434,7 @@
+ - The new setup option "DVB/Video display format" can be used to define which display
+   format to use for playing wide screen video on a 4:3 tv set.
+ - Changed MAXDPIDS to 16 (8xAC3 + 8xDTS) (thanks to Werner Fink for pointing this out).
+-- Completed dutch language texts (thanks to Hans Dingemans).
++- Completed Dutch language texts (thanks to Hans Dingemans).
+ - Added 'smi' to the Finnish language codes (thanks to Rolf Ahrenberg).
+ - Fixed ensuring there is a current audio track in case there is only one track
+   (thanks to Werner Fink for reporting this one).
+@@ -3912,3 +3912,30 @@
+ - Fixed the cFilter example in PLUGINS.html (reported by Patrick Fischer).
+ - The new class cUnbufferedFile is used for the recording files to avoid
+   trashing the file system cache (based on a patch by Ralf Müller).
++
++2005-11-06: Version 1.3.36
++
++- Fixed a NULL pointer access with the cUnbufferedFile when a replay session runs
++  all the way until the end of the recording (thanks to Joachim Wilke).
++- A menu is no longer automatically closed when a replay ends (reported by
++  Marko Mäkelä).
++- Removed '\n' from several syslog() calls (reported by Sascha Volkenandt).
++- Fixed missing '&' in the SetAreas() example in PLUGINS.html (reported by
++  Sascha Volkenandt).
++- Fixed a memory leak in cString::operator=() (reported by Sascha Volkenandt).
++- Updated the Dutch OSD texts (thanks to Maarten Wisse).
++- cReadLine now dynamically allocates its buffer, so that it can handle lines
++  of any length.
++- Changed cConfig::Load() to use cReadLine instead of a fixed buffer (thanks
++  to Andreas Mair for reporting a problem with extremely long summary fields
++  in timers).
++- cSVDRP now dynamically allocates its command buffer in order to handle
++  commands of any length. The MAXPARSEBUFFER macros is now obsolete and has
++  been removed. If a plugin has used that macro, it should either define
++  a buffer size of its own, or use cReadLine when reading files.
++- Fixed a race condition in the SPU decoder (thanks to Marco Schlüßler).
++- The EPG scan no longer disturbs players that have also set live PIDs
++  (reported by Stefan Huelswitt).
++- Fixed setting the help key display in the Recordings menu in case of several
++  layers of subdirectories.
++- Removed EPG bugfix #0, because it removed actually important data.
+diff -ruN vdr-1.3.35/PLUGINS.html vdr-1.3.36/PLUGINS.html
+--- vdr-1.3.35/PLUGINS.html	2005-10-30 15:05:11.000000000 +0100
++++ vdr-1.3.36/PLUGINS.html	2005-11-04 15:23:45.000000000 +0100
+@@ -1476,7 +1476,7 @@
+ 
+ <p><table><tr><td bgcolor=#F0F0F0><pre>
+ tArea Area = { 0, 0, 100, 100, 4 };
+-MyOsd-&gt;SetAreas(Area, 1);
++MyOsd-&gt;SetAreas(&amp;Area, 1);
+ </pre></td></tr></table><p>
+ 
+ to define an actual OSD drawing area (see VDR/osd.h for the declarations
+@@ -1496,7 +1496,7 @@
+ <p><table><tr><td bgcolor=#F0F0F0><pre>
+ tArea Area = { 0, 0, 99, 99, 4 };
+ if (osd-&gt;CanHandleAreas(Area, 1) == oeOk)
+-   osd-&gt;SetAreas(Area, 1);
++   osd-&gt;SetAreas(&amp;Area, 1);
+ else {
+    tArea Areas[] = { { 0,  0, 99, 19, 2 },
+                      { 0, 20, 99, 79, 2 },
+diff -ruN vdr-1.3.35/channels.conf vdr-1.3.36/channels.conf
+--- vdr-1.3.35/channels.conf	2005-11-01 17:12:16.000000000 +0100
++++ vdr-1.3.36/channels.conf	2005-11-06 16:02:40.000000000 +0100
+@@ -28,7 +28,7 @@
+ HSE24,HSE24;BetaDigital:12480:vC34:S19.2E:27500:1279:1280=deu:37:0:40:133:33:0
+ Bloomberg TV Germany;Bloomberg:12551:vC56:S19.2E:22000:162:99=deu:0:0:12160:1:1108:0
+ EURONEWS;CSAT:11817:vC34:S19.2E:27500:163:92=fra,93=eng,94=ita,95=esl,91=rus,98=por,99=deu:0:0:8004:1:1070:0
+-rbb Brandenburg;ARD:12109:hC34:S19.2E:27500:601:602=deu:604:0:28205:1:1073:0
++rbb Brandenburg;ARD:12109:hC34:S19.2E:27500:501:502=deu:504:0:28205:1:1073:0
+ Sky News:11597:vC56:S19.2E:22000:305+131:306=eng:0:0:28707:1:1026:0
+ Veronica/JETIX;CANALDIGITAAL:12574:hC56:S19.2E:22000:518+8190:92=dut:38:622,100:5020:53:1109:0
+ BVN;CANALDIGITAAL:12574:hC56:S19.2E:22000:515+8190:96=dut:36:0:5025:53:1109:0
+@@ -49,7 +49,7 @@
+ PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu,1793=deu;1795=deu:32:1:11:133:2:0
+ PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu,2305=deu:32:1:43:133:2:0
+ PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu,769=deu:32:1801,1722,1702:9:133:2:0
+-PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu,1281=deu:32:1722,1702,1801:29:133:2:0
++PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu:32:1722,1702,1801:29:133:2:0
+ PREMIERE 6,PREM 6;PREMIERE:11797:hC34:S19.2E:27500:1535:1536=deu:32:1:41:133:2:0
+ PREMIERE 7,PREM 7;PREMIERE:11797:hC34:S19.2E:27500:1023:1024=deu:32:1801,1702,1722:20:133:2:0
+ DISNEY CHANNEL,DISNEY;PREMIERE:11758:hC34:S19.2E:27500:2559:2560=deu:32:1722,1801,1702:34:133:17:0
+@@ -57,10 +57,10 @@
+ PREMIERE DIREKT,DIREKT;PREMIERE:12031:hC34:S19.2E:27500:2815:2816=deu,2817=deu;2819=deu:0:0:18:133:4:0
+ :PW Erotic
+ BEATE-UHSE.TV,B-UHSE;PREMIERE:11758:hC34:S19.2E:27500:1791:1792=deu:32:1722,1702,1801:21:133:17:0
+-DIREKT EROTIK,EROTIK;PREMIERE:12031:hC34:S19.2E:27500:1279:1280=deu:0:1801,1722,1702:513:133:4:0
++EROTIK - AB 18!,AB 18!;PREMIERE:12031:hC34:S19.2E:27500:1279:1280=deu:0:1810,1801,1702,1722:513:133:4:0
+ :Sportsworld
+-PREMIERE SPORT PORTAL,SPORT PORTAL;PREMIERE:11719:hC34:S19.2E:27500:255:256=deu,257=deu:32:1722,1702,1801:17:133:3:0
+-PREMIERE WIN,WIN;PREMIERE:12031:hC34:S19.2E:27500:3839:3840=deu:32:1801,1702,1722:27:133:4:0
++PREMIERE SPORT PORTAL,SPORT PORTAL;PREMIERE:11719:hC34:S19.2E:27500:255:256=deu,257=deu:32:1702,1722,1801:17:133:3:0
++PREMIERE WIN,WIN;PREMIERE:12031:hC34:S19.2E:27500:3839:3840=deu:32:0:27:133:4:0
+ :Beta Digital
+ N24;ProSiebenSat.1:12480:vC34:S19.2E:27500:2047:2048=deu:36:0:47:133:33:0
+ LibertyTV FR;LibertyTV.com:12610:vC56:S19.2E:22000:941:943=deu:0:0:12199:1:1112:0
+@@ -115,7 +115,7 @@
+ CNN;BSkyB:12051:vC23:S28.2E:27500:2313:2315=eng:2314:0:7140:2:2018:0
+ BBC PARL'MNT;BSkyB:10847:vC56:S28.2E:22000:2327:2328=eng:2331:0:6902:2:2050:0
+ IGLESIA MME;T-Systems/MTI:11200:vC56:S13.0E:27500:4097:4098:0:0:4733:318:13400:0
+-Euro1080;EURO1080:12168:vC34:S19.2E:27500:308:256:0:FF:21100:1:1088:0
++Euro1080;EURO1080:12168:vC56:S19.2E:27500:308:256:0:FF:21100:1:1088:0
+ Astra HD:12441:vC34:S19.2E:27500:133+80:134=eng:0:FF:29700:0:0:0
+ eng-WRN-multi;WRN:12597:vC34:S13.0E:27500:0:2132:0:0:8230:318:9400:0
+ TVS Teleport Bonn;DMV:11535:vC34:S1.0W:5632:308+8190:256=eng,257=eng:0:2:1:65535:1:0
+diff -ruN vdr-1.3.35/ci.c vdr-1.3.36/ci.c
+--- vdr-1.3.35/ci.c	2005-10-30 14:04:10.000000000 +0100
++++ vdr-1.3.36/ci.c	2005-11-04 15:18:52.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 1.38 2005/10/30 13:04:10 kls Exp $
++ * $Id: ci.c 1.39 2005/11/04 14:18:52 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -367,7 +367,7 @@
+        }
+      }
+   else if (FATALERRNO) {
+-     esyslog("ERROR: CAM: Read failed: slot %d, tcid %d - %m\n", slot, tcid);
++     esyslog("ERROR: CAM: Read failed: slot %d, tcid %d - %m", slot, tcid);
+      Init(-1, slot, tcid);
+      }
+   return lastResponse;
+diff -ruN vdr-1.3.35/config.h vdr-1.3.36/config.h
+--- vdr-1.3.35/config.h	2005-10-08 10:48:38.000000000 +0200
++++ vdr-1.3.36/config.h	2005-11-04 16:55:05.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.231 2005/10/08 08:48:38 kls Exp $
++ * $Id: config.h 1.234 2005/11/04 15:55:05 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -19,8 +19,8 @@
+ #include "i18n.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.3.35"
+-#define VDRVERSNUM   10335  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.3.36"
++#define VDRVERSNUM   10336  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+@@ -102,23 +102,24 @@
+        isyslog("loading %s", fileName);
+        FILE *f = fopen(fileName, "r");
+        if (f) {
++          char *s;
+           int line = 0;
+-          char buffer[MAXPARSEBUFFER];
++          cReadLine ReadLine;
+           result = true;
+-          while (fgets(buffer, sizeof(buffer), f) > 0) {
++          while ((s = ReadLine.Read(f)) != NULL) {
+                 line++;
+                 if (allowComments) {
+-                   char *p = strchr(buffer, '#');
++                   char *p = strchr(s, '#');
+                    if (p)
+                       *p = 0;
+                    }
+-                stripspace(buffer);
+-                if (!isempty(buffer)) {
++                stripspace(s);
++                if (!isempty(s)) {
+                    T *l = new T;
+-                   if (l->Parse(buffer))
++                   if (l->Parse(s))
+                       Add(l);
+                    else {
+-                      esyslog("ERROR: error in %s, line %d\n", fileName, line);
++                      esyslog("ERROR: error in %s, line %d", fileName, line);
+                       delete l;
+                       result = false;
+                       break;
+diff -ruN vdr-1.3.35/device.c vdr-1.3.36/device.c
+--- vdr-1.3.35/device.c	2005-09-17 16:29:44.000000000 +0200
++++ vdr-1.3.36/device.c	2005-11-05 16:23:58.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 1.110 2005/09/17 14:29:44 kls Exp $
++ * $Id: device.c 1.111 2005/11/05 15:23:58 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -514,6 +514,11 @@
+   return false;
+ }
+ 
++bool cDevice::MaySwitchTransponder(void)
++{
++  return !Receiving(true) && !(pidHandles[ptAudio].pid || pidHandles[ptVideo].pid || pidHandles[ptDolby].pid);
++}
++
+ bool cDevice::SwitchChannel(const cChannel *Channel, bool LiveView)
+ {
+   if (LiveView)
+diff -ruN vdr-1.3.35/device.h vdr-1.3.36/device.h
+--- vdr-1.3.35/device.h	2005-09-17 16:29:28.000000000 +0200
++++ vdr-1.3.36/device.h	2005-11-05 16:25:41.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 1.65 2005/09/17 14:29:28 kls Exp $
++ * $Id: device.h 1.66 2005/11/05 15:25:41 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -215,6 +215,9 @@
+          ///< function itself actually returns true.
+          ///< The default implementation always returns false, so a derived cDevice
+          ///< class that can provide channels must implement this function.
++  virtual bool MaySwitchTransponder(void);
++         ///< Returns true if it is ok to switch the transponder on this device,
++         ///< without disturbing any other activities.
+   bool SwitchChannel(const cChannel *Channel, bool LiveView);
+          ///< Switches the device to the given Channel, initiating transfer mode
+          ///< if necessary.
+diff -ruN vdr-1.3.35/dvbspu.c vdr-1.3.36/dvbspu.c
+--- vdr-1.3.35/dvbspu.c	2005-08-07 14:06:32.000000000 +0200
++++ vdr-1.3.36/dvbspu.c	2005-11-05 13:08:15.000000000 +0100
+@@ -8,7 +8,7 @@
+  *
+  * parts of this file are derived from the OMS program.
+  *
+- * $Id: dvbspu.c 1.15 2005/08/07 12:06:32 kls Exp $
++ * $Id: dvbspu.c 1.17 2005/11/05 12:08:15 kls Exp $
+  */
+ 
+ #include <assert.h>
+@@ -338,6 +338,7 @@
+ 
+ void cDvbSpuDecoder::Draw(void)
+ {
++    cMutexLock MutexLock(&mutex);
+     if (!spubmp) {
+         Hide();
+         return;
+@@ -390,6 +391,7 @@
+ 
+ void cDvbSpuDecoder::Hide(void)
+ {
++    cMutexLock MutexLock(&mutex);
+     delete osd;
+     osd = NULL;
+ }
+@@ -501,7 +503,7 @@
+                     break;
+ 
+                 default:
+-                    esyslog("invalid sequence in control header (%.2x)\n",
++                    esyslog("invalid sequence in control header (%.2x)",
+                             spu[i]);
+                     assert(0);
+                     i++;
+diff -ruN vdr-1.3.35/dvbspu.h vdr-1.3.36/dvbspu.h
+--- vdr-1.3.35/dvbspu.h	2005-05-07 13:14:03.000000000 +0200
++++ vdr-1.3.36/dvbspu.h	2005-11-05 13:08:47.000000000 +0100
+@@ -8,7 +8,7 @@
+  *
+  * parts of this file are derived from the OMS program.
+  *
+- * $Id: dvbspu.h 1.9 2005/05/07 11:14:03 kls Exp $
++ * $Id: dvbspu.h 1.10 2005/11/05 12:08:47 kls Exp $
+  */
+ 
+ #ifndef __DVBSPU_H
+@@ -91,7 +91,8 @@
+ 
+ class cDvbSpuDecoder:public cSpuDecoder {
+   private:
+-    cOsd * osd;
++    cOsd *osd;
++    cMutex mutex;
+ 
+     // processing state
+     uint8_t *spu;
+diff -ruN vdr-1.3.35/eit.c vdr-1.3.36/eit.c
+--- vdr-1.3.35/eit.c	2005-09-04 13:36:30.000000000 +0200
++++ vdr-1.3.36/eit.c	2005-11-04 15:19:16.000000000 +0100
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 1.111 2005/09/04 11:36:30 kls Exp $
++ * $Id: eit.c 1.112 2005/11/04 14:19:16 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -271,8 +271,8 @@
+   if (diff > 2) {
+      mutex.Lock();
+      if (abs(diff - lastDiff) < 3) {
+-        isyslog("System Time = %s (%ld)\n", *TimeToString(loctim), loctim);
+-        isyslog("Local Time  = %s (%ld)\n", *TimeToString(sattim), sattim);
++        isyslog("System Time = %s (%ld)", *TimeToString(loctim), loctim);
++        isyslog("Local Time  = %s (%ld)", *TimeToString(sattim), sattim);
+         if (stime(&sattim) < 0)
+            esyslog("ERROR while setting system time: %m");
+         }
+diff -ruN vdr-1.3.35/eitscan.c vdr-1.3.36/eitscan.c
+--- vdr-1.3.35/eitscan.c	2005-08-26 17:37:06.000000000 +0200
++++ vdr-1.3.36/eitscan.c	2005-11-05 16:24:36.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: eitscan.c 1.28 2005/08/26 15:37:06 kls Exp $
++ * $Id: eitscan.c 1.29 2005/11/05 15:24:36 kls Exp $
+  */
+ 
+ #include "eitscan.h"
+@@ -150,13 +150,14 @@
+                          if (!Channel->Ca() || Channel->Ca() == Device->DeviceNumber() + 1 || Channel->Ca() >= 0x0100) {
+                             if (Device->ProvidesTransponder(Channel)) {
+                                if (!Device->Receiving()) {
+-                                  bool IsPrimaryDeviceReplaying = Device == cDevice::PrimaryDevice() && Device->Replaying() && cTransferControl::ReceiverDevice() != cDevice::PrimaryDevice();
+-                                  if (Device != cDevice::ActualDevice() || (Device->ProvidesTransponderExclusively(Channel) && (IsPrimaryDeviceReplaying || now - lastActivity > Setup.EPGScanTimeout * 3600))) {
+-                                     if (!IsPrimaryDeviceReplaying && Device == cDevice::ActualDevice() && !currentChannel) {
+-                                        if (cTransferControl::ReceiverDevice())
++                                  bool MaySwitchTransponder = Device->MaySwitchTransponder();
++                                  if (MaySwitchTransponder || Device->ProvidesTransponderExclusively(Channel) && now - lastActivity > Setup.EPGScanTimeout * 3600) {
++                                     if (!MaySwitchTransponder) {
++                                        if (Device == cDevice::ActualDevice() && !currentChannel) {
+                                            cDevice::PrimaryDevice()->StopReplay(); // stop transfer mode
+-                                        currentChannel = Device->CurrentChannel();
+-                                        Skins.Message(mtInfo, tr("Starting EPG scan"));
++                                           currentChannel = Device->CurrentChannel();
++                                           Skins.Message(mtInfo, tr("Starting EPG scan"));
++                                           }
+                                         }
+                                      currentDevice = Device;//XXX see also dvbdevice.c!!!
+                                      //dsyslog("EIT scan: device %d  source  %-8s tp %5d", Device->DeviceNumber() + 1, *cSource::ToString(Channel->Source()), Channel->Transponder());
+diff -ruN vdr-1.3.35/epg.c vdr-1.3.36/epg.c
+--- vdr-1.3.35/epg.c	2005-10-09 14:57:55.000000000 +0200
++++ vdr-1.3.36/epg.c	2005-11-06 11:31:58.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 1.38 2005/10/09 12:57:55 kls Exp $
++ * $Id: epg.c 1.39 2005/11/06 10:31:58 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -425,32 +425,6 @@
+   // EPG data. Let's fix their bugs as good as we can:
+   if (title) {
+ 
+-     // Some channels put too much information into the ShortText and leave the
+-     // Description empty:
+-     //
+-     // Title
+-     // (NAT, Year Min')[ ["ShortText". ]Description]
+-     //
+-     if (shortText && !description) {
+-        if (*shortText == '(') {
+-           char *e = strchr(shortText + 1, ')');
+-           if (e) {
+-              if (*(e + 1)) {
+-                 if (*++e == ' ')
+-                    if (*(e + 1) == '"')
+-                       e++;
+-                 }
+-              else
+-                 e = NULL;
+-              char *s = e ? strdup(e) : NULL;
+-              free(shortText);
+-              shortText = s;
+-              EpgBugFixStat(0, ChannelID());
+-              // now the fixes #1 and #2 below will handle the rest
+-              }
+-           }
+-        }
+-
+      // Some channels put the ShortText in quotes and use either the ShortText
+      // or the Description field, depending on how long the string is:
+      //
+diff -ruN vdr-1.3.35/i18n.c vdr-1.3.36/i18n.c
+--- vdr-1.3.35/i18n.c	2005-10-30 14:37:57.000000000 +0100
++++ vdr-1.3.36/i18n.c	2005-11-04 15:36:27.000000000 +0100
+@@ -4,13 +4,13 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.218 2005/10/30 13:37:57 kls Exp $
++ * $Id: i18n.c 1.220 2005/11/04 14:36:27 kls Exp $
+  *
+  * Translations provided by:
+  *
+  * Slovenian   Miha Setina <mihasetina@softhome.net>, Matjaz Thaler <matjaz.thaler@guest.arnes.si>
+  * Italian     Alberto Carraro <bertocar@tin.it>, Antonio Ospite <ospite@studenti.unina.it>, Sean Carlos <seanc@libero.it>
+- * Dutch       Arnold Niessen <niessen@iae.nl> <arnold.niessen@philips.com>, Hans Dingemans <hans.dingemans@tacticalops.nl>
++ * Dutch       Arnold Niessen <niessen@iae.nl> <arnold.niessen@philips.com>, Hans Dingemans <hans.dingemans@tacticalops.nl>, Maarten Wisse <Maarten.Wisse@urz.uni-hd.de>
+  * Portuguese  Paulo Lopes <pmml@netvita.pt>
+  * French      Jean-Claude Repetto <jc@repetto.org>, Olivier Jacques <jacquesolivier@hotmail.com>, Gregoire Favre <greg@magma.unil.ch>, Nicolas Huillard <nhuillard@e-dition.fr>
+  * Norwegian   Jørgen Tvedt <pjtvedt@online.no>, Truls Slevigen <truls@slevigen.no>
+@@ -107,7 +107,7 @@
+     "iso8859-15",
+     "iso8859-2",
+     "iso8859-1",
+-    "iso8859-1",
++    "iso8859-15",
+     "iso8859-1",
+     "iso8859-1",
+     "iso8859-1",
+@@ -256,7 +256,7 @@
+     "Aufzeichnung",
+     "Podatki o snemanju",
+     "",// TODO
+-    "",// TODO
++    "Opname info",
+     "",// TODO
+     "Infos sur l'enregistrement",
+     "",// TODO
+@@ -424,7 +424,7 @@
+     "Info",
+     "Info",
+     "",//TODO
+-    "",//TODO
++    "Info",
+     "",//TODO
+     "Info",
+     "",//TODO
+@@ -2277,7 +2277,7 @@
+     "CAM-Menü wird geöffnet...",
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "CAM-menu wordt geopend...",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -2319,7 +2319,7 @@
+     "CAM wird zurückgesetzt...",
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "CAM wordt herstart...",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -2382,7 +2382,7 @@
+     "Bitte geben Sie %d Ziffern ein!",
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "Vul %d cijfers in!",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -2993,7 +2993,7 @@
+     "Rundum scrollen",
+     "Iz konca skoèi na zaèetek",
+     "",// TODO
+-    "",// TODO
++    "Rondom scrollen",
+     "",// TODO
+     "Défilement rotatif",
+     "",// TODO
+@@ -3224,7 +3224,7 @@
+     "Video Anzeige-Format",
+     "Format video prikaza",
+     "",//TODO
+-    "Video display format",
++    "Video display formaat",
+     "",//TODO
+     "Format d'affichage",
+     "",//TODO
+@@ -5371,7 +5371,7 @@
+     "Beginne mit EPG-Scan",
+     "Prièenjam EPG-scan",
+     "",// TODO
+-    "",// TODO
++    "Bezig met starten EPG scan",
+     "",// TODO
+     "Mise à jour du guide des programmes",
+     "",// TODO
+@@ -5455,7 +5455,7 @@
+     "Kein Titel",
+     "Brez naziva",
+     "",// TODO
+-    "",// TODO
++    "Geen titel",
+     "",// TODO
+     "Sans titre",
+     "",// TODO
+@@ -5547,7 +5547,7 @@
+              }
+          p = Phrases;
+          }
+-     esyslog("%s%sno translation found for '%s' in language %d (%s)\n", Plugin ? Plugin : "", Plugin ? ": " : "", s, Setup.OSDLanguage, Phrases[0][Setup.OSDLanguage]);
++     esyslog("%s%sno translation found for '%s' in language %d (%s)", Plugin ? Plugin : "", Plugin ? ": " : "", s, Setup.OSDLanguage, Phrases[0][Setup.OSDLanguage]);
+      }
+   const char *p = strchr(s, '$');
+   return p ? p + 1 : s;
+diff -ruN vdr-1.3.35/menu.c vdr-1.3.36/menu.c
+--- vdr-1.3.35/menu.c	2005-10-09 13:22:03.000000000 +0200
++++ vdr-1.3.36/menu.c	2005-11-05 18:29:22.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.375 2005/10/09 11:22:03 kls Exp $
++ * $Id: menu.c 1.376 2005/11/05 17:29:22 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -1546,14 +1546,13 @@
+ 
+ // --- cMenuRecordings -------------------------------------------------------
+ 
+-int cMenuRecordings::helpKeys = -1;
+-
+ cMenuRecordings::cMenuRecordings(const char *Base, int Level, bool OpenSubMenus)
+ :cOsdMenu(Base ? Base : tr("Recordings"), 8, 6)
+ {
+   base = Base ? strdup(Base) : NULL;
+   level = Setup.RecordingDirs ? Level : -1;
+   Recordings.StateChanged(recordingsState); // just to get the current state
++  helpKeys = -1;
+   Display(); // this keeps the higher level menus from showing up briefly when pressing 'Back' during replay
+   Set();
+   if (Current() < 0)
+@@ -1573,7 +1572,7 @@
+ void cMenuRecordings::SetHelpKeys(void)
+ {
+   cMenuRecordingItem *ri = (cMenuRecordingItem *)Get(Current());
+-  int NewHelpKeys = helpKeys;
++  int NewHelpKeys = 0;
+   if (ri) {
+      if (ri->IsDirectory())
+         NewHelpKeys = 1;
+diff -ruN vdr-1.3.35/menu.h vdr-1.3.36/menu.h
+--- vdr-1.3.35/menu.h	2005-10-03 12:39:08.000000000 +0200
++++ vdr-1.3.36/menu.h	2005-11-05 18:26:09.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 1.76 2005/10/03 10:39:08 kls Exp $
++ * $Id: menu.h 1.77 2005/11/05 17:26:09 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -150,7 +150,7 @@
+   char *base;
+   int level;
+   int recordingsState;
+-  static int helpKeys;
++  int helpKeys;
+   void SetHelpKeys(void);
+   void Set(bool Refresh = false);
+   cRecording *GetRecording(cMenuRecordingItem *Item);
+diff -ruN vdr-1.3.35/osd.c vdr-1.3.36/osd.c
+--- vdr-1.3.35/osd.c	2005-10-02 10:47:13.000000000 +0200
++++ vdr-1.3.36/osd.c	2005-11-04 15:19:31.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 1.63 2005/10/02 08:47:13 kls Exp $
++ * $Id: osd.c 1.64 2005/11/04 14:19:31 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -649,7 +649,7 @@
+         }
+      }
+   if (Result != oeOk)
+-     esyslog("ERROR: cOsd::SetAreas returned %d\n", Result);
++     esyslog("ERROR: cOsd::SetAreas returned %d", Result);
+   return Result;
+ }
+ 
+diff -ruN vdr-1.3.35/recording.c vdr-1.3.36/recording.c
+--- vdr-1.3.35/recording.c	2005-10-31 13:27:58.000000000 +0100
++++ vdr-1.3.36/recording.c	2005-11-04 15:19:44.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 1.122 2005/10/31 12:27:58 kls Exp $
++ * $Id: recording.c 1.124 2005/11/04 14:19:44 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -1328,7 +1328,7 @@
+                  return SetOffset(Number + 1); // file exists and has non zero size, let's try next suffix
+               else {
+                  // zero size file, remove it
+-                 dsyslog ("cFileName::SetOffset: removing zero-sized file %s\n", fileName);
++                 dsyslog ("cFileName::SetOffset: removing zero-sized file %s", fileName);
+                  unlink (fileName);
+                  }
+               }
+@@ -1342,7 +1342,7 @@
+         // found a non existing file suffix
+         }
+      if (Open() >= 0) {
+-        if (!record && Offset >= 0 && file->Seek(Offset, SEEK_SET) != Offset) {
++        if (!record && Offset >= 0 && file && file->Seek(Offset, SEEK_SET) != Offset) {
+            LOG_ERROR_STR(fileName);
+            return NULL;
+            }
+diff -ruN vdr-1.3.35/svdrp.c vdr-1.3.36/svdrp.c
+--- vdr-1.3.35/svdrp.c	2005-09-25 12:36:59.000000000 +0200
++++ vdr-1.3.36/svdrp.c	2005-11-05 12:21:38.000000000 +0100
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 1.82 2005/09/25 10:36:59 kls Exp $
++ * $Id: svdrp.c 1.83 2005/11/05 11:21:38 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -361,6 +361,8 @@
+ {
+   PUTEhandler = NULL;
+   numChars = 0;
++  length = BUFSIZ;
++  cmdLine = MALLOC(char, length);
+   message = NULL;
+   lastActivity = 0;
+   isyslog("SVDRP listening on port %d", Port);
+@@ -370,6 +372,7 @@
+ {
+   Close();
+   free(message);
++  free(cmdLine);
+ }
+ 
+ void cSVDRP::Close(bool Timeout)
+@@ -1442,6 +1445,11 @@
+                  // showtime!
+                  Execute(cmdLine);
+                  numChars = 0;
++                 if (length > BUFSIZ) {
++                    free(cmdLine); // let's not tie up too much memory
++                    length = BUFSIZ;
++                    cmdLine = MALLOC(char, length);
++                    }
+                  }
+               else if (c == 0x04 && numChars == 0) {
+                  // end of file (only at beginning of line)
+@@ -1455,15 +1463,14 @@
+               else if (c <= 0x03 || c == 0x0D) {
+                  // ignore control characters
+                  }
+-              else if (numChars < sizeof(cmdLine) - 1) {
++              else {
++                 if (numChars >= length - 1) {
++                    length += BUFSIZ;
++                    cmdLine = (char *)realloc(cmdLine, length);
++                    }
+                  cmdLine[numChars++] = c;
+                  cmdLine[numChars] = 0;
+                  }
+-              else {
+-                 Reply(501, "Command line too long");
+-                 esyslog("SVDRP: command line too long: '%s'", cmdLine);
+-                 numChars = 0;
+-                 }
+               lastActivity = time(NULL);
+               }
+            else if (r < 0) {
+diff -ruN vdr-1.3.35/svdrp.h vdr-1.3.36/svdrp.h
+--- vdr-1.3.35/svdrp.h	2005-10-09 13:11:59.000000000 +0200
++++ vdr-1.3.36/svdrp.h	2005-11-05 11:54:22.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: svdrp.h 1.24 2005/10/09 11:11:59 kls Exp $
++ * $Id: svdrp.h 1.25 2005/11/05 10:54:22 kls Exp $
+  */
+ 
+ #ifndef __SVDRP_H
+@@ -45,8 +45,9 @@
+   cFile file;
+   cRecordings Recordings;
+   cPUTEhandler *PUTEhandler;
+-  uint numChars;
+-  char cmdLine[MAXPARSEBUFFER];
++  int numChars;
++  int length;
++  char *cmdLine;
+   char *message;
+   time_t lastActivity;
+   void Close(bool Timeout = false);
+diff -ruN vdr-1.3.35/themes.c vdr-1.3.36/themes.c
+--- vdr-1.3.35/themes.c	2004-12-24 18:00:41.000000000 +0100
++++ vdr-1.3.36/themes.c	2005-11-04 15:19:54.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: themes.c 1.5 2004/12/24 17:00:41 kls Exp $
++ * $Id: themes.c 1.6 2005/11/04 14:19:54 kls Exp $
+  */
+ 
+ #include "themes.h"
+@@ -152,7 +152,7 @@
+               }
+            }
+      if (!result)
+-        esyslog("ERROR: error in %s, line %d%s%s\n", FileName, line, error ? ": " : "", error ? error : "");
++        esyslog("ERROR: error in %s, line %d%s%s", FileName, line, error ? ": " : "", error ? error : "");
+      fclose(f);
+      }
+   else
+diff -ruN vdr-1.3.35/tools.c vdr-1.3.36/tools.c
+--- vdr-1.3.35/tools.c	2005-10-31 13:56:15.000000000 +0100
++++ vdr-1.3.36/tools.c	2005-11-04 17:33:18.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 1.100 2005/10/31 12:56:15 kls Exp $
++ * $Id: tools.c 1.103 2005/11/04 16:33:18 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -463,7 +463,7 @@
+             gettimeofday(&tp2, NULL);
+             double seconds = (((long long)tp2.tv_sec * 1000000 + tp2.tv_usec) - ((long long)tp1.tv_sec * 1000000 + tp1.tv_usec)) / 1000000.0;
+             if (seconds > 0.5)
+-               dsyslog("SpinUpDisk took %.2f seconds\n", seconds);
++               dsyslog("SpinUpDisk took %.2f seconds", seconds);
+             free(buf);
+             return true;
+             }
+@@ -534,6 +534,7 @@
+ 
+ cString &cString::operator=(const cString &String)
+ {
++  free(s);
+   s = String.s ? strdup(String.s) : NULL;
+   return *this;
+ }
+@@ -609,12 +610,24 @@
+ 
+ // --- cReadLine -------------------------------------------------------------
+ 
++cReadLine::cReadLine(void)
++{
++  size = 0;
++  buffer = NULL;
++}
++
++cReadLine::~cReadLine()
++{
++  free(buffer);
++}
++
+ char *cReadLine::Read(FILE *f)
+ {
+-  if (fgets(buffer, sizeof(buffer), f) > 0) {
+-     int l = strlen(buffer) - 1;
+-     if (l >= 0 && buffer[l] == '\n')
+-        buffer[l] = 0;
++  int n = getline(&buffer, &size, f);
++  if (n > 0) {
++     n--;
++     if (buffer[n] == '\n')
++        buffer[n] = 0;
+      return buffer;
+      }
+   return NULL;
+diff -ruN vdr-1.3.35/tools.h vdr-1.3.36/tools.h
+--- vdr-1.3.35/tools.h	2005-10-31 13:54:36.000000000 +0100
++++ vdr-1.3.36/tools.h	2005-11-05 11:54:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 1.81 2005/10/31 12:54:36 kls Exp $
++ * $Id: tools.h 1.83 2005/11/05 10:54:39 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -38,8 +38,6 @@
+ #define KILOBYTE(n) ((n) * 1024)
+ #define MEGABYTE(n) ((n) * 1024 * 1024)
+ 
+-#define MAXPARSEBUFFER KILOBYTE(10)
+-
+ #define MALLOC(type, size)  (type *)malloc(sizeof(type) * (size))
+ 
+ #define DELETENULL(p) (delete (p), p = NULL)
+@@ -135,8 +133,11 @@
+ 
+ class cReadLine {
+ private:
+-  char buffer[MAXPARSEBUFFER];
++  size_t size;
++  char *buffer;
+ public:
++  cReadLine(void);
++  ~cReadLine();
+   char *Read(FILE *f);
+   };
+ 
+diff -ruN vdr-1.3.35/vdr.c vdr-1.3.36/vdr.c
+--- vdr-1.3.35/vdr.c	2005-10-09 12:01:45.000000000 +0200
++++ vdr-1.3.36/vdr.c	2005-11-04 14:48:39.000000000 +0100
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.218 2005/10/09 10:01:45 kls Exp $
++ * $Id: vdr.c 1.219 2005/11/04 13:48:39 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -813,8 +813,14 @@
+         if (Interact) {
+            eOSState state = Interact->ProcessKey(key);
+            if (state == osUnknown && Interact != cControl::Control()) {
+-              if (ISMODELESSKEY(key) && cControl::Control())
++              if (ISMODELESSKEY(key) && cControl::Control()) {
+                  state = cControl::Control()->ProcessKey(key);
++                 if (state == osEnd) {
++                    // let's not close a menu when replay ends:
++                    cControl::Shutdown();
++                    continue;
++                    }
++                 }
+               else if (time(NULL) - LastActivity > MENUTIMEOUT)
+                  state = osEnd;
+               }

@@ -1,0 +1,3113 @@
+diff -ruN vdr-2.3.9/CONTRIBUTORS vdr-2.4.0/CONTRIBUTORS
+--- vdr-2.3.9/CONTRIBUTORS	2018-03-17 11:55:43.000000000 +0100
++++ vdr-2.4.0/CONTRIBUTORS	2018-04-14 12:24:41.000000000 +0200
+@@ -716,6 +716,8 @@
+  channels
+  for fixing a possible stack overflow in cListBase::Sort()
+  for reporting a crash when deleting a recording
++ for reporting a problem with sluggish setting of editing marks and a jumping progress
++ display with very short recordings
+ 
+ Reinhard Walter Buchner <rw.buchner@freenet.de>
+  for adding some satellites to 'sources.conf'
+@@ -1201,6 +1203,7 @@
+  for suggesting to change the naming of "binary skip mode" to "adaptive skip mode"
+  for adding a Status parameter to the interface of cDevice::SignalStats() and
+  cDvbDevice::SignalStats()
++ for reporting a possible crash when scaling bitmaps with very small factors
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -2265,6 +2268,8 @@
+ J�rgen Schneider <ivory7@gmx.de>
+  for a patch that was used as a base to fix handling multi byte key sequences
+  in cKbdRemote
++ for reporting a possible discrepancy of the primary device number in the LSTD and
++ PRIM commands
+ 
+ Christian Wieninger <cwieninger@gmx.de>
+  for suggesting to add cMenuEditStrItem::InEditMode()
+@@ -2630,6 +2635,8 @@
+  for reporting a possible deadlock when quickly zapping through encrypted channels
+  for a patch that was used to implement cStatus::MarksModified()
+  for suggesting to no longer log unaligned marks in cMarks::Align()
++ for reporting some warnings from g++ 7.2.0 regarding fixed buffer sizes in
++ cMenuEditTimeItem::Set() and cCountdown::Update()
+ 
+ Peter Pinnau <vdr@unterbrecher.de>
+  for reporting that 'uint32_t' requires including stdint.h in font.h on some systems
+@@ -2845,6 +2852,8 @@
+  for fixing handling timers during the change from DST to winter time
+  for fixing a possible crash with plugins that retrieve player information after a
+  replay has been stopped, but before the replay control has been destroyed
++ for reporting a problem in processing SVDRP client responses in case the caller doesn't
++ want the actual response strings
+ 
+ Timo Helkio <timolavi@mbnet.fi>
+  for reporting a hangup when replaying a TS recording with subtitles activated
+@@ -3304,6 +3313,8 @@
+  lock is held while the error message is displayed
+  for reporting that the info of a newly edited recording was not available immediately
+  after starting the editing process
++ for reporting a problem with setting the initial offset of the cursor in a list menu
++ for reporting a high CPU load during replay with active progress display
+ 
+ Marek Nazarko <mnazarko@gmail.com>
+  for translating OSD texts to the Polish language
+diff -ruN vdr-2.3.9/HISTORY vdr-2.4.0/HISTORY
+--- vdr-2.3.9/HISTORY	2018-03-18 13:03:46.000000000 +0100
++++ vdr-2.4.0/HISTORY	2018-04-15 10:32:25.000000000 +0200
+@@ -9316,3 +9316,34 @@
+   SatelliteDeliverySystemDescriptor or TerrestrialDeliverySystemDescriptor, respectively.
+ - Modified cMenuTimers::Delete() to avoid a lengthy lock on the Timers list while prompting
+   the user.
++
++2018-04-15: Version 2.4.0
++
++- Updated the Ukrainian OSD texts (thanks to Yarema Aka Knedlyk).
++- Fixed processing SVDRP client responses in case the caller doesn't want the actual
++  response strings (reported by Johann Friedrichs).
++- Fixed (not) saving the 'cam.data' file in case VDR stops early during startup due to
++  some error.
++- Fixed some warnings from g++ 7.2.0 regarding fixed buffer sizes in cMenuEditTimeItem::Set()
++  and cCountdown::Update() (reported by J�rg Wendel).
++- Fixed a possible discrepancy of the primary device number in the LSTD and PRIM
++  commands, by setting Setup.PrimaryDVB in cDevice::SetPrimaryDevice() (reported by
++  J�rgen Schneider).
++- Fixed setting the initial offset of the cursor in a list menu (reported by Matthias
++  Senzel).
++- The EIT filter no longer parses data from "other TS", to avoid problems with
++  broadcasters who transmit faulty EIT data.
++- Updated the Macedonian OSD texts (thanks to Dimitar Petrovski).
++- Updated the Finnish OSD texts (thanks to Rolf Ahrenberg).
++- Fixed sluggish setting of editing marks and a jumping progress display with very
++  short recordings (reported by Oliver Endriss).
++- Fixed updating the Schedule menu after editing a timer.
++- Fixed scaling bitmaps with very small factors (reported by Rolf Ahrenberg).
++- Added a missing initialization of osdState in cDisplayChannel::cDisplayChannel(eKeys
++  FirstKey).
++- Updated the Italian OSD texts (thanks to Diego Pierotto).
++- Updated the Hungarian OSD texts (thanks to Istv�n F�ley).
++- Updated the French OSD texts (thanks to Bernard Jaulin).
++- Fixed a high CPU load during replay with active progress display (reported by Matthias
++  Senzel).
++- Official release.
+diff -ruN vdr-2.3.9/INSTALL vdr-2.4.0/INSTALL
+--- vdr-2.3.9/INSTALL	2018-02-09 16:11:35.000000000 +0100
++++ vdr-2.4.0/INSTALL	2018-04-10 15:50:09.000000000 +0200
+@@ -1,7 +1,7 @@
+ Installation of the Video Disk Recorder
+ ---------------------------------------
+ 
+-Version 2.2
++Version 2.4
+ -----------
+ 
+ Compiling and running the program:
+@@ -47,9 +47,9 @@
+ If you want to disable control via the keyboard, you can add NO_KBD=1
+ to the 'make' call, or use the '--no-kbd' option at runtime.
+ 
+-If you have an infrared remote control unit you can define the REMOTE macro
+-to one of the following values in the 'make' call to make the respective control
+-the default:
++If you have a LIRC compatible infrared remote control receiver you can define
++the REMOTE macro to one of the following values in the 'make' call to make
++the respective control the default:
+ 
+   REMOTE=LIRC   control via the "Linux Infrared Remote Control"
+                 (see http://www.lirc.org)
+diff -ruN vdr-2.3.9/MANUAL vdr-2.4.0/MANUAL
+--- vdr-2.3.9/MANUAL	2017-12-09 15:52:53.000000000 +0100
++++ vdr-2.4.0/MANUAL	2018-04-10 15:50:16.000000000 +0200
+@@ -1,7 +1,7 @@
+ Video Disk Recorder User's Manual
+ ---------------------------------
+ 
+-Version 2.2
++Version 2.4
+ -----------
+ 
+ * Remote Control Keys
+diff -ruN vdr-2.3.9/PLUGINS/src/epgtableid0/HISTORY vdr-2.4.0/PLUGINS/src/epgtableid0/HISTORY
+--- vdr-2.3.9/PLUGINS/src/epgtableid0/HISTORY	2015-02-17 14:46:44.000000000 +0100
++++ vdr-2.4.0/PLUGINS/src/epgtableid0/HISTORY	2018-04-10 14:58:19.000000000 +0200
+@@ -24,3 +24,7 @@
+ 2015-02-19: Version 2.2.0
+ 
+ - Official release.
++
++2018-04-15: Version 2.4.0
++
++- Official release.
+diff -ruN vdr-2.3.9/PLUGINS/src/epgtableid0/epgtableid0.c vdr-2.4.0/PLUGINS/src/epgtableid0/epgtableid0.c
+--- vdr-2.3.9/PLUGINS/src/epgtableid0/epgtableid0.c	2015-02-17 14:12:18.000000000 +0100
++++ vdr-2.4.0/PLUGINS/src/epgtableid0/epgtableid0.c	2018-04-10 15:00:18.000000000 +0200
+@@ -3,13 +3,13 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: epgtableid0.c 4.0 2015/02/17 13:12:18 kls Exp $
++ * $Id: epgtableid0.c 4.1 2018/04/10 13:00:18 kls Exp $
+  */
+ 
+ #include <vdr/epg.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "2.2.0";
++static const char *VERSION        = "2.4.0";
+ static const char *DESCRIPTION    = "EPG handler for events with table id 0x00";
+ 
+ // --- cTable0Handler --------------------------------------------------------
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/HISTORY vdr-2.4.0/PLUGINS/src/hello/HISTORY
+--- vdr-2.3.9/PLUGINS/src/hello/HISTORY	2015-02-17 14:46:54.000000000 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/HISTORY	2018-04-14 10:48:15.000000000 +0200
+@@ -94,3 +94,8 @@
+ 2015-02-19: Version 2.2.0
+ 
+ - Official release.
++
++2018-04-15: Version 2.4.0
++
++- Updated the French OSD texts (thanks to Bernard Jaulin).
++- Official release.
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/hello.c vdr-2.4.0/PLUGINS/src/hello/hello.c
+--- vdr-2.3.9/PLUGINS/src/hello/hello.c	2015-02-17 14:12:26.000000000 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/hello.c	2018-04-10 15:00:22.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: hello.c 4.0 2015/02/17 13:12:26 kls Exp $
++ * $Id: hello.c 4.1 2018/04/10 13:00:22 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -12,7 +12,7 @@
+ #include <vdr/interface.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "2.2.0";
++static const char *VERSION        = "2.4.0";
+ static const char *DESCRIPTION    = trNOOP("A friendly greeting");
+ static const char *MAINMENUENTRY  = trNOOP("Hello");
+ 
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/ca_ES.po vdr-2.4.0/PLUGINS/src/hello/po/ca_ES.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/ca_ES.po	2018-03-14 23:46:37.905273360 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/ca_ES.po	2018-04-12 15:02:06.455677072 +0200
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Marc Rovira Vall <tm05462@salleURL.edu>, 2003
+ # Ramon Roca <ramon.roca@xcombo.com>, 2003
+@@ -7,7 +7,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/cs_CZ.po vdr-2.4.0/PLUGINS/src/hello/po/cs_CZ.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/cs_CZ.po	2018-03-14 23:46:37.977272236 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/cs_CZ.po	2018-04-12 15:02:06.471676817 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Vladim�r B�rta <vladimir.barta@k2atmitec.cz>, 2006
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/da_DK.po vdr-2.4.0/PLUGINS/src/hello/po/da_DK.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/da_DK.po	2018-03-14 23:46:38.053271048 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/da_DK.po	2018-04-12 15:02:06.535675798 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Mogens Elneff <mogens@elneff.dk>, 2004
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/de_DE.po vdr-2.4.0/PLUGINS/src/hello/po/de_DE.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/de_DE.po	2018-03-14 23:46:38.421265300 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/de_DE.po	2018-04-12 15:02:06.827671148 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Klaus Schmidinger <vdr@tvdr.de>, 2000
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/el_GR.po vdr-2.4.0/PLUGINS/src/hello/po/el_GR.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/el_GR.po	2018-03-14 23:46:38.101270299 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/el_GR.po	2018-04-12 15:02:06.643674078 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Dimitrios Dimitrakos <mail@dimitrios.de>, 2002
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/es_ES.po vdr-2.4.0/PLUGINS/src/hello/po/es_ES.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/es_ES.po	2018-03-14 23:46:38.053271048 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/es_ES.po	2018-04-12 15:02:06.567675288 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Ruben Nunez Francisco <ruben.nunez@tang-it.com>, 2002
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/et_EE.po vdr-2.4.0/PLUGINS/src/hello/po/et_EE.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/et_EE.po	2018-03-14 23:46:37.905273360 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/et_EE.po	2018-04-12 15:02:06.419677645 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arthur Konovalov <artlov@gmail.com>, 2004, 2015
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/fi_FI.po vdr-2.4.0/PLUGINS/src/hello/po/fi_FI.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/fi_FI.po	2018-03-14 23:46:38.053271048 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/fi_FI.po	2018-04-12 15:02:06.559675415 +0200
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Hannu Savolainen <hannu@opensound.com>, 2002
+ # Jaakko Hyvätti <jaakko@hyvatti.iki.fi>, 2002
+@@ -8,7 +8,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/fr_FR.po vdr-2.4.0/PLUGINS/src/hello/po/fr_FR.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/fr_FR.po	2018-03-14 23:46:38.285267425 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/fr_FR.po	2018-04-14 10:43:55.000000000 +0200
+@@ -1,18 +1,19 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Jean-Claude Repetto <jc@repetto.org>, 2001
+ # Olivier Jacques <jacquesolivier@hotmail.com>, 2003
+ # Gregoire Favre <greg@magma.unil.ch>, 2003
+ # Nicolas Huillard <nhuillard@e-dition.fr>, 2005
++# Bernard Jaulin <bernard.jaulin@gmail.com>, 2018
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+-"PO-Revision-Date: 2007-08-11 12:34+0200\n"
+-"Last-Translator: Nicolas Huillard <nhuillard@e-dition.fr>\n"
++"PO-Revision-Date: 2018-04-14 8:34+0200\n"
++"Last-Translator: Bernard Jaulin <bernard.jaulin@gmail.com>\n"
+ "Language-Team: French <vdr@linuxtv.org>\n"
+ "Language: fr\n"
+ "MIME-Version: 1.0\n"
+@@ -20,19 +21,19 @@
+ "Content-Transfer-Encoding: 8bit\n"
+ 
+ msgid "A friendly greeting"
+-msgstr ""
++msgstr "Bien le bonjour"
+ 
+ msgid "Hello"
+-msgstr ""
++msgstr "Hello"
+ 
+ msgid "Greeting time (s)"
+-msgstr ""
++msgstr "Durée pour le salut (s)"
+ 
+ msgid "Use alternate greeting"
+-msgstr ""
++msgstr "Changer de salutation"
+ 
+ msgid "Howdy folks!"
+-msgstr ""
++msgstr "Bonjour à tous !"
+ 
+ msgid "Hello world!"
+-msgstr ""
++msgstr "Bonjour le monde !"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/hr_HR.po vdr-2.4.0/PLUGINS/src/hello/po/hr_HR.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/hr_HR.po	2018-03-14 23:46:38.393265738 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/hr_HR.po	2018-04-12 15:02:06.771672040 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Adrian Caval <anrxc@sysphere.org>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2008-03-17 19:52+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/hu_HU.po vdr-2.4.0/PLUGINS/src/hello/po/hu_HU.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/hu_HU.po	2018-03-14 23:46:38.341266550 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/hu_HU.po	2018-04-12 15:02:06.767672103 +0200
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Istvan Koenigsberger <istvnko@hotmail.com>, 2002
+ # Guido Josten <guido.josten@t-online.de>, 2002
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/it_IT.po vdr-2.4.0/PLUGINS/src/hello/po/it_IT.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/it_IT.po	2018-03-14 23:46:38.141269674 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/it_IT.po	2018-04-12 15:02:06.595674842 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Diego Pierotto <vdr-italian@tiscali.it>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2008-01-27 20:11+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/lt_LT.po vdr-2.4.0/PLUGINS/src/hello/po/lt_LT.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/lt_LT.po	2018-03-14 23:46:38.285267425 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/lt_LT.po	2018-04-12 15:02:06.699673186 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Valdemaras Pipiras <varas@ambernet.lt>, 2009
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2009-12-08 12:18+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/nl_NL.po vdr-2.4.0/PLUGINS/src/hello/po/nl_NL.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/nl_NL.po	2018-03-14 23:46:38.145269611 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/nl_NL.po	2018-04-12 15:02:06.611674587 +0200
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arnold Niessen <niessen@iae.nl> <arnold.niessen@philips.com>, 2001
+ # Hans Dingemans <hans.dingemans@tacticalops.nl>, 2003
+@@ -7,7 +7,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/nn_NO.po vdr-2.4.0/PLUGINS/src/hello/po/nn_NO.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/nn_NO.po	2018-03-14 23:46:37.977272236 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/nn_NO.po	2018-04-12 15:02:06.503676307 +0200
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # J�rgen Tvedt <pjtvedt@online.no>, 2001
+ # Truls Slevigen <truls@slevigen.no>, 2002
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/pl_PL.po vdr-2.4.0/PLUGINS/src/hello/po/pl_PL.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/pl_PL.po	2018-03-14 23:46:37.853274172 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/pl_PL.po	2018-04-12 15:02:06.407677836 +0200
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Michael Rakowski <mrak@gmx.de>, 2002
+ # Tomasz Maciej Nowak <tmn505@gmail.com>, 2018
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2018-02-19 00:41+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/pt_PT.po vdr-2.4.0/PLUGINS/src/hello/po/pt_PT.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/pt_PT.po	2018-03-14 23:46:37.841274360 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/pt_PT.po	2018-04-12 15:02:06.383678218 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paulo Lopes <pmml@netvita.pt>, 2001
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/ro_RO.po vdr-2.4.0/PLUGINS/src/hello/po/ro_RO.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/ro_RO.po	2018-03-14 23:46:38.421265300 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/ro_RO.po	2018-04-12 15:02:06.767672103 +0200
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paul Lacatus <paul@campina.iiruc.ro>, 2002
+ # Lucian Muresan <lucianm@users.sourceforge.net>, 2004
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/ru_RU.po vdr-2.4.0/PLUGINS/src/hello/po/ru_RU.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/ru_RU.po	2018-03-14 23:46:37.853274172 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/ru_RU.po	2018-04-12 15:02:06.471676817 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Vyacheslav Dikonov <sdiconov@mail.ru>, 2004
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/sk_SK.po vdr-2.4.0/PLUGINS/src/hello/po/sk_SK.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/sk_SK.po	2018-03-14 23:46:38.285267425 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/sk_SK.po	2018-04-12 15:02:06.731672677 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Vladim�r B�rta <vladimir.barta@k2atmitec.cz>, 2006
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2009-09-30 09:48+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/sl_SI.po vdr-2.4.0/PLUGINS/src/hello/po/sl_SI.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/sl_SI.po	2018-03-14 23:46:38.421265300 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/sl_SI.po	2018-04-12 15:02:06.815671339 +0200
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Miha Setina <mihasetina@softhome.net>, 2000
+ # Matjaz Thaler <matjaz.thaler@guest.arnes.si>, 2003
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/sv_SE.po vdr-2.4.0/PLUGINS/src/hello/po/sv_SE.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/sv_SE.po	2018-03-14 23:46:38.145269611 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/sv_SE.po	2018-04-12 15:02:06.643674078 +0200
+@@ -1,12 +1,12 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Tomas Prybil <tomas@prybil.se>, 2002
+ # Jan Ekholm <chakie@infa.abo.fi>, 2003
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/tr_TR.po vdr-2.4.0/PLUGINS/src/hello/po/tr_TR.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/tr_TR.po	2018-03-14 23:46:38.277267549 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/tr_TR.po	2018-04-12 15:02:06.655673886 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Oktay Yolge�en <oktay_73@yahoo.de>, 2007
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2008-05-12 22:34:4800\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/hello/po/zh_CN.po vdr-2.4.0/PLUGINS/src/hello/po/zh_CN.po
+--- vdr-2.3.9/PLUGINS/src/hello/po/zh_CN.po	2018-03-14 23:46:37.977272236 +0100
++++ vdr-2.4.0/PLUGINS/src/hello/po/zh_CN.po	2018-04-12 15:02:06.495676435 +0200
+@@ -1,5 +1,5 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Marc Rovira Vall <tm05462@salleURL.edu>, 2003
+ # Ramon Roca <ramon.roca@xcombo.com>, 2003
+@@ -8,7 +8,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-hello 2.2.0\n"
++"Project-Id-Version: vdr-hello 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 14:04+0100\n"
+ "PO-Revision-Date: 2009-01-23 09:48+0800\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/osddemo/HISTORY vdr-2.4.0/PLUGINS/src/osddemo/HISTORY
+--- vdr-2.3.9/PLUGINS/src/osddemo/HISTORY	2015-04-12 12:37:36.000000000 +0200
++++ vdr-2.4.0/PLUGINS/src/osddemo/HISTORY	2018-04-10 14:58:53.000000000 +0200
+@@ -79,3 +79,7 @@
+ - Fixed a vertical black line in the "TiledPixmaps" area on the rpihddevice OSD with
+   1280x800 pixel (thanks to Thomas Reufer).
+ - Added a demo case for storing images (thanks to Thomas Reufer).
++
++2018-04-15: Version 2.4.0
++
++- Official release.
+diff -ruN vdr-2.3.9/PLUGINS/src/osddemo/osddemo.c vdr-2.4.0/PLUGINS/src/osddemo/osddemo.c
+--- vdr-2.3.9/PLUGINS/src/osddemo/osddemo.c	2015-04-12 11:35:21.000000000 +0200
++++ vdr-2.4.0/PLUGINS/src/osddemo/osddemo.c	2018-04-10 15:00:27.000000000 +0200
+@@ -3,13 +3,13 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: osddemo.c 4.3 2015/04/12 09:35:21 kls Exp $
++ * $Id: osddemo.c 4.4 2018/04/10 13:00:27 kls Exp $
+  */
+ 
+ #include <vdr/osd.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "2.3.1";
++static const char *VERSION        = "2.4.0";
+ static const char *DESCRIPTION    = "Demo of arbitrary OSD setup";
+ static const char *MAINMENUENTRY  = "Osd Demo";
+ 
+diff -ruN vdr-2.3.9/PLUGINS/src/pictures/HISTORY vdr-2.4.0/PLUGINS/src/pictures/HISTORY
+--- vdr-2.3.9/PLUGINS/src/pictures/HISTORY	2017-10-06 17:12:25.000000000 +0200
++++ vdr-2.4.0/PLUGINS/src/pictures/HISTORY	2018-04-10 14:59:09.000000000 +0200
+@@ -108,3 +108,7 @@
+ 
+ - Adapted the pic2mpg script to new ffmpeg options.
+ - No longer using 'convert' to scale/rotate the pictures.
++
++2018-04-15: Version 2.4.0
++
++- Official release.
+diff -ruN vdr-2.3.9/PLUGINS/src/pictures/pictures.c vdr-2.4.0/PLUGINS/src/pictures/pictures.c
+--- vdr-2.3.9/PLUGINS/src/pictures/pictures.c	2017-10-06 17:10:44.000000000 +0200
++++ vdr-2.4.0/PLUGINS/src/pictures/pictures.c	2018-04-10 15:00:42.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: pictures.c 4.2 2017/10/06 15:10:44 kls Exp $
++ * $Id: pictures.c 4.3 2018/04/10 13:00:42 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -11,7 +11,7 @@
+ #include "menu.h"
+ #include "player.h"
+ 
+-static const char *VERSION       = "2.3.2";
++static const char *VERSION       = "2.4.0";
+ static const char *DESCRIPTION   = trNOOP("A simple picture viewer");
+ static const char *MAINMENUENTRY = trNOOP("Pictures");
+ 
+diff -ruN vdr-2.3.9/PLUGINS/src/pictures/po/de_DE.po vdr-2.4.0/PLUGINS/src/pictures/po/de_DE.po
+--- vdr-2.3.9/PLUGINS/src/pictures/po/de_DE.po	2018-03-14 23:46:40.585231502 +0100
++++ vdr-2.4.0/PLUGINS/src/pictures/po/de_DE.po	2018-04-12 15:02:27.659339399 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Klaus Schmidinger <vdr@tvdr.de>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-pictures 2.2.0\n"
++"Project-Id-Version: vdr-pictures 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 12:57+0100\n"
+ "PO-Revision-Date: 2008-01-12 17:41+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/pictures/po/et_EE.po vdr-2.4.0/PLUGINS/src/pictures/po/et_EE.po
+--- vdr-2.3.9/PLUGINS/src/pictures/po/et_EE.po	2018-03-14 23:46:40.377234750 +0100
++++ vdr-2.4.0/PLUGINS/src/pictures/po/et_EE.po	2018-04-12 15:02:27.263345704 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arthur Konovalov <artlov@gmail.com>, 2015
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-pictures 2.2.0\n"
++"Project-Id-Version: vdr-pictures 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 12:57+0100\n"
+ "PO-Revision-Date: 2008-01-12 17:41+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/pictures/po/fi_FI.po vdr-2.4.0/PLUGINS/src/pictures/po/fi_FI.po
+--- vdr-2.3.9/PLUGINS/src/pictures/po/fi_FI.po	2018-03-14 23:46:40.425234001 +0100
++++ vdr-2.4.0/PLUGINS/src/pictures/po/fi_FI.po	2018-04-12 15:02:27.331344622 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Rolf Ahrenberg <Rolf.Ahrenberg@sci.fi>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-pictures 2.2.0\n"
++"Project-Id-Version: vdr-pictures 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 12:57+0100\n"
+ "PO-Revision-Date: 2008-01-12 17:41+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/pictures/po/fr_FR.po vdr-2.4.0/PLUGINS/src/pictures/po/fr_FR.po
+--- vdr-2.3.9/PLUGINS/src/pictures/po/fr_FR.po	2018-03-14 23:46:40.541232189 +0100
++++ vdr-2.4.0/PLUGINS/src/pictures/po/fr_FR.po	2018-04-12 15:02:27.511341756 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Patrice Staudt <ipatrice.staudt@laposte.net>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-pictures 2.2.0\n"
++"Project-Id-Version: vdr-pictures 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 12:57+0100\n"
+ "PO-Revision-Date: 2008-01-12 17:41+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/pictures/po/it_IT.po vdr-2.4.0/PLUGINS/src/pictures/po/it_IT.po
+--- vdr-2.3.9/PLUGINS/src/pictures/po/it_IT.po	2018-03-14 23:46:40.493232938 +0100
++++ vdr-2.4.0/PLUGINS/src/pictures/po/it_IT.po	2018-04-12 15:02:27.387343730 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Diego Pierotto <vdr-italian@tiscali.it>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-pictures 2.2.0\n"
++"Project-Id-Version: vdr-pictures 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 12:57+0100\n"
+ "PO-Revision-Date: 2008-01-27 20:22+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/pictures/po/lt_LT.po vdr-2.4.0/PLUGINS/src/pictures/po/lt_LT.po
+--- vdr-2.3.9/PLUGINS/src/pictures/po/lt_LT.po	2018-03-14 23:46:40.493232938 +0100
++++ vdr-2.4.0/PLUGINS/src/pictures/po/lt_LT.po	2018-04-12 15:02:27.459342584 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Valdemaras Pipiras <varas@ambernet.lt>, 2009
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-pictures 2.2.0\n"
++"Project-Id-Version: vdr-pictures 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 12:57+0100\n"
+ "PO-Revision-Date: 2009-12-08 12:41+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/pictures/po/pl_PL.po vdr-2.4.0/PLUGINS/src/pictures/po/pl_PL.po
+--- vdr-2.3.9/PLUGINS/src/pictures/po/pl_PL.po	2018-03-14 23:46:40.341235312 +0100
++++ vdr-2.4.0/PLUGINS/src/pictures/po/pl_PL.po	2018-04-12 15:02:27.211346533 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Tomasz Maciej Nowak <tmn505@gmail.com>, 2018
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-pictures 2.2.0\n"
++"Project-Id-Version: vdr-pictures 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2018-02-19 00:48+0100\n"
+ "PO-Revision-Date: 2018-02-19 00:53+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/pictures/po/ru_RU.po vdr-2.4.0/PLUGINS/src/pictures/po/ru_RU.po
+--- vdr-2.3.9/PLUGINS/src/pictures/po/ru_RU.po	2018-03-14 23:46:40.585231502 +0100
++++ vdr-2.4.0/PLUGINS/src/pictures/po/ru_RU.po	2018-04-12 15:02:27.559340991 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Alexander Gross <Bikalexander@gmail.com>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-pictures 2.2.0\n"
++"Project-Id-Version: vdr-pictures 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 12:57+0100\n"
+ "PO-Revision-Date: 2008-03-14 00:45+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/pictures/po/sk_SK.po vdr-2.4.0/PLUGINS/src/pictures/po/sk_SK.po
+--- vdr-2.3.9/PLUGINS/src/pictures/po/sk_SK.po	2018-03-14 23:46:40.585231502 +0100
++++ vdr-2.4.0/PLUGINS/src/pictures/po/sk_SK.po	2018-04-12 15:02:27.603340291 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Klaus Schmidinger <vdr@tvdr.de>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-pictures 2.2.0\n"
++"Project-Id-Version: vdr-pictures 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2012-12-18 12:57+0100\n"
+ "PO-Revision-Date: 2009-09-30 12:54+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/servicedemo/HISTORY vdr-2.4.0/PLUGINS/src/servicedemo/HISTORY
+--- vdr-2.3.9/PLUGINS/src/servicedemo/HISTORY	2015-02-17 14:47:18.000000000 +0100
++++ vdr-2.4.0/PLUGINS/src/servicedemo/HISTORY	2018-04-10 14:59:15.000000000 +0200
+@@ -29,3 +29,7 @@
+ 2015-02-19: Version 2.2.0
+ 
+ - Official release.
++
++2018-04-15: Version 2.4.0
++
++- Official release.
+diff -ruN vdr-2.3.9/PLUGINS/src/servicedemo/svccli.c vdr-2.4.0/PLUGINS/src/servicedemo/svccli.c
+--- vdr-2.3.9/PLUGINS/src/servicedemo/svccli.c	2015-02-17 14:13:05.000000000 +0100
++++ vdr-2.4.0/PLUGINS/src/servicedemo/svccli.c	2018-04-10 15:00:53.000000000 +0200
+@@ -3,14 +3,14 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: svccli.c 4.0 2015/02/17 13:13:05 kls Exp $
++ * $Id: svccli.c 4.1 2018/04/10 13:00:53 kls Exp $
+  */
+ 
+ #include <stdlib.h>
+ #include <vdr/interface.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "2.2.0";
++static const char *VERSION        = "2.4.0";
+ static const char *DESCRIPTION    = "Service demo client";
+ static const char *MAINMENUENTRY  = "Service demo";
+ 
+diff -ruN vdr-2.3.9/PLUGINS/src/servicedemo/svcsvr.c vdr-2.4.0/PLUGINS/src/servicedemo/svcsvr.c
+--- vdr-2.3.9/PLUGINS/src/servicedemo/svcsvr.c	2015-02-17 14:13:09.000000000 +0100
++++ vdr-2.4.0/PLUGINS/src/servicedemo/svcsvr.c	2018-04-10 15:00:57.000000000 +0200
+@@ -3,14 +3,14 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: svcsvr.c 4.0 2015/02/17 13:13:09 kls Exp $
++ * $Id: svcsvr.c 4.1 2018/04/10 13:00:57 kls Exp $
+  */
+ 
+ #include <stdlib.h>
+ #include <vdr/interface.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "2.2.0";
++static const char *VERSION        = "2.4.0";
+ static const char *DESCRIPTION    = "Service demo server";
+ 
+ class cPluginSvcSvr : public cPlugin {
+diff -ruN vdr-2.3.9/PLUGINS/src/skincurses/HISTORY vdr-2.4.0/PLUGINS/src/skincurses/HISTORY
+--- vdr-2.3.9/PLUGINS/src/skincurses/HISTORY	2016-12-22 15:13:42.000000000 +0100
++++ vdr-2.4.0/PLUGINS/src/skincurses/HISTORY	2018-04-10 14:59:26.000000000 +0200
+@@ -137,3 +137,7 @@
+   font drawing in high level OSDs (dummy for skincurses).
+ - Fixed truncated date/time strings in the skins on multi-byte UTF-8 systems
+   (reported by Sergey Chernyavskiy).
++
++2018-04-15: Version 2.4.0
++
++- Official release.
+diff -ruN vdr-2.3.9/PLUGINS/src/skincurses/po/de_DE.po vdr-2.4.0/PLUGINS/src/skincurses/po/de_DE.po
+--- vdr-2.3.9/PLUGINS/src/skincurses/po/de_DE.po	2018-03-14 23:46:41.501217195 +0100
++++ vdr-2.4.0/PLUGINS/src/skincurses/po/de_DE.po	2018-04-12 15:03:10.478657484 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Klaus Schmidinger <vdr@tvdr.de>, 2007
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-skincurses 2.2.0\n"
++"Project-Id-Version: vdr-skincurses 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2015-02-08 11:16+0100\n"
+ "PO-Revision-Date: 2007-08-15 16:07+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/skincurses/po/et_EE.po vdr-2.4.0/PLUGINS/src/skincurses/po/et_EE.po
+--- vdr-2.3.9/PLUGINS/src/skincurses/po/et_EE.po	2018-03-14 23:46:41.365219319 +0100
++++ vdr-2.4.0/PLUGINS/src/skincurses/po/et_EE.po	2018-04-12 15:03:10.370659203 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arthur Konovalov <artlov@gmail.com>, 2015
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-skincurses 2.2.0\n"
++"Project-Id-Version: vdr-skincurses 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2015-02-08 11:16+0100\n"
+ "PO-Revision-Date: 2007-08-14 20:48+0300\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/skincurses/po/fi_FI.po vdr-2.4.0/PLUGINS/src/skincurses/po/fi_FI.po
+--- vdr-2.3.9/PLUGINS/src/skincurses/po/fi_FI.po	2018-03-14 23:46:41.361219381 +0100
++++ vdr-2.4.0/PLUGINS/src/skincurses/po/fi_FI.po	2018-04-12 15:03:10.402658694 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Rolf Ahrenberg <Rolf.Ahrenberg@sci.fi>, 2007
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-skincurses 2.2.0\n"
++"Project-Id-Version: vdr-skincurses 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2015-02-08 11:16+0100\n"
+ "PO-Revision-Date: 2007-08-14 20:48+0300\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/skincurses/po/it_IT.po vdr-2.4.0/PLUGINS/src/skincurses/po/it_IT.po
+--- vdr-2.3.9/PLUGINS/src/skincurses/po/it_IT.po	2018-03-14 23:46:41.397218819 +0100
++++ vdr-2.4.0/PLUGINS/src/skincurses/po/it_IT.po	2018-04-12 15:03:10.406658631 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Diego Pierotto <vdr-italian@tiscali.it>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-skincurses 2.2.0\n"
++"Project-Id-Version: vdr-skincurses 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2015-02-08 11:16+0100\n"
+ "PO-Revision-Date: 2008-01-27 20:35+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/skincurses/po/lt_LT.po vdr-2.4.0/PLUGINS/src/skincurses/po/lt_LT.po
+--- vdr-2.3.9/PLUGINS/src/skincurses/po/lt_LT.po	2018-03-14 23:46:41.429218319 +0100
++++ vdr-2.4.0/PLUGINS/src/skincurses/po/lt_LT.po	2018-04-12 15:03:10.414658504 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Valdemaras Pipiras <varas@ambernet.lt>, 2010
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-skincurses 2.2.0\n"
++"Project-Id-Version: vdr-skincurses 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2015-02-08 11:16+0100\n"
+ "PO-Revision-Date: 2010-02-22 18:18+0200\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/skincurses/po/pl_PL.po vdr-2.4.0/PLUGINS/src/skincurses/po/pl_PL.po
+--- vdr-2.3.9/PLUGINS/src/skincurses/po/pl_PL.po	2018-03-14 23:46:41.361219381 +0100
++++ vdr-2.4.0/PLUGINS/src/skincurses/po/pl_PL.po	2018-04-12 15:03:10.346659586 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Tomasz Maciej Nowak <tmn505@gmail.com>, 2018
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-skincurses 2.2.0\n"
++"Project-Id-Version: vdr-skincurses 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2018-02-19 00:48+0100\n"
+ "PO-Revision-Date: 2018-02-19 01:02+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/skincurses/po/ru_RU.po vdr-2.4.0/PLUGINS/src/skincurses/po/ru_RU.po
+--- vdr-2.3.9/PLUGINS/src/skincurses/po/ru_RU.po	2018-03-14 23:46:41.493217320 +0100
++++ vdr-2.4.0/PLUGINS/src/skincurses/po/ru_RU.po	2018-04-12 15:03:10.454657867 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Alexander Gross <Bikalexander@gmail.com>, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-skincurses 2.2.0\n"
++"Project-Id-Version: vdr-skincurses 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2015-02-08 11:16+0100\n"
+ "PO-Revision-Date: 2008-03-14 00:21+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/skincurses/po/sk_SK.po vdr-2.4.0/PLUGINS/src/skincurses/po/sk_SK.po
+--- vdr-2.3.9/PLUGINS/src/skincurses/po/sk_SK.po	2018-03-14 23:46:41.497217257 +0100
++++ vdr-2.4.0/PLUGINS/src/skincurses/po/sk_SK.po	2018-04-12 15:03:10.458657803 +0200
+@@ -1,11 +1,11 @@
+ # VDR plugin language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Klaus Schmidinger <vdr@tvdr.de>, 2007
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: vdr-skincurses 2.2.0\n"
++"Project-Id-Version: vdr-skincurses 2.4.0\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+ "POT-Creation-Date: 2015-02-08 11:16+0100\n"
+ "PO-Revision-Date: 2009-09-30 12:52+0100\n"
+diff -ruN vdr-2.3.9/PLUGINS/src/skincurses/skincurses.c vdr-2.4.0/PLUGINS/src/skincurses/skincurses.c
+--- vdr-2.3.9/PLUGINS/src/skincurses/skincurses.c	2016-12-22 15:09:09.000000000 +0100
++++ vdr-2.4.0/PLUGINS/src/skincurses/skincurses.c	2018-04-10 15:01:00.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: skincurses.c 4.2 2016/12/22 14:09:09 kls Exp $
++ * $Id: skincurses.c 4.3 2018/04/10 13:01:00 kls Exp $
+  */
+ 
+ #include <ncurses.h>
+@@ -12,7 +12,7 @@
+ #include <vdr/skins.h>
+ #include <vdr/videodir.h>
+ 
+-static const char *VERSION        = "2.3.2";
++static const char *VERSION        = "2.4.0";
+ static const char *DESCRIPTION    = trNOOP("A text only skin");
+ static const char *MAINMENUENTRY  = NULL;
+ 
+diff -ruN vdr-2.3.9/PLUGINS/src/status/HISTORY vdr-2.4.0/PLUGINS/src/status/HISTORY
+--- vdr-2.3.9/PLUGINS/src/status/HISTORY	2015-02-17 14:47:32.000000000 +0100
++++ vdr-2.4.0/PLUGINS/src/status/HISTORY	2018-04-10 14:59:33.000000000 +0200
+@@ -68,3 +68,7 @@
+ 2015-02-19: Version 2.2.0
+ 
+ - Official release.
++
++2018-04-15: Version 2.4.0
++
++- Official release.
+diff -ruN vdr-2.3.9/PLUGINS/src/status/status.c vdr-2.4.0/PLUGINS/src/status/status.c
+--- vdr-2.3.9/PLUGINS/src/status/status.c	2015-02-17 14:13:21.000000000 +0100
++++ vdr-2.4.0/PLUGINS/src/status/status.c	2018-04-10 15:01:03.000000000 +0200
+@@ -3,13 +3,13 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: status.c 4.0 2015/02/17 13:13:21 kls Exp $
++ * $Id: status.c 4.1 2018/04/10 13:01:03 kls Exp $
+  */
+ 
+ #include <vdr/plugin.h>
+ #include <vdr/status.h>
+ 
+-static const char *VERSION        = "2.2.0";
++static const char *VERSION        = "2.4.0";
+ static const char *DESCRIPTION    = "Status monitor test";
+ static const char *MAINMENUENTRY  = NULL;
+ 
+diff -ruN vdr-2.3.9/PLUGINS/src/svdrpdemo/HISTORY vdr-2.4.0/PLUGINS/src/svdrpdemo/HISTORY
+--- vdr-2.3.9/PLUGINS/src/svdrpdemo/HISTORY	2015-02-17 14:47:36.000000000 +0100
++++ vdr-2.4.0/PLUGINS/src/svdrpdemo/HISTORY	2018-04-10 14:59:40.000000000 +0200
+@@ -33,3 +33,7 @@
+ 2015-02-19: Version 2.2.0
+ 
+ - Official release.
++
++2018-04-15: Version 2.4.0
++
++- Official release.
+diff -ruN vdr-2.3.9/PLUGINS/src/svdrpdemo/svdrpdemo.c vdr-2.4.0/PLUGINS/src/svdrpdemo/svdrpdemo.c
+--- vdr-2.3.9/PLUGINS/src/svdrpdemo/svdrpdemo.c	2015-02-17 14:13:29.000000000 +0100
++++ vdr-2.4.0/PLUGINS/src/svdrpdemo/svdrpdemo.c	2018-04-10 15:01:07.000000000 +0200
+@@ -3,12 +3,12 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: svdrpdemo.c 4.0 2015/02/17 13:13:29 kls Exp $
++ * $Id: svdrpdemo.c 4.1 2018/04/10 13:01:07 kls Exp $
+  */
+ 
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "2.2.0";
++static const char *VERSION        = "2.4.0";
+ static const char *DESCRIPTION    = "How to add SVDRP support to a plugin";
+ 
+ class cPluginSvdrpdemo : public cPlugin {
+diff -ruN vdr-2.3.9/PLUGINS.html vdr-2.4.0/PLUGINS.html
+--- vdr-2.3.9/PLUGINS.html	2017-11-29 11:00:48.000000000 +0100
++++ vdr-2.4.0/PLUGINS.html	2018-04-10 15:50:22.000000000 +0200
+@@ -31,9 +31,9 @@
+ <div class="center">
+ <h1>The VDR Plugin System</h1>
+ 
+-<b>Version 2.2</b>
++<b>Version 2.4</b>
+ <p>
+-Copyright &copy; 2015 Klaus Schmidinger<br>
++Copyright &copy; 2018 Klaus Schmidinger<br>
+ <a href="mailto:vdr@tvdr.de">vdr@tvdr.de</a><br>
+ <a href="http://www.tvdr.de">www.tvdr.de</a>
+ </div>
+diff -ruN vdr-2.3.9/UPDATE-2.4.0 vdr-2.4.0/UPDATE-2.4.0
+--- vdr-2.3.9/UPDATE-2.4.0	2018-03-11 14:19:30.000000000 +0100
++++ vdr-2.4.0/UPDATE-2.4.0	2018-03-31 15:39:53.000000000 +0200
+@@ -265,6 +265,8 @@
+   made for such an event.
+ - Changed the default return value of cEpgHandler::BeginSegmentTransfer() to true, to
+   avoid problems with derived classes that don't implement this function.
++- The EIT filter no longer parses data from "other TS", to avoid problems with
++  broadcasters who transmit faulty EIT data.
+ 
+ OSD:
+ 
+diff -ruN vdr-2.3.9/channels.conf vdr-2.4.0/channels.conf
+--- vdr-2.3.9/channels.conf	2013-03-23 12:07:01.000000000 +0100
++++ vdr-2.4.0/channels.conf	2018-04-12 15:18:28.756023977 +0200
+@@ -1,85 +1,162 @@
+-RTL Television,RTL;RTL World:12187:HC34M2S0:S19.2E:27500:163=2:104=deu@3;106=deu@106:105;110=deu:0:12003:1:1089:0
++RTL Television,RTL;CBC:12187:HC34M2S0:S19.2E:27500:163=2:104=deu@3;106=deu@106:105;110=deu:0:12003:1:1089:0
+ SAT.1;ProSiebenSat.1:12544:HC56M2S0:S19.2E:22000:255=2:256=deu@3;259=deu@106:32:0:17500:1:1107:0
+ ProSieben;ProSiebenSat.1:12544:HC56M2S0:S19.2E:22000:511=2:512=deu@3;515=deu@106:33:0:17501:1:1107:0
+-RTL2;RTL World:12187:HC34M2S0:S19.2E:27500:166=2:128=deu@3:68:0:12020:1:1089:0
++RTL2;CBC:12187:HC34M2S0:S19.2E:27500:166=2:128=deu@3:68;75=deu:0:12020:1:1089:0
++:ARD und ZDF
+ Das Erste HD;ARD:11493:HC23M5O35P0S1:S19.2E:22000:5101=27:5102=deu@3,5103=mis@3;5106=deu@106:5104;5105=deu:0:10301:1:1019:0
+ ZDF HD;ZDFvision:11362:HC23M5O35P0S1:S19.2E:22000:6110=27:6120=deu@3,6121=mis@3,6123=mul@3;6122=deu@106:6130;6131=deu:0:11110:1:1011:0
+-BR S�d HD;ARD:11582:HC23M5O35P0S1:S19.2E:22000:5201=27:5202=deu@3,5203=mis@3;5206=deu@106:5204:0:10325:1:1025:0
+-hr-fernsehen;ARD:11836:HC34M2S0:S19.2E:27500:301=2:302=deu@3,303=mis@3:304:0:28108:1:1101:0
+-NDR FS MV HD;ARD:11582:HC23M5O35P0S1:S19.2E:22000:5221=27:5222=deu@3,5223=mis@3;5226=deu@106:5224;5225=deu:0:10328:1:1025:0
+-SR Fernsehen;ARD:12265:HC34M2S0:S19.2E:27500:1301=2:1302=deu@3,1303=mis@3:1304:0:28486:1:1093:0
+-WDR HD K�ln;ARD:12422:HC34M2S0:S19.2E:27500:5501=27:5502=deu@3,5503=mis@3;5506=deu@106:5504:0:28325:1:1201:0
++:Dritte Programme
++BR Fernsehen S�d HD;ARD:11582:HC23M5O35P0S1:S19.2E:22000:5201=27:5202=deu@3,5203=mis@3;5206=deu@106:5204;5205=deu:0:10325:1:1025:0
++hr-fernsehen HD;ARD:10891:HC23M5O35P0S1:S19.2E:22000:5351=27:5352=deu@3,5353=mis@3;5356=deu@106:5354;5355=deu:0:10355:1:1061:0
++NDR FS NDS HD;ARD:11582:HC23M5O35P0S1:S19.2E:22000:5221=27:5222=deu@3,5223=mis@3;5226=deu@106:5224;5225=deu:0:10327:1:1025:0
++WDR HD K�ln;ARD:12422:HC34M2S0:S19.2E:27500:5501=27:5502=deu@3,5503=mis@3;5506=deu@106:5504;5505=deu:0:28325:1:1201:0
+ SWR BW HD;ARD:11493:HC23M5O35P0S1:S19.2E:22000:5121=27:5122=deu@3,5123=mis@3;5126=deu@106:5124;5125=deu:0:10303:1:1019:0
+-rbb Berlin;ARD:12109:HC34M2S0:S19.2E:27500:601=2:602=deu@3,603=mis@3:604:0:28206:1:1073:0
++rbb Berlin HD;ARD:10891:HC23M5O35P0S1:S19.2E:22000:5311=27:5312=deu@3,5313=mis@3;5316=deu@106:5314;5315=deu:0:10351:1:1061:0
++MDR Sachsen HD;ARD:10891:HC23M5O35P0S1:S19.2E:22000:5331=27:5332=deu@3,5333=mis@3;5336=deu@106:5334;5335=deu:0:10352:1:1061:0
+ PHOENIX HD;ARD:11582:HC23M5O35P0S1:S19.2E:22000:5261=27:5262=deu@3,5263=mul@3:5264:0:10331:1:1025:0
+-BR-alpha;ARD:12265:HC34M2S0:S19.2E:27500:1401=2:1402=deu@3,1403=mis@3;1406=deu@106:1404:0:28487:1:1093:0
++ARD-alpha;ARD:12265:HC34M2S0:S19.2E:27500:1401=2:1402=deu@3,1403=mis@3;1406=deu@106:1404;1405=deu:0:28487:1:1093:0
+ 3sat HD;ZDFvision:11347:VC23M5O35P0S1:S19.2E:22000:6510=27:6520=deu@3,6521=mis@3,6523=mul@3;6522=deu@106:6530;6531=deu:0:11150:1:1010:0
+-arte HD;ARD:11493:HC23M5O35P0S1:S19.2E:22000:5111=27:5112=deu@3,5113=fra@3;5116=deu@106:5114;5115=deu,5118=fra:0:10302:1:1019:0
+-MDR Sachsen;ARD:12109:HC34M2S0:S19.2E:27500:2901=2:2902=deu@3,2903=mis@3:2904:0:28228:1:1073:0
+-ServusTV HD Oesterreich;ServusTV:11303:HC23M5O35P0S1:S19.2E:22000:3583=27:3584=deu@4,3585=eng@4;3586=deu@122,3587=deu@106:3588:0:4913:1:1007:0
+-N24;ProSiebenSat.1:12544:HC56M2S0:S19.2E:22000:1023=2:1024=deu@3:35:0:17503:1:1107:0
+-Das Erste;ARD:11836:HC34M2S0:S19.2E:27500:101=2:102=deu@3,103=mis@3;106=deu@106:104;105=deu:0:28106:1:1101:0
+-Bayerisches FS S�d;ARD:11836:HC34M2S0:S19.2E:27500:201=2:202=deu@3,203=mis@3;206=deu@106:204:0:28107:1:1101:0
+-NDR FS MV;ARD:12109:HC34M2S0:S19.2E:27500:2601=2:2602=deu@3,2603=mis@3:2604:0:28224:1:1073:0
+-WDR K�ln;ARD:11836:HC34M2S0:S19.2E:27500:601=2:602=deu@3,603=mis@3:604:0:28111:1:1101:0
+-SWR Fernsehen BW;ARD:11836:HC34M2S0:S19.2E:27500:801=2:802=deu@3,803=mis@3;806=deu@106:804:0:28113:1:1101:0
+-PHOENIX;ARD:10744:HC56M2S0:S19.2E:22000:501=2:502=deu@3,503=mul@3:504:0:28725:1:1051:0
+-ZDF;ZDFvision:11953:HC34M2S0:S19.2E:27500:110=2:120=deu@3,121=mis@3,122=mul@3;125=deu@106:130;131=deu:0:28006:1:1079:0
+-3sat;ZDFvision:11953:HC34M2S0:S19.2E:27500:210=2:220=deu@3,221=mis@3,222=mul@3;225=deu@106:230;231=deu:0:28007:1:1079:0
+-KiKA HD;ZDFvision:11347:VC23M5O35P0S1:S19.2E:22000:6610=27:6620=deu@3,6621=mis@3;6622=deu@106:6630:0:11160:1:1010:0
+-KiKA;ZDFvision:11953:HC34M2S0:S19.2E:27500:310=2:320=deu@3,321=mis@3;325=deu@106:330:0:28008:1:1079:0
+-arte;ARD:10744:HC56M2S0:S19.2E:22000:401=2:402=deu@3,403=fra@3:404:0:28724:1:1051:0
+-ORF1 HD;ORF:11303:HC23M5O35P0S1:S19.2E:22000:1920=27:1921=deu@4,1922=eng@4;1923=deu@106:1925:D05,D95,648,1702,1833,9C4,98C:4911:1:1007:0
+-ORF1;ORF:12692:HC56M2S0:S19.2E:22000:160=2:161=deu@3;163=deu@106:165:D05,D95,648,1702,1833,9C4,98C:13001:1:1117:0
+-ORF2 HD;ORF:11303:HC23M5O35P0S1:S19.2E:22000:2920=27:2921=deu@4,2922=eng@4;2923=deu@106:2925:D05,D95,648,1702,1833,9C4,98C:4912:1:1007:0
+-ORF2;ORF:12692:HC56M2S0:S19.2E:22000:500=2:501=deu@3;503=deu@106:505:D95,D05,648,1702,1833,9C4,98C:13002:1:1117:0
+-ZDFinfo HD;ZDFvision:11347:VC23M5O35P0S1:S19.2E:22000:6710=27:6720=deu@3,6721=mis@3,6723=mul@3;6722=deu@106:6730:0:11170:1:1010:0
+-ZDFinfo;ZDFvision:11953:HC34M2S0:S19.2E:27500:610=2:620=deu@3,621=mis@3,622=mul@3;625=deu@106:630:0:28011:1:1079:0
+-CNN Int.;CNN:11778:VC34M2S0:S19.2E:27500:165=2:100=eng@3:0:0:28522:1:1068:0
+-SUPER RTL;RTL World:12187:HC34M2S0:S19.2E:27500:165=2:120=deu@3:65:0:12040:1:1089:0
+-VOX;RTL World:12187:HC34M2S0:S19.2E:27500:167=2:136=deu@3:71;74=deu:0:12060:1:1089:0
+-kabel eins;ProSiebenSat.1:12544:HC56M2S0:S19.2E:22000:767=2:768=deu@3:34:0:17502:1:1107:0
+-DAS VIERTE,D VIERTE;BetaDigital:12460:HC34M2S0:S19.2E:27500:2047=2:2048=deu@3:36:0:1793:133:5:0
+-BBC FOUR;BSkyB:10802:HC56M2S0:S28.2E:22000:5600=2:5601=eng@3,5602=NAR@3:5603;5604=eng:0:6416:2:2047:0
+-BBC HD;BSkyB:10847:vC56M2O0S1:S28.5E:23000:5500=27:5502=NAR@3;5501=eng@106:5503;5504=eng:0:6940:2:2050:0
+-BBC One HD;BSkyB:10847:VC23M5O25P0S1:S28.2E:23000:5400=27:5402=NAR@3;5401=eng@106:5403;5404=eng:0:6941:2:2050:0
+-SAT.1 Gold;ProSiebenSat.1:12544:HC56M2S0:S19.2E:22000:1279=2:1280=deu@3:36:0:17504:1:1107:0
++arte HD;ARD:11493:HC23M5O35P0S1:S19.2E:22000:5111=27:5112=deu@3,5113=fra@3,5117=mis@3;5116=mul@106:5114;5115=deu,5118=fra,5119=deu:0:10302:1:1019:0
++zdf_neo HD;ZDFvision:11362:HC23M5O35P0S1:S19.2E:22000:6310=27:6320=deu@3,6321=mis@3,6323=mul@3;6322=deu@106:6330;6331=deu:0:11130:1:1011:0
++ZDFinfo HD;ZDFvision:11347:VC23M5O35P0S1:S19.2E:22000:6710=27:6720=deu@3,6721=mis@3,6723=mul@3;6722=deu@106:6730;6731=deu:0:11170:1:1010:0
++ONE HD;ARD:11052:HC23M5O35P0S1:S19.2E:22000:5411=27:5412=deu@3,5413=mis@3;5416=deu@106:5414;5415=deu:0:10376:1:1039:0
++KiKA HD;ZDFvision:11347:VC23M5O35P0S1:S19.2E:22000:6610=27:6620=deu@3,6621=mis@3;6622=deu@106:6630;6631=deu:0:11160:1:1010:0
++:Regionalprogramme
++Niederbayern;MB Satellite:11523:HC56M2S0:S19.2E:22000:2559=2:2560=deu@3:0:0:4609:1:1021:0
++Franken Fernsehen;MB Satellite:11523:HC56M2S0:S19.2E:22000:511=2:512=deu@3:0:0:4601:1:1021:0
++m�nchen.tv;MB Satellite:11523:HC56M2S0:S19.2E:22000:1279=2:1280=deu@3:0:0:4604:1:1021:0
++Mainfranken;MB Satellite:11523:HC56M2S0:S19.2E:22000:1791=2:1792=deu@3:0:0:4606:1:1021:0
++TV Oberfranken;MB Satellite:11523:HC56M2S0:S19.2E:22000:2047=2:2048=deu@3:0:0:4607:1:1021:0
++TVA-OTV;MB Satellite:11523:HC56M2S0:S19.2E:22000:2303=2:2304=deu@3:0:0:4608:1:1021:0
++a.tv;MB Satellite:11523:HC56M2S0:S19.2E:22000:255=2:256=deu@3:0:0:4600:1:1021:0
++BR Fernsehen Nord HD;ARD:11582:HC23M5O35P0S1:S19.2E:22000:5201=27:5202=deu@3,5203=mis@3;5206=deu@106:5204;5205=deu:0:10326:1:1025:0
++rbb Brandenburg HD;ARD:10891:HC23M5O35P0S1:S19.2E:22000:5311=27:5312=deu@3,5313=mis@3;5316=deu@106:5314;5315=deu:0:10350:1:1061:0
++SR Fernsehen HD;ARD:11052:HC23M5O35P0S1:S19.2E:22000:5431=27:5432=deu@3,5433=mis@3;5436=deu@106:5434;5435=deu:0:10378:1:1039:0
++Radio Bremen TV;ARD:12421:HC34M2S0:S19.2E:27500:1201=2:1202=deu@3:1204:0:28385:1:1201:0
++:�sterreichisches Fernsehen
++ORF1 HD;ORF:11303:HC23M5O35P0S1:S19.2E:22000:1920=27:0;1921=deu@106,1922=mis@106:1925:648,650,D95,D98,6E2,500,9C4,98C:4911:1:1007:0
++ORF2W HD;ORF:11303:HC23M5O35P0S1:S19.2E:22000:2920=27:0;2921=deu@106,2922=mis@106:2925:648,650,D95,D98,6E2,500,9C4,98C:4912:1:1007:0
++ORF III;ORF:12662:HC56M2S0:S19.2E:22000:1010=2:1011=deu@4:1013:648,650,D95,D98,9C4,98C:13101:1:1115:0
++ServusTV HD Oesterreich;ServusTV:11303:HC23M5O35P0S1:S19.2E:22000:3583=27:3584=deu@4,3585=eng@4;3587=deu@106:3588:648,650,D95,D98,9C4,98C,6E2,500:4913:1:1007:0
++ServusTV HD Deutschland;ServusTV:11303:HC23M5O35P0S1:S19.2E:22000:4920=27:4921=deu@4,4922=eng@4;4924=deu@106:4925:0:4914:1:1007:0
++ATV;ATV+:12692:HC56M2S0:S19.2E:22000:506=2:507=deu@3:509:648,650,D95,D98,9C4,98C:13012:1:1117:0
++ORF SPORT+;ORF:11243:HC56M2S0:S19.2E:22000:2210=2:2211=deu@3,2212=mis@3:2215:648,650,D95,D98,9C4,98C:13221:1:1003:0
++PULS 4 Austria;ProSiebenSat.1:12051:VC34M2S0:S19.2E:27500:1791=2:1792=deu@3:39:9C4,98C,D95,648,D98,650,500,6E2,98D:20007:1:1082:0
++:Nachrichten
++tagesschau24 HD;ARD:11052:HC23M5O35P0S1:S19.2E:22000:5401=27:5402=deu@3,5403=mis@3;5406=deu@106:5404:0:10375:1:1039:0
++n-tv;CBC:12187:HC34M2S0:S19.2E:27500:169=2:73=deu@3,77=mul@3:80:0:12090:1:1089:0
++WELT;ProSiebenSat.1:12544:HC56M2S0:S19.2E:22000:1023=2:1024=deu@3:35:0:17503:1:1107:0
++N24 DOKU;BetaDigital:12460:HC34M2S0:S19.2E:27500:511=2:512=deu@3:34:0:48:133:5:0
++CNN Int.;Harmonic:11626:VC56M2S0:S19.2E:22000:165=2:100=eng@3:0:0:4422:1:1028:0
++EURONEWS FRENCH SD;Globecast:12226:HC34M2S0:S19.2E:27500:2432=2:2435=fra@3:0:0:31220:1:1091:0
++Bloomberg Europe TV;Bloomberg TV:11597:VC56M2S0:S19.2E:22000:1360=2:1320=eng@3:0:0:10067:1:1026:0
++CNBC Europe;CNBC:11597:VC56M2S0:S19.2E:22000:307=2:308=eng@3:0:0:10030:1:1026:0
++Russia Today;GLOBECAST:11538:VC56M2S0:S19.2E:22000:604=2:624=eng@3:0:0:6904:1:1022:0
++Sky News Intl;SES ASTRA:12604:HC56M2S0:S19.2E:22000:1290=2:2290=eng@3:1750:0:7290:1:1111:0
++Al Jazeera English;Al Jazeera:11626:VC56M2S0:S19.2E:22000:3505=2:3625=eng@3:0:0:4440:1:1028:0
++Al Jazeera Channel;GLOBECAST:11508:VC56M2S0:S19.2E:22000:709=2:729=ara@3:0:0:7009:1:1020:0
++:Sport
+ SPORT1;BetaDigital:12480:VC34M2S0:S19.2E:27500:1023=2:1024=deu@3:39:0:900:133:33:0
+-HSE24,HSE24;BetaDigital:12480:VC34M2S0:S19.2E:27500:1279=2:1280=deu@3:37:0:40:133:33:0
+-Bloomberg Europe TV;Arqiva:11597:VC56M2S0:S19.2E:22000:1360=2:1320=eng@4:37:0:10067:1:1026:0
+-NRJ 12;CSAT:11817:VC34M2S0:S19.2E:27500:163=2:92=fra@4;93=fra@106:41:1811,1812,500,1863,100:8004:1:1070:0
+-rbb Brandenburg;ARD:12109:HC34M2S0:S19.2E:27500:601=2:602=deu@3,603=mis@3:604:0:28205:1:1073:0
+-Sky News Intl;SES ASTRA:12604:HC56M2S0:S19.2E:22000:1290=2:2290=@4:0:0:7290:1:1111:0
+-Veronica/DisneyXD;CANALDIGITAAL:12574:HC56M2O0S0:S19.2E:22000:0:0:0:622:5020:53:1109:0
+-Test;CANALDIGITAAL:12574:HC56M2O0S0:S19.2E:22000:522+8190=2:97=dut@4:40:100:5025:53:1109:0
+-n-tv;RTL World:12187:HC34M2S0:S19.2E:27500:169=2:73=deu@3:80:0:12090:1:1089:0
+-Al Jazeera Channel;GlobeCast:11508:VC56M2S0:S19.2E:22000:709=2:729=ara@3:0:0:7009:1:1020:0
+-ORF III;ORF:12662:HC56M2S0:S19.2E:22000:1010=2:1011=deu@4:1013:D95,648,D05,9C4,1702,1833,98C:13101:1:1115:0
+-Eurosport HD,EurospHD;SKY:11914:HC910M2O35P0S1:S19.2E:27500:1535=27:0;1539=deu@106:32:1833,9C4,9AF,98C:132:133:6:0
+-Eurosport Deutschland;SES Astra:12226:HC34M2S0:S19.2E:27500:101=2:103=deu@4:102:0:31200:1:1091:0
+-tagesschau24;ARD:10744:HC56M2S0:S19.2E:22000:101=2:102=deu@3:0:0:28721:1:1051:0
+-Einsfestival HD;ARD:12422:HC34M2S0:S19.2E:27500:1601=27:1602=deu@3;1606=deu@106:1604:0:28396:1:1201:0
+-Einsfestival;ARD:10744:HC56M2S0:S19.2E:22000:201=2:202=deu@3,203=mis@3;206=deu@106:204:0:28722:1:1051:0
+-EinsPlus;ARD:10744:HC56M2S0:S19.2E:22000:301=2:302=deu@3,303=mis@3;306=deu@106:304:0:28723:1:1051:0
+-zdf.kultur HD;ZDFvision:11362:HC23M5O35P0S1:S19.2E:22000:6410=27:6420=deu@3,6421=mis@3,6423=mul@3;6422=deu@106:6430:0:11140:1:1011:0
+-zdf.kultur;ZDFvision:11953:HC34M2S0:S19.2E:27500:1110=2:1120=deu@3,1121=mis@3,1122=mul@3;1125=deu@106:1130:0:28016:1:1079:0
+-zdf_neo HD;ZDFvision:11362:HC23M5O35P0S1:S19.2E:22000:6310=27:6320=deu@3,6321=mis@3,6323=mul@3;6322=deu@106:6330:0:11130:1:1011:0
+-zdf_neo;ZDFvision:11953:HC34M2S0:S19.2E:27500:660=2:670=deu@3,671=mis@3,672=mul@3;675=deu@106:680:0:28014:1:1079:0
++Eurosport 1 Deutschland;SES Astra:12226:HC34M2S0:S19.2E:27500:101=2:103=deu@4:102:0:31200:1:1091:0
++:Privatsender
++RTLplus;CBC:12187:HC34M2S0:S19.2E:27500:168=2:137=deu@3:70:0:12080:1:1089:0
++NITRO;CBC:12187:HC34M2S0:S19.2E:27500:173=2:146=deu@3:84;86=deu:0:12061:1:1089:0
++SUPER RTL;CBC:12187:HC34M2S0:S19.2E:27500:165=2:120=deu@3:65;66=deu:0:12040:1:1089:0
++SAT.1 Gold;ProSiebenSat.1:12544:HC56M2S0:S19.2E:22000:1279=2:1280=deu@3:36:0:17504:1:1107:0
++Pro7 MAXX;ProSiebenSat.1:12544:HC56M2S0:S19.2E:22000:1535=2:1536=deu@3:37:0:17505:1:1107:0
++kabel eins;ProSiebenSat.1:12544:HC56M2S0:S19.2E:22000:767=2:768=deu@3:34:0:17502:1:1107:0
++kabel eins Doku;ProSiebenSat.1:12544:HC56M2S0:S19.2E:22000:2559=2:2560=deu@3:41:0:17509:1:1107:0
++Family TV;BetaDigital:10920:HC78M2S0:S19.2E:22000:255=2:256=deu@3:0:0:33:133:15:0
++Disney Channel;BetaDigital:12460:HC34M2S0:S19.2E:27500:2047=2:2048=deu@3;2051=deu@106:36:0:1793:133:5:0
++TELE 5;BetaDigital:12480:VC34M2S0:S19.2E:27500:1535=2:1536=deu@3:38:0:51:133:33:0
++VOX;CBC:12187:HC34M2S0:S19.2E:27500:167=2:136=deu@3:71;74=deu:0:12060:1:1089:0
+ SIXX;ProSiebenSat.1:12460:HC34M2S0:S19.2E:27500:767=2:768=deu@3:35:0:776:133:5:0
+-:Sky
+-Sky Cinema,Cinema;SKY:11797:HC34M2S0:S19.2E:27500:511=2:512=deu@3,513=eng@3;515=deu@106:32:1702,1722,1833,1834,1836,9C4,9C7,9AF,98C,1861:10:133:2:0
+-Sky Cinema +1,Cinema1;SKY:11797:HC34M2S0:S19.2E:27500:1791=2:1792=deu@3,1793=eng@3;1795=deu@106:32:1702,1722,1833,1834,9C4,9C7,9AF,98C,1861:11:133:2:0
+-Sky Cinema +24,Cinema24;SKY:11797:HC34M2S0:S19.2E:27500:2303=2:2304=deu@3,2305=eng@3;2307=deu@106:32:1702,1722,1833,1834,9C4,9C7,9AF,98C,1861:43:133:2:0
+-Sky Action,Action;SKY:11797:HC34M2S0:S19.2E:27500:767=2:768=deu@3,769=eng@3;771=deu@106:32:1702,1722,1833,1834,9C4,9C7,9AF,98C,1861:9:133:2:0
+-Sky Comedy,Comedy;SKY:11797:HC34M2S0:S19.2E:27500:2559=2:2560=deu@3,2561=eng@3;2563=deu@106:32:1702,1722,1833,1834,9C4,9C7,9AF,98C,1861:8:133:2:0
+-Sky Atlantic HD,AtlanticHD;SKY:11993:HC910M2O35P0S1:S19.2E:27500:1279=27:0;1283=deu@106,1284=eng@106:32:1833,9C4,9AF,98C:110:133:13:0
+-Fox Serie,Fox;SKY:12070:HC34M2S0:S19.2E:27500:1279=2:1280=deu@3,1281=eng@3:32:1702,1722,1833,1834,9C4,9C7,9AF,98C,1861:16:133:1:0
+-History HD,HistHD;SKY:11992:HC910M2O35P0S1:S19.2E:27500:767=27:0;771=deu@106:32:1833,9C4,9AF,98C:113:133:13:0
+-Sky Emotion,Emotion;SKY:11797:HC34M2S0:S19.2E:27500:2815=2:2816=deu@3,2817=eng@3;2819=deu@106:32:1702,1722,1833,1834,9C4,9C7,9AF,98C,1861:20:133:2:0
+-Sky Nostalgie,Nostalgie;SKY:11719:HC34M2S0:S19.2E:27500:1535=2:1536=deu@3:32:1702,1722,1833,1834,9C4,9C7,9AF,98C,1861:516:133:3:0
+-Sky Hits,SkyHits;SKY:11719:HC34M2S0:S19.2E:27500:1023=2:1024=deu@3,1025=eng@3;1027=deu@106:32:1702,1722,1833,1834,9C4,9C7,9AF,98C,1861:41:133:3:0
+-Discovery Channel,Discovery;SKY:12031:HC34M2S0:S19.2E:27500:3071=2:3072=deu@3:32:1702,1722,1833,1834,9C4,9C7,9AF,98C,1861:14:133:4:0
+-National Geographic,NatGeo;SKY:12031:HC34M2S0:S19.2E:27500:3327=2:3328=deu@3,3329=eng@3:32:1702,1722,1833,1834,9C4,9C7,9AF,98C,1861:13:133:4:0
+-Disney Channel,Disney;SKY:11758:HC34M2S0:S19.2E:27500:2559=2:2560=deu@3:32:1702,1722,1833,1834,9C4,9C7,9AF,98C,1861:34:133:17:0
+-TNT Serie,TNTSerie;SKY:12070:HC34M2S0:S19.2E:27500:2559=2:2560=deu@3,2561=eng@3:32:1702,1722,1833,1834,9C4,9C7,9AF,98C,1861:50:133:1:0
+-:@1000 New channels
++DMAX;BetaDigital:12480:VC34M2S0:S19.2E:27500:3327=2:3328=deu@3:44:0:63:133:33:0
++ANIXE HD;BetaDigital:10773:HC34M5O20P0S1:S19.2E:22000:255=27:0;259=deu@106:0:0:21100:1:1053:0
++Nickelodeon;MTV Networks Europe:11973:VC34M2S0:S19.2E:27500:4101=2:4102=deu@4,4103=eng@4:4104:0:28680:1:1078:0
++TOGGO plus;CBC:12187:HC34M2S0:S19.2E:27500:301=2:303=deu@3:0:0:12030:1:1089:0
++Comedy Central/VIVA;MTV Networks Europe:11973:VC34M2S0:S19.2E:27500:4061=2:4062=@4:4064:0:28676:1:1078:0
++DELUXE MUSIC,DELUXE;BetaDigital:12148:HC34M2S0:S19.2E:27500:3327=2:3328=deu@3:0:0:65:133:7:0
++sonnenklar.TV HD;BetaDigital:12574:HC23M5O35P0S1:S19.2E:22000:255=27:0;259=deu@106:32:0:5400:1:1109:0
++QVC Deutschland;SES ASTRA:12551:VC56M2S0:S19.2E:22000:165=2:166=deu@3:167:0:12100:1:1108:0
++HSE24,HSE24;BetaDigital:12480:VC34M2S0:S19.2E:27500:1279=2:1280=deu@3:37:0:40:133:33:0
++1-2-3.tv HD;BetaDigital:10802:HC34M5O35P0S1:S19.2E:22000:767=27:0;771=deu@106:34:0:5502:1:1055:0
++Juwelo HD;BetaDigital:12574:HC23M5O35P0S1:S19.2E:22000:1023=27:1024=deu@3:0:0:5403:1:1109:0
++:@100
++:Sky HD
++Sky Cinema HD,Sky Cinema HD;SKY:11914:HC910M2O35P0S1:S19.2E:27500:1279=27:0;1283=deu@106,1284=eng@106:0:98C,9C4,9AF,98D:131:133:6:0
++Sky Cinema +1 HD,Sky Cine1 HD;SKY:12070:HC910M2O35P0S1:S19.2E:27500:255=27:0;259=deu@106,260=eng@106:0:9C4,98C,9AF,98D:134:133:8:0
++Sky Cinema +24 HD,Sky Cine24 HD;SKY:12070:HC910M2O35P0S1:S19.2E:27500:511=27:0;515=deu@106,516=eng@106:0:9C4,98C,9AF,98D:135:133:8:0
++Sky Cinema Hits HD,Sky Hits HD;SKY:12304:HC910M2O35P0S1:S19.2E:27500:767=27:0;771=deu@106:0:9C4,98C,9AF,98D:107:133:12:0
++Sky Cinema Action HD,Action HD;SKY:12382:HC910M2O35P0S1:S19.2E:27500:1023=27:0;1027=deu@106,1028=eng@106:0:98C,9C4,9AF,98D:116:133:11:0
++Sky Cinema Animation HD,Animation HD;SKY:12070:HC910M2O35P0S1:S19.2E:27500:767=27:0;771=deu@106,772=eng@106:0:9C4,98C,9AF,98D:139:133:8:0
++SYFY HD,SYFY HD;SKY:12304:HC910M2O35P0S1:S19.2E:27500:511=27:0;515=deu@106,516=eng@106:0:9C4,98C,9AF,98D:126:133:12:0
++Sky Atlantic HD,AtlanticHD;SKY:11992:HC910M2O35P0S1:S19.2E:27500:1279=27:0;1283=deu@106,1284=eng@106:0:98C,9C4,9AF,98D:110:133:13:0
++Sky 1 +1 HD,Sky 1 +1 HD;SKY:11797:HC910M2O35P0S1:S19.2E:27500:511=27:0;515=deu@106,516=eng@106:0:98C,9C4,9AF,98D:144:133:16:0
++TNT Serie HD,TNTSerieHD;SKY:12382:HC910M2O35P0S1:S19.2E:27500:255=27:0;259=deu@106,260=eng@106:0:98C,9C4,9AF,98D:123:133:11:0
++TNT Comedy HD;SKY:11875:HC34M5O35P0S1:S19.2E:27500:511=27:0;515=deu@106,516=eng@106:0:98C,9C4,98D:136:133:14:0
++Fox HD;SKY:11332:HC34M5O35P0S1:S19.2E:22000:1023=27:0;1027=deu@106,1028=eng@106:0:98C,9C4,98D:124:133:10:0
++13th Street HD,13th St HD;SKY:11992:HC910M2O35P0S1:S19.2E:27500:767=27:0;771=deu@106,772=eng@106:0:98C,9C4,9AF,98D:127:133:13:0
++Universal HD;SKY:11875:HC34M5O35P0S1:S19.2E:27500:1535=27:0;1539=deu@106,1540=eng@106:0:98C,9C4,98D:101:133:14:0
++RTL Crime HD,RTL CrimeHD;SKY:11170:HC34M5O35P0S1:S19.2E:22000:255=27:0;259=deu@106,260=eng@106:0:9C4,98C,98D:140:133:9:0
++E! Entertainm. HD,E! HD;SKY:11875:HC34M5O35P0S1:S19.2E:27500:255=27:0;259=deu@106,260=eng@106:0:98C,9C4,98D:128:133:14:0
++Spiegel Geschichte HD,Spiegel G HD;SKY:11332:HC34M5O35P0S1:S19.2E:22000:255=27:0;259=deu@106:0:98C,9C4,98D:137:133:10:0
++Discovery HD,DiscHD;SKY:11914:HC910M2O35P0S1:S19.2E:27500:1023=27:0;1027=deu@106,1028=eng@106:0:98C,9C4,9AF,98D:130:133:6:0
++History HD,HistHD;SKY:12382:HC910M2O35P0S1:S19.2E:27500:767=27:0;771=deu@106,772=eng@106:0:98C,9C4,9AF,98D:113:133:11:0
++NatGeo HD,NatGeoHD;SKY:11992:HC910M2O35P0S1:S19.2E:27500:511=27:0;515=deu@106,516=eng@106:0:98C,9C4,9AF,98D:112:133:13:0
++Nat Geo Wild HD,NGWildHD;SKY:11914:HC910M2O35P0S1:S19.2E:27500:511=27:0;515=deu@106,516=eng@106:0:98C,9C4,9AF,98D:118:133:6:0
++Disney Cinemagic HD,DisneyCinHD;SKY:11992:HC910M2O35P0S1:S19.2E:27500:255=27:0;259=deu@106,260=eng@106:0:98C,9C4,9AF,98D:111:133:13:0
++Disney Junior HD;SKY:12070:HC910M2O35P0S1:S19.2E:27500:1279=27:0;1283=deu@106:0:9C4,98C,9AF,98D:138:133:8:0
++Sky Arts HD;SKY:11170:HC34M5O35P0S1:S19.2E:22000:767=27:0;771=deu@106,772=eng@106:0:9C4,98C,98D:145:133:9:0
++:Sky Film
++Sky Cinema Comedy,Sky Comedy;SKY:11719:HC910M2O35P0S1:S19.2E:27500:1023=27:1024=deu@3,1025=eng@3;1027=deu@106:0:9C4,98C,9AF,98D:8:133:3:0
++Sky Cinema Western,Sky Western;SKY:12031:HC910M2O35P0S1:S19.2E:27500:767=27:768=deu@3,769=eng@3:0:9C4,98C,9AF,98D:516:133:4:0
++Sky Cinema Emotion,Sky Emotion;SKY:12031:HC910M2O35P0S1:S19.2E:27500:511=27:512=deu@3,513=eng@3;515=deu@106:0:9C4,98C,9AF,98D:20:133:4:0
++:Sky Welt
++RTL Passion,Passion;SKY:12031:HC910M2O35P0S1:S19.2E:27500:3839=27:3840=deu@3,3841=eng@3:0:9C4,98C,9AF,98D:29:133:4:0
++Sky Krimi,SkyKrimi;SKY:12031:HC910M2O35P0S1:S19.2E:27500:1535=27:1536=deu@3:0:9C4,98C,9AF,98D:23:133:4:0
++Disney XD,DisneyXD;SKY:11719:HC910M2O35P0S1:S19.2E:27500:1279=27:1280=deu@3,1281=eng@3:0:9C4,98C,9AF,98D:28:133:3:0
++Heimatkanal,Heimat;SKY:11758:HC910M2O35P0S1:S19.2E:27500:2815=27:2816=deu@3:0:9C4,98C,9AF,98D:22:133:2:0
++Romance TV,Romance;SKY:11758:HC910M2O35P0S1:S19.2E:27500:3071=27:3072=deu@3:0:9C4,98C,9AF,98D:518:133:2:0
++Classica;SKY:11719:HC910M2O35P0S1:S19.2E:27500:2047=27:2048=deu@3:0:9C4,98C,9AF,98D:24:133:3:0
++:Sky Welt Extra
++TNT Film (TCM),TNT Film;SKY:11914:HC910M2O35P0S1:S19.2E:27500:4351=27:4352=deu@3,4353=eng@3:0:98C,9C4,9AF,98D:405:133:6:0
++Kinowelt TV,Kinowelt;SKY:12031:HC910M2O35P0S1:S19.2E:27500:4351=27:4352=deu@3:0:9C4,98C,9AF,98D:406:133:4:0
++.;BetaDigital:10920:HC78M2S0:S19.2E:22000:2047=27:2048=deu@3,2049=eng@3:0:9C4,98C:57:133:15:0
++.;SKY:10920:HC78M2S0:S19.2E:22000:1023=27:1024=deu@3:0:1837,9C4,98C,1867:38:133:15:0
++RTL Living;CBC:11082:HC34M5O20P0S1:S19.2E:22000:700=27:710=deu@3,711=qaa@3:0:9C4,98C,98D:11971:1:1041:0
++Boomerang;SKY:11875:HC34M5O35P0S1:S19.2E:27500:4351=27:4352=deu@3,4353=eng@3:0:98C,9C4,98D:403:133:14:0
++Cartoon Network,Cartoon Net;SKY:11875:HC34M5O35P0S1:S19.2E:27500:4607=27:4608=deu@3,4609=eng@3:0:98C,9C4,98D:404:133:14:0
++Nicktoons (S);MTV Networks Europe:11973:VC34M2S0:S19.2E:27500:4121=2:4122=@4:0:500:28682:1:1078:0
++Beate-Uhse.TV,BeateU;SKY:11719:HC910M2O35P0S1:S19.2E:27500:2303=27:2304=deu@3:0:9C4,98C,9AF,98D:21:133:3:0
++:Sky Bundesliga HD
++Sky Sport Bundesliga 1 HD,Sky Buli 1 HD;SKY:12304:HC910M2O35P0S1:S19.2E:27500:255=27:0;258=qab@106,259=qab@106,260=qac@106:32;33=deu:9C4,98C,9AF,98D:105:133:12:0
++Sky Sport Bundesliga 2 HD,Sky Buli 2 HD;SKY:11914:HC910M2O35P0S1:S19.2E:27500:2047=27:0;2050=qab@106,2051=qab@106:32:9C4,98C,9AF,98D:267:133:6:0
++Sky Sport Bundesliga 3 HD,Sky Buli 3 HD;SKY:11992:HC910M2O35P0S1:S19.2E:27500:2047=27:0;2050=qab@106,2051=qab@106,2052=qac@106:32:98C,9C4,9AF,98D:277:133:13:0
++Sky Sport Bundesliga 4 HD,Sky Buli 4 HD;SKY:12304:HC910M2O35P0S1:S19.2E:27500:2047=27:0;2050=qab@106,2051=qab@106,2052=qac@106:32:9C4,98C,9AF,98D:287:133:12:0
++Sky Sport Bundesliga 5 HD,Sky Buli 5 HD;SKY:12382:HC910M2O35P0S1:S19.2E:27500:2047=27:0;2050=qab@106,2051=qab@106,2052=qac@106:32:98C,9C4,9AF,98D:297:133:11:0
++Sky Sport Bundesliga 6 HD,Sky Buli 6 HD;SKY:12070:HC910M2O35P0S1:S19.2E:27500:2047=27:0;2050=qab@106,2051=qab@106,2052=qac@106:32:98C,9C4,98D:307:133:8:0
++Sky Sport Bundesliga 7 HD,Sky Buli 7 HD;SKY:11170:HC34M5O35P0S1:S19.2E:22000:1791=27:0;1794=qab@106,1795=qab@106,1796=qac@106:33:98C,9C4:317:133:9:0
++Sky Sport Bundesliga 8 HD,Sky Buli 8 HD;SKY:11875:HC34M5O35P0S1:S19.2E:27500:2559=27:0;2562=deu@106,2563=deu@106,2564=deu@106:0:9C4,98C:327:133:14:0
++Sky Sport Bundesliga 9 HD,Sky Buli 9 HD;SKY:11332:HC34M5O35P0S1:S19.2E:22000:2559=27:0;2562=qab@106,2563=qab@106,2564=qac@106:32:98C,9C4:337:133:10:0
++Sky Sport Bundesliga 10 HD,Sky Buli 10 HD;SKY:11875:HC34M5O35P0S1:S19.2E:27500:2047=27:0;2050=deu@106,2051=deu@106,2052=deu@106:0:9C4,98C:257:133:14:0
++Sky Sport Fanzone HD,Fanzone HD;SKY:11332:HC34M5O35P0S1:S19.2E:22000:1279=27:0:0:98C,9C4:102:133:10:0
++:Sky Sport HD
++Sky Sport News HD,SportNewsHD;SKY:12304:HC910M2O35P0S1:S19.2E:27500:1023=27:0;1027=deu@106:0:0:108:133:12:0
++Sky Sport 1 HD,Sky Sport 1 HD;SKY:11914:HC910M2O35P0S1:S19.2E:27500:767=27:0;770=qae@106,771=qaf@106:32:98C,9C4,9AF,98D:129:133:6:0
++Sky Sport 2 HD,Sky Sport 2 HD;SKY:11992:HC910M2O35P0S1:S19.2E:27500:1023=27:0;1026=qae@106,1027=qaf@106,1028=qtz@106:32:98C,9C4,9AF,98D:114:133:13:0
++Sky Sport 3 HD,Sky Sport 3 HD;SKY:11914:HC910M2O35P0S1:S19.2E:27500:2303=27:0;2306=qae@106,2307=qaf@106,2308=qtz@106:32:98C,9C4,9AF,98D:268:133:6:0
++Sky Sport 4 HD,Sky Sport 4 HD;SKY:11992:HC910M2O35P0S1:S19.2E:27500:2303=27:0;2306=qae@106,2307=qaf@106,2308=qtz@106:32:98C,9C4,9AF:278:133:13:0
++Sky Sport 5 HD,Sky Sport 5 HD;SKY:12304:HC910M2O35P0S1:S19.2E:27500:2303=27:0;2306=qae@106,2307=qaf@106:261:9C4,98C,9AF:288:133:12:0
++Sky Sport 6 HD,Sky Sport 6 HD;SKY:12382:HC910M2O35P0S1:S19.2E:27500:2303=27:0;2306=qae@106,2307=qaf@106,2308=qtz@106:32:98C,9C4,9AF,98D:298:133:11:0
++Sky Sport 7 HD,Sky Sport 7 HD;SKY:12070:HC910M2O35P0S1:S19.2E:27500:2303=27:0;2306=qae@106,2307=qaf@106,2308=qtz@106:32:98C,9C4,98D:308:133:8:0
++Sky Sport 8 HD,Sky Sport 8 HD;SKY:11170:HC34M5O35P0S1:S19.2E:22000:3071=27:0;3074=qae@106,3075=qaf@106,3076=qtz@106:32:98C,9C4,98D:318:133:9:0
++Sky Sport 9 HD,Sky Sport 9 HD;SKY:11875:HC34M5O35P0S1:S19.2E:27500:2815=27:0;2818=deu@106,2819=deu@106:32:98C,9C4:328:133:14:0
++Sky Sport 10 HD,Sky Sport 10HD;SKY:11332:HC34M5O35P0S1:S19.2E:22000:2815=27:0;2818=qae@106,2819=qaf@106,2820=qtz@106:32:98C,9C4,98D:338:133:10:0
++Sky Sport 11 HD,Sky Sport 11HD;SKY:11875:HC34M5O35P0S1:S19.2E:27500:2303=27:0;2306=qae@106,2307=qaf@106,2308=qtz@106:32:98C,9C4,98D:258:133:14:0
++Eurosport 1 HD,Eurosp1 HD;SKY:12382:HC910M2O35P0S1:S19.2E:27500:511=27:0;515=deu@106:0:98C,9C4,9AF,98D:132:133:11:0
++Eurosport 2 HD,Eurosp2HD;SKY:11170:HC34M5O35P0S1:S19.2E:22000:1279=27:0;1283=deu@106,1284=eng@106:0:9C4,98C,98D:109:133:9:0
++Sport1+ HD,Sport1+HD;SKY:12382:HC910M2O35P0S1:S19.2E:27500:1279=27:0;1283=deu@106:0:98C,9C4,98D,9AF:122:133:11:0
++Sport1 US HD,Sport1USHD;SKY:11332:HC34M5O35P0S1:S19.2E:22000:511=27:0;515=deu@106:32:98C,9C4:119:133:10:0
++Sky Sport Austria HD,SportAutHD;SKY:11170:HC34M5O35P0S1:S19.2E:22000:1023=27:0;1027=deu@106:0:9C4,98C,98D:143:133:9:0
++:@1000 Neue Kan�le
+diff -ruN vdr-2.3.9/ci.c vdr-2.4.0/ci.c
+--- vdr-2.3.9/ci.c	2018-02-03 13:55:03.000000000 +0100
++++ vdr-2.4.0/ci.c	2018-03-19 17:37:03.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 4.20 2018/02/03 12:55:03 kls Exp $
++ * $Id: ci.c 4.21 2018/03/19 16:37:03 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -2993,6 +2993,8 @@
+ 
+ void cChannelCamRelations::Save(void)
+ {
++  if (!*fileName)
++     return;
+   cMutexLock MutexLock(&mutex);
+   struct stat st;
+   if (stat(fileName, &st) == 0) {
+diff -ruN vdr-2.3.9/config.h vdr-2.4.0/config.h
+--- vdr-2.3.9/config.h	2017-12-09 15:15:58.000000000 +0100
++++ vdr-2.4.0/config.h	2018-03-19 16:06:46.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 4.14 2017/12/09 14:15:58 kls Exp $
++ * $Id: config.h 4.15 2018/03/19 15:06:46 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.3.9"
+-#define VDRVERSNUM   20309  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.4.0"
++#define VDRVERSNUM   20400  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "2.3.9"
+-#define APIVERSNUM   20309  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "2.4.0"
++#define APIVERSNUM   20400  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-2.3.9/device.c vdr-2.4.0/device.c
+--- vdr-2.3.9/device.c	2018-01-27 15:45:08.000000000 +0100
++++ vdr-2.4.0/device.c	2018-03-24 10:49:14.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 4.26 2018/01/27 14:45:08 kls Exp $
++ * $Id: device.c 4.27 2018/03/24 09:49:14 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -195,6 +195,7 @@
+      primaryDevice->MakePrimaryDevice(true);
+      primaryDevice->SetVideoFormat(Setup.VideoFormat);
+      primaryDevice->SetVolumeDevice(Setup.CurrentVolume);
++     Setup.PrimaryDVB = n + 1;
+      return true;
+      }
+   esyslog("ERROR: invalid primary device number: %d", n + 1);
+diff -ruN vdr-2.3.9/eit.c vdr-2.4.0/eit.c
+--- vdr-2.3.9/eit.c	2017-10-11 11:19:42.000000000 +0200
++++ vdr-2.4.0/eit.c	2018-03-31 15:40:32.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 4.4 2017/10/11 09:19:42 kls Exp $
++ * $Id: eit.c 4.5 2018/03/31 13:40:32 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -388,7 +388,8 @@
+ 
+ cEitFilter::cEitFilter(void)
+ {
+-  Set(0x12, 0x40, 0xC0);  // event info now&next actual/other TS (0x4E/0x4F), future actual/other TS (0x5X/0x6X)
++//Set(0x12, 0x40, 0xC0);  // event info now&next actual/other TS (0x4E/0x4F), future actual/other TS (0x5X/0x6X) // TODO: remove later
++  Set(0x12, 0x40, 0xE0);  // event info now&next actual/other TS (0x4E/0x4F), future actual TS (0x5X)
+   Set(0x14, 0x70);        // TDT
+ }
+ 
+@@ -415,7 +416,8 @@
+      }
+   switch (Pid) {
+     case 0x12: {
+-         if (Tid >= 0x4E && Tid <= 0x6F)
++       //if (Tid >= 0x4E && Tid <= 0x6F) // TODO: remove later
++         if (Tid == 0x4E || Tid >= 0x50 && Tid <= 0x5F)
+             cEIT EIT(sectionSyncerHash, Source(), Tid, Data);
+          }
+          break;
+diff -ruN vdr-2.3.9/menu.c vdr-2.4.0/menu.c
+--- vdr-2.3.9/menu.c	2018-03-18 13:01:09.000000000 +0100
++++ vdr-2.4.0/menu.c	2018-04-14 12:24:41.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 4.69 2018/03/18 12:01:09 kls Exp $
++ * $Id: menu.c 4.74 2018/04/14 10:24:41 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -45,6 +45,7 @@
+ #define MAXWAITFORCAMMENU  10 // seconds to wait for the CAM menu to open
+ #define CAMMENURETRYTIMEOUT 3 // seconds after which opening the CAM menu is retried
+ #define CAMRESPONSETIMEOUT  5 // seconds to wait for a response from a CAM
++#define PROGRESSTIMEOUT   100 // milliseconds to wait before updating the replay progress display
+ #define MINFREEDISK       300 // minimum free disk space (in MB) required to start recording
+ #define NODISKSPACEDELTA  300 // seconds between "Not enough disk space to start recording!" messages
+ #define MAXCHNAMWIDTH      16 // maximum number of characters of channels' short names shown in schedules menus
+@@ -1691,10 +1692,13 @@
+         Timers->SetSyncStateKey(StateKeySVDRPRemoteTimersPoll);
+      if (HasSubMenu())
+         CloseSubMenu();
+-     if (Update())
+-        Display();
+-     SetHelpKeys(Channels);
+      }
++  if (Update()) {
++     LOCK_SCHEDULES_READ;
++     Display();
++     }
++  LOCK_CHANNELS_READ;
++  SetHelpKeys(Channels);
+   return osContinue;
+ }
+ 
+@@ -1999,10 +2003,12 @@
+         Timers->SetSyncStateKey(StateKeySVDRPRemoteTimersPoll);
+      if (HasSubMenu())
+         CloseSubMenu();
+-     if (Update())
+-        Display();
+-     SetHelpKeys();
+      }
++  if (Update()) {
++     LOCK_SCHEDULES_READ;
++     Display();
++     }
++  SetHelpKeys();
+   return osContinue;
+ }
+ 
+@@ -3010,6 +3016,7 @@
+      Clear();
+      GetRecordingsSortMode(DirectoryName());
+      Recordings->Sort();
++     cMenuRecordingItem *CurrentItem = NULL;
+      cMenuRecordingItem *LastItem = NULL;
+      for (const cRecording *Recording = Recordings->First(); Recording; Recording = Recordings->Next(Recording)) {
+          if ((!filter || filter->Filter(Recording)) && (!base || (strstr(Recording->Name(), base) == Recording->Name() && Recording->Name()[strlen(base)] == FOLDERDELIMCHAR))) {
+@@ -3035,15 +3042,16 @@
+             if (LastItem || LastDir) {
+                if (*path) {
+                   if (strcmp(path, Recording->Folder()) == 0)
+-                     SetCurrent(LastDir ? LastDir : LastItem);
++                     CurrentItem = LastDir ? LastDir : LastItem;
+                   }
+                else if (CurrentRecording && strcmp(CurrentRecording, Recording->FileName()) == 0)
+-                  SetCurrent(LastDir ? LastDir : LastItem);
++                  CurrentItem = LastDir ? LastDir : LastItem;
+                }
+             if (LastDir)
+                LastDir->IncrementCounter(Recording->IsNew());
+             }
+          }
++     SetCurrent(CurrentItem);
+      if (Current() < 0)
+         SetCurrent(Get(current)); // last resort, in case the recording was deleted
+      SetMenuSortMode(RecordingsSortMode == rsmName ? msmName : msmTime);
+@@ -4637,6 +4645,7 @@
+   number = 0;
+   timeout = true;
+   lastPresent = lastFollowing = NULL;
++  cOsdProvider::OsdSizeChanged(osdState); // just to get the current state
+   lastTime.Set();
+   withInfo = Setup.ShowInfoOnChSwitch;
+   displayChannel = Skins.Current()->DisplayChannel(withInfo);
+@@ -5562,7 +5571,6 @@
+   lastPlay = lastForward = false;
+   lastSpeed = -2; // an invalid value
+   timeoutShow = 0;
+-  lastProgressUpdate = 0;
+   timeSearchActive = false;
+   cRecording Recording(fileName);
+   cStatus::MsgReplaying(this, Recording.Name(), Recording.FileName(), true);
+@@ -5726,43 +5734,39 @@
+ bool cReplayControl::ShowProgress(bool Initial)
+ {
+   int Current, Total;
+-  if (Initial || lastSpeed != -1 || time(NULL) - lastProgressUpdate >= 1) {
+-     if (GetFrameNumber(Current, Total) && Total > 0) {
+-        if (!visible) {
+-           displayReplay = Skins.Current()->DisplayReplay(modeOnly);
+-           displayReplay->SetMarks(&marks);
+-           SetNeedsFastResponse(true);
+-           visible = true;
+-           }
+-        if (Initial) {
+-           if (*fileName) {
+-              LOCK_RECORDINGS_READ;
+-              if (const cRecording *Recording = Recordings->GetByName(fileName))
+-                 displayReplay->SetRecording(Recording);
+-              }
+-           lastCurrent = lastTotal = -1;
+-           }
+-        if (Current != lastCurrent || Total != lastTotal) {
+-           time(&lastProgressUpdate);
+-           if (Setup.ShowRemainingTime || Total != lastTotal) {
+-              int Index = Total;
+-              if (Setup.ShowRemainingTime)
+-                 Index = Current - Index;
+-              displayReplay->SetTotal(IndexToHMSF(Index, false, FramesPerSecond()));
+-              if (!Initial)
+-                 displayReplay->Flush();
+-              }
+-           displayReplay->SetProgress(Current, Total);
+-           if (!Initial)
+-              displayReplay->Flush();
+-           displayReplay->SetCurrent(IndexToHMSF(Current, displayFrames, FramesPerSecond()));
+-           displayReplay->Flush();
+-           lastCurrent = Current;
+-           }
+-        lastTotal = Total;
+-        ShowMode();
+-        return true;
++  if (!(Initial || updateTimer.TimedOut()))
++     return visible;
++  if (GetFrameNumber(Current, Total) && Total > 0) {
++     if (!visible) {
++        displayReplay = Skins.Current()->DisplayReplay(modeOnly);
++        displayReplay->SetMarks(&marks);
++        SetNeedsFastResponse(true);
++        visible = true;
++        }
++     if (Initial) {
++        if (*fileName) {
++           LOCK_RECORDINGS_READ;
++           if (const cRecording *Recording = Recordings->GetByName(fileName))
++              displayReplay->SetRecording(Recording);
++           }
++        lastCurrent = lastTotal = -1;
++        }
++     if (Current != lastCurrent || Total != lastTotal) {
++        if (Setup.ShowRemainingTime || Total != lastTotal) {
++           int Index = Total;
++           if (Setup.ShowRemainingTime)
++              Index = Current - Index;
++           displayReplay->SetTotal(IndexToHMSF(Index, false, FramesPerSecond()));
++           }
++        displayReplay->SetProgress(Current, Total);
++        displayReplay->SetCurrent(IndexToHMSF(Current, displayFrames, FramesPerSecond()));
++        displayReplay->Flush();
++        lastCurrent = Current;
+         }
++     lastTotal = Total;
++     ShowMode();
++     updateTimer.Set(PROGRESSTIMEOUT);
++     return true;
+      }
+   return false;
+ }
+@@ -6005,8 +6009,6 @@
+      return osEnd;
+   if (Key == kNone && !marksModified)
+      marks.Update();
+-  if (Key != kNone)
+-     lastProgressUpdate = 0;
+   if (visible) {
+      if (timeoutShow && time(NULL) > timeoutShow) {
+         Hide();
+diff -ruN vdr-2.3.9/menu.h vdr-2.4.0/menu.h
+--- vdr-2.3.9/menu.h	2018-02-01 16:35:48.000000000 +0100
++++ vdr-2.4.0/menu.h	2018-04-14 12:24:41.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 4.6 2018/02/01 15:35:48 kls Exp $
++ * $Id: menu.h 4.8 2018/04/14 10:24:41 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -300,7 +300,7 @@
+   bool lastPlay, lastForward;
+   int lastSpeed;
+   time_t timeoutShow;
+-  time_t lastProgressUpdate;
++  cTimeMs updateTimer;
+   bool timeSearchActive, timeSearchHide;
+   int timeSearchTime, timeSearchPos;
+   void TimeSearchDisplay(void);
+diff -ruN vdr-2.3.9/menuitems.c vdr-2.4.0/menuitems.c
+--- vdr-2.3.9/menuitems.c	2015-09-08 12:25:23.000000000 +0200
++++ vdr-2.4.0/menuitems.c	2018-03-23 16:37:02.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.c 4.2 2015/09/08 10:25:23 kls Exp $
++ * $Id: menuitems.c 4.3 2018/03/23 15:37:02 kls Exp $
+  */
+ 
+ #include "menuitems.h"
+@@ -1062,14 +1062,12 @@
+ 
+ void cMenuEditTimeItem::Set(void)
+ {
+-  char buf[10];
+   switch (pos) {
+-    case 1:  snprintf(buf, sizeof(buf), "%01d-:--", hh / 10); break;
+-    case 2:  snprintf(buf, sizeof(buf), "%02d:--", hh); break;
+-    case 3:  snprintf(buf, sizeof(buf), "%02d:%01d-", hh, mm / 10); break;
+-    default: snprintf(buf, sizeof(buf), "%02d:%02d", hh, mm);
++    case 1:  SetValue(cString::sprintf("%01d-:--", hh / 10)); break;
++    case 2:  SetValue(cString::sprintf("%02d:--", hh)); break;
++    case 3:  SetValue(cString::sprintf("%02d:%01d-", hh, mm / 10)); break;
++    default: SetValue(cString::sprintf("%02d:%02d", hh, mm));
+     }
+-  SetValue(buf);
+ }
+ 
+ eOSState cMenuEditTimeItem::ProcessKey(eKeys Key)
+diff -ruN vdr-2.3.9/osd.c vdr-2.4.0/osd.c
+--- vdr-2.3.9/osd.c	2018-01-25 16:09:09.000000000 +0100
++++ vdr-2.4.0/osd.c	2018-04-06 10:43:15.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 4.4 2018/01/25 15:09:09 kls Exp $
++ * $Id: osd.c 4.5 2018/04/06 08:43:15 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -839,7 +839,9 @@
+ {
+   // Fixed point scaling code based on www.inversereality.org/files/bitmapscaling.pdf
+   // by deltener@mindtremors.com
+-  cBitmap *b = new cBitmap(int(round(Width() * FactorX)), int(round(Height() * FactorY)), Bpp(), X0(), Y0());
++  int w = max(1, int(round(Width() * FactorX)));
++  int h = max(1, int(round(Height() * FactorY)));
++  cBitmap *b = new cBitmap(w, h, Bpp(), X0(), Y0());
+   int RatioX = (Width() << 16) / b->Width();
+   int RatioY = (Height() << 16) / b->Height();
+   if (!AntiAlias || FactorX <= 1.0 && FactorY <= 1.0) {
+diff -ruN vdr-2.3.9/osdbase.c vdr-2.4.0/osdbase.c
+--- vdr-2.3.9/osdbase.c	2018-03-06 11:38:18.000000000 +0100
++++ vdr-2.4.0/osdbase.c	2018-03-24 12:47:45.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osdbase.c 4.4 2018/03/06 10:38:18 kls Exp $
++ * $Id: osdbase.c 4.5 2018/03/24 11:47:45 kls Exp $
+  */
+ 
+ #include "osdbase.h"
+@@ -330,7 +330,8 @@
+ {
+   if (marked >= 0)
+      SetStatus(NULL);
+-  lastOffset = (current > first) ? current - first : 0;
++  if (current >= 0)
++     lastOffset = (current > first) ? current - first : 0;
+   first = 0;
+   current = marked = -1;
+   cList<cOsdItem>::Clear();
+diff -ruN vdr-2.3.9/peerdemo vdr-2.4.0/peerdemo
+--- vdr-2.3.9/peerdemo	2018-03-09 11:49:48.000000000 +0100
++++ vdr-2.4.0/peerdemo	2018-04-10 19:20:58.000000000 +0200
+@@ -7,7 +7,8 @@
+ # It reacts properly to the SVDRP commands CONN, LSTT, POLL, PING and QUIT,
+ # and thus seems like a regular VDR to other VDRs.
+ #
+-# (C) 2018 by Klaus Schmidinger <Klaus.Schmidinger@tvdr.de>
++# See the main source file 'vdr.c' for copyright information and
++# how to reach the author.
+ 
+ use Getopt::Std;
+ use IO::Socket;
+diff -ruN vdr-2.3.9/po/ar.po vdr-2.4.0/po/ar.po
+--- vdr-2.3.9/po/ar.po	2018-03-14 23:46:32.653355389 +0100
++++ vdr-2.4.0/po/ar.po	2018-04-14 13:01:56.978091190 +0200
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Osama Alrawab <alrawab@hotmail.com>, 2010, 2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2008-10-16 11:16-0400\n"
+diff -ruN vdr-2.3.9/po/ca_ES.po vdr-2.4.0/po/ca_ES.po
+--- vdr-2.3.9/po/ca_ES.po	2018-03-14 23:46:32.777353452 +0100
++++ vdr-2.4.0/po/ca_ES.po	2018-04-14 13:01:57.034090346 +0200
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Marc Rovira Vall <tm05462@salleURL.edu>, 2003
+ # Ramon Roca <ramon.roca@xcombo.com>, 2003
+@@ -8,7 +8,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+diff -ruN vdr-2.3.9/po/cs_CZ.po vdr-2.4.0/po/cs_CZ.po
+--- vdr-2.3.9/po/cs_CZ.po	2018-03-14 23:46:32.093364135 +0100
++++ vdr-2.4.0/po/cs_CZ.po	2018-04-14 13:01:56.606096797 +0200
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Vladimír Bárta <vladimir.barta@k2atmitec.cz>, 2006, 2008
+ # Jiří Dobrý <jdobry@centrum.cz>, 2008
+@@ -8,7 +8,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2010-05-06 11:00+0200\n"
+diff -ruN vdr-2.3.9/po/da_DK.po vdr-2.4.0/po/da_DK.po
+--- vdr-2.3.9/po/da_DK.po	2018-03-14 23:46:32.197362511 +0100
++++ vdr-2.4.0/po/da_DK.po	2018-04-14 13:01:56.658096013 +0200
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Mogens Elneff <mogens@elneff.dk>, 2004, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+diff -ruN vdr-2.3.9/po/de_DE.po vdr-2.4.0/po/de_DE.po
+--- vdr-2.3.9/po/de_DE.po	2018-03-14 23:46:32.813352890 +0100
++++ vdr-2.4.0/po/de_DE.po	2018-04-14 13:01:57.078089683 +0200
+@@ -1,12 +1,12 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Klaus Schmidinger <vdr@tvdr.de>, 2000-2015
+ # Albert Danis <a.danis@gmx.de>, 2015
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2015-02-10 13:45+0100\n"
+diff -ruN vdr-2.3.9/po/el_GR.po vdr-2.4.0/po/el_GR.po
+--- vdr-2.3.9/po/el_GR.po	2018-03-14 23:46:32.405359263 +0100
++++ vdr-2.4.0/po/el_GR.po	2018-04-14 13:01:56.782094144 +0200
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Dimitrios Dimitrakos <mail@dimitrios.de>, 2002, 2006
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+diff -ruN vdr-2.3.9/po/es_ES.po vdr-2.4.0/po/es_ES.po
+--- vdr-2.3.9/po/es_ES.po	2018-03-14 23:46:32.257361574 +0100
++++ vdr-2.4.0/po/es_ES.po	2018-04-14 13:01:56.722095049 +0200
+@@ -1,12 +1,12 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Ruben Nunez Francisco <ruben.nunez@tang-it.com>, 2002, 2006
+ # Luca Olivetti <luca@ventoso.org>, 2008, 2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2015-02-19 23:00+0100\n"
+diff -ruN vdr-2.3.9/po/et_EE.po vdr-2.4.0/po/et_EE.po
+--- vdr-2.3.9/po/et_EE.po	2018-03-14 23:46:32.061364635 +0100
++++ vdr-2.4.0/po/et_EE.po	2018-04-14 13:01:56.582097159 +0200
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arthur Konovalov <artlov@gmail.com>, 2004-2013, 2015
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+diff -ruN vdr-2.3.9/po/fi_FI.po vdr-2.4.0/po/fi_FI.po
+--- vdr-2.3.9/po/fi_FI.po	2018-03-14 23:46:32.257361574 +0100
++++ vdr-2.4.0/po/fi_FI.po	2018-04-14 13:01:56.722095049 +0200
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Hannu Savolainen <hannu@opensound.com>, 2002
+ # Jaakko Hyvätti <jaakko@hyvatti.iki.fi>, 2002, 2003
+@@ -9,7 +9,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+@@ -867,10 +867,10 @@
+ msgstr "ajan mukaan"
+ 
+ msgid "ascending"
+-msgstr ""
++msgstr "nouseva"
+ 
+ msgid "descending"
+-msgstr ""
++msgstr "laskeva"
+ 
+ msgid "OSD"
+ msgstr "Kuvaruutunäyttö"
+@@ -963,7 +963,7 @@
+ msgstr "Järjestä tallenteet oletuksena"
+ 
+ msgid "Setup.OSD$Sorting direction for recordings"
+-msgstr ""
++msgstr "Tallenteiden järjestys"
+ 
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Käytä numeronäppäimiä tekstisyötteessä"
+diff -ruN vdr-2.3.9/po/fr_FR.po vdr-2.4.0/po/fr_FR.po
+--- vdr-2.3.9/po/fr_FR.po	2018-03-14 23:46:32.509357638 +0100
++++ vdr-2.4.0/po/fr_FR.po	2018-04-14 13:01:56.842093240 +0200
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Jean-Claude Repetto <jc@repetto.org>, 2001, 2002, 2008
+ # Olivier Jacques <jacquesolivier@hotmail.com>, 2003, 2005
+@@ -9,17 +9,17 @@
+ # Bruno Roussel <bruno.roussel@free.fr>, 2007
+ # Michael Nival <mnival@club-internet.fr>, 2007
+ # Marc Perrudin <vdr@ekass.net>, 2013
+-# Bernard Jaulin <bernard.jaulin@gmail.com>, 2013, 2015
++# Bernard Jaulin <bernard.jaulin@gmail.com>, 2013, 2015, 2018
+ # Peter Münster <pmlists@free.fr>, 2013
+ # Dominique Plu <dplu@free.fr>, 2013
+ # Régis Bossut <famille.bossut@wanadoo.fr>, 2015
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+-"PO-Revision-Date: 2015-02-18 20:16+0100\n"
++"PO-Revision-Date: 2018-04-14 10:16+0100\n"
+ "Last-Translator: Bernard Jaulin <bernard.jaulin@gmail.com>\n"
+ "Language-Team: French <vdr@linuxtv.org>\n"
+ "Language: fr\n"
+@@ -669,7 +669,7 @@
+ msgstr "Fichier"
+ 
+ msgid "Record on"
+-msgstr ""
++msgstr "Enregistrement actif"
+ 
+ msgid "Button$Folder"
+ msgstr "Dossier"
+@@ -684,10 +684,10 @@
+ msgstr "Premier jour"
+ 
+ msgid "Error while accessing remote timer"
+-msgstr ""
++msgstr "Erreur pendant l'accès à la programmation"
+ 
+ msgid "Timer has been deleted!"
+-msgstr ""
++msgstr "La programmation a été supprimée"
+ 
+ msgid "Select folder"
+ msgstr "Sélectionner le dossier"
+@@ -868,16 +868,16 @@
+ msgstr "toujours"
+ 
+ msgid "by name"
+-msgstr ""
++msgstr "par nom"
+ 
+ msgid "by time"
+-msgstr ""
++msgstr "par heure"
+ 
+ msgid "ascending"
+-msgstr ""
++msgstr "ascendant"
+ 
+ msgid "descending"
+-msgstr ""
++msgstr "descendant"
+ 
+ msgid "OSD"
+ msgstr "Affichage à l'écran"
+@@ -967,10 +967,10 @@
+ msgstr "Toujours trier les dossiers en premier"
+ 
+ msgid "Setup.OSD$Default sort mode for recordings"
+-msgstr ""
++msgstr "Mode de tri par défaut pour les enregistrements"
+ 
+ msgid "Setup.OSD$Sorting direction for recordings"
+-msgstr ""
++msgstr "Sens de tri pour les enregistrements"
+ 
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Touches numériques pour caractères"
+@@ -1157,7 +1157,7 @@
+ msgstr " (activation en cours)"
+ 
+ msgid "@ device"
+-msgstr ""
++msgstr "@ récepteur"
+ 
+ msgid "CAM"
+ msgstr "CAM"
+@@ -1190,13 +1190,13 @@
+ msgstr "Impossible de réinitialiser le CAM !"
+ 
+ msgid "no instant recording"
+-msgstr ""
++msgstr "Pas d'enregistrement instantané"
+ 
+ msgid "confirm instant recording"
+-msgstr ""
++msgstr "Confirmer l'enregistrement instantané"
+ 
+ msgid "record instantly"
+-msgstr ""
++msgstr "enregistrer instantanément"
+ 
+ msgid "do not pause live video"
+ msgstr "ne pas mettre en pause le direct"
+@@ -1229,7 +1229,7 @@
+ msgstr "Durée de vie par défaut (j)"
+ 
+ msgid "Setup.Recording$Record key handling"
+-msgstr ""
++msgstr "Fonction de la touche enregistrement"
+ 
+ msgid "Setup.Recording$Pause key handling"
+ msgstr "Fonction de la touche Pause"
+@@ -1319,16 +1319,16 @@
+ msgstr "ID résumé"
+ 
+ msgid "any hosts"
+-msgstr ""
++msgstr "Tous les serveurs"
+ 
+ msgid "only default host"
+-msgstr ""
++msgstr "Uniquement le serveur par défaut"
+ 
+ msgid "type"
+-msgstr ""
++msgstr "type"
+ 
+ msgid "full"
+-msgstr ""
++msgstr "complet"
+ 
+ msgid "Miscellaneous"
+ msgstr "Divers"
+@@ -1343,13 +1343,13 @@
+ msgstr "Temps maxi SVDRP (s)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP peering"
+-msgstr ""
++msgstr "Appairage SVDRP"
+ 
+ msgid "Setup.Miscellaneous$SVDRP host name"
+-msgstr ""
++msgstr "Serveur SVDRP"
+ 
+ msgid "Setup.Miscellaneous$SVDRP default host"
+-msgstr ""
++msgstr "Serveur SVDRP par défaut"
+ 
+ msgid "Setup.Miscellaneous$Zap timeout (s)"
+ msgstr "Prise en compte chaîne (s)"
+@@ -1602,7 +1602,7 @@
+ msgstr "Arrêter le direct ?"
+ 
+ msgid "Start recording?"
+-msgstr ""
++msgstr "Commencer l'enregistrement ?"
+ 
+ msgid "Recording started"
+ msgstr "L'enregistrement a commencé"
+diff -ruN vdr-2.3.9/po/hr_HR.po vdr-2.4.0/po/hr_HR.po
+--- vdr-2.3.9/po/hr_HR.po	2018-03-14 23:46:32.721354327 +0100
++++ vdr-2.4.0/po/hr_HR.po	2018-04-14 13:01:56.970091311 +0200
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Drazen Dupor <drazen.dupor@dupor.com>, 2004, 2005
+ # Dino Ravnic <dino.ravnic@fer.hr>, 2004
+@@ -7,7 +7,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+diff -ruN vdr-2.3.9/po/hu_HU.po vdr-2.4.0/po/hu_HU.po
+--- vdr-2.3.9/po/hu_HU.po	2018-03-14 23:46:32.653355389 +0100
++++ vdr-2.4.0/po/hu_HU.po	2018-04-14 13:01:56.982091130 +0200
+@@ -1,25 +1,25 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Istvan Koenigsberger <istvnko@hotmail.com>, 2002, 2003, 2006
+ # Guido Josten <guido.josten@t-online.de>, 2002, 2003, 2006
+ # Thomas Günther <tom@toms-cafe.de>, 2007
+-# István Füley <ifuley@tigercomp.ro>, 2007, 2012, 2013, 2015
++# István Füley <ifuley@tigercomp.ro>, 2007, 2012, 2013, 2015, 2018
+ # Albert Danis <a.danis@gmx.de>, 2015
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+-"PO-Revision-Date: 2015-02-13 09:36+0200\n"
++"PO-Revision-Date: 2018-04-09 21:42+0300\n"
+ "Last-Translator: István Füley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian <vdr@linuxtv.org>\n"
+ "Language: hu\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"X-Generator: Poedit 1.6.11\n"
++"X-Generator: Poedit 2.0.6\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Érvénytelen csatorna ***"
+@@ -663,7 +663,7 @@
+ msgstr "Fájl"
+ 
+ msgid "Record on"
+-msgstr ""
++msgstr "Felvétel be"
+ 
+ msgid "Button$Folder"
+ msgstr "Könyvtár"
+@@ -678,10 +678,10 @@
+ msgstr "Első nap"
+ 
+ msgid "Error while accessing remote timer"
+-msgstr ""
++msgstr "Távoli időzítő nem elérhető"
+ 
+ msgid "Timer has been deleted!"
+-msgstr ""
++msgstr "Az időzítő törölve lett!"
+ 
+ msgid "Select folder"
+ msgstr "Könyvtár kiválasztása"
+@@ -862,16 +862,16 @@
+ msgstr "mindig"
+ 
+ msgid "by name"
+-msgstr ""
++msgstr "név szerint"
+ 
+ msgid "by time"
+-msgstr ""
++msgstr "idő szerint"
+ 
+ msgid "ascending"
+-msgstr ""
++msgstr "növekvő"
+ 
+ msgid "descending"
+-msgstr ""
++msgstr "csökkenő"
+ 
+ msgid "OSD"
+ msgstr "OSD"
+@@ -961,10 +961,10 @@
+ msgstr "Könyvtárakat rendezd előre"
+ 
+ msgid "Setup.OSD$Default sort mode for recordings"
+-msgstr ""
++msgstr "Felvételek alapértelmezett rendezése"
+ 
+ msgid "Setup.OSD$Sorting direction for recordings"
+-msgstr ""
++msgstr "Felvételek rendezésének sorrendje"
+ 
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Betűk a számgombokon"
+@@ -1151,7 +1151,7 @@
+ msgstr " (aktiválás)"
+ 
+ msgid "@ device"
+-msgstr ""
++msgstr "@ eszköz"
+ 
+ msgid "CAM"
+ msgstr "CAM"
+@@ -1184,13 +1184,13 @@
+ msgstr "CAM újraindítása nem sikerült!"
+ 
+ msgid "no instant recording"
+-msgstr ""
++msgstr "nincs azonnali felvétel"
+ 
+ msgid "confirm instant recording"
+-msgstr ""
++msgstr "azonnali felvétel megerősítése"
+ 
+ msgid "record instantly"
+-msgstr ""
++msgstr "azonnali felvétel"
+ 
+ msgid "do not pause live video"
+ msgstr "élőkép leállítása tiltva"
+@@ -1223,7 +1223,7 @@
+ msgstr "Alapértelmezett élettartam (n)"
+ 
+ msgid "Setup.Recording$Record key handling"
+-msgstr ""
++msgstr "Felvétel gomb kezelése"
+ 
+ msgid "Setup.Recording$Pause key handling"
+ msgstr "Szünet gomb működése"
+@@ -1313,16 +1313,16 @@
+ msgstr "Lejátszás azonosító"
+ 
+ msgid "any hosts"
+-msgstr ""
++msgstr "bármelyik host"
+ 
+ msgid "only default host"
+-msgstr ""
++msgstr "csak az alapértelmezett host"
+ 
+ msgid "type"
+-msgstr ""
++msgstr "típus"
+ 
+ msgid "full"
+-msgstr ""
++msgstr "teljes"
+ 
+ msgid "Miscellaneous"
+ msgstr "Egyéb"
+@@ -1337,13 +1337,13 @@
+ msgstr "SVDRP szétkapcsol használat nélkül(mp)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP peering"
+-msgstr ""
++msgstr "SVDRP párosítása"
+ 
+ msgid "Setup.Miscellaneous$SVDRP host name"
+-msgstr ""
++msgstr "SVDRP host név"
+ 
+ msgid "Setup.Miscellaneous$SVDRP default host"
+-msgstr ""
++msgstr "SVDRP alapértelmezett host"
+ 
+ msgid "Setup.Miscellaneous$Zap timeout (s)"
+ msgstr "Előző csatorna időkorlátja (mp)"
+@@ -1596,7 +1596,7 @@
+ msgstr "Megállítsam az élő képet?"
+ 
+ msgid "Start recording?"
+-msgstr ""
++msgstr "Felvétel elindítása?"
+ 
+ msgid "Recording started"
+ msgstr "Felvétel elindítva"
+diff -ruN vdr-2.3.9/po/it_IT.po vdr-2.4.0/po/it_IT.po
+--- vdr-2.3.9/po/it_IT.po	2018-03-14 23:46:32.409359200 +0100
++++ vdr-2.4.0/po/it_IT.po	2018-04-14 13:01:56.782094144 +0200
+@@ -1,19 +1,19 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Alberto Carraro <bertocar@tin.it>, 2001
+ # Antonio Ospite <ospite@studenti.unina.it>, 2003, 2006
+ # Sean Carlos <seanc@libero.it>, 2005
+ # Nino Gerbino <ngerb@interfree.it>, 2006, 2015
+-# Diego Pierotto <vdr-italian@tiscali.it>, 2007-2010, 2012, 2013, 2015
++# Diego Pierotto <vdr-italian@tiscali.it>, 2007-2010, 2012, 2013, 2015, 2018
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+-"PO-Revision-Date: 2017-07-02 23:49+0100\n"
+-"Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
++"PO-Revision-Date: 2018-04-06 19:13+0100\n"
++"Last-Translator: Gringo <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
+ "Language: it\n"
+ "MIME-Version: 1.0\n"
+@@ -869,10 +869,10 @@
+ msgstr "per ora"
+ 
+ msgid "ascending"
+-msgstr ""
++msgstr "ascendente"
+ 
+ msgid "descending"
+-msgstr ""
++msgstr "discendente"
+ 
+ msgid "OSD"
+ msgstr "OSD"
+@@ -965,7 +965,7 @@
+ msgstr "Modalità ordinamento predefinito per registrazioni"
+ 
+ msgid "Setup.OSD$Sorting direction for recordings"
+-msgstr ""
++msgstr "Tipo ordinamento per registrazioni"
+ 
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Tasti numerici per i caratteri"
+diff -ruN vdr-2.3.9/po/lt_LT.po vdr-2.4.0/po/lt_LT.po
+--- vdr-2.3.9/po/lt_LT.po	2018-03-14 23:46:32.457358450 +0100
++++ vdr-2.4.0/po/lt_LT.po	2018-04-14 13:01:56.838093300 +0200
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Valdemaras Pipiras <varas@ambernet.lt>, 2009, 2010, 2013, 2015
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2015-02-11 14:02+0200\n"
+diff -ruN vdr-2.3.9/po/mk_MK.po vdr-2.4.0/po/mk_MK.po
+--- vdr-2.3.9/po/mk_MK.po	2018-03-14 23:46:32.569356701 +0100
++++ vdr-2.4.0/po/mk_MK.po	2018-04-14 13:01:56.906092274 +0200
+@@ -1,21 +1,22 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Dimitar Petrovski <dimeptr@gmail.com>, 2009, 2012, 2013, 2015
++# Dimitar Petrovski <dimeptr@gmail.com>, 2009, 2012, 2013, 2015, 2018.
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+-"PO-Revision-Date: 2015-02-08 15:18+0100\n"
++"PO-Revision-Date: 2018-03-31 21:47+0100\n"
+ "Last-Translator: Dimitar Petrovski <dimeptr@gmail.com>\n"
+-"Language-Team: Macedonian <en@li.org>\n"
++"Language-Team: Macedonian <kde-i18n-doc@kde.org>\n"
+ "Language: mk\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"X-Generator: KBabel 1.11.4\n"
++"X-Generator: Lokalize 2.0\n"
++"Plural-Forms: nplurals=3; plural=n%10==1 ? 0 : n%10==2 ? 1 : 2;\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Невалиден Канал ***"
+@@ -659,7 +660,7 @@
+ msgstr "Датотека"
+ 
+ msgid "Record on"
+-msgstr ""
++msgstr "Вклучена снимка"
+ 
+ msgid "Button$Folder"
+ msgstr "Директориум"
+@@ -674,10 +675,10 @@
+ msgstr "Прв ден"
+ 
+ msgid "Error while accessing remote timer"
+-msgstr ""
++msgstr "Грешка при пристап на далечен тајмер"
+ 
+ msgid "Timer has been deleted!"
+-msgstr ""
++msgstr "Тајмерот е избришан!"
+ 
+ msgid "Select folder"
+ msgstr "Избери директориум"
+@@ -858,16 +859,16 @@
+ msgstr "секогаш"
+ 
+ msgid "by name"
+-msgstr ""
++msgstr "по име"
+ 
+ msgid "by time"
+-msgstr ""
++msgstr "по време"
+ 
+ msgid "ascending"
+-msgstr ""
++msgstr "растечки"
+ 
+ msgid "descending"
+-msgstr ""
++msgstr "опаѓачки"
+ 
+ msgid "OSD"
+ msgstr "OSD"
+@@ -957,10 +958,10 @@
+ msgstr "Секогаш сортирај прво папки"
+ 
+ msgid "Setup.OSD$Default sort mode for recordings"
+-msgstr ""
++msgstr "Начин на сортирање на снимки"
+ 
+ msgid "Setup.OSD$Sorting direction for recordings"
+-msgstr ""
++msgstr "Насока на сортирање на снимки"
+ 
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Нумерички копчиња за букви"
+@@ -1147,7 +1148,7 @@
+ msgstr " (активирање)"
+ 
+ msgid "@ device"
+-msgstr ""
++msgstr "@ уред"
+ 
+ msgid "CAM"
+ msgstr "CAM"
+@@ -1180,13 +1181,13 @@
+ msgstr "Неуспешно рестартирање на CAM-от!"
+ 
+ msgid "no instant recording"
+-msgstr ""
++msgstr "иклучено инстантно снимање"
+ 
+ msgid "confirm instant recording"
+-msgstr ""
++msgstr "потврди инстантно снимање"
+ 
+ msgid "record instantly"
+-msgstr ""
++msgstr "снимај инстантно"
+ 
+ msgid "do not pause live video"
+ msgstr "не паузирај пренос во живо"
+@@ -1219,7 +1220,7 @@
+ msgstr "Стандардно веметраење (денови)"
+ 
+ msgid "Setup.Recording$Record key handling"
+-msgstr ""
++msgstr "Уредување на копче за снимање"
+ 
+ msgid "Setup.Recording$Pause key handling"
+ msgstr "Подесување на копчето пауза"
+@@ -1309,16 +1310,16 @@
+ msgstr "ID на продолжеток"
+ 
+ msgid "any hosts"
+-msgstr ""
++msgstr "сите хостови"
+ 
+ msgid "only default host"
+-msgstr ""
++msgstr "само стандарден хост"
+ 
+ msgid "type"
+-msgstr ""
++msgstr "тип"
+ 
+ msgid "full"
+-msgstr ""
++msgstr "полно"
+ 
+ msgid "Miscellaneous"
+ msgstr "Разно"
+@@ -1333,13 +1334,13 @@
+ msgstr "SVDRP тајмаут (сек)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP peering"
+-msgstr ""
++msgstr "SVDRP врска"
+ 
+ msgid "Setup.Miscellaneous$SVDRP host name"
+-msgstr ""
++msgstr "SVDRP хост"
+ 
+ msgid "Setup.Miscellaneous$SVDRP default host"
+-msgstr ""
++msgstr "SVDRP основен хост"
+ 
+ msgid "Setup.Miscellaneous$Zap timeout (s)"
+ msgstr "Зап тајмаут (сек)"
+@@ -1592,7 +1593,7 @@
+ msgstr "Паузирај пренос во живо?"
+ 
+ msgid "Start recording?"
+-msgstr ""
++msgstr "Почни снимање?"
+ 
+ msgid "Recording started"
+ msgstr "Снимањето почна"
+diff -ruN vdr-2.3.9/po/nl_NL.po vdr-2.4.0/po/nl_NL.po
+--- vdr-2.3.9/po/nl_NL.po	2018-03-14 23:46:32.333360387 +0100
++++ vdr-2.4.0/po/nl_NL.po	2018-04-14 13:01:56.778094205 +0200
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Arnold Niessen <niessen@iae.nl> <arnold.niessen@philips.com>, 2001
+ # Hans Dingemans <hans.dingemans@tacticalops.nl>, 2003, 2005
+@@ -11,7 +11,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2015-02-10 19:43+0100\n"
+diff -ruN vdr-2.3.9/po/nn_NO.po vdr-2.4.0/po/nn_NO.po
+--- vdr-2.3.9/po/nn_NO.po	2018-03-14 23:46:32.173362886 +0100
++++ vdr-2.4.0/po/nn_NO.po	2018-04-14 13:01:56.658096013 +0200
+@@ -1,12 +1,12 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # J�rgen Tvedt <pjtvedt@online.no>, 2001
+ # Truls Slevigen <truls@slevigen.no>, 2002
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+diff -ruN vdr-2.3.9/po/pl_PL.po vdr-2.4.0/po/pl_PL.po
+--- vdr-2.3.9/po/pl_PL.po	2018-03-14 23:46:31.941366509 +0100
++++ vdr-2.4.0/po/pl_PL.po	2018-04-14 13:01:56.498098425 +0200
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Michael Rakowski <mrak@gmx.de>, 2002, 2003, 2008
+ # Jaroslaw Swierczynski <swiergot@gmail.com>, 2006
+@@ -8,7 +8,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2018-02-19 00:42+0100\n"
+diff -ruN vdr-2.3.9/po/pt_PT.po vdr-2.4.0/po/pt_PT.po
+--- vdr-2.3.9/po/pt_PT.po	2018-03-14 23:46:31.901367134 +0100
++++ vdr-2.4.0/po/pt_PT.po	2018-04-14 13:01:56.498098425 +0200
+@@ -1,12 +1,12 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paulo Lopes <pmml@netvita.pt>, 2001
+ # Cris Silva <hudokkow@gmail.com>, 2010
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2010-03-28 22:49+0100\n"
+diff -ruN vdr-2.3.9/po/ro_RO.po vdr-2.4.0/po/ro_RO.po
+--- vdr-2.3.9/po/ro_RO.po	2018-03-14 23:46:32.721354327 +0100
++++ vdr-2.4.0/po/ro_RO.po	2018-04-14 13:01:57.030090406 +0200
+@@ -1,12 +1,12 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Paul Lacatus <paul@campina.iiruc.ro>, 2002
+ # Lucian Muresan <lucianm@users.sourceforge.net>, 2004-2006, 2008, 2010-2015
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2015-02-11 22:26+0100\n"
+diff -ruN vdr-2.3.9/po/ru_RU.po vdr-2.4.0/po/ru_RU.po
+--- vdr-2.3.9/po/ru_RU.po	2018-03-14 23:46:32.021365260 +0100
++++ vdr-2.4.0/po/ru_RU.po	2018-04-14 13:01:56.558097520 +0200
+@@ -1,12 +1,12 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Vyacheslav Dikonov <sdiconov@mail.ru>, 2004, 2005
+ # Oleg Roitburd <oroitburd@gmail.com>, 2005-2008, 2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2016-12-27 17:13+0100\n"
+diff -ruN vdr-2.3.9/po/sk_SK.po vdr-2.4.0/po/sk_SK.po
+--- vdr-2.3.9/po/sk_SK.po	2018-03-14 23:46:32.569356701 +0100
++++ vdr-2.4.0/po/sk_SK.po	2018-04-14 13:01:56.906092274 +0200
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Milan Hrala <hrala.milan@gmail.com>, 2011, 2013, 2015
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2015-02-17 18:59+0100\n"
+diff -ruN vdr-2.3.9/po/sl_SI.po vdr-2.4.0/po/sl_SI.po
+--- vdr-2.3.9/po/sl_SI.po	2018-03-14 23:46:32.777353452 +0100
++++ vdr-2.4.0/po/sl_SI.po	2018-04-14 13:01:57.034090346 +0200
+@@ -1,12 +1,12 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Miha Setina <mihasetina@softhome.net>, 2000
+ # Matjaz Thaler <matjaz.thaler@guest.arnes.si>, 2003, 2005, 2006, 2008, 2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2013-03-04 12:46+0100\n"
+diff -ruN vdr-2.3.9/po/sr_RS.po vdr-2.4.0/po/sr_RS.po
+--- vdr-2.3.9/po/sr_RS.po	2018-03-14 23:46:31.981365884 +0100
++++ vdr-2.4.0/po/sr_RS.po	2018-04-14 13:01:56.534097882 +0200
+@@ -1,12 +1,12 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Milan Cvijanovi� <elcom_cvijo@hotmail.com>, 2010
+ # Zoran Turalija <zoran.turalija@gmail.com>, 2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2013-03-16 15:05+0100\n"
+diff -ruN vdr-2.3.9/po/sv_SE.po vdr-2.4.0/po/sv_SE.po
+--- vdr-2.3.9/po/sv_SE.po	2018-03-14 23:46:32.457358450 +0100
++++ vdr-2.4.0/po/sv_SE.po	2018-04-14 13:01:56.842093240 +0200
+@@ -1,5 +1,5 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Tomas Prybil <tomas@prybil.se>, 2002, 2003, 2005, 2006
+ # Jan Ekholm <chakie@infa.abo.fi>, 2003
+@@ -10,7 +10,7 @@
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2015-02-12 21:58+0100\n"
+diff -ruN vdr-2.3.9/po/tr_TR.po vdr-2.4.0/po/tr_TR.po
+--- vdr-2.3.9/po/tr_TR.po	2018-03-14 23:46:32.509357638 +0100
++++ vdr-2.4.0/po/tr_TR.po	2018-04-14 13:01:56.910092215 +0200
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Oktay Yolge�en <oktay_73@yahoo.de>, 2007, 2008
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+diff -ruN vdr-2.3.9/po/uk_UA.po vdr-2.4.0/po/uk_UA.po
+--- vdr-2.3.9/po/uk_UA.po	2018-03-14 23:46:32.333360387 +0100
++++ vdr-2.4.0/po/uk_UA.po	2018-04-14 13:01:56.722095049 +0200
+@@ -1,21 +1,21 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+-# Yarema Aka Knedlyk <yupadmin@gmail.com>, 2007-2010, 2013, 2015
++# Yarema Aka Knedlyk <yupadmin@gmail.com>, 2007-2010, 2013, 2015, 2018
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2018-03-09 16:02+0100\n"
+-"PO-Revision-Date: 2015-02-13 18:14+0100\n"
++"POT-Creation-Date: 2018-03-18 19:42+0100\n"
++"PO-Revision-Date: 2018-03-18 20:00+0100\n"
+ "Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian <vdr@linuxtv.org>\n"
+ "Language: uk\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"X-Generator: Poedit 1.7.4\n"
++"X-Generator: Poedit 2.0.6\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Неправильний канал ***"
+@@ -659,7 +659,7 @@
+ msgstr "Файл"
+ 
+ msgid "Record on"
+-msgstr ""
++msgstr "Вкл. запис"
+ 
+ msgid "Button$Folder"
+ msgstr "Тека"
+@@ -674,10 +674,10 @@
+ msgstr "Перший день"
+ 
+ msgid "Error while accessing remote timer"
+-msgstr ""
++msgstr "Помилка доступу до віддаленого таймера"
+ 
+ msgid "Timer has been deleted!"
+-msgstr ""
++msgstr "Таймер вилучено!"
+ 
+ msgid "Select folder"
+ msgstr "Вибрати теку"
+@@ -858,16 +858,16 @@
+ msgstr "завжди"
+ 
+ msgid "by name"
+-msgstr ""
++msgstr "по назві"
+ 
+ msgid "by time"
+-msgstr ""
++msgstr "по часу"
+ 
+ msgid "ascending"
+-msgstr ""
++msgstr "в порядку збільшення"
+ 
+ msgid "descending"
+-msgstr ""
++msgstr "в порядку зменшення"
+ 
+ msgid "OSD"
+ msgstr "Меню"
+@@ -957,10 +957,10 @@
+ msgstr "Завжди сортувати теки першими"
+ 
+ msgid "Setup.OSD$Default sort mode for recordings"
+-msgstr ""
++msgstr "Типовий режим сортування для запису"
+ 
+ msgid "Setup.OSD$Sorting direction for recordings"
+-msgstr ""
++msgstr "Напрямок сортування для записів"
+ 
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Кількість клавіш для символів"
+@@ -1147,7 +1147,7 @@
+ msgstr " (активування)"
+ 
+ msgid "@ device"
+-msgstr ""
++msgstr "@ пристрій"
+ 
+ msgid "CAM"
+ msgstr "CAM (Умовний доступ)"
+@@ -1180,13 +1180,13 @@
+ msgstr "Помилка перезапуску CAM-модуля!"
+ 
+ msgid "no instant recording"
+-msgstr ""
++msgstr "немає негайних записів"
+ 
+ msgid "confirm instant recording"
+-msgstr ""
++msgstr "підтвердження негайного запису"
+ 
+ msgid "record instantly"
+-msgstr ""
++msgstr "записувати негайно"
+ 
+ msgid "do not pause live video"
+ msgstr "не призупиняти перегляд"
+@@ -1219,7 +1219,7 @@
+ msgstr "Строк зберігання запису по замовчуванню (дні)"
+ 
+ msgid "Setup.Recording$Record key handling"
+-msgstr ""
++msgstr "Керування кнопкою запису"
+ 
+ msgid "Setup.Recording$Pause key handling"
+ msgstr "Обробка клавіші відкладеного перегляду"
+@@ -1309,16 +1309,16 @@
+ msgstr "ID продовження"
+ 
+ msgid "any hosts"
+-msgstr ""
++msgstr "будь-які вузли"
+ 
+ msgid "only default host"
+-msgstr ""
++msgstr "тільки типовий вузол"
+ 
+ msgid "type"
+-msgstr ""
++msgstr "тип"
+ 
+ msgid "full"
+-msgstr ""
++msgstr "повний"
+ 
+ msgid "Miscellaneous"
+ msgstr "Різне"
+@@ -1333,13 +1333,13 @@
+ msgstr "Затримка обриву з'єднання SVDRP (сек)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP peering"
+-msgstr ""
++msgstr "SVDRP піринг"
+ 
+ msgid "Setup.Miscellaneous$SVDRP host name"
+-msgstr ""
++msgstr "Назва вузла SVDRP"
+ 
+ msgid "Setup.Miscellaneous$SVDRP default host"
+-msgstr ""
++msgstr "Типовий вузол SVDRP"
+ 
+ msgid "Setup.Miscellaneous$Zap timeout (s)"
+ msgstr "Затримка переключання каналу (сек)"
+@@ -1592,7 +1592,7 @@
+ msgstr "Призупинити перегляд?"
+ 
+ msgid "Start recording?"
+-msgstr ""
++msgstr "Почати запис?"
+ 
+ msgid "Recording started"
+ msgstr "Запис почався"
+diff -ruN vdr-2.3.9/po/zh_CN.po vdr-2.4.0/po/zh_CN.po
+--- vdr-2.3.9/po/zh_CN.po	2018-03-14 23:46:32.133363510 +0100
++++ vdr-2.4.0/po/zh_CN.po	2018-04-14 13:01:56.658096013 +0200
+@@ -1,11 +1,11 @@
+ # VDR language source file.
+-# Copyright (C) 2015 Klaus Schmidinger <vdr@tvdr.de>
++# Copyright (C) 2018 Klaus Schmidinger <vdr@tvdr.de>
+ # This file is distributed under the same license as the VDR package.
+ # Nan Feng <nfvdr@live.com>, 2008, 2013
+ #
+ msgid ""
+ msgstr ""
+-"Project-Id-Version: VDR 2.2.0\n"
++"Project-Id-Version: VDR 2.4.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2018-03-09 16:02+0100\n"
+ "PO-Revision-Date: 2013-03-04 14:52+0800\n"
+diff -ruN vdr-2.3.9/shutdown.c vdr-2.4.0/shutdown.c
+--- vdr-2.3.9/shutdown.c	2015-07-18 13:29:26.000000000 +0200
++++ vdr-2.4.0/shutdown.c	2018-03-23 16:39:21.000000000 +0100
+@@ -6,7 +6,7 @@
+  *
+  * Original version written by Udo Richter <udo_richter@gmx.de>.
+  *
+- * $Id: shutdown.c 4.1 2015/07/18 11:29:26 kls Exp $
++ * $Id: shutdown.c 4.2 2018/03/23 15:39:21 kls Exp $
+  */
+ 
+ #include "shutdown.h"
+@@ -69,10 +69,7 @@
+         timedOut = true;
+      if (counter != NewCounter) {
+         counter = NewCounter;
+-        char time[10];
+-        snprintf(time, sizeof(time), "%d:%d0", counter > 0 ? counter / 6 : 0, counter > 0 ? counter % 6 : 0);
+-        cString Message = cString::sprintf(message, time);
+-        Skins.Message(mtStatus, Message);
++        Skins.Message(mtStatus, cString::sprintf(message, *cString::sprintf("%d:%d0", counter > 0 ? counter / 6 : 0, counter > 0 ? counter % 6 : 0)));
+         return true;
+         }
+      }
+diff -ruN vdr-2.3.9/svdrp.c vdr-2.4.0/svdrp.c
+--- vdr-2.3.9/svdrp.c	2018-03-18 11:43:53.000000000 +0100
++++ vdr-2.4.0/svdrp.c	2018-03-19 13:16:33.000000000 +0100
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 4.36 2018/03/18 10:43:53 kls Exp $
++ * $Id: svdrp.c 4.37 2018/03/19 12:16:33 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -480,8 +480,11 @@
+ 
+ bool cSVDRPClient::Execute(const char *Command, cStringList *Response)
+ {
++  cStringList Dummy;
+   if (Response)
+      Response->Clear();
++  else
++     Response = &Dummy;
+   return Send(Command) && Process(Response);
+ }
+ 
+diff -ruN vdr-2.3.9/svdrpsend.1 vdr-2.4.0/svdrpsend.1
+--- vdr-2.3.9/svdrpsend.1	2015-02-17 14:44:09.000000000 +0100
++++ vdr-2.4.0/svdrpsend.1	2018-04-10 15:57:52.000000000 +0200
+@@ -1,4 +1,4 @@
+-.TH "svdrpsend" "1" "19 Feb 2015" "2.2" "Video Disk Recorder"
++.TH "svdrpsend" "1" "15 Apr 2018" "2.4" "Video Disk Recorder"
+ .SH NAME
+ .LP
+ svdrpsend \- sends commands to VDR
+diff -ruN vdr-2.3.9/vdr.1 vdr-2.4.0/vdr.1
+--- vdr-2.3.9/vdr.1	2018-02-09 16:09:07.000000000 +0100
++++ vdr-2.4.0/vdr.1	2018-04-10 15:58:06.000000000 +0200
+@@ -2,15 +2,15 @@
+ .\" ** The above line should force tbl to be a preprocessor **
+ .\" Man page for vdr
+ .\"
+-.\" Copyright (C) 2013 Klaus Schmidinger
++.\" Copyright (C) 2018 Klaus Schmidinger
+ .\"
+ .\" You may distribute under the terms of the GNU General Public
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.1 4.3 2018/02/09 15:09:07 kls Exp $
++.\" $Id: vdr.1 4.4 2018/04/10 13:58:06 kls Exp $
+ .\"
+-.TH vdr 1 "19 Feb 2015" "2.2" "Video Disk Recorder"
++.TH vdr 1 "15 Apr 2018" "2.4" "Video Disk Recorder"
+ .SH NAME
+ vdr \- the Video Disk Recorder
+ .SH SYNOPSIS
+@@ -316,7 +316,7 @@
+ .SH REPORTING BUGS
+ Report bugs to <vdr\-bugs@tvdr.de>.
+ .SH COPYRIGHT
+-Copyright \(co 2013 Klaus Schmidinger.
++Copyright \(co 2018 Klaus Schmidinger.
+ 
+ This is free software; see the source for copying conditions.  There is NO
+ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+diff -ruN vdr-2.3.9/vdr.5 vdr-2.4.0/vdr.5
+--- vdr-2.3.9/vdr.5	2018-02-15 17:00:42.000000000 +0100
++++ vdr-2.4.0/vdr.5	2018-04-10 15:58:16.000000000 +0200
+@@ -2,15 +2,15 @@
+ .\" ** The above line should force tbl to be a preprocessor **
+ .\" Man page for vdr file formats
+ .\"
+-.\" Copyright (C) 2013 Klaus Schmidinger
++.\" Copyright (C) 2018 Klaus Schmidinger
+ .\"
+ .\" You may distribute under the terms of the GNU General Public
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 4.7 2018/02/15 16:00:42 kls Exp $
++.\" $Id: vdr.5 4.8 2018/04/10 13:58:16 kls Exp $
+ .\"
+-.TH vdr 5 "19 Feb 2015" "2.2" "Video Disk Recorder Files"
++.TH vdr 5 "15 Apr 2018" "2.4" "Video Disk Recorder Files"
+ .SH NAME
+ vdr_files \- the Video Disk Recorder Files
+ .SH DESCRIPTION
+@@ -990,7 +990,7 @@
+ .SH REPORTING BUGS
+ Report bugs to <vdr\-bugs@tvdr.de>.
+ .SH COPYRIGHT
+-Copyright \(co 2013 Klaus Schmidinger.
++Copyright \(co 2018 Klaus Schmidinger.
+ 
+ This is free software; see the source for copying conditions.  There is NO
+ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+diff -ruN vdr-2.3.9/vdr.c vdr-2.4.0/vdr.c
+--- vdr-2.3.9/vdr.c	2018-03-04 15:00:29.000000000 +0100
++++ vdr-2.4.0/vdr.c	2018-04-10 15:24:43.000000000 +0200
+@@ -1,7 +1,7 @@
+ /*
+  * vdr.c: Video Disk Recorder main program
+  *
+- * Copyright (C) 2000, 2003, 2006, 2008, 2013 Klaus Schmidinger
++ * Copyright (C) 2000-2018 Klaus Schmidinger
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 4.24 2018/03/04 14:00:29 kls Exp $
++ * $Id: vdr.c 4.25 2018/04/10 13:24:43 kls Exp $
+  */
+ 
+ #include <getopt.h>

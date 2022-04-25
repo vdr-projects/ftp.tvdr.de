@@ -1,0 +1,4848 @@
+diff -ruN vdr-2.1.2/CONTRIBUTORS vdr-2.1.3/CONTRIBUTORS
+--- vdr-2.1.2/CONTRIBUTORS	2013-10-16 11:43:47.000000000 +0200
++++ vdr-2.1.3/CONTRIBUTORS	2014-01-01 15:26:26.000000000 +0100
+@@ -704,6 +704,7 @@
+  for reporting a problem with resuming replay of PES recordings
+  for suggesting to make all bonded devices (except for the master) turn off their LNB
+  power completely to avoid problems when receiving vertically polarized transponders
++ for suggesting to eliminate MAXDVBDEVICES
+ 
+ Reinhard Walter Buchner <rw.buchner@freenet.de>
+  for adding some satellites to 'sources.conf'
+@@ -1173,6 +1174,10 @@
+  and add support for DVB-S2 "Input Stream Identifier" (ISI)
+  for helping to debug and understand subtitle page refreshes
+  for a patch that was used to implement the SVDRP command RENR
++ for fixing some compiler warnings with gcc-4.6.3
++ for suggesting to prompt the user for confirmation before overwriting an already
++ existing edited version of a recording
++ for adding code for parsing LCN and AVC descriptors to libsi
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -2029,6 +2034,11 @@
+  for updating the help and man page entry about the location of the epg.data file
+  for reporting a possible crash when shutting down VDR while subtitles are being
+  displayed
++ for fixing some spellings in positioner.h and Doxyfile
++ for changing '%a' to the POSIX compliant '%m' in all scanf() calls
++ for reporting a possible NULL pointer dereference in cCiSession::SendData()
++ for reporting a superfluous assignment in cPipe::Open()
++ for avoiding unnecessary pkg-config warnings in plugin Makefiles
+ 
+ Steffen Beyer <cpunk@reactor.de>
+  for fixing setting the colored button help after deleting a recording in case the next
+@@ -2142,6 +2152,10 @@
+  pressed in string input fields
+  for fixing missing ',' in the Italian and Polish OSD texts
+  for pointing out that "Menu button closes" should actually be "Menu key closes"
++ for fixing a missing initialization in the c'tor of cSkinLCARSDisplayChannel
++ for suggesting to simplify some conditional expressions in skinlcars.c and skinsttng.c
++ for reporting some uninitialized item area coordinates in cSkinLCARSDisplayMenu
++ for reporting a problem with the video directory not being set correctly with --edit
+ 
+ Patrick Rother <krd-vdr@gulu.net>
+  for reporting a bug in defining timers that only differ in the day of week
+@@ -2855,6 +2869,14 @@
+  for reporting an invalid line in channels.conf.terr
+  for fixing handling '/' and '~' in recording file names in case DirectoryEncoding is
+  used
++ for making the LIRC remote control connect to the socket even if it doesn't yet exist
++ when VDR is started
++ for reporting a possible crash if the recordings list is updated externally while the
++ Recordings menu is open
++ for reporting a missing closing ')' in the help entry of the --vfat option
++ for making the Recordings menu able to be called with a cRecordingFilter, which allows
++ the caller to have it display only a certain subset of the recordings
++ for adding handling UTF-8 'umlaut' characters to cKbdRemote
+ 
+ Alex Lasnier <alex@fepg.org>
+  for adding tuning support for ATSC devices
+@@ -2913,6 +2935,7 @@
+ 
+ Dominik Strasser <dominik@die-strassers.de>
+  for making a cRemote be removed from the Remotes list in case its initialization failed
++ for reporting a possible access to uninitialized data in cEIT::cEIT()
+ 
+ Joerg Bornkessel <hd_brummy@gentoo.org>
+  for adding LDFLAGS to the linker calls in the Makefiles
+@@ -3058,8 +3081,10 @@
+  for extending the interface to the script that gets called for recordings, so that in
+  the "edited" case it also provides the name of the original recording
+ 
+-Christian Kaiser <christian.kaiser@teleservice.com>
++Christian Kaiser <chr-kaiser@arcor.de>
+  for adding DeleteEvent() to the EPG handler interface
++ for making the script given to VDR with the '-r' option also be called after the
++ recording process has actually started
+ 
+ Dirk Heiser <dirk-vdr@gmx.de>
+  for adding SetComponents() to the EPG handler interface
+@@ -3170,6 +3195,8 @@
+  for reporting an endless loop in cTextWrapper::Set() in case the given Width is smaller
+  than one character
+  for reporting an endless loop in the DrawEllipse() functions for very small ellipses
++ for suggesting to add the menu category mcRecordingEdit for marking menus that edit
++ recording properties
+ 
+ Jochen Dolze <vdr@dolze.de>
+  for changing cThread::SetIOPriority() from "best effort class" to "idle class" in order
+@@ -3202,3 +3229,10 @@
+ 
+ Guido Cordaro <guido.cordaro@tiscali.it>
+  for adding maximum signal strength value for TechniSat SkyStar 2 DVB-S rev 2.3P
++
++Thomas Reufer <thomas@reufer.ch>
++ for making it clear that the Data parameter in cDevice::StillPicture() may point to a
++ series of packets, not just a single one
++ for suggesting to add an additional parameter named Forward to cDevice::TrickSpeed()
++ for suggesting to add a note to ePlayMode in device.h that VDR itself always uses
++ pmAudioVideo when replaying a recording
+diff -ruN vdr-2.1.2/Doxyfile vdr-2.1.3/Doxyfile
+--- vdr-2.1.2/Doxyfile	2013-02-17 12:49:39.000000000 +0100
++++ vdr-2.1.3/Doxyfile	2013-12-28 12:15:55.000000000 +0100
+@@ -1658,7 +1658,7 @@
+ # the class node. If there are many fields or methods and many nodes the
+ # graph may become too big to be useful. The UML_LIMIT_NUM_FIELDS
+ # threshold limits the number of items for each type to make the size more
+-# managable. Set this to 0 for no limit. Note that the threshold may be
++# manageable. Set this to 0 for no limit. Note that the threshold may be
+ # exceeded by 50% before the limit is enforced.
+ 
+ UML_LIMIT_NUM_FIELDS   = 10
+diff -ruN vdr-2.1.2/HISTORY vdr-2.1.3/HISTORY
+--- vdr-2.1.2/HISTORY	2013-10-19 12:04:51.000000000 +0200
++++ vdr-2.1.3/HISTORY	2014-01-05 11:41:46.000000000 +0100
+@@ -8009,3 +8009,109 @@
+   is unexpected at this point (reported by Helmut Auer). You can still navigate to
+   the last replayed recording (if any) by pressing Ok repeatedly in the Recordings
+   menu.
++
++2013-10-23: Version 2.0.4
++
++- Unified the internal sequence of actions when pressing the Blue and the Back key,
++  respectively, during replay (reported by Thomas Maass).
++- The Yellow button in the main menu no longer acts as "Pause" if "Pause key handling"
++  is set to "do not pause live video" (suggested by Ulf Kiener).
++- Fixed writing group separators to channels.conf that contain a comma (reported by
++  Eike Edener).
++- Now also checking the source (in addition to the transponder) when setting the
++  system time from the TDT, which avoids problems in case devices are tuned to the
++  same transponder on different sources, and these broadcast different time data
++  (reported by Torsten Lang).
++- Changed cRecorder::Action() to use cTimeMs instead of time() to avoid problems with
++  unjustified "video data stream broken" errors in case the system time is changed
++  while a recording is active (reported by Torsten Lang).
++- Fixed an inconsistent behavior between opening the Recordings menu manually via the
++  main menu and by pressing the Recordings key. In the latter case it automatically
++  opened all sub folders to position the cursor to the last replayed recording, which
++  is unexpected at this point (reported by Helmut Auer). You can still navigate to
++  the last replayed recording (if any) by pressing Ok repeatedly in the Recordings
++  menu.
++
++2014-01-05: Version 2.1.3
++
++- Changed the return value of cPositioner::HorizonLongitude() to 0 in case the
++  latitude of the antenna location is beyond +/-81 degrees.
++- Updated the Finnish OSD texts (thanks to Rolf Ahrenberg).
++- Fixed some compiler warnings with gcc-4.6.3 (thanks to Rolf Ahrenberg).
++- Changed the name of the SVDRP command RENR to MOVR (suggested by Rolf Ahrenberg).
++- When cutting a recording it is now checked whether there is already an edited
++  version of this recording (with the same name, but starting with '%'), and the
++  user is prompted for confirmation to overwrite it (suggested by Rolf Ahrenberg).
++- Revoked "Added maximum signal strength value for TechniSat SkyStar 2 DVB-S rev 2.3P"
++  because it broke things for the "TechniSat AirStar 2" DVB-T card.
++- The LIRC remote control now connects to the socket even if it doesn't yet exist when
++  VDR is started (thanks to Lars Hanisch).
++- Changed the absolute latitude limit for visible satellites to 81.2 degrees.
++- Added code for parsing LCN and AVC descriptors to libsi (thanks to Rolf Ahrenberg).
++- In the "Select folder" menu pressing Ok now selects the folder, even if this is a
++  folder that contains sub folders (marked with "..."). To open such a folder you
++  can press the Red key.
++- Fixed a possible access to uninitialized data in cEIT::cEIT() (reported by Dominik
++  Strasser).
++- The new menu category mcRecordingEdit is now used to mark menus that edit recording
++  properties (suggested by Stefan Braun).
++- Changes in the teletext PID no longer cause retuning (and thus interrupting a
++  recording).
++- Removed '_' from the FileNameChars and CharMap translations in uk_UA.po.
++- Updated the Italian OSD texts (thanks to Diego Pierotto).
++- Fixed a missing initialization in the c'tor of cSkinLCARSDisplayChannel (thanks to
++  Marko M�kel�).
++- Simplified some conditional expressions in skinlcars.c and skinsttng.c (suggested
++  by Marko M�kel�).
++- Fixed uninitialized item area coordinates in cSkinLCARSDisplayMenu (reported by
++  Marko M�kel�).
++- Fixed a possible crash if the recordings list is updated externally while the
++  Recordings menu is open (reported by Lars Hanisch).
++- Added a missing closing ')' in the help and man page entry of the --vfat option
++  (reported by Lars Hanisch).
++- Fixed setting the name of the video directory to avoid a crash when using --genindex,
++  and also to use the correct directory with --edit (the latter reported by Marko
++  M�kel�).
++- The Recordings menu can now be called with a cRecordingFilter, which allows the
++  caller to have it display only a certain subset of the recordings (thanks to Lars
++  Hanisch).
++- Added handling UTF-8 'umlaut' characters to cKbdRemote (thanks to Lars Hanisch).
++- Made it clear that the Data parameter in cDevice::StillPicture() may point to a
++  series of packets, not just a single one (thanks to Thomas Reufer).
++- cDevice::TrickSpeed() now has an additional parameter named Forward, which indicates
++  the direction in which replay is being done (suggested by Thomas Reufer). This
++  information may be necessary for some output devices in order to properly implement
++  trick modes. Authors of plugins that implement output devices will need to add this
++  parameter to their derived cDevice class, regardless of whether they will make use
++  of it or not.
++- Added a note to ePlayMode in device.h that VDR itself always uses pmAudioVideo when
++  replaying a recording (suggested by Thomas Reufer).
++- Fixed some spellings in positioner.h and Doxyfile (thanks to Ville Skytt�).
++- Changed '%a' to the POSIX compliant '%m' in all scanf() calls (thanks to Ville
++  Skytt�).
++- The new function cCamSlot::Decrypt() can be used by derived classes to implement a
++  CAM slot that can be freely assigned to any device, without being directly inserted
++  into the full TS data stream in hardware. A derived class that implements Decrypt()
++  will also need to set the new parameter ReceiveCaPids in the call to the cCamSlot
++  base class constructor to true, in order to receive the CA pid TS packets that
++  contain data necessary for decrypting.
++- Many member functions of cCamSlot have been made virtual to allow for easier
++  implementation of derived classes.
++- cTSBuffer now provides the number of available bytes in its Get() function.
++- cDvbDevice::GetTSPacket() now calls CamSlot()->Decrypt() in order to allow CAM slots
++  that can be freely assigned to any device access to the TS data stream.
++- Added a check to avoid a possible NULL pointer dereference in cCiSession::SendData()
++  (reported by Ville Skytt�).
++- Deleted a superfluous assignment in cPipe::Open() (reported by Ville Skytt�).
++- The script given to VDR with the '-r' option is now also called after the recording
++  process has actually started (thanks to Christian Kaiser).
++- Avoiding unnecessary pkg-config warnings in plugin Makefiles (thanks to Ville Skytt�).
++  Plugin authors may want to apply the following change to their Makefile:
++  -PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
++  +PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
++- Eliminated MAXDVBDEVICES (suggested by Oliver Endriss).
++- Channels that are no longer contained in the current SDT of a transponder are now
++  marked with the keyword OBSOLETE in their name and provider fields. That way you can
++  identify obsolete channels when you switch to them, and you can get the complete
++  overview of all obsolete channels by sorting the Channels list by provider (by
++  pressing the 0 key twice). Automatic deletion of obsolete channels may follow later.
+diff -ruN vdr-2.1.2/INSTALL vdr-2.1.3/INSTALL
+--- vdr-2.1.2/INSTALL	2013-10-12 14:51:35.000000000 +0200
++++ vdr-2.1.3/INSTALL	2014-01-01 13:45:07.000000000 +0100
+@@ -254,6 +254,7 @@
+ parameters. The first parameter is one of
+ 
+   before      if this is *before* a recording starts
++  started     if this is after a recording has *started*
+   after       if this is *after* a recording has finished
+   edited      if this is after a recording has been *edited*
+   deleted     if this is after a recording has been *deleted*
+@@ -279,6 +280,9 @@
+      before)
+             echo "Before recording $2"
+             ;;
++     started)
++            echo "Started recording $2"
++            ;;
+      after)
+             echo "After recording $2"
+             ;;
+diff -ruN vdr-2.1.2/MANUAL vdr-2.1.3/MANUAL
+--- vdr-2.1.2/MANUAL	2013-10-10 14:03:23.000000000 +0200
++++ vdr-2.1.3/MANUAL	2013-11-03 14:40:49.000000000 +0100
+@@ -500,9 +500,10 @@
+   folder name in the list). The "Yellow" key deletes the current folder (note
+   that this will merely delete the folder definition stored in 'folders.conf'
+   and has no effect on existing timers or recordings). The "Blue" key can be
+-  used to edit an existing folder definition. The "Red" key selects the current
+-  folder, or enters a sub folder. Once a folder has been selected, the entire
+-  path of the timer's file name will be replaced with the selected folder.
++  used to edit an existing folder definition. The "Red" key opens a folder that
++  contains sub folders, while pressing Ok selects the current folder. Once a
++  folder has been selected, the entire path of the timer's file name will be
++  replaced with the selected folder.
+ 
+   In the "Recordings" menu the folders of existing recordings can be renamed or
+   moved by pressing the "Blue" key ("Edit") while the cursor is positioned on
+diff -ruN vdr-2.1.2/PLUGINS/src/dvbhddevice/HISTORY vdr-2.1.3/PLUGINS/src/dvbhddevice/HISTORY
+--- vdr-2.1.2/PLUGINS/src/dvbhddevice/HISTORY	2013-08-26 10:46:21.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/dvbhddevice/HISTORY	2014-01-05 11:53:34.000000000 +0100
+@@ -84,3 +84,8 @@
+ 2013-08-26: Version 2.1.2
+ 
+ - Updated the Finnish OSD texts (thanks to Rolf Ahrenberg).
++
++2014-01-01: Version 2.1.3
++
++- Avoiding unnecessary pkg-config warnings in plugin Makefiles.
++- cDevice::TrickSpeed() now has an additional parameter named Forward.
+diff -ruN vdr-2.1.2/PLUGINS/src/dvbhddevice/Makefile vdr-2.1.3/PLUGINS/src/dvbhddevice/Makefile
+--- vdr-2.1.2/PLUGINS/src/dvbhddevice/Makefile	2013-03-02 18:58:21.000000000 +0100
++++ vdr-2.1.3/PLUGINS/src/dvbhddevice/Makefile	2014-01-01 14:29:54.000000000 +0100
+@@ -15,7 +15,7 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
++PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ LOCDIR = $(call PKGCFG,locdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+diff -ruN vdr-2.1.2/PLUGINS/src/dvbhddevice/dvbhddevice.c vdr-2.1.3/PLUGINS/src/dvbhddevice/dvbhddevice.c
+--- vdr-2.1.2/PLUGINS/src/dvbhddevice/dvbhddevice.c	2013-08-26 10:45:37.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/dvbhddevice/dvbhddevice.c	2014-01-01 14:42:36.000000000 +0100
+@@ -10,7 +10,7 @@
+ #include "menu.h"
+ #include "setup.h"
+ 
+-static const char *VERSION        = "2.1.2";
++static const char *VERSION        = "2.1.3";
+ static const char *DESCRIPTION    = trNOOP("HD Full Featured DVB device");
+ static const char *MAINMENUENTRY  = "dvbhddevice";
+ 
+diff -ruN vdr-2.1.2/PLUGINS/src/dvbhddevice/dvbhdffdevice.c vdr-2.1.3/PLUGINS/src/dvbhddevice/dvbhdffdevice.c
+--- vdr-2.1.2/PLUGINS/src/dvbhddevice/dvbhdffdevice.c	2013-04-11 10:37:42.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/dvbhddevice/dvbhdffdevice.c	2014-01-01 14:39:09.000000000 +0100
+@@ -606,7 +606,7 @@
+     }
+ }
+ 
+-void cDvbHdFfDevice::TrickSpeed(int Speed)
++void cDvbHdFfDevice::TrickSpeed(int Speed, bool Forward)
+ {
+   freezed = false;
+   mHdffCmdIf->CmdAvEnableSync(0, false);
+diff -ruN vdr-2.1.2/PLUGINS/src/dvbhddevice/dvbhdffdevice.h vdr-2.1.3/PLUGINS/src/dvbhddevice/dvbhdffdevice.h
+--- vdr-2.1.2/PLUGINS/src/dvbhddevice/dvbhdffdevice.h	2013-03-02 18:58:21.000000000 +0100
++++ vdr-2.1.3/PLUGINS/src/dvbhddevice/dvbhdffdevice.h	2014-01-01 14:39:16.000000000 +0100
+@@ -99,7 +99,7 @@
+   virtual int64_t GetSTC(void);
+   virtual cRect CanScaleVideo(const cRect &Rect, int Alignment = taCenter);
+   virtual void ScaleVideo(const cRect &Rect = cRect::Null);
+-  virtual void TrickSpeed(int Speed);
++  virtual void TrickSpeed(int Speed, bool Forward);
+   virtual void Clear(void);
+   virtual void Play(void);
+   virtual void Freeze(void);
+diff -ruN vdr-2.1.2/PLUGINS/src/dvbsddevice/HISTORY vdr-2.1.3/PLUGINS/src/dvbsddevice/HISTORY
+--- vdr-2.1.2/PLUGINS/src/dvbsddevice/HISTORY	2013-08-22 10:22:50.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/dvbsddevice/HISTORY	2014-01-05 11:53:47.000000000 +0100
+@@ -50,3 +50,8 @@
+ 
+ - Fixed handling the -o option (short form of --outputonly; problem reported by
+   Mario Edelmann).
++
++2014-01-01: Version 2.1.1
++
++- Avoiding unnecessary pkg-config warnings in plugin Makefiles.
++- cDevice::TrickSpeed() now has an additional parameter named Forward.
+diff -ruN vdr-2.1.2/PLUGINS/src/dvbsddevice/Makefile vdr-2.1.3/PLUGINS/src/dvbsddevice/Makefile
+--- vdr-2.1.2/PLUGINS/src/dvbsddevice/Makefile	2013-01-12 14:45:01.000000000 +0100
++++ vdr-2.1.3/PLUGINS/src/dvbsddevice/Makefile	2014-01-01 14:29:54.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 3.0 2013/01/12 13:45:01 kls Exp $
++# $Id: Makefile 3.1 2014/01/01 13:29:54 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,7 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
++PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+diff -ruN vdr-2.1.2/PLUGINS/src/dvbsddevice/dvbsddevice.c vdr-2.1.3/PLUGINS/src/dvbsddevice/dvbsddevice.c
+--- vdr-2.1.2/PLUGINS/src/dvbsddevice/dvbsddevice.c	2013-08-22 10:20:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/dvbsddevice/dvbsddevice.c	2014-01-01 14:43:28.000000000 +0100
+@@ -3,14 +3,14 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsddevice.c 3.1 2013/08/22 08:20:18 kls Exp $
++ * $Id: dvbsddevice.c 3.2 2014/01/01 13:43:28 kls Exp $
+  */
+ 
+ #include <getopt.h>
+ #include <vdr/plugin.h>
+ #include "dvbsdffdevice.h"
+ 
+-static const char *VERSION        = "2.0.1";
++static const char *VERSION        = "2.1.1";
+ static const char *DESCRIPTION    = "SD Full Featured DVB device";
+ 
+ class cPluginDvbsddevice : public cPlugin {
+diff -ruN vdr-2.1.2/PLUGINS/src/dvbsddevice/dvbsdffdevice.c vdr-2.1.3/PLUGINS/src/dvbsddevice/dvbsdffdevice.c
+--- vdr-2.1.2/PLUGINS/src/dvbsddevice/dvbsdffdevice.c	2013-02-17 14:16:18.000000000 +0100
++++ vdr-2.1.3/PLUGINS/src/dvbsddevice/dvbsdffdevice.c	2014-01-01 14:39:24.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsdffdevice.c 3.0 2013/02/17 13:16:18 kls Exp $
++ * $Id: dvbsdffdevice.c 3.1 2014/01/01 13:39:24 kls Exp $
+  */
+ 
+ #include "dvbsdffdevice.h"
+@@ -593,7 +593,7 @@
+   return -1;
+ }
+ 
+-void cDvbSdFfDevice::TrickSpeed(int Speed)
++void cDvbSdFfDevice::TrickSpeed(int Speed, bool Forward)
+ {
+   if (fd_video >= 0)
+      CHECK(ioctl(fd_video, VIDEO_SLOWMOTION, Speed));
+diff -ruN vdr-2.1.2/PLUGINS/src/dvbsddevice/dvbsdffdevice.h vdr-2.1.3/PLUGINS/src/dvbsddevice/dvbsdffdevice.h
+--- vdr-2.1.2/PLUGINS/src/dvbsddevice/dvbsdffdevice.h	2013-02-17 14:16:29.000000000 +0100
++++ vdr-2.1.3/PLUGINS/src/dvbsddevice/dvbsdffdevice.h	2014-01-01 14:39:30.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsdffdevice.h 3.0 2013/02/17 13:16:29 kls Exp $
++ * $Id: dvbsdffdevice.h 3.1 2014/01/01 13:39:30 kls Exp $
+  */
+ 
+ #ifndef __DVBSDFFDEVICE_H
+@@ -94,7 +94,7 @@
+   virtual int PlayTsAudio(const uchar *Data, int Length);
+ public:
+   virtual int64_t GetSTC(void);
+-  virtual void TrickSpeed(int Speed);
++  virtual void TrickSpeed(int Speed, bool Forward);
+   virtual void Clear(void);
+   virtual void Play(void);
+   virtual void Freeze(void);
+diff -ruN vdr-2.1.2/PLUGINS/src/epgtableid0/HISTORY vdr-2.1.3/PLUGINS/src/epgtableid0/HISTORY
+--- vdr-2.1.2/PLUGINS/src/epgtableid0/HISTORY	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/epgtableid0/HISTORY	2014-01-05 11:54:13.000000000 +0100
+@@ -16,3 +16,7 @@
+ 2013-03-31: Version 2.0.0
+ 
+ - Official release.
++
++2014-01-01: Version 2.1.1
++
++- Avoiding unnecessary pkg-config warnings in plugin Makefiles.
+diff -ruN vdr-2.1.2/PLUGINS/src/epgtableid0/Makefile vdr-2.1.3/PLUGINS/src/epgtableid0/Makefile
+--- vdr-2.1.2/PLUGINS/src/epgtableid0/Makefile	2013-01-12 14:45:01.000000000 +0100
++++ vdr-2.1.3/PLUGINS/src/epgtableid0/Makefile	2014-01-01 14:29:54.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 3.0 2013/01/12 13:45:01 kls Exp $
++# $Id: Makefile 3.1 2014/01/01 13:29:54 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,7 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
++PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+diff -ruN vdr-2.1.2/PLUGINS/src/epgtableid0/epgtableid0.c vdr-2.1.3/PLUGINS/src/epgtableid0/epgtableid0.c
+--- vdr-2.1.2/PLUGINS/src/epgtableid0/epgtableid0.c	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/epgtableid0/epgtableid0.c	2014-01-05 11:56:10.000000000 +0100
+@@ -3,13 +3,13 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: epgtableid0.c 3.0 2013/03/31 09:30:18 kls Exp $
++ * $Id: epgtableid0.c 3.1 2014/01/05 10:56:10 kls Exp $
+  */
+ 
+ #include <vdr/epg.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "2.0.0";
++static const char *VERSION        = "2.1.1";
+ static const char *DESCRIPTION    = "EPG handler for events with table id 0x00";
+ 
+ // --- cTable0Handler --------------------------------------------------------
+diff -ruN vdr-2.1.2/PLUGINS/src/hello/HISTORY vdr-2.1.3/PLUGINS/src/hello/HISTORY
+--- vdr-2.1.2/PLUGINS/src/hello/HISTORY	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/hello/HISTORY	2014-01-05 11:54:28.000000000 +0100
+@@ -86,3 +86,7 @@
+ 2013-03-31: Version 2.0.0
+ 
+ - Official release.
++
++2014-01-01: Version 2.1.1
++
++- Avoiding unnecessary pkg-config warnings in plugin Makefiles.
+diff -ruN vdr-2.1.2/PLUGINS/src/hello/Makefile vdr-2.1.3/PLUGINS/src/hello/Makefile
+--- vdr-2.1.2/PLUGINS/src/hello/Makefile	2013-01-12 14:45:01.000000000 +0100
++++ vdr-2.1.3/PLUGINS/src/hello/Makefile	2014-01-01 14:29:54.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 3.0 2013/01/12 13:45:01 kls Exp $
++# $Id: Makefile 3.1 2014/01/01 13:29:54 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,7 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
++PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ LOCDIR = $(call PKGCFG,locdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+diff -ruN vdr-2.1.2/PLUGINS/src/hello/hello.c vdr-2.1.3/PLUGINS/src/hello/hello.c
+--- vdr-2.1.2/PLUGINS/src/hello/hello.c	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/hello/hello.c	2014-01-05 11:56:14.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: hello.c 3.0 2013/03/31 09:30:18 kls Exp $
++ * $Id: hello.c 3.1 2014/01/05 10:56:14 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -12,7 +12,7 @@
+ #include <vdr/interface.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "2.0.0";
++static const char *VERSION        = "2.1.1";
+ static const char *DESCRIPTION    = trNOOP("A friendly greeting");
+ static const char *MAINMENUENTRY  = trNOOP("Hello");
+ 
+diff -ruN vdr-2.1.2/PLUGINS/src/osddemo/HISTORY vdr-2.1.3/PLUGINS/src/osddemo/HISTORY
+--- vdr-2.1.2/PLUGINS/src/osddemo/HISTORY	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/osddemo/HISTORY	2014-01-05 11:54:39.000000000 +0100
+@@ -59,3 +59,7 @@
+ 2013-03-31: Version 2.0.0
+ 
+ - Official release.
++
++2014-01-01: Version 2.1.1
++
++- Avoiding unnecessary pkg-config warnings in plugin Makefiles.
+diff -ruN vdr-2.1.2/PLUGINS/src/osddemo/Makefile vdr-2.1.3/PLUGINS/src/osddemo/Makefile
+--- vdr-2.1.2/PLUGINS/src/osddemo/Makefile	2013-01-12 14:45:01.000000000 +0100
++++ vdr-2.1.3/PLUGINS/src/osddemo/Makefile	2014-01-01 14:29:54.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 3.0 2013/01/12 13:45:01 kls Exp $
++# $Id: Makefile 3.1 2014/01/01 13:29:54 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,7 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
++PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+diff -ruN vdr-2.1.2/PLUGINS/src/osddemo/osddemo.c vdr-2.1.3/PLUGINS/src/osddemo/osddemo.c
+--- vdr-2.1.2/PLUGINS/src/osddemo/osddemo.c	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/osddemo/osddemo.c	2014-01-05 11:56:18.000000000 +0100
+@@ -3,13 +3,13 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: osddemo.c 3.0 2013/03/31 09:30:18 kls Exp $
++ * $Id: osddemo.c 3.1 2014/01/05 10:56:18 kls Exp $
+  */
+ 
+ #include <vdr/osd.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "2.0.0";
++static const char *VERSION        = "2.1.1";
+ static const char *DESCRIPTION    = "Demo of arbitrary OSD setup";
+ static const char *MAINMENUENTRY  = "Osd Demo";
+ 
+diff -ruN vdr-2.1.2/PLUGINS/src/pictures/HISTORY vdr-2.1.3/PLUGINS/src/pictures/HISTORY
+--- vdr-2.1.2/PLUGINS/src/pictures/HISTORY	2013-07-01 10:33:38.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/pictures/HISTORY	2014-01-05 11:55:02.000000000 +0100
+@@ -91,3 +91,7 @@
+ 2013-07-01:
+ 
+ - Added option -x to pic2mpg.
++
++2014-01-01: Version 2.1.1
++
++- Avoiding unnecessary pkg-config warnings in plugin Makefiles.
+diff -ruN vdr-2.1.2/PLUGINS/src/pictures/Makefile vdr-2.1.3/PLUGINS/src/pictures/Makefile
+--- vdr-2.1.2/PLUGINS/src/pictures/Makefile	2013-01-12 14:45:01.000000000 +0100
++++ vdr-2.1.3/PLUGINS/src/pictures/Makefile	2014-01-01 14:29:54.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 3.0 2013/01/12 13:45:01 kls Exp $
++# $Id: Makefile 3.1 2014/01/01 13:29:54 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,7 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
++PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ LOCDIR = $(call PKGCFG,locdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+diff -ruN vdr-2.1.2/PLUGINS/src/pictures/pictures.c vdr-2.1.3/PLUGINS/src/pictures/pictures.c
+--- vdr-2.1.2/PLUGINS/src/pictures/pictures.c	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/pictures/pictures.c	2014-01-05 11:56:20.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: pictures.c 3.0 2013/03/31 09:30:18 kls Exp $
++ * $Id: pictures.c 3.1 2014/01/05 10:56:20 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -11,7 +11,7 @@
+ #include "menu.h"
+ #include "player.h"
+ 
+-static const char *VERSION       = "2.0.0";
++static const char *VERSION       = "2.1.1";
+ static const char *DESCRIPTION   = trNOOP("A simple picture viewer");
+ static const char *MAINMENUENTRY = trNOOP("Pictures");
+ 
+diff -ruN vdr-2.1.2/PLUGINS/src/rcu/HISTORY vdr-2.1.3/PLUGINS/src/rcu/HISTORY
+--- vdr-2.1.2/PLUGINS/src/rcu/HISTORY	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/rcu/HISTORY	2014-01-05 11:55:08.000000000 +0100
+@@ -20,3 +20,7 @@
+ 2013-03-31: Version 2.0.0
+ 
+ - Official release.
++
++2014-01-01: Version 2.1.1
++
++- Avoiding unnecessary pkg-config warnings in plugin Makefiles.
+diff -ruN vdr-2.1.2/PLUGINS/src/rcu/Makefile vdr-2.1.3/PLUGINS/src/rcu/Makefile
+--- vdr-2.1.2/PLUGINS/src/rcu/Makefile	2013-01-12 14:45:01.000000000 +0100
++++ vdr-2.1.3/PLUGINS/src/rcu/Makefile	2014-01-01 14:29:54.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 3.0 2013/01/12 13:45:01 kls Exp $
++# $Id: Makefile 3.1 2014/01/01 13:29:54 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,7 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
++PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+diff -ruN vdr-2.1.2/PLUGINS/src/rcu/rcu.c vdr-2.1.3/PLUGINS/src/rcu/rcu.c
+--- vdr-2.1.2/PLUGINS/src/rcu/rcu.c	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/rcu/rcu.c	2014-01-05 11:56:22.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: rcu.c 3.0 2013/03/31 09:30:18 kls Exp $
++ * $Id: rcu.c 3.1 2014/01/05 10:56:22 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -16,7 +16,7 @@
+ #include <vdr/thread.h>
+ #include <vdr/tools.h>
+ 
+-static const char *VERSION        = "2.0.0";
++static const char *VERSION        = "2.1.1";
+ static const char *DESCRIPTION    = "Remote Control Unit";
+ 
+ #define REPEATLIMIT      150 // ms
+diff -ruN vdr-2.1.2/PLUGINS/src/servicedemo/HISTORY vdr-2.1.3/PLUGINS/src/servicedemo/HISTORY
+--- vdr-2.1.2/PLUGINS/src/servicedemo/HISTORY	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/servicedemo/HISTORY	2014-01-05 11:55:12.000000000 +0100
+@@ -21,3 +21,7 @@
+ 2013-03-31: Version 2.0.0
+ 
+ - Official release.
++
++2014-01-01: Version 2.1.1
++
++- Avoiding unnecessary pkg-config warnings in plugin Makefiles.
+diff -ruN vdr-2.1.2/PLUGINS/src/servicedemo/Makefile vdr-2.1.3/PLUGINS/src/servicedemo/Makefile
+--- vdr-2.1.2/PLUGINS/src/servicedemo/Makefile	2013-01-12 14:45:01.000000000 +0100
++++ vdr-2.1.3/PLUGINS/src/servicedemo/Makefile	2014-01-01 14:29:54.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 3.0 2013/01/12 13:45:01 kls Exp $
++# $Id: Makefile 3.1 2014/01/01 13:29:54 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -17,7 +17,7 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
++PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+diff -ruN vdr-2.1.2/PLUGINS/src/servicedemo/svccli.c vdr-2.1.3/PLUGINS/src/servicedemo/svccli.c
+--- vdr-2.1.2/PLUGINS/src/servicedemo/svccli.c	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/servicedemo/svccli.c	2014-01-05 11:56:24.000000000 +0100
+@@ -3,14 +3,14 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: svccli.c 3.0 2013/03/31 09:30:18 kls Exp $
++ * $Id: svccli.c 3.1 2014/01/05 10:56:24 kls Exp $
+  */
+ 
+ #include <stdlib.h>
+ #include <vdr/interface.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "2.0.0";
++static const char *VERSION        = "2.1.1";
+ static const char *DESCRIPTION    = "Service demo client";
+ static const char *MAINMENUENTRY  = "Service demo";
+ 
+diff -ruN vdr-2.1.2/PLUGINS/src/servicedemo/svcsvr.c vdr-2.1.3/PLUGINS/src/servicedemo/svcsvr.c
+--- vdr-2.1.2/PLUGINS/src/servicedemo/svcsvr.c	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/servicedemo/svcsvr.c	2014-01-05 11:56:26.000000000 +0100
+@@ -3,14 +3,14 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: svcsvr.c 3.0 2013/03/31 09:30:18 kls Exp $
++ * $Id: svcsvr.c 3.1 2014/01/05 10:56:26 kls Exp $
+  */
+ 
+ #include <stdlib.h>
+ #include <vdr/interface.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "2.0.0";
++static const char *VERSION        = "2.1.1";
+ static const char *DESCRIPTION    = "Service demo server";
+ 
+ class cPluginSvcSvr : public cPlugin {
+diff -ruN vdr-2.1.2/PLUGINS/src/skincurses/HISTORY vdr-2.1.3/PLUGINS/src/skincurses/HISTORY
+--- vdr-2.1.2/PLUGINS/src/skincurses/HISTORY	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/skincurses/HISTORY	2014-01-05 11:55:18.000000000 +0100
+@@ -118,3 +118,7 @@
+ 2013-03-31: Version 2.0.0
+ 
+ - Official release.
++
++2014-01-01: Version 2.1.1
++
++- Avoiding unnecessary pkg-config warnings in plugin Makefiles.
+diff -ruN vdr-2.1.2/PLUGINS/src/skincurses/Makefile vdr-2.1.3/PLUGINS/src/skincurses/Makefile
+--- vdr-2.1.2/PLUGINS/src/skincurses/Makefile	2013-01-12 14:45:01.000000000 +0100
++++ vdr-2.1.3/PLUGINS/src/skincurses/Makefile	2014-01-01 14:29:54.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 3.0 2013/01/12 13:45:01 kls Exp $
++# $Id: Makefile 3.1 2014/01/01 13:29:54 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,7 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
++PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ LOCDIR = $(call PKGCFG,locdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+diff -ruN vdr-2.1.2/PLUGINS/src/skincurses/skincurses.c vdr-2.1.3/PLUGINS/src/skincurses/skincurses.c
+--- vdr-2.1.2/PLUGINS/src/skincurses/skincurses.c	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/skincurses/skincurses.c	2014-01-05 11:56:27.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: skincurses.c 3.0 2013/03/31 09:30:18 kls Exp $
++ * $Id: skincurses.c 3.1 2014/01/05 10:56:27 kls Exp $
+  */
+ 
+ #include <ncurses.h>
+@@ -12,7 +12,7 @@
+ #include <vdr/skins.h>
+ #include <vdr/videodir.h>
+ 
+-static const char *VERSION        = "2.0.0";
++static const char *VERSION        = "2.1.1";
+ static const char *DESCRIPTION    = trNOOP("A text only skin");
+ static const char *MAINMENUENTRY  = NULL;
+ 
+diff -ruN vdr-2.1.2/PLUGINS/src/status/HISTORY vdr-2.1.3/PLUGINS/src/status/HISTORY
+--- vdr-2.1.2/PLUGINS/src/status/HISTORY	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/status/HISTORY	2014-01-05 11:55:24.000000000 +0100
+@@ -60,3 +60,7 @@
+ 2013-03-31: Version 2.0.0
+ 
+ - Official release.
++
++2014-01-01: Version 2.1.1
++
++- Avoiding unnecessary pkg-config warnings in plugin Makefiles.
+diff -ruN vdr-2.1.2/PLUGINS/src/status/Makefile vdr-2.1.3/PLUGINS/src/status/Makefile
+--- vdr-2.1.2/PLUGINS/src/status/Makefile	2013-01-12 14:45:01.000000000 +0100
++++ vdr-2.1.3/PLUGINS/src/status/Makefile	2014-01-01 14:29:54.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 3.0 2013/01/12 13:45:01 kls Exp $
++# $Id: Makefile 3.1 2014/01/01 13:29:54 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,7 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
++PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+diff -ruN vdr-2.1.2/PLUGINS/src/status/status.c vdr-2.1.3/PLUGINS/src/status/status.c
+--- vdr-2.1.2/PLUGINS/src/status/status.c	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/status/status.c	2014-01-05 11:56:29.000000000 +0100
+@@ -3,13 +3,13 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: status.c 3.0 2013/03/31 09:30:18 kls Exp $
++ * $Id: status.c 3.1 2014/01/05 10:56:29 kls Exp $
+  */
+ 
+ #include <vdr/plugin.h>
+ #include <vdr/status.h>
+ 
+-static const char *VERSION        = "2.0.0";
++static const char *VERSION        = "2.1.1";
+ static const char *DESCRIPTION    = "Status monitor test";
+ static const char *MAINMENUENTRY  = NULL;
+ 
+diff -ruN vdr-2.1.2/PLUGINS/src/svdrpdemo/HISTORY vdr-2.1.3/PLUGINS/src/svdrpdemo/HISTORY
+--- vdr-2.1.2/PLUGINS/src/svdrpdemo/HISTORY	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/svdrpdemo/HISTORY	2014-01-05 11:55:32.000000000 +0100
+@@ -25,3 +25,7 @@
+ 2013-03-31: Version 2.0.0
+ 
+ - Official release.
++
++2014-01-01: Version 2.1.1
++
++- Avoiding unnecessary pkg-config warnings in plugin Makefiles.
+diff -ruN vdr-2.1.2/PLUGINS/src/svdrpdemo/Makefile vdr-2.1.3/PLUGINS/src/svdrpdemo/Makefile
+--- vdr-2.1.2/PLUGINS/src/svdrpdemo/Makefile	2013-01-12 14:45:01.000000000 +0100
++++ vdr-2.1.3/PLUGINS/src/svdrpdemo/Makefile	2014-01-01 14:29:54.000000000 +0100
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 3.0 2013/01/12 13:45:01 kls Exp $
++# $Id: Makefile 3.1 2014/01/01 13:29:54 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -16,7 +16,7 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell pkg-config --variable=$(1) vdr || pkg-config --variable=$(1) ../../../vdr.pc))
++PKGCFG = $(if $(VDRDIR),$(shell pkg-config --variable=$(1) $(VDRDIR)/vdr.pc),$(shell PKG_CONFIG_PATH="$$PKG_CONFIG_PATH:../../.." pkg-config --variable=$(1) vdr))
+ LIBDIR = $(call PKGCFG,libdir)
+ PLGCFG = $(call PKGCFG,plgcfg)
+ #
+diff -ruN vdr-2.1.2/PLUGINS/src/svdrpdemo/svdrpdemo.c vdr-2.1.3/PLUGINS/src/svdrpdemo/svdrpdemo.c
+--- vdr-2.1.2/PLUGINS/src/svdrpdemo/svdrpdemo.c	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.1.3/PLUGINS/src/svdrpdemo/svdrpdemo.c	2014-01-05 11:56:31.000000000 +0100
+@@ -3,12 +3,12 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: svdrpdemo.c 3.0 2013/03/31 09:30:18 kls Exp $
++ * $Id: svdrpdemo.c 3.1 2014/01/05 10:56:31 kls Exp $
+  */
+ 
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "2.0.0";
++static const char *VERSION        = "2.1.1";
+ static const char *DESCRIPTION    = "How to add SVDRP support to a plugin";
+ 
+ class cPluginSvdrpdemo : public cPlugin {
+diff -ruN vdr-2.1.2/PLUGINS.html vdr-2.1.3/PLUGINS.html
+--- vdr-2.1.2/PLUGINS.html	2013-09-11 10:42:43.000000000 +0200
++++ vdr-2.1.3/PLUGINS.html	2013-12-25 14:30:10.000000000 +0100
+@@ -1877,7 +1877,7 @@
+ virtual int64_t GetSTC(void);
+ virtual bool IsPlayingVideo(void) const;
+ virtual bool HasIBPTrickSpeed(void);
+-virtual void TrickSpeed(int Speed);
++virtual void TrickSpeed(int Speed<modified>, bool Forward</modified>);
+ virtual void Clear(void);
+ virtual void Play(void);
+ virtual void Freeze(void);
+diff -ruN vdr-2.1.2/channels.c vdr-2.1.3/channels.c
+--- vdr-2.1.2/channels.c	2013-10-11 13:03:26.000000000 +0200
++++ vdr-2.1.3/channels.c	2014-01-04 16:01:52.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 3.1 2013/10/11 11:03:26 kls Exp $
++ * $Id: channels.c 3.4 2014/01/04 15:01:52 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -29,7 +29,7 @@
+   int tid;
+   int sid;
+   int rid = 0;
+-  int fields = sscanf(s, "%a[^-]-%d-%d-%d-%d", &sourcebuf, &nid, &tid, &sid, &rid);
++  int fields = sscanf(s, "%m[^-]-%d-%d-%d-%d", &sourcebuf, &nid, &tid, &sid, &rid);
+   if (fields == 4 || fields == 5) {
+      int source = cSource::FromString(sourcebuf);
+      free(sourcebuf);
+@@ -64,6 +64,7 @@
+   memset(&__BeginData__, 0, (char *)&__EndData__ - (char *)&__BeginData__);
+   parameters = "";
+   modification = CHANNELMOD_NONE;
++  seen         = 0;
+   schedule     = NULL;
+   linkChannels = NULL;
+   refChannel   = NULL;
+@@ -330,8 +331,10 @@
+ void cChannel::SetPids(int Vpid, int Ppid, int Vtype, int *Apids, int *Atypes, char ALangs[][MAXLANGCODE2], int *Dpids, int *Dtypes, char DLangs[][MAXLANGCODE2], int *Spids, char SLangs[][MAXLANGCODE2], int Tpid)
+ {
+   int mod = CHANNELMOD_NONE;
+-  if (vpid != Vpid || ppid != Ppid || vtype != Vtype || tpid != Tpid)
++  if (vpid != Vpid || ppid != Ppid || vtype != Vtype)
+      mod |= CHANNELMOD_PIDS;
++  if (tpid != Tpid)
++     mod |= CHANNELMOD_AUX;
+   int m = IntArraysDiffer(apids, Apids, alangs, ALangs) | IntArraysDiffer(atypes, Atypes) | IntArraysDiffer(dpids, Dpids, dlangs, DLangs) | IntArraysDiffer(dtypes, Dtypes) | IntArraysDiffer(spids, Spids, slangs, SLangs);
+   if (m & STRDIFF)
+      mod |= CHANNELMOD_LANGS;
+@@ -388,7 +391,8 @@
+      spids[MAXSPIDS] = 0;
+      tpid = Tpid;
+      modification |= mod;
+-     Channels.SetModified();
++     if (Number())
++        Channels.SetModified();
+      }
+ }
+ 
+@@ -408,6 +412,11 @@
+      }
+ }
+ 
++void cChannel::SetSeen(void)
++{
++  seen = time(NULL);
++}
++
+ void cChannel::SetCaIds(const int *CaIds)
+ {
+   if (caids[0] && caids[0] <= CA_USER_MAX)
+@@ -586,7 +595,7 @@
+      char *apidbuf = NULL;
+      char *tpidbuf = NULL;
+      char *caidbuf = NULL;
+-     int fields = sscanf(s, "%a[^:]:%d :%a[^:]:%a[^:] :%d :%a[^:]:%a[^:]:%a[^:]:%a[^:]:%d :%d :%d :%d ", &namebuf, &frequency, &parambuf, &sourcebuf, &srate, &vpidbuf, &apidbuf, &tpidbuf, &caidbuf, &sid, &nid, &tid, &rid);
++     int fields = sscanf(s, "%m[^:]:%d :%m[^:]:%m[^:] :%d :%m[^:]:%m[^:]:%m[^:]:%m[^:]:%d :%d :%d :%d ", &namebuf, &frequency, &parambuf, &sourcebuf, &srate, &vpidbuf, &apidbuf, &tpidbuf, &caidbuf, &sid, &nid, &tid, &rid);
+      if (fields >= 9) {
+         if (fields == 9) {
+            // allow reading of old format
+@@ -1016,6 +1025,7 @@
+      NewChannel->CopyTransponderData(Transponder);
+      NewChannel->SetId(Nid, Tid, Sid, Rid);
+      NewChannel->SetName(Name, ShortName, Provider);
++     NewChannel->SetSeen();
+      Add(NewChannel);
+      ReNumber();
+      return NewChannel;
+@@ -1023,6 +1033,19 @@
+   return NULL;
+ }
+ 
++#define CHANNELMARKOBSOLETE "OBSOLETE"
++#define CHANNELTIMEOBSOLETE 3600 // seconds to wait before declaring a channel obsolete (in case it has actually been seen before)
++
++void cChannels::MarkObsoleteChannels(int Source, int Nid, int Tid)
++{
++  for (cChannel *channel = First(); channel; channel = Next(channel)) {
++      if (time(NULL) - channel->Seen() > CHANNELTIMEOBSOLETE && channel->Source() == Source && channel->Nid() == Nid && channel->Tid() == Tid) {
++         if (!endswith(channel->Name(), CHANNELMARKOBSOLETE))
++            channel->SetName(cString::sprintf("%s %s", channel->Name(), CHANNELMARKOBSOLETE), channel->ShortName(), cString::sprintf("%s %s", CHANNELMARKOBSOLETE, channel->Provider()));
++         }
++      }
++}
++
+ cString ChannelString(const cChannel *Channel, int Number)
+ {
+   char buffer[256];
+diff -ruN vdr-2.1.2/channels.h vdr-2.1.3/channels.h
+--- vdr-2.1.2/channels.h	2012-06-17 13:21:33.000000000 +0200
++++ vdr-2.1.3/channels.h	2014-01-04 16:01:21.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.h 3.0 2012/06/17 11:21:33 kls Exp $
++ * $Id: channels.h 3.2 2014/01/04 15:01:21 kls Exp $
+  */
+ 
+ #ifndef __CHANNELS_H
+@@ -22,6 +22,7 @@
+ #define CHANNELMOD_NAME     0x01
+ #define CHANNELMOD_PIDS     0x02
+ #define CHANNELMOD_ID       0x04
++#define CHANNELMOD_AUX      0x08
+ #define CHANNELMOD_CA       0x10
+ #define CHANNELMOD_TRANSP   0x20
+ #define CHANNELMOD_LANGS    0x40
+@@ -127,6 +128,7 @@
+   mutable cString shortNameSource;
+   cString parameters;
+   int modification;
++  time_t seen; // When this channel was last seen in the SDT of its transponder
+   mutable const cSchedule *schedule;
+   cLinkChannels *linkChannels;
+   cChannel *refChannel;
+@@ -186,6 +188,7 @@
+   tChannelID GetChannelID(void) const { return tChannelID(source, nid, (nid || tid) ? tid : Transponder(), sid, rid); }
+   bool HasTimer(void) const;
+   int Modification(int Mask = CHANNELMOD_ALL);
++  time_t Seen(void) { return seen; }
+   void CopyTransponderData(const cChannel *Channel);
+   bool SetTransponderData(int Source, int Frequency, int Srate, const char *Parameters, bool Quiet = false);
+   void SetId(int Nid, int Tid, int Sid, int Rid = 0);
+@@ -197,6 +200,7 @@
+   void SetLinkChannels(cLinkChannels *LinkChannels);
+   void SetRefChannel(cChannel *RefChannel);
+   void SetSubtitlingDescriptors(uchar *SubtitlingTypes, uint16_t *CompositionPageIds, uint16_t *AncillaryPageIds);
++  void SetSeen(void);
+   };
+ 
+ class cChannels : public cRwLock, public cConfig<cChannel> {
+@@ -236,6 +240,7 @@
+       ///< modification has been made, and 2 if the user has made a modification.
+       ///< Calling this function resets the 'modified' flag to 0.
+   cChannel *NewChannel(const cChannel *Transponder, const char *Name, const char *ShortName, const char *Provider, int Nid, int Tid, int Sid, int Rid = 0);
++  void MarkObsoleteChannels(int Source, int Nid, int Tid);
+   };
+ 
+ extern cChannels Channels;
+diff -ruN vdr-2.1.2/ci.c vdr-2.1.3/ci.c
+--- vdr-2.1.2/ci.c	2013-02-17 14:17:28.000000000 +0100
++++ vdr-2.1.3/ci.c	2014-01-02 11:31:12.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 3.0 2013/02/17 13:17:28 kls Exp $
++ * $Id: ci.c 3.4 2014/01/02 10:31:12 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -19,6 +19,7 @@
+ #include <unistd.h>
+ #include "device.h"
+ #include "pat.h"
++#include "receiver.h"
+ #include "tools.h"
+ 
+ // Set these to 'true' for debug output:
+@@ -102,6 +103,16 @@
+   return NULL;
+ }
+ 
++// --- cCaPidReceiver --------------------------------------------------------
++
++// A dummy receiver, just used to make the device receive the CA pids.
++
++class cCaPidReceiver : public cReceiver {
++public:
++  virtual ~cCaPidReceiver() { Detach(); }
++  virtual void Receive(uchar *Data, int Length) {}
++  };
++
+ // --- cTPDU -----------------------------------------------------------------
+ 
+ #define MAX_TPDU_SIZE  2048
+@@ -403,7 +414,8 @@
+   *p++ =  Tag        & 0xFF;
+   p = SetLength(p, Length);
+   if (p - buffer + Length < int(sizeof(buffer))) {
+-     memcpy(p, Data, Length);
++     if (Data)
++        memcpy(p, Data, Length);
+      p += Length;
+      tc->SendData(p - buffer, buffer);
+      }
+@@ -569,7 +581,7 @@
+ #define CPCI_QUERY            0x03
+ #define CPCI_NOT_SELECTED     0x04
+ 
+-class cCiCaPmt : public cListObject {
++class cCiCaPmt {
+   friend class cCiConditionalAccessSupport;
+ private:
+   uint8_t cmdId;
+@@ -1552,9 +1564,10 @@
+ #define MODULE_CHECK_INTERVAL 500 // ms
+ #define MODULE_RESET_TIMEOUT    2 // s
+ 
+-cCamSlot::cCamSlot(cCiAdapter *CiAdapter)
++cCamSlot::cCamSlot(cCiAdapter *CiAdapter, bool ReceiveCaPids)
+ {
+   ciAdapter = CiAdapter;
++  caPidReceiver = ReceiveCaPids ? new cCaPidReceiver : NULL;
+   slotIndex = -1;
+   lastModuleStatus = msReset; // avoids initial reset log message
+   resetTime = 0;
+@@ -1571,6 +1584,7 @@
+ 
+ cCamSlot::~cCamSlot()
+ {
++  delete caPidReceiver;
+   CamSlots.Del(this, false);
+   DeleteAllConnections();
+ }
+@@ -1801,6 +1815,10 @@
+      const int *CaSystemIds = cas->GetCaSystemIds();
+      if (CaSystemIds && *CaSystemIds) {
+         if (caProgramList.Count()) {
++           if (caPidReceiver && caPidReceiver->NumPids()) {
++              if (cDevice *d = Device())
++                 d->Detach(caPidReceiver);
++              }
+            for (int Loop = 1; Loop <= 2; Loop++) {
+                for (cCiCaProgramData *p = caProgramList.First(); p; p = caProgramList.Next(p)) {
+                    if (p->modified || resendPmt) {
+@@ -1813,6 +1831,15 @@
+                              }
+                           }
+                       if ((Loop == 1) != Active) { // first remove, then add
++                         if (caPidReceiver) {
++                            int CaPids[MAXRECEIVEPIDS + 1];
++                            if (GetCaPids(source, transponder, p->programNumber, CaSystemIds, MAXRECEIVEPIDS + 1, CaPids) > 0) {
++                               if (Loop == 1)
++                                  caPidReceiver->DelPids(CaPids);
++                               else
++                                  caPidReceiver->AddPids(CaPids);
++                               }
++                            }
+                          if (cas->RepliesToQuery())
+                             CaPmt.SetListManagement(Active ? CPLM_ADD : CPLM_UPDATE);
+                          if (Active || cas->RepliesToQuery())
+@@ -1822,6 +1849,10 @@
+                       }
+                    }
+                }
++           if (caPidReceiver && caPidReceiver->NumPids()) {
++              if (cDevice *d = Device())
++                 d->AttachReceiver(caPidReceiver);
++              }
+            resendPmt = false;
+            }
+         else {
+@@ -1983,6 +2014,12 @@
+   return false;
+ }
+ 
++uchar *cCamSlot::Decrypt(uchar *Data, int &Count)
++{
++  Count = TS_SIZE;
++  return Data;
++}
++
+ // --- cChannelCamRelation ---------------------------------------------------
+ 
+ #define CAM_CHECKED_TIMEOUT  15 // seconds before a CAM that has been checked for a particular channel will be checked again
+diff -ruN vdr-2.1.2/ci.h vdr-2.1.3/ci.h
+--- vdr-2.1.2/ci.h	2012-02-29 11:24:27.000000000 +0100
++++ vdr-2.1.3/ci.h	2014-01-02 11:14:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.h 3.0 2012/02/29 10:24:27 kls Exp $
++ * $Id: ci.h 3.3 2014/01/02 10:14:39 kls Exp $
+  */
+ 
+ #ifndef __CI_H
+@@ -121,6 +121,7 @@
+ class cCiTransportConnection;
+ class cCiSession;
+ class cCiCaProgramData;
++class cReceiver;
+ 
+ class cCamSlot : public cListObject {
+   friend class cCiAdapter;
+@@ -129,6 +130,7 @@
+   cMutex mutex;
+   cCondVar processed;
+   cCiAdapter *ciAdapter;
++  cReceiver *caPidReceiver;
+   int slotIndex;
+   int slotNumber;
+   cCiTransportConnection *tc[MAX_CONNECTIONS_PER_CAM_SLOT + 1];  // connection numbering starts with 1
+@@ -147,10 +149,13 @@
+   void Write(cTPDU *TPDU);
+   cCiSession *GetSessionByResourceId(uint32_t ResourceId);
+ public:
+-  cCamSlot(cCiAdapter *CiAdapter);
++  cCamSlot(cCiAdapter *CiAdapter, bool ReceiveCaPids = false);
+        ///< Creates a new CAM slot for the given CiAdapter.
+        ///< The CiAdapter will take care of deleting the CAM slot,
+        ///< so the caller must not delete it!
++       ///< If ReceiveCaPids is true, the CAM slot will take care that the CA pids
++       ///< of the selected programmes will be included in the TS data stream that
++       ///< is presented to the Decrypt() function.
+   virtual ~cCamSlot();
+   bool Assign(cDevice *Device, bool Query = false);
+        ///< Assigns this CAM slot to the given Device, if this is possible.
+@@ -169,50 +174,50 @@
+   int SlotNumber(void) { return slotNumber; }
+        ///< Returns the number of this CAM slot within the whole system.
+        ///< The first slot has the number 1.
+-  bool Reset(void);
++  virtual bool Reset(void);
+        ///< Resets the CAM in this slot.
+        ///< Returns true if the operation was successful.
+-  eModuleStatus ModuleStatus(void);
++  virtual eModuleStatus ModuleStatus(void);
+        ///< Returns the status of the CAM in this slot.
+-  const char *GetCamName(void);
++  virtual const char *GetCamName(void);
+        ///< Returns the name of the CAM in this slot, or NULL if there is
+        ///< no ready CAM in this slot.
+-  bool Ready(void);
++  virtual bool Ready(void);
+        ///< Returns 'true' if the CAM in this slot is ready to decrypt.
+-  bool HasMMI(void);
++  virtual bool HasMMI(void);
+        ///< Returns 'true' if the CAM in this slot has an active MMI.
+-  bool HasUserIO(void);
++  virtual bool HasUserIO(void);
+        ///< Returns true if there is a pending user interaction, which shall
+        ///< be retrieved via GetMenu() or GetEnquiry().
+-  bool EnterMenu(void);
++  virtual bool EnterMenu(void);
+        ///< Requests the CAM in this slot to start its menu.
+-  cCiMenu *GetMenu(void);
++  virtual cCiMenu *GetMenu(void);
+        ///< Gets a pending menu, or NULL if there is no menu.
+-  cCiEnquiry *GetEnquiry(void);
++  virtual cCiEnquiry *GetEnquiry(void);
+        ///< Gets a pending enquiry, or NULL if there is no enquiry.
+   int Priority(void);
+        ///< Returns the priority if the device this slot is currently assigned
+        ///< to, or IDLEPRIORITY if it is not assigned to any device.
+-  bool ProvidesCa(const int *CaSystemIds);
++  virtual bool ProvidesCa(const int *CaSystemIds);
+        ///< Returns true if the CAM in this slot provides one of the given
+        ///< CaSystemIds. This doesn't necessarily mean that it will be
+        ///< possible to actually decrypt such a programme, since CAMs
+        ///< usually advertise several CA system ids, while the actual
+        ///< decryption is controlled by the smart card inserted into
+        ///< the CAM.
+-  void AddPid(int ProgramNumber, int Pid, int StreamType);
++  virtual void AddPid(int ProgramNumber, int Pid, int StreamType);
+        ///< Adds the given PID information to the list of PIDs. A later call
+        ///< to SetPid() will (de)activate one of these entries.
+-  void SetPid(int Pid, bool Active);
++  virtual void SetPid(int Pid, bool Active);
+        ///< Sets the given Pid (which has previously been added through a
+        ///< call to AddPid()) to Active. A later call to StartDecrypting() will
+        ///< send the full list of currently active CA_PMT entries to the CAM.
+-  void AddChannel(const cChannel *Channel);
++  virtual void AddChannel(const cChannel *Channel);
+        ///< Adds all PIDs if the given Channel to the current list of PIDs.
+        ///< If the source or transponder of the channel are different than
+        ///< what was given in a previous call to AddChannel(), any previously
+        ///< added PIDs will be cleared.
+-  bool CanDecrypt(const cChannel *Channel);
++  virtual bool CanDecrypt(const cChannel *Channel);
+        ///< Returns true if there is a CAM in this slot that is able to decrypt
+        ///< the given Channel (or at least claims to be able to do so).
+        ///< Since the QUERY/REPLY mechanism for CAMs is pretty unreliable (some
+@@ -223,13 +228,43 @@
+        ///< to the initial QUERY will perform this check at all. CAMs that never
+        ///< replied to the initial QUERY are assumed not to be able to handle
+        ///< more than one channel at a time.
+-  void StartDecrypting(void);
++  virtual void StartDecrypting(void);
+        ///< Triggers sending all currently active CA_PMT entries to the CAM,
+        ///< so that it will start decrypting.
+-  void StopDecrypting(void);
++  virtual void StopDecrypting(void);
+        ///< Clears the list of CA_PMT entries and tells the CAM to stop decrypting.
+-  bool IsDecrypting(void);
++  virtual bool IsDecrypting(void);
+        ///< Returns true if the CAM in this slot is currently used for decrypting.
++  virtual uchar *Decrypt(uchar *Data, int &Count);
++       ///< If this is a CAM slot that can be freely assigned to any device,
++       ///< but will not be directly inserted into the full TS data stream
++       ///< in hardware, it can implement this function to be given access
++       ///< to the data in the device's TS buffer. Data points to a buffer
++       ///< of Count bytes of TS data. The first byte in Data is guaranteed
++       ///< to be a TS_SYNC_BYTE.
++       ///< There are three possible ways a CAM can handle decryption:
++       ///< 1. If the full TS data is physically routed through the CAM in hardware,
++       ///< there is no need to reimplement this function.
++       ///< The default implementation simply sets Count to TS_SIZE and returns Data.
++       ///< 2. If the CAM works directly on Data and decrypts the TS "in place" it
++       ///< shall decrypt at least the very first TS packet in Data, set Count to
++       ///< TS_SIZE and return Data. It may decrypt as many TS packets in Data as it
++       ///< wants, but it must decrypt at least the very first TS packet. Only this
++       ///< very first TS packet will be further processed after the call to this
++       ///< function. The next call will be done with Data pointing to the TS packet
++       ///< immediately following the previous one.
++       ///< 3. If the CAM needs to copy the data into a buffer of its own, and/or send
++       ///< the data to some file handle for processing and later retrieval, it shall
++       ///< set Count to the number of bytes it has read from Data and return a pointer
++       ///< to the next available decrypted TS packet (which will *not* be in the
++       ///< memory area pointed to by Data, but rather in some buffer that is under
++       ///< the CAM's control). If no decrypted TS packet is currently available, NULL
++       ///< shall be returned. If no data from Data can currently be processed, Count
++       ///< shall be set to 0 and the same Data pointer will be offered in the next
++       ///< call to Decrypt().
++       ///< A derived class that implements this function will also need
++       ///< to set the ReceiveCaPids parameter in the call to the base class
++       ///< constructor to true in order to receive the CA pid data.
+   };
+ 
+ class cCamSlots : public cList<cCamSlot> {};
+diff -ruN vdr-2.1.2/config.h vdr-2.1.3/config.h
+--- vdr-2.1.2/config.h	2013-10-19 13:32:15.000000000 +0200
++++ vdr-2.1.3/config.h	2013-10-20 11:32:23.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 3.4 2013/10/19 11:32:15 kls Exp $
++ * $Id: config.h 3.5 2013/10/20 09:32:23 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.1.2"
+-#define VDRVERSNUM   20102  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.1.3"
++#define VDRVERSNUM   20103  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "2.1.2"
+-#define APIVERSNUM   20102  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "2.1.3"
++#define APIVERSNUM   20103  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-2.1.2/device.c vdr-2.1.3/device.c
+--- vdr-2.1.2/device.c	2013-08-22 12:28:55.000000000 +0200
++++ vdr-2.1.3/device.c	2014-01-02 11:31:58.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 3.3 2013/08/22 10:28:55 kls Exp $
++ * $Id: device.c 3.7 2014/01/02 10:31:58 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -1121,7 +1121,7 @@
+   return -1;
+ }
+ 
+-void cDevice::TrickSpeed(int Speed)
++void cDevice::TrickSpeed(int Speed, bool Forward)
+ {
+ }
+ 
+@@ -1666,7 +1666,7 @@
+          Receiver->device = this;
+          receiver[i] = Receiver;
+          Unlock();
+-         if (camSlot) {
++         if (camSlot && Receiver->priority > MINPRIORITY) { // priority check to avoid an infinite loop with the CAM slot's caPidReceiver
+             camSlot->StartDecrypting();
+             startScrambleDetection = time(NULL);
+             }
+@@ -1697,7 +1697,7 @@
+       else if (receiver[i])
+          receiversLeft = true;
+       }
+-  if (camSlot)
++  if (camSlot && Receiver->priority > MINPRIORITY) // priority check to avoid an infinite loop with the CAM slot's caPidReceiver
+      camSlot->StartDecrypting();
+   if (!receiversLeft)
+      Cancel(-1);
+@@ -1764,7 +1764,7 @@
+      }
+ }
+ 
+-uchar *cTSBuffer::Get(void)
++uchar *cTSBuffer::Get(int *Available)
+ {
+   int Count = 0;
+   if (delivered) {
+@@ -1785,7 +1785,15 @@
+         return NULL;
+         }
+      delivered = true;
++     if (Available)
++        *Available = Count;
+      return p;
+      }
+   return NULL;
+ }
++
++void cTSBuffer::Skip(int Count)
++{
++  ringBuffer->Del(Count);
++  delivered = false;
++}
+diff -ruN vdr-2.1.2/device.h vdr-2.1.3/device.h
+--- vdr-2.1.2/device.h	2013-10-09 10:25:16.000000000 +0200
++++ vdr-2.1.3/device.h	2014-01-02 11:47:08.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 3.3 2013/10/09 08:25:16 kls Exp $
++ * $Id: device.h 3.8 2014/01/02 10:47:08 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -35,6 +35,7 @@
+ 
+ enum eSetChannelResult { scrOk, scrNotAvailable, scrNoTransfer, scrFailed };
+ 
++// Note that VDR itself always uses pmAudioVideo when replaying a recording!
+ enum ePlayMode { pmNone,           // audio/video from decoder
+                  pmAudioVideo,     // audio/video from player
+                  pmAudioOnly,      // audio only from player, video from decoder
+@@ -698,10 +699,11 @@
+   virtual bool HasIBPTrickSpeed(void) { return false; }
+        ///< Returns true if this device can handle all frames in 'fast forward'
+        ///< trick speeds.
+-  virtual void TrickSpeed(int Speed);
++  virtual void TrickSpeed(int Speed, bool Forward);
+        ///< Sets the device into a mode where replay is done slower.
+        ///< Every single frame shall then be displayed the given number of
+-       ///< times.
++       ///< times. Forward is true if replay is done in the normal (forward)
++       ///< direction, false if it is done reverse.
+        ///< The cDvbPlayer uses the following values for the various speeds:
+        ///<                   1x   2x   3x
+        ///< Fast Forward       6    3    1
+@@ -723,7 +725,7 @@
+        ///< all registered cAudio objects are notified.
+   virtual void StillPicture(const uchar *Data, int Length);
+        ///< Displays the given I-frame as a still picture.
+-       ///< Data points either to TS (first byte is 0x47) or PES (first byte
++       ///< Data points either to a series of TS (first byte is 0x47) or PES (first byte
+        ///< is 0x00) data of the given Length. The default implementation
+        ///< converts TS to PES and calls itself again, allowing a derived class
+        ///< to display PES if it can't handle TS directly.
+@@ -827,8 +829,21 @@
+   virtual void Action(void);
+ public:
+   cTSBuffer(int File, int Size, int CardIndex);
+-  ~cTSBuffer();
+-  uchar *Get(void);
++  virtual ~cTSBuffer();
++  uchar *Get(int *Available = NULL);
++     ///< Returns a pointer to the first TS packet in the buffer. If Available is given,
++     ///< it will return the total number of consecutive bytes pointed to in the buffer.
++     ///< It is guaranteed that the returned pointer points to a TS_SYNC_BYTE and that
++     ///< there are at least TS_SIZE bytes in the buffer. Otherwise NULL will be
++     ///< returned and the value in Available (if given) is undefined.
++     ///< Each call to Get() returns a pointer to the next TS packet in the buffer.
++  void Skip(int Count);
++     ///< If after a call to Get() more or less than TS_SIZE of the available data
++     ///< has been processed, a call to Skip() with the number of processed bytes
++     ///< will disable the automatic incrementing of the data pointer as described
++     ///< in Get() and skip the given number of bytes instead. Count may be 0 if the
++     ///< caller wants the previous TS packet to be delivered again in the next call
++     ///< to Get().
+   };
+ 
+ #endif //__DEVICE_H
+diff -ruN vdr-2.1.2/diseqc.c vdr-2.1.3/diseqc.c
+--- vdr-2.1.2/diseqc.c	2013-08-21 11:26:11.000000000 +0200
++++ vdr-2.1.3/diseqc.c	2013-12-28 12:33:08.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: diseqc.c 3.2 2013/08/21 09:26:11 kls Exp $
++ * $Id: diseqc.c 3.3 2013/12/28 11:33:08 kls Exp $
+  */
+ 
+ #include "diseqc.h"
+@@ -228,9 +228,9 @@
+   devices = CurrentDevices;
+   bool result = false;
+   char *sourcebuf = NULL;
+-  int fields = sscanf(s, "%a[^ ] %d %c %d %a[^\n]", &sourcebuf, &slof, &polarization, &lof, &commands);
++  int fields = sscanf(s, "%m[^ ] %d %c %d %m[^\n]", &sourcebuf, &slof, &polarization, &lof, &commands);
+   if (fields == 4)
+-     commands = NULL; //XXX Apparently sscanf() doesn't work correctly if the last %a argument results in an empty string
++     commands = NULL; //XXX Apparently sscanf() doesn't work correctly if the last %m argument results in an empty string
+   if (4 <= fields && fields <= 5) {
+      source = cSource::FromString(sourcebuf);
+      if (Sources.Get(source)) {
+diff -ruN vdr-2.1.2/diseqc.conf vdr-2.1.3/diseqc.conf
+--- vdr-2.1.2/diseqc.conf	2013-08-21 12:34:11.000000000 +0200
++++ vdr-2.1.3/diseqc.conf	2013-11-04 13:48:31.000000000 +0100
+@@ -7,7 +7,7 @@
+ # satellite:      one of the 'S' codes defined in sources.conf
+ #                 the special value 'S360E' means that this entry uses a positioner
+ #                 (command 'P') that can move the dish to any requested satellite
+-#                 position withing its range
++#                 position within its range
+ # slof:           switch frequency of LNB; the first entry with
+ #                 an slof greater than the actual transponder
+ #                 frequency will be used
+diff -ruN vdr-2.1.2/dvbdevice.c vdr-2.1.3/dvbdevice.c
+--- vdr-2.1.2/dvbdevice.c	2013-10-13 16:41:57.000000000 +0200
++++ vdr-2.1.3/dvbdevice.c	2014-01-02 11:30:15.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 3.4 2013/10/13 14:41:57 kls Exp $
++ * $Id: dvbdevice.c 3.8 2014/01/02 10:30:15 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -558,8 +558,6 @@
+     case 0x13C21019: // TT-budget S2-3200 (DVB-S/DVB-S2)
+     case 0x1AE40001: // TechniSat SkyStar HD2 (DVB-S/DVB-S2)
+                      MaxSignal = 670; break;
+-    case 0x13D02103: // TechniSat SkyStar 2 DVB-S rev 2.3P
+-                     MaxSignal = 0x4925; break;
+     }
+   int s = int(Signal) * 100 / MaxSignal;
+   if (s > 100)
+@@ -1206,8 +1204,8 @@
+               }
+            }
+      }
+-  int Checked = 0;
+   int Found = 0;
++  int Used = 0;
+   if (Nodes.Size() > 0) {
+      Nodes.Sort();
+      for (int i = 0; i < Nodes.Size(); i++) {
+@@ -1215,10 +1213,11 @@
+          int Frontend;
+          if (2 == sscanf(Nodes[i], "%d %d", &Adapter, &Frontend)) {
+             if (Exists(Adapter, Frontend)) {
+-               if (Checked++ < MAXDVBDEVICES) {
++               if (Found < MAXDEVICES) {
++                  Found++;
+                   if (UseDevice(NextCardIndex())) {
+                      if (Probe(Adapter, Frontend))
+-                        Found++;
++                        Used++;
+                      }
+                   else
+                      NextCardIndex(1); // skips this one
+@@ -1227,9 +1226,11 @@
+             }
+          }
+      }
+-  NextCardIndex(MAXDVBDEVICES - Checked); // skips the rest
+-  if (Found > 0)
++  if (Found > 0) {
+      isyslog("found %d DVB device%s", Found, Found > 1 ? "s" : "");
++     if (Used != Found)
++        isyslog("using only %d DVB device%s", Used, Used > 1 ? "s" : "");
++     }
+   else
+      isyslog("no DVB device found");
+   return Found > 0;
+@@ -1670,7 +1671,12 @@
+ bool cDvbDevice::GetTSPacket(uchar *&Data)
+ {
+   if (tsBuffer) {
+-     Data = tsBuffer->Get();
++     int Available;
++     Data = tsBuffer->Get(&Available);
++     if (Data && CamSlot()) {
++        Data = CamSlot()->Decrypt(Data, Available);
++        tsBuffer->Skip(Available);
++        }
+      return true;
+      }
+   return false;
+diff -ruN vdr-2.1.2/dvbdevice.h vdr-2.1.3/dvbdevice.h
+--- vdr-2.1.2/dvbdevice.h	2013-06-01 13:36:18.000000000 +0200
++++ vdr-2.1.3/dvbdevice.h	2014-01-01 15:00:56.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 3.2 2013/06/01 11:36:18 kls Exp $
++ * $Id: dvbdevice.h 3.3 2014/01/01 14:00:56 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -67,7 +67,6 @@
+ 
+ // --- End of definitions for older DVB API versions -------------------------
+ 
+-#define MAXDVBDEVICES  8
+ #define MAXDELIVERYSYSTEMS 8
+ 
+ #define DEV_VIDEO         "/dev/video"
+diff -ruN vdr-2.1.2/dvbplayer.c vdr-2.1.3/dvbplayer.c
+--- vdr-2.1.2/dvbplayer.c	2013-03-08 14:44:19.000000000 +0100
++++ vdr-2.1.3/dvbplayer.c	2013-12-25 14:24:07.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.c 3.0 2013/03/08 13:44:19 kls Exp $
++ * $Id: dvbplayer.c 3.1 2013/12/25 13:24:07 kls Exp $
+  */
+ 
+ #include "dvbplayer.h"
+@@ -324,7 +324,7 @@
+      int sp = (Speeds[nts] > 0) ? Mult / Speeds[nts] : -Speeds[nts] * Mult;
+      if (sp > MAX_VIDEO_SLOWMOTION)
+         sp = MAX_VIDEO_SLOWMOTION;
+-     DeviceTrickSpeed(sp);
++     DeviceTrickSpeed(sp, playDir == pdForward);
+      }
+ }
+ 
+diff -ruN vdr-2.1.2/eit.c vdr-2.1.3/eit.c
+--- vdr-2.1.2/eit.c	2013-10-12 13:10:11.000000000 +0200
++++ vdr-2.1.3/eit.c	2013-11-03 14:55:00.000000000 +0100
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 3.2 2013/10/12 11:10:11 kls Exp $
++ * $Id: eit.c 3.3 2013/11/03 13:55:00 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -54,8 +54,8 @@
+   bool Modified = false;
+   time_t SegmentStart = 0;
+   time_t SegmentEnd = 0;
+-  struct tm tm_r;
+-  struct tm t = *localtime_r(&Now, &tm_r); // this initializes the time zone in 't'
++  struct tm t = { 0 };
++  localtime_r(&Now, &t); // this initializes the time zone in 't'
+ 
+   SI::EIT::Event SiEitEvent;
+   for (SI::Loop::Iterator it; eventLoop.getNext(SiEitEvent, it); ) {
+diff -ruN vdr-2.1.2/epg.c vdr-2.1.3/epg.c
+--- vdr-2.1.2/epg.c	2013-08-31 15:21:09.000000000 +0200
++++ vdr-2.1.3/epg.c	2013-12-28 12:33:08.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 3.2 2013/08/31 13:21:09 kls Exp $
++ * $Id: epg.c 3.3 2013/12/28 11:33:08 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -32,7 +32,7 @@
+ bool tComponent::FromString(const char *s)
+ {
+   unsigned int Stream, Type;
+-  int n = sscanf(s, "%X %02X %7s %a[^\n]", &Stream, &Type, language, &description); // 7 = MAXLANGCODE2 - 1
++  int n = sscanf(s, "%X %02X %7s %m[^\n]", &Stream, &Type, language, &description); // 7 = MAXLANGCODE2 - 1
+   if (n != 4 || isempty(description)) {
+      free(description);
+      description = NULL;
+diff -ruN vdr-2.1.2/libsi/descriptor.c vdr-2.1.3/libsi/descriptor.c
+--- vdr-2.1.2/libsi/descriptor.c	2012-01-11 12:35:17.000000000 +0100
++++ vdr-2.1.3/libsi/descriptor.c	2013-10-30 11:16:18.000000000 +0100
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: descriptor.c 3.0 2012/01/11 11:35:17 kls Exp $
++ *   $Id: descriptor.c 3.1 2013/10/30 10:16:18 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -922,6 +922,48 @@
+    return extended_data_flag ? s->tfs_flag : -1;
+ }
+ 
++void LogicalChannelDescriptor::Parse() {
++   //this descriptor is only a header and a loop
++   logicalChannelLoop.setData(data+sizeof(descr_logical_channel), getLength()-sizeof(descr_logical_channel));
++}
++
++int LogicalChannelDescriptor::LogicalChannel::getServiceId() const {
++   return HILO(s->service_id);
++}
++
++int LogicalChannelDescriptor::LogicalChannel::getVisibleServiceFlag() const {
++   return s->visible_service_flag;
++}
++
++int LogicalChannelDescriptor::LogicalChannel::getLogicalChannelNumber() const {
++   return HILO(s->logical_channel_number);
++}
++
++void LogicalChannelDescriptor::LogicalChannel::Parse() {
++   s=data.getData<const item_logical_channel>();
++}
++
++void HdSimulcastLogicalChannelDescriptor::Parse() {
++   //this descriptor is only a header and a loop
++   hdSimulcastLogicalChannelLoop.setData(data+sizeof(descr_hd_simulcast_logical_channel), getLength()-sizeof(descr_hd_simulcast_logical_channel));
++}
++
++int HdSimulcastLogicalChannelDescriptor::HdSimulcastLogicalChannel::getServiceId() const {
++   return HILO(s->service_id);
++}
++
++int HdSimulcastLogicalChannelDescriptor::HdSimulcastLogicalChannel::getVisibleServiceFlag() const {
++   return s->visible_service_flag;
++}
++
++int HdSimulcastLogicalChannelDescriptor::HdSimulcastLogicalChannel::getLogicalChannelNumber() const {
++   return HILO(s->logical_channel_number);
++}
++
++void HdSimulcastLogicalChannelDescriptor::HdSimulcastLogicalChannel::Parse() {
++   s=data.getData<const item_hd_simulcast_logical_channel>();
++}
++
+ int PremiereContentTransmissionDescriptor::getOriginalNetworkId() const {
+    return HILO(s->original_network_id);
+ }
+@@ -1144,5 +1186,60 @@
+    if (checkSize(getLength()-offset))
+       privateData.assign(data.getData(offset), getLength()-offset);
+ }
++
++int AVCDescriptor::getProfileIdc() const {
++   return s->profile_idc;
++}
++
++int AVCDescriptor::getConstraintSet0Flag() const {
++   return s->constraint_set0_flag;
++}
++
++int AVCDescriptor::getConstraintSet1Flag() const {
++   return s->constraint_set1_flag;
++}
++
++int AVCDescriptor::getConstraintSet2Flag() const {
++   return s->constraint_set2_flag;
++}
++
++int AVCDescriptor::getConstraintSet3Flag() const {
++   return s->constraint_set3_flag;
++}
++
++int AVCDescriptor::getConstraintSet4Flag() const {
++   return s->constraint_set4_flag;
++}
++
++int AVCDescriptor::getConstraintSet5Flag() const {
++   return s->constraint_set5_flag;
++}
++
++int AVCDescriptor::getAVCCompatibleFlags() const {
++   return s->avc_compatible_flags;
++}
++
++int AVCDescriptor::getLevelIdc() const {
++   return s->level_idc;
++}
++
++int AVCDescriptor::getAVCStillPresent() const {
++   return s->avc_still_present;
++}
++
++int AVCDescriptor::getAVC24HourPictureFlag() const {
++   return s->avc_24_hour_picture_flag;
++}
++
++int AVCDescriptor::getFramePackingSEINotPresentFlag() const {
++   return s->frame_packing_sei_not_present_flag;
++}
++
++void AVCDescriptor::Parse() {
++   int offset=0;
++   data.setPointerAndOffset<const descr_avc>(s, offset);
++   if (checkSize(getLength()-offset))
++      privateData.assign(data.getData(offset), getLength()-offset);
++}
+ 
+ } //end of namespace
+diff -ruN vdr-2.1.2/libsi/descriptor.h vdr-2.1.3/libsi/descriptor.h
+--- vdr-2.1.2/libsi/descriptor.h	2012-01-11 12:35:17.000000000 +0100
++++ vdr-2.1.3/libsi/descriptor.h	2013-10-30 11:16:18.000000000 +0100
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: descriptor.h 3.0 2012/01/11 11:35:17 kls Exp $
++ *   $Id: descriptor.h 3.1 2013/10/30 10:16:18 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -557,6 +557,42 @@
+    int extended_data_flag;
+ };
+ 
++class LogicalChannelDescriptor : public Descriptor {
++public:
++   class LogicalChannel : public LoopElement {
++   public:
++      int getServiceId() const;
++      int getVisibleServiceFlag() const;
++      int getLogicalChannelNumber() const;
++      virtual int getLength() { return sizeof(item_logical_channel); }
++   protected:
++      virtual void Parse();
++   private:
++      const item_logical_channel *s;
++   };
++   StructureLoop<LogicalChannel> logicalChannelLoop;
++protected:
++   virtual void Parse();
++};
++
++class HdSimulcastLogicalChannelDescriptor : public Descriptor {
++public:
++   class HdSimulcastLogicalChannel : public LoopElement {
++   public:
++      int getServiceId() const;
++      int getVisibleServiceFlag() const;
++      int getLogicalChannelNumber() const;
++      virtual int getLength() { return sizeof(item_hd_simulcast_logical_channel); }
++   protected:
++      virtual void Parse();
++   private:
++      const item_hd_simulcast_logical_channel *s;
++   };
++   StructureLoop<HdSimulcastLogicalChannel> hdSimulcastLogicalChannelLoop;
++protected:
++   virtual void Parse();
++};
++
+ // Private DVB Descriptor  Premiere.de
+ // 0xF2  Content Transmission Descriptor
+ // http://dvbsnoop.sourceforge.net/examples/example-private-section.html
+@@ -735,6 +771,27 @@
+    const descr_registration *s;
+ };
+ 
++class AVCDescriptor : public Descriptor {
++public:
++   int getProfileIdc() const;
++   int getConstraintSet0Flag() const;
++   int getConstraintSet1Flag() const;
++   int getConstraintSet2Flag() const;
++   int getConstraintSet3Flag() const;
++   int getConstraintSet4Flag() const;
++   int getConstraintSet5Flag() const;
++   int getAVCCompatibleFlags() const;
++   int getLevelIdc() const;
++   int getAVCStillPresent() const;
++   int getAVC24HourPictureFlag() const;
++   int getFramePackingSEINotPresentFlag() const;
++   CharArray privateData;
++protected:
++   virtual void Parse();
++private:
++   const descr_avc *s;
++};
++
+ } //end of namespace
+ 
+ #endif //LIBSI_TABLE_H
+diff -ruN vdr-2.1.2/libsi/headers.h vdr-2.1.3/libsi/headers.h
+--- vdr-2.1.2/libsi/headers.h	2012-06-09 16:37:24.000000000 +0200
++++ vdr-2.1.3/libsi/headers.h	2013-10-30 11:16:18.000000000 +0100
+@@ -10,7 +10,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: headers.h 3.0 2012/06/09 14:37:24 kls Exp $
++ *   $Id: headers.h 3.1 2013/10/30 10:16:18 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -1870,6 +1870,54 @@
+    fields looping to the end */
+ };
+ 
++/* 0x83 logical_channel_descriptor */
++
++#define DESCR_LOGICAL_CHANNEL_LEN 2
++struct descr_logical_channel {
++   u_char descriptor_tag                         :8;
++   u_char descriptor_length                      :8;
++};
++
++#define ITEM_LOGICAL_CHANNEL_LEN 4
++struct item_logical_channel {
++   u_char service_id_hi                          :8;
++   u_char service_id_lo                          :8;
++#if BYTE_ORDER == BIG_ENDIAN
++   u_char visible_service_flag                   :1;
++   u_char reserved                               :5;
++   u_char logical_channel_number_hi              :2;
++#else
++   u_char logical_channel_number_hi              :2;
++   u_char reserved                               :5;
++   u_char visible_service_flag                   :1;
++#endif
++   u_char logical_channel_number_lo              :8;
++};
++
++/* 0x88 hd_simulcast_logical_channel_descriptor */
++
++#define DESCR_HD_SIMULCAST_LOGICAL_CHANNEL_LEN 2
++struct descr_hd_simulcast_logical_channel {
++   u_char descriptor_tag                         :8;
++   u_char descriptor_length                      :8;
++};
++
++#define ITEM_HD_SIMULCAST_LOGICAL_CHANNEL_LEN 4
++struct item_hd_simulcast_logical_channel {
++   u_char service_id_hi                          :8;
++   u_char service_id_lo                          :8;
++#if BYTE_ORDER == BIG_ENDIAN
++   u_char visible_service_flag                   :1;
++   u_char reserved                               :5;
++   u_char logical_channel_number_hi              :2;
++#else
++   u_char logical_channel_number_hi              :2;
++   u_char reserved                               :5;
++   u_char visible_service_flag                   :1;
++#endif
++   u_char logical_channel_number_lo              :8;
++};
++
+ /* MHP 0x00 application_descriptor */
+ 
+ #define DESCR_APPLICATION_LEN 3
+@@ -2088,6 +2136,27 @@
+    u_char format_identifier_lo_lo                :8;
+ };
+ 
++/* 0x28 avc_descriptor */
++
++#define DESCR_AVC_LEN 6
++struct descr_avc {
++   u_char descriptor_tag                         :8;
++   u_char descriptor_length                      :8;
++   u_char profile_idc                            :8;
++   u_char constraint_set0_flag                   :1;
++   u_char constraint_set1_flag                   :1;
++   u_char constraint_set2_flag                   :1;
++   u_char constraint_set3_flag                   :1;
++   u_char constraint_set4_flag                   :1;
++   u_char constraint_set5_flag                   :1;
++   u_char avc_compatible_flags                   :2;
++   u_char level_idc                              :8;
++   u_char avc_still_present                      :1;
++   u_char avc_24_hour_picture_flag               :1;
++   u_char frame_packing_sei_not_present_flag     :1;
++   u_char reserved                               :5;
++};
++
+ } //end of namespace
+ 
+ #endif //LIBSI_HEADERS_H
+diff -ruN vdr-2.1.2/libsi/si.c vdr-2.1.3/libsi/si.c
+--- vdr-2.1.2/libsi/si.c	2012-09-29 16:44:20.000000000 +0200
++++ vdr-2.1.3/libsi/si.c	2013-10-30 11:16:18.000000000 +0100
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.c 3.0 2012/09/29 14:44:20 kls Exp $
++ *   $Id: si.c 3.1 2013/10/30 10:16:18 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -508,6 +508,9 @@
+          case CarouselIdentifierDescriptorTag:
+             d=new CarouselIdentifierDescriptor();
+             break;
++         case AVCDescriptorTag:
++            d=new AVCDescriptor();
++            break;
+          case NetworkNameDescriptorTag:
+             d=new NetworkNameDescriptor();
+             break;
+@@ -614,6 +617,12 @@
+          case ExtensionDescriptorTag:
+             d=new ExtensionDescriptor();
+             break;
++         case LogicalChannelDescriptorTag:
++            d=new LogicalChannelDescriptor();
++            break;
++         case HdSimulcastLogicalChannelDescriptorTag:
++            d=new HdSimulcastLogicalChannelDescriptor();
++            break;
+          case RegistrationDescriptorTag:
+             d=new RegistrationDescriptor();
+             break;
+diff -ruN vdr-2.1.2/libsi/si.h vdr-2.1.3/libsi/si.h
+--- vdr-2.1.2/libsi/si.h	2012-10-15 13:56:06.000000000 +0200
++++ vdr-2.1.3/libsi/si.h	2013-10-30 11:16:18.000000000 +0100
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.h 3.0 2012/10/15 11:56:06 kls Exp $
++ *   $Id: si.h 3.1 2013/10/30 10:16:18 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -70,6 +70,10 @@
+   // defined by ISO-13818-6 (DSM-CC)
+                CarouselIdentifierDescriptorTag = 0x13,
+                // 0x14 - 0x3F  Reserved
++  // defined by ISO/IEC 13818-1 Amendment
++               AVCDescriptorTag = 0x28,
++               SVCExtensionDescriptorTag = 0x30,
++               MVCExtensionDescriptorTag = 0x31,
+   // defined by ETSI (EN 300 468)
+                NetworkNameDescriptorTag = 0x40,
+                ServiceListDescriptorTag = 0x41,
+@@ -134,6 +138,12 @@
+                DTSDescriptorTag = 0x7B,
+                AACDescriptorTag = 0x7C,
+                ExtensionDescriptorTag = 0x7F,
++ // defined by EICTA/EACEM/DIGITALEUROPE
++               LogicalChannelDescriptorTag = 0x83,
++               PreferredNameListDescriptorTag = 0x84,
++               PreferredNameIdentifierDescriptorTag = 0x85,
++               EacemStreamIdentifierDescriptorTag = 0x86,
++               HdSimulcastLogicalChannelDescriptorTag = 0x88,
+  // Extension descriptors
+                ImageIconDescriptorTag = 0x00,
+                CpcmDeliverySignallingDescriptor = 0x01,
+@@ -147,6 +157,12 @@
+                TargetRegionDescriptorTag = 0x09,
+                TargetRegionNameDescriptorTag = 0x0A,
+                ServiceRelocatedDescriptorTag = 0x0B,
++ // defined by ETSI (EN 300 468) v 1.12.1
++               XAITPidDescriptorTag = 0x0C,
++               C2DeliverySystemDescriptorTag = 0x0D,
++               // 0x0E - 0x0F Reserved
++               VideoDepthRangeDescriptorTag = 0x10,
++               T2MIDescriptorTag = 0x11,
+ 
+  // Defined by ETSI TS 102 812 (MHP)
+                // They once again start with 0x00 (see page 234, MHP specification)
+diff -ruN vdr-2.1.2/lirc.c vdr-2.1.3/lirc.c
+--- vdr-2.1.2/lirc.c	2013-08-22 11:22:14.000000000 +0200
++++ vdr-2.1.3/lirc.c	2013-10-29 13:32:12.000000000 +0100
+@@ -6,7 +6,7 @@
+  *
+  * LIRC support added by Carsten Koch <Carsten.Koch@icem.de>  2000-06-16.
+  *
+- * $Id: lirc.c 3.1 2013/08/22 09:22:14 kls Exp $
++ * $Id: lirc.c 3.2 2013/10/29 12:32:12 kls Exp $
+  */
+ 
+ #include "lirc.h"
+@@ -21,11 +21,9 @@
+ {
+   addr.sun_family = AF_UNIX;
+   strcpy(addr.sun_path, DeviceName);
+-  if (Connect()) {
+-     Start();
+-     return;
+-     }
+-  f = -1;
++  if (!Connect())
++     f = -1;
++  Start();
+ }
+ 
+ cLircRemote::~cLircRemote()
+@@ -67,14 +65,15 @@
+   bool repeat = false;
+   int timeout = -1;
+ 
+-  while (Running() && f >= 0) {
++  while (Running()) {
+ 
+-        bool ready = cFile::FileReady(f, timeout);
++        bool ready = f >= 0 && cFile::FileReady(f, timeout);
+         int ret = ready ? safe_read(f, buf, sizeof(buf)) : -1;
+ 
+-        if (ready && ret <= 0 ) {
++        if (f < 0 || ready && ret <= 0) {
+            esyslog("ERROR: lircd connection broken, trying to reconnect every %.1f seconds", float(RECONNECTDELAY) / 1000);
+-           close(f);
++           if (f >= 0)
++              close(f);
+            f = -1;
+            while (Running() && f < 0) {
+                  cCondWait::SleepMs(RECONNECTDELAY);
+diff -ruN vdr-2.1.2/menu.c vdr-2.1.3/menu.c
+--- vdr-2.1.2/menu.c	2013-10-16 11:15:36.000000000 +0200
++++ vdr-2.1.3/menu.c	2013-12-27 10:00:24.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 3.10 2013/10/16 09:15:36 kls Exp $
++ * $Id: menu.c 3.15 2013/12/27 09:00:24 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -16,6 +16,7 @@
+ #include <string.h>
+ #include "channels.h"
+ #include "config.h"
++#include "cutter.h"
+ #include "eitscan.h"
+ #include "i18n.h"
+ #include "interface.h"
+@@ -718,9 +719,11 @@
+   list = nestedItemList = NestedItemList;
+   firstFolder = NULL;
+   editing = false;
++  helpKeys = -1;
+   Set();
+-  SetHelpKeys();
+   DescendPath(Path);
++  Display();
++  SetHelpKeys();
+ }
+ 
+ cMenuFolder::cMenuFolder(const char *Title, cList<cNestedItem> *List, cNestedItemList *NestedItemList, const char *Dir, const char *Path)
+@@ -732,14 +735,28 @@
+   dir = Dir;
+   firstFolder = NULL;
+   editing = false;
++  helpKeys = -1;
+   Set();
+-  SetHelpKeys();
+   DescendPath(Path);
++  Display();
++  SetHelpKeys();
+ }
+ 
+ void cMenuFolder::SetHelpKeys(void)
+ {
+-  SetHelp(firstFolder ? tr("Button$Select") : NULL, tr("Button$New"), firstFolder ? tr("Button$Delete") : NULL, firstFolder ? tr("Button$Edit") : NULL);
++  if (HasSubMenu())
++     return;
++  int NewHelpKeys = 0;
++  if (firstFolder) {
++     if (cMenuFolderItem *Folder = (cMenuFolderItem *)Get(Current())) {
++        if (Folder->Folder()->SubItems())
++           NewHelpKeys = 1;
++        }
++     }
++  if (NewHelpKeys != helpKeys) {
++     helpKeys = NewHelpKeys;
++     SetHelp(NewHelpKeys > 0 ? tr("Button$Open") : NULL, tr("Button$New"), firstFolder ? tr("Button$Delete") : NULL, firstFolder ? tr("Button$Edit") : NULL);
++     }
+ }
+ 
+ void cMenuFolder::Set(const char *CurrentFolder)
+@@ -768,7 +785,7 @@
+         for (cMenuFolderItem *Folder = (cMenuFolderItem *)firstFolder; Folder; Folder = (cMenuFolderItem *)Next(Folder)) {
+             if (strncmp(Folder->Folder()->Text(), Path, p - Path) == 0) {
+                SetCurrent(Folder);
+-               if (Folder->Folder()->SubItems())
++               if (Folder->Folder()->SubItems() && strchr(p + 1, FOLDERDELIMCHAR))
+                   AddSubMenu(new cMenuFolder(Title(), Folder->Folder()->SubItems(), nestedItemList, !isempty(dir) ? *cString::sprintf("%s%c%s", *dir, FOLDERDELIMCHAR, Folder->Folder()->Text()) : Folder->Folder()->Text(), p + 1));
+                break;
+                }
+@@ -777,12 +794,12 @@
+     }
+ }
+ 
+-eOSState cMenuFolder::Select(void)
++eOSState cMenuFolder::Select(bool Open)
+ {
+   if (firstFolder) {
+      cMenuFolderItem *Folder = (cMenuFolderItem *)Get(Current());
+      if (Folder) {
+-        if (Folder->Folder()->SubItems())
++        if (Open && Folder->Folder()->SubItems())
+            return AddSubMenu(new cMenuFolder(Title(), Folder->Folder()->SubItems(), nestedItemList, !isempty(dir) ? *cString::sprintf("%s%c%s", *dir, FOLDERDELIMCHAR, Folder->Folder()->Text()) : Folder->Folder()->Text()));
+         else
+            return osEnd;
+@@ -857,8 +874,8 @@
+ 
+   if (state == osUnknown) {
+      switch (Key) {
+-       case kOk:
+-       case kRed:    return Select();
++       case kOk:     return Select(false);
++       case kRed:    return Select(true);
+        case kGreen:  return New();
+        case kYellow: return Delete();
+        case kBlue:   return Edit();
+@@ -867,6 +884,7 @@
+      }
+   else if (state == osEnd && HasSubMenu() && editing)
+      state = SetFolder();
++  SetHelpKeys();
+   return state;
+ }
+ 
+@@ -2121,7 +2139,7 @@
+ cMenuPathEdit::cMenuPathEdit(const char *Path)
+ :cOsdMenu(tr("Edit path"), 12)
+ {
+-  SetMenuCategory(mcRecording);
++  SetMenuCategory(mcRecordingEdit);
+   path = Path;
+   *folder = 0;
+   *name = 0;
+@@ -2236,7 +2254,7 @@
+ cMenuRecordingEdit::cMenuRecordingEdit(cRecording *Recording)
+ :cOsdMenu(tr("Edit recording"), 12)
+ {
+-  SetMenuCategory(mcRecording);
++  SetMenuCategory(mcRecordingEdit);
+   recording = Recording;
+   originalFileName = recording->FileName();
+   Recordings.StateChanged(recordingsState); // just to get the current state
+@@ -2330,8 +2348,10 @@
+   if (actionCancel)
+      RecordingsHandler.Del(recording->FileName());
+   else if (doCut) {
+-     if (!RecordingsHandler.Add(ruCut, recording->FileName()))
+-        Skins.Message(mtError, tr("Error while queueing recording for cutting!"));
++     if (access(cCutter::EditedFileName(recording->FileName()), F_OK) != 0 || Interface->Confirm(tr("Edited version already exists - overwrite?"))) {
++        if (!RecordingsHandler.Add(ruCut, recording->FileName()))
++           Skins.Message(mtError, tr("Error while queueing recording for cutting!"));
++        }
+      }
+   recordingIsInUse = recording->IsInUse();
+   RefreshRecording();
+@@ -2551,12 +2571,13 @@
+ cString cMenuRecordings::path;
+ cString cMenuRecordings::fileName;
+ 
+-cMenuRecordings::cMenuRecordings(const char *Base, int Level, bool OpenSubMenus)
++cMenuRecordings::cMenuRecordings(const char *Base, int Level, bool OpenSubMenus, const cRecordingFilter *Filter)
+ :cOsdMenu(Base ? Base : tr("Recordings"), 9, 6, 6)
+ {
+   SetMenuCategory(mcRecording);
+   base = Base ? strdup(Base) : NULL;
+   level = Setup.RecordingDirs ? Level : -1;
++  filter = Filter;
+   Recordings.StateChanged(recordingsState); // just to get the current state
+   helpKeys = -1;
+   Display(); // this keeps the higher level menus from showing up briefly when pressing 'Back' during replay
+@@ -2613,7 +2634,7 @@
+   GetRecordingsSortMode(DirectoryName());
+   Recordings.Sort();
+   for (cRecording *recording = Recordings.First(); recording; recording = Recordings.Next(recording)) {
+-      if (!base || (strstr(recording->Name(), base) == recording->Name() && recording->Name()[strlen(base)] == FOLDERDELIMCHAR)) {
++      if ((!filter || filter->Filter(recording)) && (!base || (strstr(recording->Name(), base) == recording->Name() && recording->Name()[strlen(base)] == FOLDERDELIMCHAR))) {
+          cMenuRecordingItem *Item = new cMenuRecordingItem(recording, level);
+          cMenuRecordingItem *LastDir = NULL;
+          if (Item->IsDirectory()) {
+@@ -2680,7 +2701,7 @@
+         buffer = cString::sprintf("%s%c%s", base, FOLDERDELIMCHAR, t);
+         t = buffer;
+         }
+-     AddSubMenu(new cMenuRecordings(t, level + 1, OpenSubMenus));
++     AddSubMenu(new cMenuRecordings(t, level + 1, OpenSubMenus, filter));
+      return true;
+      }
+   return false;
+@@ -5217,6 +5238,8 @@
+            Skins.Message(mtError, tr("No editing marks defined!"));
+         else if (!marks.GetNumSequences())
+            Skins.Message(mtError, tr("No editing sequences defined!"));
++        else if (access(cCutter::EditedFileName(fileName), F_OK) == 0 && !Interface->Confirm(tr("Edited version already exists - overwrite?")))
++           ;
+         else if (!RecordingsHandler.Add(ruCut, fileName))
+            Skins.Message(mtError, tr("Can't start editing process!"));
+         else
+diff -ruN vdr-2.1.2/menu.h vdr-2.1.3/menu.h
+--- vdr-2.1.2/menu.h	2013-10-16 11:14:58.000000000 +0200
++++ vdr-2.1.3/menu.h	2013-12-25 13:06:03.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 3.3 2013/10/16 09:14:58 kls Exp $
++ * $Id: menu.h 3.5 2013/12/25 12:06:03 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -38,11 +38,12 @@
+   cString dir;
+   cOsdItem *firstFolder;
+   bool editing;
++  int helpKeys;
+   void SetHelpKeys(void);
+   void Set(const char *CurrentFolder = NULL);
+   void DescendPath(const char *Path);
+   eOSState SetFolder(void);
+-  eOSState Select(void);
++  eOSState Select(bool Open);
+   eOSState New(void);
+   eOSState Delete(void);
+   eOSState Edit(void);
+@@ -190,6 +191,13 @@
+ cOsdObject *CamControl(void);
+ bool CamMenuActive(void);
+ 
++class cRecordingFilter {
++public:
++  virtual ~cRecordingFilter(void) {};
++  virtual bool Filter(const cRecording *Recording) const = 0;
++      ///< Returns true if the given Recording shall be displayed in the Recordings menu.
++  };
++
+ class cMenuRecordingItem;
+ 
+ class cMenuRecordings : public cOsdMenu {
+@@ -198,6 +206,7 @@
+   int level;
+   int recordingsState;
+   int helpKeys;
++  const cRecordingFilter *filter;
+   static cString path;
+   static cString fileName;
+   void SetHelpKeys(void);
+@@ -212,7 +221,7 @@
+ protected:
+   cString DirectoryName(void);
+ public:
+-  cMenuRecordings(const char *Base = NULL, int Level = 0, bool OpenSubMenus = false);
++  cMenuRecordings(const char *Base = NULL, int Level = 0, bool OpenSubMenus = false, const cRecordingFilter *Filter = NULL);
+   ~cMenuRecordings();
+   virtual eOSState ProcessKey(eKeys Key);
+   static void SetPath(const char *Path);
+diff -ruN vdr-2.1.2/menuitems.c vdr-2.1.3/menuitems.c
+--- vdr-2.1.2/menuitems.c	2013-05-24 12:26:01.000000000 +0200
++++ vdr-2.1.3/menuitems.c	2013-11-03 15:48:21.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.c 3.1 2013/05/24 10:26:01 kls Exp $
++ * $Id: menuitems.c 3.2 2013/11/03 14:48:21 kls Exp $
+  */
+ 
+ #include "menuitems.h"
+@@ -487,12 +487,12 @@
+   if (InEditMode()) {
+      // This is an ugly hack to make editing strings work with the 'skincurses' plugin.
+      const cFont *font = dynamic_cast<cSkinDisplayMenu *>(cSkinDisplay::Current())->GetTextAreaFont(false);
+-     if (!font || font->Width("W") != 1) // all characters have with == 1 in the font used by 'skincurses'
++     if (!font || font->Width("W") != 1) // all characters have width == 1 in the font used by 'skincurses'
+         font = cFont::GetFont(fontOsd);
+ 
+      int width = cSkinDisplay::Current()->EditableWidth();
+      width -= font->Width("[]");
+-     width -= font->Width("<>"); // reserving this anyway make the whole thing simpler
++     width -= font->Width("<>"); // reserving this anyway makes the whole thing simpler
+ 
+      if (pos < offset)
+         offset = pos;
+diff -ruN vdr-2.1.2/newplugin vdr-2.1.3/newplugin
+--- vdr-2.1.2/newplugin	2013-05-02 12:06:09.000000000 +0200
++++ vdr-2.1.3/newplugin	2014-01-01 14:29:54.000000000 +0100
+@@ -12,7 +12,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: newplugin 3.1 2013/05/02 10:06:09 kls Exp $
++# $Id: newplugin 3.2 2014/01/01 13:29:54 kls Exp $
+ 
+ $PLUGIN_NAME = $ARGV[0] || die "Usage: newplugin <name>\n";
+ 
+@@ -75,7 +75,7 @@
+ ### The directory environment:
+ 
+ # Use package data if installed...otherwise assume we're under the VDR source directory:
+-PKGCFG = \$(if \$(VDRDIR),\$(shell pkg-config --variable=\$(1) \$(VDRDIR)/vdr.pc),\$(shell pkg-config --variable=\$(1) vdr || pkg-config --variable=\$(1) ../../../vdr.pc))
++PKGCFG = \$(if \$(VDRDIR),\$(shell pkg-config --variable=\$(1) \$(VDRDIR)/vdr.pc),\$(shell PKG_CONFIG_PATH="\$\$PKG_CONFIG_PATH:../../.." pkg-config --variable=\$(1) vdr))
+ LIBDIR = \$(call PKGCFG,libdir)
+ LOCDIR = \$(call PKGCFG,locdir)
+ PLGCFG = \$(call PKGCFG,plgcfg)
+diff -ruN vdr-2.1.2/pat.c vdr-2.1.3/pat.c
+--- vdr-2.1.2/pat.c	2012-11-25 15:12:21.000000000 +0100
++++ vdr-2.1.3/pat.c	2014-01-04 12:17:24.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.c 3.0 2012/11/25 14:12:21 kls Exp $
++ * $Id: pat.c 3.2 2014/01/04 11:17:24 kls Exp $
+  */
+ 
+ #include "pat.h"
+@@ -21,6 +21,7 @@
+ class cCaDescriptor : public cListObject {
+ private:
+   int caSystem;
++  int caPid;
+   int esPid;
+   int length;
+   uchar *data;
+@@ -29,6 +30,7 @@
+   virtual ~cCaDescriptor();
+   bool operator== (const cCaDescriptor &arg) const;
+   int CaSystem(void) { return caSystem; }
++  int CaPid(void) { return caPid; }
+   int EsPid(void) { return esPid; }
+   int Length(void) const { return length; }
+   const uchar *Data(void) const { return data; }
+@@ -37,6 +39,7 @@
+ cCaDescriptor::cCaDescriptor(int CaSystem, int CaPid, int EsPid, int Length, const uchar *Data)
+ {
+   caSystem = CaSystem;
++  caPid = CaPid;
+   esPid = EsPid;
+   length = Length + 6;
+   data = MALLOC(uchar, length);
+@@ -79,6 +82,7 @@
+   bool Empty(void) { return caDescriptors.Count() == 0; }
+   void AddCaDescriptor(SI::CaDescriptor *d, int EsPid);
+   int GetCaDescriptors(const int *CaSystemIds, int BufSize, uchar *Data, int EsPid);
++  int GetCaPids(const int *CaSystemIds, int BufSize, int *Pids);
+   const int *CaIds(void) { return caIds; }
+   };
+ 
+@@ -163,7 +167,7 @@
+          if (EsPid < 0 || d->EsPid() == EsPid) {
+             const int *caids = CaSystemIds;
+             do {
+-               if (d->CaSystem() == *caids) {
++               if (*caids == 0xFFFF || d->CaSystem() == *caids) {
+                   if (length + d->Length() <= BufSize) {
+                      memcpy(Data + length, d->Data(), d->Length());
+                      length += d->Length();
+@@ -179,6 +183,30 @@
+   return -1;
+ }
+ 
++int cCaDescriptors::GetCaPids(const int *CaSystemIds, int BufSize, int *Pids)
++{
++  if (!CaSystemIds || !*CaSystemIds)
++     return 0;
++  if (BufSize > 0 && Pids) {
++     int numPids = 0;
++     for (cCaDescriptor *d = caDescriptors.First(); d; d = caDescriptors.Next(d)) {
++         const int *caids = CaSystemIds;
++         do {
++            if (*caids == 0xFFFF || d->CaSystem() == *caids) {
++               if (numPids + 1 < BufSize) {
++                  Pids[numPids++] = d->CaPid();
++                  Pids[numPids] = 0;
++                  }
++               else
++                  return -1;
++               }
++            } while (*++caids);
++         }
++     return numPids;
++     }
++  return -1;
++}
++
+ // --- cCaDescriptorHandler --------------------------------------------------
+ 
+ class cCaDescriptorHandler : public cList<cCaDescriptors> {
+@@ -190,6 +218,7 @@
+       // 1 if it is an all new descriptor with actual contents,
+       // and 2 if an existing descriptor was changed.
+   int GetCaDescriptors(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, uchar *Data, int EsPid);
++  int GetCaPids(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, int *Pids);
+   };
+ 
+ int cCaDescriptorHandler::AddCaDescriptors(cCaDescriptors *CaDescriptors)
+@@ -220,6 +249,16 @@
+   return 0;
+ }
+ 
++int cCaDescriptorHandler::GetCaPids(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, int *Pids)
++{
++  cMutexLock MutexLock(&mutex);
++  for (cCaDescriptors *ca = First(); ca; ca = Next(ca)) {
++      if (ca->Is(Source, Transponder, ServiceId))
++         return ca->GetCaPids(CaSystemIds, BufSize, Pids);
++      }
++  return 0;
++}
++
+ cCaDescriptorHandler CaDescriptorHandler;
+ 
+ int GetCaDescriptors(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, uchar *Data, int EsPid)
+@@ -227,6 +266,11 @@
+   return CaDescriptorHandler.GetCaDescriptors(Source, Transponder, ServiceId, CaSystemIds, BufSize, Data, EsPid);
+ }
+ 
++int GetCaPids(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, int *Pids)
++{
++  return CaDescriptorHandler.GetCaPids(Source, Transponder, ServiceId, CaSystemIds, BufSize, Pids);
++}
++
+ // --- cPatFilter ------------------------------------------------------------
+ 
+ cPatFilter::cPatFilter(void)
+diff -ruN vdr-2.1.2/pat.h vdr-2.1.3/pat.h
+--- vdr-2.1.2/pat.h	2013-02-16 16:20:24.000000000 +0100
++++ vdr-2.1.3/pat.h	2014-01-04 12:16:48.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.h 3.0 2013/02/16 15:20:24 kls Exp $
++ * $Id: pat.h 3.2 2014/01/04 11:16:48 kls Exp $
+  */
+ 
+ #ifndef __PAT_H
+@@ -36,10 +36,18 @@
+          ///< Gets all CA descriptors for a given channel.
+          ///< Copies all available CA descriptors for the given Source, Transponder and ServiceId
+          ///< into the provided buffer at Data (at most BufSize bytes). Only those CA descriptors
+-         ///< are copied that match one of the given CA system IDs.
++         ///< are copied that match one of the given CA system IDs (or all of them, if CaSystemIds
++         ///< is 0xFFFF).
+          ///< Returns the number of bytes copied into Data (0 if no CA descriptors are
+          ///< available), or -1 if BufSize was too small to hold all CA descriptors.
+-         ///< The return value tells whether these CA descriptors are to be used
+-         ///< for the individual streams.
++
++int GetCaPids(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, int *Pids);
++         ///< Gets all CA pids for a given channel.
++         ///< Copies all available CA pids from the CA descriptors for the given Source, Transponder and ServiceId
++         ///< into the provided buffer at Pids (at most BufSize - 1 entries, the list will be zero-terminated).
++         ///< Only the CA pids of those CA descriptors are copied that match one of the given CA system IDs
++         ///< (or all of them, if CaSystemIds is 0xFFFF).
++         ///< Returns the number of pids copied into Pids (0 if no CA descriptors are
++         ///< available), or -1 if BufSize was too small to hold all CA pids.
+ 
+ #endif //__PAT_H
+diff -ruN vdr-2.1.2/player.h vdr-2.1.3/player.h
+--- vdr-2.1.2/player.h	2012-04-28 15:04:17.000000000 +0200
++++ vdr-2.1.3/player.h	2013-12-25 14:25:02.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: player.h 3.0 2012/04/28 13:04:17 kls Exp $
++ * $Id: player.h 3.1 2013/12/25 13:25:02 kls Exp $
+  */
+ 
+ #ifndef __PLAYER_H
+@@ -27,7 +27,7 @@
+   bool DeviceFlush(int TimeoutMs = 0) { return device ? device->Flush(TimeoutMs) : true; }
+   bool DeviceHasIBPTrickSpeed(void) { return device ? device->HasIBPTrickSpeed() : false; }
+   bool DeviceIsPlayingVideo(void) { return device ? device->IsPlayingVideo() : false; }
+-  void DeviceTrickSpeed(int Speed) { if (device) device->TrickSpeed(Speed); }
++  void DeviceTrickSpeed(int Speed, bool Forward) { if (device) device->TrickSpeed(Speed, Forward); }
+   void DeviceClear(void) { if (device) device->Clear(); }
+   void DevicePlay(void) { if (device) device->Play(); }
+   void DeviceFreeze(void) { if (device) device->Freeze(); }
+diff -ruN vdr-2.1.2/po/ar.po vdr-2.1.3/po/ar.po
+--- vdr-2.1.2/po/ar.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/ar.po	2014-01-05 12:06:56.110810792 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2008-10-16 11:16-0400\n"
+ "Last-Translator: Osama Alrawab <alrawab@hotmail.com>\n"
+ "Language-Team: Arabic <ar@li.org>\n"
+@@ -607,8 +607,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "'%c'! اسم المجلد لا يجب ان يحتوى على"
+ 
+-msgid "Button$Select"
+-msgstr "الزر"
++msgid "Button$Open"
++msgstr "افتح"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "حذف المجلد وكل المجلدات الفرعية"
+@@ -776,6 +776,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -803,9 +806,6 @@
+ msgid "Recordings"
+ msgstr "التسجيلات"
+ 
+-msgid "Button$Open"
+-msgstr "افتح"
+-
+ msgid "Commands"
+ msgstr "الاوامر"
+ 
+diff -ruN vdr-2.1.2/po/ca_ES.po vdr-2.1.3/po/ca_ES.po
+--- vdr-2.1.2/po/ca_ES.po	2013-10-14 11:56:30.000000000 +0200
++++ vdr-2.1.3/po/ca_ES.po	2014-01-05 12:06:55.560710814 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Catalan <vdr@linuxtv.org>\n"
+@@ -606,8 +606,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "El nom de la carpeta no pot contenir '%c'"
+ 
+-msgid "Button$Select"
+-msgstr "Seleccionar"
++msgid "Button$Open"
++msgstr "Obrir"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Esborrar carpetas i totes les sub carpetes?"
+@@ -775,6 +775,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -802,9 +805,6 @@
+ msgid "Recordings"
+ msgstr "Veure programes gravats"
+ 
+-msgid "Button$Open"
+-msgstr "Obrir"
+-
+ msgid "Commands"
+ msgstr "Ordres"
+ 
+diff -ruN vdr-2.1.2/po/cs_CZ.po vdr-2.1.3/po/cs_CZ.po
+--- vdr-2.1.2/po/cs_CZ.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/cs_CZ.po	2014-01-05 12:06:56.002791160 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2010-05-06 11:00+0200\n"
+ "Last-Translator: Aleš Juřík <ajurik@quick.cz>\n"
+ "Language-Team: Czech <vdr@linuxtv.org>\n"
+@@ -606,8 +606,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Jméno složky nesmí obsahovat '%c'!"
+ 
+-msgid "Button$Select"
+-msgstr "Vybrat"
++msgid "Button$Open"
++msgstr "Otevřít"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Smazat složku včetně podsložek?"
+@@ -775,6 +775,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -802,9 +805,6 @@
+ msgid "Recordings"
+ msgstr "Nahrávky"
+ 
+-msgid "Button$Open"
+-msgstr "Otevřít"
+-
+ msgid "Commands"
+ msgstr "Příkazy"
+ 
+diff -ruN vdr-2.1.2/po/da_DK.po vdr-2.1.3/po/da_DK.po
+--- vdr-2.1.2/po/da_DK.po	2013-10-14 11:56:30.000000000 +0200
++++ vdr-2.1.3/po/da_DK.po	2014-01-05 12:06:55.669730628 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish <vdr@linuxtv.org>\n"
+@@ -603,8 +603,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr ""
+ 
+-msgid "Button$Select"
+-msgstr ""
++msgid "Button$Open"
++msgstr "�bn"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr ""
+@@ -772,6 +772,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -799,9 +802,6 @@
+ msgid "Recordings"
+ msgstr "Optagelser"
+ 
+-msgid "Button$Open"
+-msgstr "�bn"
+-
+ msgid "Commands"
+ msgstr "Kommandoer"
+ 
+diff -ruN vdr-2.1.2/po/de_DE.po vdr-2.1.3/po/de_DE.po
+--- vdr-2.1.2/po/de_DE.po	2013-10-14 11:59:04.000000000 +0200
++++ vdr-2.1.3/po/de_DE.po	2014-01-05 12:06:56.305846239 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2010-01-16 16:46+0100\n"
+ "Last-Translator: Klaus Schmidinger <vdr@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
+@@ -603,8 +603,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Verzeichnisname darf kein '%c' enthalten!"
+ 
+-msgid "Button$Select"
+-msgstr "Ausw�hlen"
++msgid "Button$Open"
++msgstr "�ffnen"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Verzeichnis und alle Unterverzeichnisse l�schen?"
+@@ -772,6 +772,9 @@
+ msgid "Recording vanished!"
+ msgstr "Aufnahme verschwunden!"
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr "Geschnittene Version existiert bereits - �berschreiben?"
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr "Fehler beim Hinzuf�gen der Aufnahme zur Schnittwarteschlange"
+ 
+@@ -799,9 +802,6 @@
+ msgid "Recordings"
+ msgstr "Aufzeichnungen"
+ 
+-msgid "Button$Open"
+-msgstr "�ffnen"
+-
+ msgid "Commands"
+ msgstr "Befehle"
+ 
+diff -ruN vdr-2.1.2/po/el_GR.po vdr-2.1.3/po/el_GR.po
+--- vdr-2.1.2/po/el_GR.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/el_GR.po	2014-01-05 12:06:55.860765348 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek <vdr@linuxtv.org>\n"
+@@ -603,8 +603,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr ""
+ 
+-msgid "Button$Select"
+-msgstr ""
++msgid "Button$Open"
++msgstr "�������"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr ""
+@@ -772,6 +772,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -799,9 +802,6 @@
+ msgid "Recordings"
+ msgstr "��������"
+ 
+-msgid "Button$Open"
+-msgstr "�������"
+-
+ msgid "Commands"
+ msgstr "�������"
+ 
+diff -ruN vdr-2.1.2/po/es_ES.po vdr-2.1.3/po/es_ES.po
+--- vdr-2.1.2/po/es_ES.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/es_ES.po	2014-01-05 12:06:55.740743534 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Spanish <vdr@linuxtv.org>\n"
+@@ -604,8 +604,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "�El nombre de la carpeta no puede contener '%c'!"
+ 
+-msgid "Button$Select"
+-msgstr "Seleccionar"
++msgid "Button$Open"
++msgstr "Abrir"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "�Borrar carpeta y todas sub carpetas?"
+@@ -773,6 +773,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -800,9 +803,6 @@
+ msgid "Recordings"
+ msgstr "Grabaciones"
+ 
+-msgid "Button$Open"
+-msgstr "Abrir"
+-
+ msgid "Commands"
+ msgstr "�rdenes"
+ 
+diff -ruN vdr-2.1.2/po/et_EE.po vdr-2.1.3/po/et_EE.po
+--- vdr-2.1.2/po/et_EE.po	2013-10-14 11:56:30.000000000 +0200
++++ vdr-2.1.3/po/et_EE.po	2014-01-05 12:06:55.528704998 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
+ "Language-Team: Estonian <vdr@linuxtv.org>\n"
+@@ -603,8 +603,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Kausta nimi ei saa sisaldada '%c' sümbolit!"
+ 
+-msgid "Button$Select"
+-msgstr "Vali"
++msgid "Button$Open"
++msgstr "Avada"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Kustutada kaust ja kõik alamkaustad?"
+@@ -772,6 +772,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -799,9 +802,6 @@
+ msgid "Recordings"
+ msgstr "Salvestused"
+ 
+-msgid "Button$Open"
+-msgstr "Avada"
+-
+ msgid "Commands"
+ msgstr "Käsud"
+ 
+diff -ruN vdr-2.1.2/po/fi_FI.po vdr-2.1.3/po/fi_FI.po
+--- vdr-2.1.2/po/fi_FI.po	2013-10-14 11:56:30.000000000 +0200
++++ vdr-2.1.3/po/fi_FI.po	2014-01-05 12:06:55.706737354 +0100
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Matti Lehtimäki <matti.lehtimaki@gmail.com>\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
+@@ -607,8 +607,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Kansion nimessä ei saa olla '%c'-merkkiä!"
+ 
+-msgid "Button$Select"
+-msgstr "Valitse"
++msgid "Button$Open"
++msgstr "Avaa"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Poistetaanko kansio alikansioineen?"
+@@ -728,68 +728,71 @@
+ msgstr "CA-moduuli ei vastaa!"
+ 
+ msgid "Edit path"
+-msgstr ""
++msgstr "Muokkaa polkua"
+ 
+ msgid "Folder"
+-msgstr ""
++msgstr "Kansio"
+ 
+ msgid "This folder is currently in use - no changes are possible!"
+-msgstr ""
++msgstr "Kansio on käytössä - muokkaukset eivät mahdollisia!"
+ 
+ #, c-format
+ msgid "Move entire folder containing %d recordings?"
+-msgstr ""
++msgstr "Siirrä koko kansio sisältäen %d tallennetta?"
+ 
+ msgid "Error while moving folder!"
+-msgstr ""
++msgstr "Kansion siirto epäonnistui!"
+ 
+ msgid "Edit recording"
+-msgstr ""
++msgstr "Muokkaa tallennetta"
+ 
+ msgid "This recording is currently in use - no changes are possible!"
+-msgstr ""
++msgstr "Tallenne on käytössä - muokkaus ei mahdollista!"
+ 
+ msgid "Button$Cancel cutting"
+-msgstr ""
++msgstr "Peru leikkaus"
+ 
+ msgid "Button$Stop cutting"
+-msgstr ""
++msgstr "Lopeta leikkaus"
+ 
+ msgid "Button$Cancel moving"
+-msgstr ""
++msgstr "Peru siirto"
+ 
+ msgid "Button$Stop moving"
+-msgstr ""
++msgstr "Lopeta siirto"
+ 
+ msgid "Button$Cancel copying"
+-msgstr ""
++msgstr "Peru kopiointi"
+ 
+ msgid "Button$Stop copying"
+-msgstr ""
++msgstr "Lopeta kopiointi"
+ 
+ msgid "Button$Cut"
+-msgstr ""
++msgstr "Leikkaa"
+ 
+ msgid "Button$Delete marks"
+-msgstr ""
++msgstr "Poista merkinnät"
+ 
+ msgid "Recording vanished!"
+-msgstr ""
++msgstr "Tallenne katosi!"
++
++msgid "Edited version already exists - overwrite?"
++msgstr "Muokattava versio on jo olemassa - ylikirjoitetaanko?"
+ 
+ msgid "Error while queueing recording for cutting!"
+-msgstr ""
++msgstr "Tallenteen lisääminen leikkausjonoon epäonnistui!"
+ 
+ msgid "Delete editing marks for this recording?"
+-msgstr ""
++msgstr "Poistetaanko muokkausmerkinnät tallenteelta?"
+ 
+ msgid "Error while deleting editing marks!"
+-msgstr ""
++msgstr "Muokkausmerkintöjen poistaminen epäonnistui!"
+ 
+ msgid "Error while changing priority/lifetime!"
+-msgstr ""
++msgstr "Prioriteetin/elinajan vaihtaminen epäonnistui!"
+ 
+ msgid "Error while changing folder/name!"
+-msgstr ""
++msgstr "Kansion/nimen vaihtaminen epäonnistui!"
+ 
+ msgid "Recording info"
+ msgstr "Tallenteen tiedot"
+@@ -803,9 +806,6 @@
+ msgid "Recordings"
+ msgstr "Tallenteet"
+ 
+-msgid "Button$Open"
+-msgstr "Avaa"
+-
+ msgid "Commands"
+ msgstr "Komennot"
+ 
+diff -ruN vdr-2.1.2/po/fr_FR.po vdr-2.1.3/po/fr_FR.po
+--- vdr-2.1.2/po/fr_FR.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/fr_FR.po	2014-01-05 12:06:56.077804794 +0100
+@@ -17,7 +17,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2013-02-24 12:56+0100\n"
+ "Last-Translator: Dominique Plu <dplu@free.fr>\n"
+ "Language-Team: French <vdr@linuxtv.org>\n"
+@@ -613,8 +613,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Le nom de dossier ne doit pas contenir '%c' !"
+ 
+-msgid "Button$Select"
+-msgstr "Sélectionner"
++msgid "Button$Open"
++msgstr "Ouvrir"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Supprimer le dossier et tous les sous dossiers ?"
+@@ -782,6 +782,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -809,9 +812,6 @@
+ msgid "Recordings"
+ msgstr "Enregistrements"
+ 
+-msgid "Button$Open"
+-msgstr "Ouvrir"
+-
+ msgid "Commands"
+ msgstr "Commandes"
+ 
+diff -ruN vdr-2.1.2/po/hr_HR.po vdr-2.1.3/po/hr_HR.po
+--- vdr-2.1.2/po/hr_HR.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/hr_HR.po	2014-01-05 12:06:56.210828971 +0100
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian <vdr@linuxtv.org>\n"
+@@ -605,8 +605,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr ""
+ 
+-msgid "Button$Select"
+-msgstr ""
++msgid "Button$Open"
++msgstr "Otvori"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr ""
+@@ -774,6 +774,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -801,9 +804,6 @@
+ msgid "Recordings"
+ msgstr "Snimke"
+ 
+-msgid "Button$Open"
+-msgstr "Otvori"
+-
+ msgid "Commands"
+ msgstr "Naredbe"
+ 
+diff -ruN vdr-2.1.2/po/hu_HU.po vdr-2.1.3/po/hu_HU.po
+--- vdr-2.1.2/po/hu_HU.po	2013-10-14 11:56:30.000000000 +0200
++++ vdr-2.1.3/po/hu_HU.po	2014-01-05 12:06:55.638724993 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2013-03-01 19:22+0200\n"
+ "Last-Translator: István Füley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian <vdr@linuxtv.org>\n"
+@@ -607,8 +607,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "A könyvtár neve nem tartalmazhatja: '%c'!"
+ 
+-msgid "Button$Select"
+-msgstr "Kiválasztás"
++msgid "Button$Open"
++msgstr "Kinyitni"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Valóban töröljem a könyvtárat és az alkönyvtárait?"
+@@ -776,6 +776,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -803,9 +806,6 @@
+ msgid "Recordings"
+ msgstr "Felvételek"
+ 
+-msgid "Button$Open"
+-msgstr "Kinyitni"
+-
+ msgid "Commands"
+ msgstr "Parancsok"
+ 
+diff -ruN vdr-2.1.2/po/it_IT.po vdr-2.1.3/po/it_IT.po
+--- vdr-2.1.2/po/it_IT.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/it_IT.po	2014-01-05 12:06:55.782751170 +0100
+@@ -12,7 +12,7 @@
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2013-10-14 11:56+0200\n"
+-"PO-Revision-Date: 2013-09-18 23:57+0100\n"
++"PO-Revision-Date: 2013-11-10 23:02+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
+ "Language: it\n"
+@@ -610,8 +610,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Il nome cartella non deve contenere '%c'!"
+ 
+-msgid "Button$Select"
+-msgstr "Seleziona"
++msgid "Button$Open"
++msgstr "Apri"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Eliminare la cartella e sue sottocartelle?"
+@@ -731,68 +731,71 @@
+ msgstr "La CAM non risponde!"
+ 
+ msgid "Edit path"
+-msgstr ""
++msgstr "Modifica percorso"
+ 
+ msgid "Folder"
+-msgstr ""
++msgstr "Cartella"
+ 
+ msgid "This folder is currently in use - no changes are possible!"
+-msgstr ""
++msgstr "La cartella è attualmente in uso - nessuna modifica possibile!"
+ 
+ #, c-format
+ msgid "Move entire folder containing %d recordings?"
+-msgstr ""
++msgstr "Spostare tutta la cartella contenente %d registrazioni?"
+ 
+ msgid "Error while moving folder!"
+-msgstr ""
++msgstr "Errore durante lo spostamento della cartella!"
+ 
+ msgid "Edit recording"
+-msgstr ""
++msgstr "Modifica registrazione"
+ 
+ msgid "This recording is currently in use - no changes are possible!"
+-msgstr ""
++msgstr "La registrazione è attualmente in uso - nessuna modifica possibile!"
+ 
+ msgid "Button$Cancel cutting"
+-msgstr ""
++msgstr "Annulla taglio"
+ 
+ msgid "Button$Stop cutting"
+-msgstr ""
++msgstr "Ferma taglio"
+ 
+ msgid "Button$Cancel moving"
+-msgstr ""
++msgstr "Annulla spostamento"
+ 
+ msgid "Button$Stop moving"
+-msgstr ""
++msgstr "Ferma spostamento"
+ 
+ msgid "Button$Cancel copying"
+-msgstr ""
++msgstr "Annulla copia"
+ 
+ msgid "Button$Stop copying"
+-msgstr ""
++msgstr "Ferma copia"
+ 
+ msgid "Button$Cut"
+-msgstr ""
++msgstr "Taglia"
+ 
+ msgid "Button$Delete marks"
+-msgstr ""
++msgstr "Elimina marcatori"
+ 
+ msgid "Recording vanished!"
++msgstr "Registrazione sparita!"
++
++msgid "Edited version already exists - overwrite?"
+ msgstr ""
+ 
+ msgid "Error while queueing recording for cutting!"
+-msgstr ""
++msgstr "Errore durante l'accodamento della registrazione per il taglio!"
+ 
+ msgid "Delete editing marks for this recording?"
+-msgstr ""
++msgstr "Eliminare i marcatori di modifica della registrazione?"
+ 
+ msgid "Error while deleting editing marks!"
+-msgstr ""
++msgstr "Errore durante la cancellazione dei marcatori di modifica!"
+ 
+ msgid "Error while changing priority/lifetime!"
+-msgstr ""
++msgstr "Errore durante la modifica priorità/durata!"
+ 
+ msgid "Error while changing folder/name!"
+-msgstr ""
++msgstr "Errore durante la modifica cartella/nome!"
+ 
+ msgid "Recording info"
+ msgstr "Info registrazione"
+@@ -806,9 +809,6 @@
+ msgid "Recordings"
+ msgstr "Registrazioni"
+ 
+-msgid "Button$Open"
+-msgstr "Apri"
+-
+ msgid "Commands"
+ msgstr "Comandi"
+ 
+diff -ruN vdr-2.1.2/po/lt_LT.po vdr-2.1.3/po/lt_LT.po
+--- vdr-2.1.2/po/lt_LT.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/lt_LT.po	2014-01-05 12:06:55.901772801 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2010-10-30 11:55+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian <vdr@linuxtv.org>\n"
+@@ -603,8 +603,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Katalogo pavadinimas turi būti sudarytas iš '%c'!"
+ 
+-msgid "Button$Select"
+-msgstr "Pasirinkti"
++msgid "Button$Open"
++msgstr "Atidaryti"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Ištrinti katalogą ir jo visus pakatalogius?"
+@@ -772,6 +772,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -799,9 +802,6 @@
+ msgid "Recordings"
+ msgstr "Įrašai"
+ 
+-msgid "Button$Open"
+-msgstr "Atidaryti"
+-
+ msgid "Commands"
+ msgstr "Komandos"
+ 
+diff -ruN vdr-2.1.2/po/mk_MK.po vdr-2.1.3/po/mk_MK.po
+--- vdr-2.1.2/po/mk_MK.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/mk_MK.po	2014-01-05 12:06:56.041798250 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2012-11-19 15:18+0100\n"
+ "Last-Translator: Dimitar Petrovski <dimeptr@gmail.com>\n"
+ "Language-Team: Macedonian <en@li.org>\n"
+@@ -604,8 +604,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Името на директориумот не смее да содржи '%c'"
+ 
+-msgid "Button$Select"
+-msgstr "Избери"
++msgid "Button$Open"
++msgstr "Отвори"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Избриши директориум со сите поддиректориуми?"
+@@ -773,6 +773,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -800,9 +803,6 @@
+ msgid "Recordings"
+ msgstr "Снимки"
+ 
+-msgid "Button$Open"
+-msgstr "Отвори"
+-
+ msgid "Commands"
+ msgstr "Наредби"
+ 
+diff -ruN vdr-2.1.2/po/nl_NL.po vdr-2.1.3/po/nl_NL.po
+--- vdr-2.1.2/po/nl_NL.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/nl_NL.po	2014-01-05 12:06:55.829759713 +0100
+@@ -12,7 +12,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2008-02-26 17:20+0100\n"
+ "Last-Translator: Cedric Dewijs <cedric.dewijs@telfort.nl>\n"
+ "Language-Team: Dutch <vdr@linuxtv.org>\n"
+@@ -608,8 +608,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Map mag geen karakter '%c' bevatten!"
+ 
+-msgid "Button$Select"
+-msgstr "Kies"
++msgid "Button$Open"
++msgstr "Openen"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Map en alle submappen verwijderen?"
+@@ -777,6 +777,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -804,9 +807,6 @@
+ msgid "Recordings"
+ msgstr "Opnames"
+ 
+-msgid "Button$Open"
+-msgstr "Openen"
+-
+ msgid "Commands"
+ msgstr "Commando's"
+ 
+diff -ruN vdr-2.1.2/po/nn_NO.po vdr-2.1.3/po/nn_NO.po
+--- vdr-2.1.2/po/nn_NO.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/nn_NO.po	2014-01-05 12:06:56.183824063 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian Nynorsk <vdr@linuxtv.org>\n"
+@@ -604,8 +604,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr ""
+ 
+-msgid "Button$Select"
+-msgstr ""
++msgid "Button$Open"
++msgstr "�pne"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr ""
+@@ -773,6 +773,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -800,9 +803,6 @@
+ msgid "Recordings"
+ msgstr "Opptak"
+ 
+-msgid "Button$Open"
+-msgstr "�pne"
+-
+ msgid "Commands"
+ msgstr "Kommandoer"
+ 
+diff -ruN vdr-2.1.2/po/pl_PL.po vdr-2.1.3/po/pl_PL.po
+--- vdr-2.1.2/po/pl_PL.po	2013-10-14 11:56:30.000000000 +0200
++++ vdr-2.1.3/po/pl_PL.po	2014-01-05 12:06:55.430687183 +0100
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2008-03-09 12:59+0100\n"
+ "Last-Translator: Marek Nazarko <mnazarko@gmail.com>\n"
+ "Language-Team: Polish <vdr@linuxtv.org>\n"
+@@ -605,8 +605,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Folder nie mo�e zawiera� '%c'!"
+ 
+-msgid "Button$Select"
+-msgstr "Wybierz"
++msgid "Button$Open"
++msgstr "Otw�rz"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Czy skasowa� katalog i wszystkie podkatalogi?"
+@@ -774,6 +774,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -801,9 +804,6 @@
+ msgid "Recordings"
+ msgstr "Nagrania"
+ 
+-msgid "Button$Open"
+-msgstr "Otw�rz"
+-
+ msgid "Commands"
+ msgstr "Polecenia"
+ 
+diff -ruN vdr-2.1.2/po/pt_PT.po vdr-2.1.3/po/pt_PT.po
+--- vdr-2.1.2/po/pt_PT.po	2013-10-14 11:56:30.000000000 +0200
++++ vdr-2.1.3/po/pt_PT.po	2014-01-05 12:06:55.394680639 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2010-03-28 22:49+0100\n"
+ "Last-Translator: Cris Silva <hudokkow@gmail.com>\n"
+ "Language-Team: Portuguese <vdr@linuxtv.org>\n"
+@@ -604,8 +604,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "O nome da pasta n�o pode conter '%c'!"
+ 
+-msgid "Button$Select"
+-msgstr "Seleccionar"
++msgid "Button$Open"
++msgstr "Abrir"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Apagar pasta e todas as subpastas?"
+@@ -773,6 +773,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -800,9 +803,6 @@
+ msgid "Recordings"
+ msgstr "Grava��es"
+ 
+-msgid "Button$Open"
+-msgstr "Abrir"
+-
+ msgid "Commands"
+ msgstr "Comandos"
+ 
+diff -ruN vdr-2.1.2/po/ro_RO.po vdr-2.1.3/po/ro_RO.po
+--- vdr-2.1.2/po/ro_RO.po	2013-10-14 11:56:30.000000000 +0200
++++ vdr-2.1.3/po/ro_RO.po	2014-01-05 12:06:55.499699726 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2013-02-09 23:01+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sorceforge.net>\n"
+ "Language-Team: Romanian <vdr@linuxtv.org>\n"
+@@ -605,8 +605,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Numele directorului nu poate să conţină '%c'!"
+ 
+-msgid "Button$Select"
+-msgstr "Selectează"
++msgid "Button$Open"
++msgstr "Deschide"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Şterg directorul şi toate sub-directoarele?"
+@@ -774,6 +774,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -801,9 +804,6 @@
+ msgid "Recordings"
+ msgstr "Înregistrări"
+ 
+-msgid "Button$Open"
+-msgstr "Deschide"
+-
+ msgid "Commands"
+ msgstr "Comenzi"
+ 
+diff -ruN vdr-2.1.2/po/ru_RU.po vdr-2.1.3/po/ru_RU.po
+--- vdr-2.1.2/po/ru_RU.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/ru_RU.po	2014-01-05 12:06:56.240834424 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2013-03-10 17:13+0100\n"
+ "Last-Translator: Oleg Roitburd <oroitburd@gmail.com>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
+@@ -604,8 +604,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "��� ���������� �� ������ ��������� '%c'!"
+ 
+-msgid "Button$Select"
+-msgstr "�������"
++msgid "Button$Open"
++msgstr "�������"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "������� ���������� � ��� �������������?"
+@@ -773,6 +773,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -800,9 +803,6 @@
+ msgid "Recordings"
+ msgstr "������"
+ 
+-msgid "Button$Open"
+-msgstr "�������"
+-
+ msgid "Commands"
+ msgstr "�������"
+ 
+diff -ruN vdr-2.1.2/po/sk_SK.po vdr-2.1.3/po/sk_SK.po
+--- vdr-2.1.2/po/sk_SK.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/sk_SK.po	2014-01-05 12:06:56.150818063 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2013-03-04 21:24+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak <vdr@linuxtv.org>\n"
+@@ -603,8 +603,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "N�zov zlo�ky nesmie obsahova� '%c'!"
+ 
+-msgid "Button$Select"
+-msgstr "Vybra�"
++msgid "Button$Open"
++msgstr "Otvori�"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Vymaza� zlo�ku a v�etky pod zlo�ky?"
+@@ -772,6 +772,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -799,9 +802,6 @@
+ msgid "Recordings"
+ msgstr "Nahr�vky"
+ 
+-msgid "Button$Open"
+-msgstr "Otvori�"
+-
+ msgid "Commands"
+ msgstr "Pr�kazy"
+ 
+diff -ruN vdr-2.1.2/po/sl_SI.po vdr-2.1.3/po/sl_SI.po
+--- vdr-2.1.2/po/sl_SI.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/sl_SI.po	2014-01-05 12:06:56.269839695 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2013-03-04 12:46+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian <vdr@linuxtv.org>\n"
+@@ -604,8 +604,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Direkotrij ne sme vsebobati '%c'!"
+ 
+-msgid "Button$Select"
+-msgstr "Izberi"
++msgid "Button$Open"
++msgstr "Odpri"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Izbri�i direktorij in vse pod direktorije"
+@@ -773,6 +773,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -800,9 +803,6 @@
+ msgid "Recordings"
+ msgstr "Posnetki"
+ 
+-msgid "Button$Open"
+-msgstr "Odpri"
+-
+ msgid "Commands"
+ msgstr "Ukazi"
+ 
+diff -ruN vdr-2.1.2/po/sr_RS.po vdr-2.1.3/po/sr_RS.po
+--- vdr-2.1.2/po/sr_RS.po	2013-10-14 11:56:30.000000000 +0200
++++ vdr-2.1.3/po/sr_RS.po	2014-01-05 12:06:55.461692818 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2013-03-16 15:05+0100\n"
+ "Last-Translator: Zoran Turalija <zoran.turalija@gmail.com>\n"
+ "Language-Team: Serbian <vdr@linuxtv.org>\n"
+@@ -604,8 +604,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Naziv direktorijuma ne sme da sadr�i '%c'!"
+ 
+-msgid "Button$Select"
+-msgstr "Izaberi"
++msgid "Button$Open"
++msgstr "Otvori"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Obri�i direktorijum i sve poddirektorijume?"
+@@ -773,6 +773,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -800,9 +803,6 @@
+ msgid "Recordings"
+ msgstr "Snimci"
+ 
+-msgid "Button$Open"
+-msgstr "Otvori"
+-
+ msgid "Commands"
+ msgstr "Komande"
+ 
+diff -ruN vdr-2.1.2/po/sv_SE.po vdr-2.1.3/po/sv_SE.po
+--- vdr-2.1.2/po/sv_SE.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/sv_SE.po	2014-01-05 12:06:55.960783526 +0100
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2013-02-18 17:04+0100\n"
+ "Last-Translator: Richard Lithvall <r-vdr@boomer.se>\n"
+ "Language-Team: Swedish <vdr@linuxtv.org>\n"
+@@ -607,8 +607,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Mappnamnet f�r inte inneh�lla '%c'!"
+ 
+-msgid "Button$Select"
+-msgstr "V�lj"
++msgid "Button$Open"
++msgstr "�ppna"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Radera mapp och alla undermappar?"
+@@ -776,6 +776,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -803,9 +806,6 @@
+ msgid "Recordings"
+ msgstr "Inspelningar"
+ 
+-msgid "Button$Open"
+-msgstr "�ppna"
+-
+ msgid "Commands"
+ msgstr "Kommandon"
+ 
+diff -ruN vdr-2.1.2/po/tr_TR.po vdr-2.1.3/po/tr_TR.po
+--- vdr-2.1.2/po/tr_TR.po	2013-10-14 11:56:30.000000000 +0200
++++ vdr-2.1.3/po/tr_TR.po	2014-01-05 12:06:56.342852965 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay Yolge�en <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish <vdr@linuxtv.org>\n"
+@@ -603,8 +603,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr ""
+ 
+-msgid "Button$Select"
+-msgstr ""
++msgid "Button$Open"
++msgstr "A�"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr ""
+@@ -772,6 +772,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -799,9 +802,6 @@
+ msgid "Recordings"
+ msgstr "Kay�tlar"
+ 
+-msgid "Button$Open"
+-msgstr "A�"
+-
+ msgid "Commands"
+ msgstr "Komutlar"
+ 
+diff -ruN vdr-2.1.2/po/uk_UA.po vdr-2.1.3/po/uk_UA.po
+--- vdr-2.1.2/po/uk_UA.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/uk_UA.po	2014-01-05 12:06:55.932778436 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2013-02-09 16:00+0100\n"
+ "Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian <vdr@linuxtv.org>\n"
+@@ -604,8 +604,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Назва теки не повинна містити '%c'!"
+ 
+-msgid "Button$Select"
+-msgstr "Вибрати"
++msgid "Button$Open"
++msgstr "Відкрити"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Видалити теку і всі підтеки?"
+@@ -773,6 +773,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -800,9 +803,6 @@
+ msgid "Recordings"
+ msgstr "Записи"
+ 
+-msgid "Button$Open"
+-msgstr "Відкрити"
+-
+ msgid "Commands"
+ msgstr "Команди"
+ 
+@@ -1333,10 +1333,10 @@
+ msgstr "Процес відеомонтажу вже запущений!"
+ 
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+-msgstr " abcdefghijklmnopqrstuvwxyzабвгдеєёжзиіїйклмнопрстуфхцчшщъыьюя0123456789-.#~,/_@"
++msgstr " abcdefghijklmnopqrstuvwxyzабвгдеєёжзиіїйклмнопрстуфхцчшщъыьюя0123456789-.#~,/@"
+ 
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+-msgstr " 0\t-.#~,/_@1\tabcабвг2\tdefдеєёжз3\tghiиіїйкл4\tjklмно5\tmnoпрс6\tpqrsтуфх7\ttuvцчшщъ8\twxyzыьэюя9"
++msgstr " 0\t-.#~,/@1\tabcабвг2\tdefдеєёжз3\tghiиіїйкл4\tjklмно5\tmnoпрс6\tpqrsтуфх7\ttuvцчшщъ8\twxyzыьэюя9"
+ 
+ msgid "Button$ABC/abc"
+ msgstr "АБВ/абв"
+diff -ruN vdr-2.1.2/po/zh_CN.po vdr-2.1.3/po/zh_CN.po
+--- vdr-2.1.2/po/zh_CN.po	2013-10-14 11:56:31.000000000 +0200
++++ vdr-2.1.3/po/zh_CN.po	2014-01-05 12:06:55.599717904 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-10-14 11:56+0200\n"
++"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+ "PO-Revision-Date: 2013-03-04 14:52+0800\n"
+ "Last-Translator: NFVDR <nfvdr@live.com>\n"
+ "Language-Team: Chinese (simplified) <nfvdr@live.com>\n"
+@@ -605,8 +605,8 @@
+ msgid "Folder name must not contain '%c'!"
+ msgstr "文件夹名称不能包含 '%c'!"
+ 
+-msgid "Button$Select"
+-msgstr "选择"
++msgid "Button$Open"
++msgstr "打开"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "删除文件夹和所有子文件夹吗？"
+@@ -774,6 +774,9 @@
+ msgid "Recording vanished!"
+ msgstr ""
+ 
++msgid "Edited version already exists - overwrite?"
++msgstr ""
++
+ msgid "Error while queueing recording for cutting!"
+ msgstr ""
+ 
+@@ -801,9 +804,6 @@
+ msgid "Recordings"
+ msgstr "录像回放列表"
+ 
+-msgid "Button$Open"
+-msgstr "打开"
+-
+ msgid "Commands"
+ msgstr "常用操作命令"
+ 
+diff -ruN vdr-2.1.2/positioner.c vdr-2.1.3/positioner.c
+--- vdr-2.1.2/positioner.c	2013-10-10 16:14:10.000000000 +0200
++++ vdr-2.1.3/positioner.c	2013-10-30 10:56:34.000000000 +0100
+@@ -7,7 +7,7 @@
+  * For an explanation (in German) of the theory behind the calculations see
+  * http://www.vdr-portal.de/board17-developer/board97-vdr-core/p1154305-grundlagen-und-winkelberechnungen-f%C3%BCr-h-h-diseqc-motor-antennenanlagen
+  *
+- * $Id: positioner.c 3.2 2013/10/10 14:14:10 kls Exp $
++ * $Id: positioner.c 3.4 2013/10/30 09:56:34 kls Exp $
+  */
+ 
+ #include "positioner.h"
+@@ -15,7 +15,7 @@
+ #include "config.h"
+ 
+ #define SAT_EARTH_RATIO    0.1513 // the Earth's radius, divided by the distance from the Earth's center to the satellite
+-#define SAT_VISIBILITY_LAT 810    // the absolute latitude beyond which no satellite can be seen (degrees * 10)
++#define SAT_VISIBILITY_LAT 812    // the absolute latitude beyond which no satellite can be seen (degrees * 10)
+ 
+ #define RAD(x) ((x) * M_PI / 1800)
+ #define DEG(x) ((x) * 1800 / M_PI)
+@@ -68,10 +68,10 @@
+ int cPositioner::HorizonLongitude(ePositionerDirection Direction)
+ {
+   double Delta;
+-  if (abs(Setup.SiteLat) < SAT_VISIBILITY_LAT)
++  if (abs(Setup.SiteLat) <= SAT_VISIBILITY_LAT)
+      Delta = acos(SAT_EARTH_RATIO / cos(RAD(Setup.SiteLat)));
+   else
+-     Delta = RAD(145);
++     Delta = 0;
+   if ((Setup.SiteLat >= 0) != (Direction == pdLeft))
+      Delta = -Delta;
+   return NormalizeAngle(round(DEG(RAD(Setup.SiteLon) + Delta)));
+diff -ruN vdr-2.1.2/positioner.h vdr-2.1.3/positioner.h
+--- vdr-2.1.2/positioner.h	2013-06-10 16:27:14.000000000 +0200
++++ vdr-2.1.3/positioner.h	2013-12-28 12:15:56.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: positioner.h 3.1 2013/06/10 14:27:14 kls Exp $
++ * $Id: positioner.h 3.3 2013/12/28 11:15:56 kls Exp $
+  */
+ 
+ #ifndef __POSITIONER_H
+@@ -94,7 +94,7 @@
+           ///< horizon when looking in the given Direction. Note that this function
+           ///< only delivers reasonable values for site latitudes between +/-81 degrees.
+           ///< Beyond these limits (i.e. near the north or south pole) a constant value
+-          ///< of +/-14.5 degrees (integer value 145) will be returned.
++          ///< of 0 will be returned.
+   int HardLimitLongitude(ePositionerDirection Direction) const;
+           ///< Returns the longitude of the positioner's hard limit in the given
+           ///< Direction. Note that the value returned here may be larger (or smaller,
+@@ -133,8 +133,8 @@
+           ///< Number can be in the range 1...255. However, a particular positioner
+           ///< may only have a limited number of satellite positions it can store.
+   virtual void RecalcPositions(uint Number) {}
+-          ///< Take the difference betwen the current actual position of the dish and
+-          ///< the position stored with teh given Number, and apply the difference to
++          ///< Take the difference between the current actual position of the dish and
++          ///< the position stored with the given Number, and apply the difference to
+           ///< all stored positions.
+   virtual void GotoPosition(uint Number, int Longitude);
+           ///< Move the dish to the satellite position stored under the given Number.
+diff -ruN vdr-2.1.2/receiver.c vdr-2.1.3/receiver.c
+--- vdr-2.1.2/receiver.c	2012-06-02 15:20:38.000000000 +0200
++++ vdr-2.1.3/receiver.c	2014-01-01 13:03:00.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: receiver.c 3.0 2012/06/02 13:20:38 kls Exp $
++ * $Id: receiver.c 3.1 2014/01/01 12:03:00 kls Exp $
+  */
+ 
+ #include "receiver.h"
+@@ -72,6 +72,28 @@
+   return true;
+ }
+ 
++void cReceiver::DelPid(int Pid)
++{
++  if (Pid) {
++     for (int i = 0; i < numPids; i++) {
++         if (pids[i] == Pid) {
++            for ( ; i < numPids; i++) // we also copy the terminating 0!
++                pids[i] = pids[i + 1];
++            numPids--;
++            return;
++            }
++         }
++     }
++}
++
++void cReceiver::DelPids(const int *Pids)
++{
++  if (Pids) {
++     while (*Pids)
++           DelPid(*Pids++);
++     }
++}
++
+ bool cReceiver::WantsPid(int Pid)
+ {
+   if (Pid) {
+diff -ruN vdr-2.1.2/receiver.h vdr-2.1.3/receiver.h
+--- vdr-2.1.2/receiver.h	2012-09-02 11:27:20.000000000 +0200
++++ vdr-2.1.3/receiver.h	2014-01-01 12:45:09.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: receiver.h 3.0 2012/09/02 09:27:20 kls Exp $
++ * $Id: receiver.h 3.1 2014/01/01 11:45:09 kls Exp $
+  */
+ 
+ #ifndef __RECEIVER_H
+@@ -64,7 +64,13 @@
+                ///< through ChannelID(). The ChannelID is necessary to allow the device
+                ///< that will be used for this receiver to detect and store whether the
+                ///< channel can be decrypted in case this is an encrypted channel.
++  void DelPid(int Pid);
++               ///< Deletes the given Pid from the list of PIDs of this receiver.
++  void DelPids(const int *Pids);
++               ///< Deletes the given zero terminated list of Pids from the list of PIDs of this
++               ///< receiver.
+   tChannelID ChannelID(void) { return channelID; }
++  int NumPids(void) const { return numPids; }
+   bool IsAttached(void) { return device != NULL; }
+                ///< Returns true if this receiver is (still) attached to a device.
+                ///< A receiver may be automatically detached from its device in
+diff -ruN vdr-2.1.2/recorder.c vdr-2.1.3/recorder.c
+--- vdr-2.1.2/recorder.c	2013-10-12 13:49:42.000000000 +0200
++++ vdr-2.1.3/recorder.c	2014-01-01 13:46:37.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.c 3.1 2013/10/12 11:49:42 kls Exp $
++ * $Id: recorder.c 3.2 2014/01/01 12:46:37 kls Exp $
+  */
+ 
+ #include "recorder.h"
+@@ -139,6 +139,7 @@
+                           }
+                        }
+                     InfoWritten = true;
++                    cRecordingUserCommand::InvokeCommand(RUC_STARTRECORDING, recordingName);
+                     }
+                  if (FirstIframeSeen || frameDetector->IndependentFrame()) {
+                     FirstIframeSeen = true; // start recording with the first I-frame
+diff -ruN vdr-2.1.2/recording.c vdr-2.1.3/recording.c
+--- vdr-2.1.2/recording.c	2013-10-16 12:24:28.000000000 +0200
++++ vdr-2.1.3/recording.c	2013-12-27 12:06:01.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 3.7 2013/10/16 10:24:28 kls Exp $
++ * $Id: recording.c 3.11 2013/12/27 11:06:01 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -76,6 +76,7 @@
+ int InstanceId = 0;
+ 
+ cRecordings DeletedRecordings(true);
++static cRecordings VanishedRecordings;
+ 
+ // --- cRemoveDeletedRecordingsThread ----------------------------------------
+ 
+@@ -220,6 +221,14 @@
+      }
+ }
+ 
++// --- Clear vanished recordings ---------------------------------------------
++
++void ClearVanishedRecordings(void)
++{
++  cThreadLock RecordingsLock(&Recordings); // yes, it *is* Recordings!
++  VanishedRecordings.Clear();
++}
++
+ // --- cResumeFile -----------------------------------------------------------
+ 
+ cResumeFile::cResumeFile(const char *FileName, bool IsPesRecording)
+@@ -1346,6 +1355,7 @@
+ :cThread("video directory scanner")
+ {
+   deleted = Deleted;
++  initial = true;
+   lastUpdate = 0;
+   state = 0;
+ }
+@@ -1370,15 +1380,20 @@
+ void cRecordings::Refresh(bool Foreground)
+ {
+   lastUpdate = time(NULL); // doing this first to make sure we don't miss anything
+-  Lock();
+-  Clear();
+-  ChangeState();
+-  Unlock();
++  initial = Count() == 0; // no name checking if the list is initially empty
++  if (deleted) {
++     Lock();
++     Clear();
++     ChangeState();
++     Unlock();
++     }
+   ScanVideoDir(cVideoDirectory::Name(), Foreground);
+ }
+ 
+-void cRecordings::ScanVideoDir(const char *DirName, bool Foreground, int LinkLevel)
++bool cRecordings::ScanVideoDir(const char *DirName, bool Foreground, int LinkLevel, int DirLevel)
+ {
++  bool DoChangeState = false;
++  // Find any new recordings:
+   cReadDir d(DirName);
+   struct dirent *e;
+   while ((Foreground || Running()) && (e = d.Next()) != NULL) {
+@@ -1397,25 +1412,47 @@
+               }
+            if (S_ISDIR(st.st_mode)) {
+               if (endswith(buffer, deleted ? DELEXT : RECEXT)) {
+-                 cRecording *r = new cRecording(buffer);
+-                 if (r->Name()) {
+-                    r->NumFrames(); // initializes the numFrames member
+-                    r->FileSizeMB(); // initializes the fileSizeMB member
+-                    if (deleted)
+-                       r->deleted = time(NULL);
+-                    Lock();
+-                    Add(r);
+-                    ChangeState();
+-                    Unlock();
++                 if (deleted || initial || !GetByName(buffer)) {
++                    cRecording *r = new cRecording(buffer);
++                    if (r->Name()) {
++                       r->NumFrames(); // initializes the numFrames member
++                       r->FileSizeMB(); // initializes the fileSizeMB member
++                       if (deleted)
++                          r->deleted = time(NULL);
++                       Lock();
++                       Add(r);
++                       if (initial)
++                          ChangeState();
++                       else
++                          DoChangeState = true;
++                       Unlock();
++                       }
++                    else
++                       delete r;
+                     }
+-                 else
+-                    delete r;
+                  }
+               else
+-                 ScanVideoDir(buffer, Foreground, LinkLevel + Link);
++                 DoChangeState |= ScanVideoDir(buffer, Foreground, LinkLevel + Link, DirLevel + 1);
+               }
+            }
+         }
++  // Handle any vanished recordings:
++  if (!deleted && !initial && DirLevel == 0) {
++     for (cRecording *recording = First(); recording; ) {
++         cRecording *r = recording;
++         recording = Next(recording);
++         if (access(r->FileName(), F_OK) != 0) {
++            Lock();
++            Del(r, false);
++            VanishedRecordings.Add(r);
++            DoChangeState = true;
++            Unlock();
++            }
++         }
++     }
++  if (DoChangeState && DirLevel == 0)
++     ChangeState();
++  return DoChangeState;
+ }
+ 
+ bool cRecordings::StateChanged(int &State)
+@@ -1456,6 +1493,7 @@
+ cRecording *cRecordings::GetByName(const char *FileName)
+ {
+   if (FileName) {
++     LOCK_THREAD;
+      for (cRecording *recording = First(); recording; recording = Next(recording)) {
+          if (strcmp(recording->FileName(), FileName) == 0)
+             return recording;
+@@ -1693,7 +1731,7 @@
+                     off_t FileSizeSrc = FileSize(FileNameSrc);
+                     off_t FileSizeDst = FileSize(FileNameDst);
+                     if (FileSizeSrc != FileSizeDst) {
+-                       esyslog("ERROR: file size discrepancy: %lld != %lld", FileSizeSrc, FileSizeDst);
++                       esyslog("ERROR: file size discrepancy: %"PRId64" != %"PRId64, FileSizeSrc, FileSizeDst);
+                        break;
+                        }
+                     }
+diff -ruN vdr-2.1.2/recording.h vdr-2.1.3/recording.h
+--- vdr-2.1.2/recording.h	2013-10-10 14:08:15.000000000 +0200
++++ vdr-2.1.3/recording.h	2014-01-01 13:45:18.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 3.1 2013/10/10 12:08:15 kls Exp $
++ * $Id: recording.h 3.4 2014/01/01 12:45:18 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -41,6 +41,7 @@
+   };
+ 
+ void RemoveDeletedRecordings(void);
++void ClearVanishedRecordings(void);
+ void AssertFreeDiskSpace(int Priority = 0, bool Force = false);
+      ///< The special Priority value -1 means that we shall get rid of any
+      ///< deleted recordings faster than normal (because we're cutting).
+@@ -217,11 +218,12 @@
+ private:
+   static char *updateFileName;
+   bool deleted;
++  bool initial;
+   time_t lastUpdate;
+   int state;
+   const char *UpdateFileName(void);
+   void Refresh(bool Foreground = false);
+-  void ScanVideoDir(const char *DirName, bool Foreground = false, int LinkLevel = 0);
++  bool ScanVideoDir(const char *DirName, bool Foreground = false, int LinkLevel = 0, int DirLevel = 0);
+ protected:
+   void Action(void);
+ public:
+@@ -277,6 +279,8 @@
+        ///< if all recordings have been successfully added to the RecordingsHandler.
+   };
+ 
++/// Any access to Recordings that loops through the list of recordings
++/// needs to hold a thread lock on this object!
+ extern cRecordings Recordings;
+ extern cRecordings DeletedRecordings;
+ 
+@@ -382,6 +386,7 @@
+   };
+ 
+ #define RUC_BEFORERECORDING "before"
++#define RUC_STARTRECORDING  "started"
+ #define RUC_AFTERRECORDING  "after"
+ #define RUC_EDITEDRECORDING "edited"
+ #define RUC_DELETERECORDING "deleted"
+diff -ruN vdr-2.1.2/remote.c vdr-2.1.3/remote.c
+--- vdr-2.1.2/remote.c	2013-02-03 16:44:55.000000000 +0100
++++ vdr-2.1.3/remote.c	2013-12-25 13:45:43.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.c 3.0 2013/02/03 15:44:55 kls Exp $
++ * $Id: remote.c 3.1 2013/12/25 12:45:43 kls Exp $
+  */
+ 
+ #include "remote.h"
+@@ -260,6 +260,7 @@
+      tcsetattr(STDIN_FILENO, TCSANOW, &tm);
+      }
+   kbdAvailable = true;
++  systemIsUtf8 = !cCharSetConv::SystemCharacterTable() || strcmp(cCharSetConv::SystemCharacterTable(), "UTF-8") == 0;
+   Start();
+ }
+ 
+@@ -324,7 +325,23 @@
+ 
+   if ((key1 = ReadKey()) >= 0) {
+      k = key1;
+-     if (key1 == 0x1B) {
++     if (systemIsUtf8 && (key1 & 0xC0) == 0xC0) {
++        char bytes[4] = { 0 };
++        bytes[0] = key1;
++        int bytescount = 1;
++        if ((key1 & 0xF0) == 0xF0)
++           bytescount = 3;
++        else if ((key1 & 0xE0) == 0xE0)
++           bytescount = 2;
++        for (int i = 0; i < bytescount; i++) {
++            if ((key1 = ReadKey()) >= 0)
++               bytes[i + 1] = key1;
++            }
++        k = Utf8CharGet(bytes);
++        if (k > 0xFF)
++           k = 0;
++        }
++     else if (key1 == 0x1B) {
+         // Start of escape sequence
+         if ((key1 = ReadKey()) >= 0) {
+            k <<= 8;
+diff -ruN vdr-2.1.2/remote.h vdr-2.1.3/remote.h
+--- vdr-2.1.2/remote.h	2013-02-03 15:34:56.000000000 +0100
++++ vdr-2.1.3/remote.h	2013-12-25 13:32:44.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.h 3.0 2013/02/03 14:34:56 kls Exp $
++ * $Id: remote.h 3.1 2013/12/25 12:32:44 kls Exp $
+  */
+ 
+ #ifndef __REMOTE_H
+@@ -106,6 +106,7 @@
+ private:
+   static bool kbdAvailable;
+   static bool rawMode;
++  bool systemIsUtf8;
+   struct termios savedTm;
+   virtual void Action(void);
+   int ReadKey(void);
+diff -ruN vdr-2.1.2/sdt.c vdr-2.1.3/sdt.c
+--- vdr-2.1.2/sdt.c	2010-05-16 16:23:21.000000000 +0200
++++ vdr-2.1.3/sdt.c	2014-01-04 16:02:31.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sdt.c 3.0 2010/05/16 14:23:21 kls Exp $
++ * $Id: sdt.c 3.1 2014/01/04 15:02:31 kls Exp $
+  */
+ 
+ #include "sdt.h"
+@@ -43,6 +43,8 @@
+       cChannel *channel = Channels.GetByChannelID(tChannelID(Source(), sdt.getOriginalNetworkId(), sdt.getTransportStreamId(), SiSdtService.getServiceId()));
+       if (!channel)
+          channel = Channels.GetByChannelID(tChannelID(Source(), 0, Transponder(), SiSdtService.getServiceId()));
++      if (channel)
++         channel->SetSeen();
+ 
+       cLinkChannels *LinkChannels = NULL;
+       SI::Descriptor *d;
+@@ -139,5 +141,7 @@
+             delete LinkChannels;
+          }
+       }
++  if (sdt.getSectionNumber() == sdt.getLastSectionNumber())
++     Channels.MarkObsoleteChannels(Source(), sdt.getOriginalNetworkId(), sdt.getTransportStreamId());
+   Channels.Unlock();
+ }
+diff -ruN vdr-2.1.2/skinlcars.c vdr-2.1.3/skinlcars.c
+--- vdr-2.1.2/skinlcars.c	2013-08-18 15:45:36.000000000 +0200
++++ vdr-2.1.3/skinlcars.c	2013-11-16 14:20:19.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinlcars.c 3.3 2013/08/18 13:45:36 kls Exp $
++ * $Id: skinlcars.c 3.6 2013/11/16 13:20:19 kls Exp $
+  */
+ 
+ // "Star Trek: The Next Generation"(R) is a registered trademark of Paramount Pictures,
+@@ -492,7 +492,7 @@
+ {
+   cDevice *Device = cDevice::PrimaryDevice();
+   const tTrackId *Track = Device->GetTrack(Device->GetCurrentAudioTrack());
+-  if (!Track && *lastTrackId.description || Track && strcmp(lastTrackId.description, Track->description)) {
++  if (Track ? strcmp(lastTrackId.description, Track->description) : *lastTrackId.description) {
+      osd->DrawText(xc03, yc07, Track ? Track->description : "", Theme.Color(clrTrackName), Theme.Color(clrBackground), cFont::GetFont(fontOsd), xc07 - xc03);
+      strn0cpy(lastTrackId.description, Track ? Track->description : "", sizeof(lastTrackId.description));
+      }
+@@ -900,6 +900,15 @@
+   ys03 = ys04 - Gap;
+   ys05 = yb15;
+ 
++  // The item area (just to have them initialized, actual setting will be done in SetMenuCategory():
++
++  xi00 = 0;
++  xi01 = 0;
++  xi02 = 0;
++  xi03 = 1;
++  yi00 = 0;
++  yi01 = 1;
++
+   // The color buttons in submenus:
+   xb00 = xa06;
+   xb15 = xa07;
+@@ -1775,6 +1784,7 @@
+   frameColor = Theme.Color(clrReplayFrameBg);
+   lastCurrentWidth = 0;
+   lastTotalWidth = 0;
++  memset(&lastTrackId, 0, sizeof(lastTrackId));
+   int d = 5 * lineHeight;
+   xp00 = 0;
+   xp01 = xp00 + d / 2;
+@@ -1848,7 +1858,7 @@
+ {
+   cDevice *Device = cDevice::PrimaryDevice();
+   const tTrackId *Track = Device->GetTrack(Device->GetCurrentAudioTrack());
+-  if (!Track && *lastTrackId.description || Track && strcmp(lastTrackId.description, Track->description)) {
++  if (Track ? strcmp(lastTrackId.description, Track->description) : *lastTrackId.description) {
+      osd->DrawText(xp03, yp04, Track ? Track->description : "", Theme.Color(clrTrackName), Theme.Color(clrBackground), cFont::GetFont(fontOsd), xp07 - xp03);
+      strn0cpy(lastTrackId.description, Track ? Track->description : "", sizeof(lastTrackId.description));
+      }
+diff -ruN vdr-2.1.2/skins.h vdr-2.1.3/skins.h
+--- vdr-2.1.2/skins.h	2013-08-21 12:29:10.000000000 +0200
++++ vdr-2.1.3/skins.h	2013-11-03 15:07:34.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skins.h 3.1 2013/08/21 10:29:10 kls Exp $
++ * $Id: skins.h 3.2 2013/11/03 14:07:34 kls Exp $
+  */
+ 
+ #ifndef __SKINS_H
+@@ -101,6 +101,7 @@
+   mcTimerEdit,
+   mcRecording,
+   mcRecordingInfo,
++  mcRecordingEdit,
+   mcPlugin,
+   mcPluginSetup,
+   mcSetup,
+diff -ruN vdr-2.1.2/skinsttng.c vdr-2.1.3/skinsttng.c
+--- vdr-2.1.2/skinsttng.c	2013-03-03 16:29:28.000000000 +0100
++++ vdr-2.1.3/skinsttng.c	2013-11-15 16:33:14.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinsttng.c 3.0 2013/03/03 15:29:28 kls Exp $
++ * $Id: skinsttng.c 3.1 2013/11/15 15:33:14 kls Exp $
+  */
+ 
+ // "Star Trek: The Next Generation"(R) is a registered trademark of Paramount Pictures
+@@ -338,7 +338,7 @@
+            }
+         cDevice *Device = cDevice::PrimaryDevice();
+         const tTrackId *Track = Device->GetTrack(Device->GetCurrentAudioTrack());
+-        if (!Track && *lastTrackId.description || Track && strcmp(lastTrackId.description, Track->description)) {
++        if (Track ? strcmp(lastTrackId.description, Track->description) : *lastTrackId.description) {
+            osd->DrawText(x3 + TextFrame, y6, Track ? Track->description : "", Theme.Color(clrChannelName), frameColor, font, x4 - x3 - w - 2 * TextFrame);
+            strn0cpy(lastTrackId.description, Track ? Track->description : "", sizeof(lastTrackId.description));
+            }
+diff -ruN vdr-2.1.2/sources.c vdr-2.1.3/sources.c
+--- vdr-2.1.2/sources.c	2013-05-23 12:20:28.000000000 +0200
++++ vdr-2.1.3/sources.c	2013-12-28 12:33:08.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sources.c 3.4 2013/05/23 10:20:28 kls Exp $
++ * $Id: sources.c 3.5 2013/12/28 11:33:08 kls Exp $
+  */
+ 
+ #include "sources.h"
+@@ -31,7 +31,7 @@
+ bool cSource::Parse(const char *s)
+ {
+   char *codeBuf = NULL;
+-  if (2 == sscanf(s, "%a[^ ] %a[^\n]", &codeBuf, &description))
++  if (2 == sscanf(s, "%m[^ ] %m[^\n]", &codeBuf, &description))
+      code = FromString(codeBuf);
+   free(codeBuf);
+   return code != stNone && description && *description;
+diff -ruN vdr-2.1.2/svdrp.c vdr-2.1.3/svdrp.c
+--- vdr-2.1.2/svdrp.c	2013-10-14 11:49:38.000000000 +0200
++++ vdr-2.1.3/svdrp.c	2013-10-21 09:46:04.000000000 +0200
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 3.3 2013/10/14 09:49:38 kls Exp $
++ * $Id: svdrp.c 3.5 2013/10/21 07:46:04 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -257,6 +257,11 @@
+   "    used to easily activate or deactivate a timer.",
+   "MOVC <number> <to>\n"
+   "    Move a channel to a new position.",
++  "MOVR <number> <new name>\n"
++  "    Move the recording with the given number. Before a recording can be\n"
++  "    moved, an LSTR command must have been executed in order to retrieve\n"
++  "    the recording numbers. The numbers don't change during subsequent MOVR\n"
++  "    commands.n",
+   "NEWC <settings>\n"
+   "    Create a new channel. Settings must be in the same format as returned\n"
+   "    by the LSTC command.",
+@@ -304,11 +309,6 @@
+   "REMO [ on | off ]\n"
+   "    Turns the remote control on or off. Without a parameter, the current\n"
+   "    status of the remote control is reported.",
+-  "RENR <number> <new name>\n"
+-  "    Rename the recording with the given number. Before a recording can be\n"
+-  "    renamed, an LSTR command must have been executed in order to retrieve\n"
+-  "    the recording numbers. The numbers don't change during subsequent RENR\n"
+-  "    commands.n",
+   "SCAN\n"
+   "    Forces an EPG scan. If this is a single DVB device system, the scan\n"
+   "    will be done on the primary device unless it is currently recording.",
+@@ -686,7 +686,7 @@
+         cRecording *recording = recordings.Get(strtol(Option, NULL, 10) - 1);
+         if (recording) {
+            if (int RecordingInUse = recording->IsInUse())
+-              Reply(550, RecordingInUseMessage(RecordingInUse, Option, recording));
++              Reply(550, "%s", *RecordingInUseMessage(RecordingInUse, Option, recording));
+            else {
+               if (recording->Delete()) {
+                  Reply(250, "Recording \"%s\" deleted", Option);
+@@ -1331,6 +1331,46 @@
+      Reply(501, "Missing channel number");
+ }
+ 
++void cSVDRP::CmdMOVR(const char *Option)
++{
++  if (*Option) {
++     char *opt = strdup(Option);
++     char *num = skipspace(opt);
++     char *option = num;
++     while (*option && !isspace(*option))
++           option++;
++     char c = *option;
++     *option = 0;
++     if (isnumber(num)) {
++        cRecording *recording = recordings.Get(strtol(num, NULL, 10) - 1);
++        if (recording) {
++           if (int RecordingInUse = recording->IsInUse())
++              Reply(550, "%s", *RecordingInUseMessage(RecordingInUse, Option, recording));
++           else {
++              if (c)
++                 option = skipspace(++option);
++              if (*option) {
++                 cString oldName = recording->Name();
++                 if ((recording = Recordings.GetByName(recording->FileName())) != NULL && recording->ChangeName(option))
++                    Reply(250, "Recording \"%s\" moved to \"%s\"", *oldName, recording->Name());
++                 else
++                    Reply(554, "Error while moving recording \"%s\" to \"%s\"!", *oldName, option);
++                 }
++              else
++                 Reply(501, "Missing new recording name");
++              }
++           }
++        else
++           Reply(550, "Recording \"%s\" not found%s", num, recordings.Count() ? "" : " (use LSTR before moving)");
++        }
++     else
++        Reply(501, "Error in recording number \"%s\"", num);
++     free(opt);
++     }
++  else
++     Reply(501, "Missing recording number");
++}
++
+ void cSVDRP::CmdNEWC(const char *Option)
+ {
+   if (*Option) {
+@@ -1550,46 +1590,6 @@
+      Reply(250, "Remote control is %s", cRemote::Enabled() ? "enabled" : "disabled");
+ }
+ 
+-void cSVDRP::CmdRENR(const char *Option)
+-{
+-  if (*Option) {
+-     char *opt = strdup(Option);
+-     char *num = skipspace(opt);
+-     char *option = num;
+-     while (*option && !isspace(*option))
+-           option++;
+-     char c = *option;
+-     *option = 0;
+-     if (isnumber(num)) {
+-        cRecording *recording = recordings.Get(strtol(num, NULL, 10) - 1);
+-        if (recording) {
+-           if (int RecordingInUse = recording->IsInUse())
+-              Reply(550, RecordingInUseMessage(RecordingInUse, Option, recording));
+-           else {
+-              if (c)
+-                 option = skipspace(++option);
+-              if (*option) {
+-                 cString oldName = recording->Name();
+-                 if ((recording = Recordings.GetByName(recording->FileName())) != NULL && recording->ChangeName(option))
+-                    Reply(250, "Recording \"%s\" renamed to \"%s\"", *oldName, recording->Name());
+-                 else
+-                    Reply(554, "Error while renaming recording \"%s\" to \"%s\"!", *oldName, option);
+-                 }
+-              else
+-                 Reply(501, "Missing new recording name");
+-              }
+-           }
+-        else
+-           Reply(550, "Recording \"%s\" not found%s", num, recordings.Count() ? "" : " (use LSTR before renaming)");
+-        }
+-     else
+-        Reply(501, "Error in recording number \"%s\"", num);
+-     free(opt);
+-     }
+-  else
+-     Reply(501, "Missing recording number");
+-}
+-
+ void cSVDRP::CmdSCAN(const char *Option)
+ {
+   EITScanner.ForceScan();
+@@ -1710,6 +1710,7 @@
+   else if (CMD("MODC"))  CmdMODC(s);
+   else if (CMD("MODT"))  CmdMODT(s);
+   else if (CMD("MOVC"))  CmdMOVC(s);
++  else if (CMD("MOVR"))  CmdMOVR(s);
+   else if (CMD("NEWC"))  CmdNEWC(s);
+   else if (CMD("NEWT"))  CmdNEWT(s);
+   else if (CMD("NEXT"))  CmdNEXT(s);
+@@ -1717,7 +1718,6 @@
+   else if (CMD("PLUG"))  CmdPLUG(s);
+   else if (CMD("PUTE"))  CmdPUTE(s);
+   else if (CMD("REMO"))  CmdREMO(s);
+-  else if (CMD("RENR"))  CmdRENR(s);
+   else if (CMD("SCAN"))  CmdSCAN(s);
+   else if (CMD("STAT"))  CmdSTAT(s);
+   else if (CMD("UPDR"))  CmdUPDR(s);
+diff -ruN vdr-2.1.2/svdrp.h vdr-2.1.3/svdrp.h
+--- vdr-2.1.2/svdrp.h	2013-09-14 15:24:50.000000000 +0200
++++ vdr-2.1.3/svdrp.h	2013-10-21 09:42:03.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: svdrp.h 3.1 2013/09/14 13:24:50 kls Exp $
++ * $Id: svdrp.h 3.2 2013/10/21 07:42:03 kls Exp $
+  */
+ 
+ #ifndef __SVDRP_H
+@@ -71,6 +71,7 @@
+   void CmdMODC(const char *Option);
+   void CmdMODT(const char *Option);
+   void CmdMOVC(const char *Option);
++  void CmdMOVR(const char *Option);
+   void CmdNEWC(const char *Option);
+   void CmdNEWT(const char *Option);
+   void CmdNEXT(const char *Option);
+@@ -78,7 +79,6 @@
+   void CmdPLUG(const char *Option);
+   void CmdPUTE(const char *Option);
+   void CmdREMO(const char *Option);
+-  void CmdRENR(const char *Option);
+   void CmdSCAN(const char *Option);
+   void CmdSTAT(const char *Option);
+   void CmdUPDT(const char *Option);
+diff -ruN vdr-2.1.2/thread.c vdr-2.1.3/thread.c
+--- vdr-2.1.2/thread.c	2013-04-10 16:37:37.000000000 +0200
++++ vdr-2.1.3/thread.c	2013-12-29 16:26:33.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.c 3.1 2013/04/10 14:37:37 kls Exp $
++ * $Id: thread.c 3.2 2013/12/29 15:26:33 kls Exp $
+  */
+ 
+ #include "thread.h"
+@@ -494,7 +494,6 @@
+   else { // child process
+      int iofd = STDOUT_FILENO;
+      if (strcmp(Mode, "w") == 0) {
+-        mode = "r";
+         iopipe = 1;
+         iofd = STDIN_FILENO;
+         }
+diff -ruN vdr-2.1.2/timers.c vdr-2.1.3/timers.c
+--- vdr-2.1.2/timers.c	2013-03-29 16:37:16.000000000 +0100
++++ vdr-2.1.3/timers.c	2013-12-28 12:33:08.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 3.0 2013/03/29 15:37:16 kls Exp $
++ * $Id: timers.c 3.1 2013/12/28 11:33:08 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -296,7 +296,7 @@
+   char *filebuffer = NULL;
+   free(aux);
+   aux = NULL;
+-  //XXX Apparently sscanf() doesn't work correctly if the last %a argument
++  //XXX Apparently sscanf() doesn't work correctly if the last %m argument
+   //XXX results in an empty string (this first occurred when the EIT gathering
+   //XXX was put into a separate thread - don't know why this happens...
+   //XXX As a cure we copy the original string and add a blank.
+@@ -312,7 +312,7 @@
+      s = s2;
+      }
+   bool result = false;
+-  if (8 <= sscanf(s, "%u :%a[^:]:%a[^:]:%d :%d :%d :%d :%a[^:\n]:%a[^\n]", &flags, &channelbuffer, &daybuffer, &start, &stop, &priority, &lifetime, &filebuffer, &aux)) {
++  if (8 <= sscanf(s, "%u :%m[^:]:%m[^:]:%d :%d :%d :%d :%m[^:\n]:%m[^\n]", &flags, &channelbuffer, &daybuffer, &start, &stop, &priority, &lifetime, &filebuffer, &aux)) {
+      ClrFlags(tfRecording);
+      if (aux && !*skipspace(aux)) {
+         free(aux);
+diff -ruN vdr-2.1.2/vdr.1 vdr-2.1.3/vdr.1
+--- vdr-2.1.2/vdr.1	2013-03-15 11:44:54.000000000 +0100
++++ vdr-2.1.3/vdr.1	2013-12-25 12:01:36.000000000 +0100
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.1 3.0 2013/03/15 10:44:54 kls Exp $
++.\" $Id: vdr.1 3.1 2013/12/25 11:01:36 kls Exp $
+ .\"
+ .TH vdr 1 "31 Mar 2013" "2.0" "Video Disk Recorder"
+ .SH NAME
+@@ -201,7 +201,7 @@
+ Allow coredumps if -u is given (only for debugging).
+ .TP
+ .BI \-\-vfat
+-For backwards compatibility (same as \-\-dirnames= 250,40,1.
++For backwards compatibility (same as \-\-dirnames= 250,40,1).
+ .TP
+ .BI \-v\  dir ,\ \-\-video= dir
+ Use \fIdir\fR as video directory.
+diff -ruN vdr-2.1.2/vdr.c vdr-2.1.3/vdr.c
+--- vdr-2.1.2/vdr.c	2013-10-16 11:33:58.000000000 +0200
++++ vdr-2.1.3/vdr.c	2013-12-25 12:24:26.000000000 +0100
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 3.4 2013/10/16 09:33:58 kls Exp $
++ * $Id: vdr.c 3.7 2013/12/25 11:24:26 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -223,6 +223,7 @@
+   VdrUser = VDR_USER;
+ #endif
+ 
++  cVideoDirectory::SetName(VideoDirectory);
+   cPluginManager PluginManager(DEFAULTPLUGINDIR);
+ 
+   static struct option long_options[] = {
+@@ -443,6 +444,7 @@
+           case 'v': VideoDirectory = optarg;
+                     while (optarg && *optarg && optarg[strlen(optarg) - 1] == '/')
+                           optarg[strlen(optarg) - 1] = 0;
++                    cVideoDirectory::SetName(VideoDirectory);
+                     break;
+           case 'w': if (isnumber(optarg)) {
+                        int t = atoi(optarg);
+@@ -540,7 +542,7 @@
+                "  -v DIR,   --video=DIR    use DIR as video directory (default: %s)\n"
+                "  -V,       --version      print version information and exit\n"
+                "            --vfat         for backwards compatibility (same as\n"
+-               "                           --dirnames=250,40,1\n"
++               "                           --dirnames=250,40,1)\n"
+                "  -w SEC,   --watchdog=SEC activate the watchdog timer with a timeout of SEC\n"
+                "                           seconds (default: %d); '0' disables the watchdog\n"
+                "\n",
+@@ -663,7 +665,6 @@
+ 
+   // Directories:
+ 
+-  cVideoDirectory::SetName(VideoDirectory);
+   if (!ConfigDirectory)
+      ConfigDirectory = DEFAULTCONFDIR;
+   cPlugin::SetConfigDirectory(ConfigDirectory);
+@@ -1369,6 +1370,7 @@
+ 
+            // Disk housekeeping:
+            RemoveDeletedRecordings();
++           ClearVanishedRecordings();
+            cSchedules::Cleanup();
+            // Plugins housekeeping:
+            PluginManager.Housekeeping();

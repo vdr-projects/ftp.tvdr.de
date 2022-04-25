@@ -1,0 +1,2552 @@
+diff -ruN vdr-1.7.13/CONTRIBUTORS vdr-1.7.14/CONTRIBUTORS
+--- vdr-1.7.13/CONTRIBUTORS	2010-02-28 14:36:26.000000000 +0100
++++ vdr-1.7.14/CONTRIBUTORS	2010-03-07 15:15:04.000000000 +0100
+@@ -1092,6 +1092,7 @@
+  for a patch that was used to implement handling the "parental rating descriptor"
+  suggesting to add plain text error messages to log entries from cOsd::SetAreas()
+  for keeping subtitles visible when pausing replay
++ for suggesting to assign the source character 'I' to "IPTV"
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1670,6 +1671,8 @@
+  for reporting a problem with cDevice::PlayTsVideo() and cDevice::PlayTsAudio() in
+  case only part of the buffer has been accepted by the device
+  for reporting missing defines for large files in the 'newplugin' script
++ for pointing out that the full timer file name should be displayed if it ends with
++ "TITLE" or "EPISODE"
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -2388,6 +2391,8 @@
+  works if the "EPG scan" is active
+  for reporting a problem with adding new transponders in case there is only a single
+  channel in the channel list
++ for suggesting to make the "Source" item in the "Edit channel" menu wrap around the
++ list of sources
+ 
+ Denis Knauf <denis.knauf@gmail.com>
+  for reporting a missing '-' at the next to last line of SVDRP help texts
+@@ -2568,3 +2573,9 @@
+ 
+ Stephan Austerm¸hle <au@hcsd.de>
+  for suggesting to flush the file in cSafeFile::Close()
++
++Lars Hanisch <dvb@flensrocker.de>
++ for suggesting to assign the source character 'V' to "Analog Video"
++
++Alex Lasnier <alex@fepg.org>
++ for adding tuning support for ATSC devices
+diff -ruN vdr-1.7.13/HISTORY vdr-1.7.14/HISTORY
+--- vdr-1.7.13/HISTORY	2010-02-28 15:27:43.000000000 +0100
++++ vdr-1.7.14/HISTORY	2010-03-12 17:46:45.000000000 +0100
+@@ -6317,7 +6317,7 @@
+ - Updated the Finnish OSD texts (thanks to Rolf Ahrenberg).
+ - Moved the declaration of cMenuCommands to menu.h, so that plugins can use it.
+ - Added a note to the MANUAL, saying that adding new transponders only works if the
+-  "EPG scan" is active (suggested by Halim Sahim).
++  "EPG scan" is active (suggested by Halim Sahin).
+ - Improved handling frames at the beginning and end of a recording in cDvbPlayer for
+   devices with large buffers (thanks to Reinhard Nissl).
+ - Implemented cDeviceHook to allow plugins more control over which device can
+@@ -6383,3 +6383,30 @@
+ - The option "Setup/DVB/Use Dolby Digital" now only controls whether Dolby Digital
+   tracks appear in the "Audio" menu. Dolby Digital is always recorded.
+   This obsoletes the DOLBYINREC patch.
++
++2010-03-12: Version 1.7.14
++
++- Fixed handling empty strings in cSource::FromString().
++- Assigned the source character 'I' to "IPTV" (suggested by Rolf Ahrenberg).
++- Assigned the source character 'V' to "Analog Video" (suggested by Lars Hanisch).
++  This obsoletes the ANALOGTV patch.
++- Added support for ATSC devices (thanks to Alex Lasnier).
++  This obsoletes the ATSC patch.
++- The "Source" item in the "Edit channel" menu now wraps around the list of sources
++  (suggested by Halim Sahin).
++- Fixed editing channel parameters.
++- The new setup option "Recording/Delete timeshift recording" controls whether a timeshift
++  recording is automatically deleted after viewing it.
++  This obsoletes the DELTIMESHIFTREC patch.
++  Note that the meaning of the values for this option is different from the DELTIMESHIFTREC
++  patch: 0 means timeshift recordings are not automatically deleted (the default behavior
++  as in previous versions), while 1 means to ask the user whether the recording shall be
++  deleted.
++- Added cChannel::IsSourceType() to test if a channel's source is of a given type.
++- Changed the polarization characters in cDvbSourceParam::GetOsdItem() to uppercase.
++- The full timer file name is now displayed if it ends with "TITLE" or "EPISODE"
++  (pointed out by Udo Richter).
++- Fixed "attempt to drop wrong frame from ring buffer" when skipping +/- one minute
++  during replay.
++- The new setup option "Folders in timer menu" controls whether the file names in
++  the timer menu are shown with their full folder path.
+diff -ruN vdr-1.7.13/MANUAL vdr-1.7.14/MANUAL
+--- vdr-1.7.13/MANUAL	2010-02-28 15:23:46.000000000 +0100
++++ vdr-1.7.14/MANUAL	2010-03-12 17:42:08.000000000 +0100
+@@ -584,6 +584,10 @@
+                          Turns displaying the Recordings menu as a hierarchical
+                          directory structure on or off.
+ 
++  Folders in timer menu = yes
++                         Controls whether the full folder path is shown in the
++                         "Timers" menu, or just the basic recording name.
++
+   EPG:
+ 
+   EPG scan timeout = 5   The time (in hours) of user inactivity after which the
+@@ -824,6 +828,14 @@
+                          file (named 00001.ts, 00002.ts, ...) you can set this
+                          option to 'yes'.
+ 
++  Delete timeshift recording = 0
++                         Controls whether a timeshift recording is deleted after
++                         viewing it.
++                         0 = no
++                         1 = confirm
++                         2 = yes
++                         The default is 0.
++
+   Replay:
+ 
+   Multi speed mode = no  Defines the function of the "Left" and "Right" keys in
+diff -ruN vdr-1.7.13/channels.h vdr-1.7.14/channels.h
+--- vdr-1.7.13/channels.h	2010-02-21 15:05:49.000000000 +0100
++++ vdr-1.7.14/channels.h	2010-03-07 14:47:13.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.h 2.8 2010/02/21 14:05:49 kls Exp $
++ * $Id: channels.h 2.10 2010/03/07 13:47:13 kls Exp $
+  */
+ 
+ #ifndef __CHANNELS_H
+@@ -172,9 +172,11 @@
+   const char *Parameters(void) const { return parameters; }
+   const cLinkChannels* LinkChannels(void) const { return linkChannels; }
+   const cChannel *RefChannel(void) const { return refChannel; }
++  bool IsAtsc(void) const { return cSource::IsAtsc(source); }
+   bool IsCable(void) const { return cSource::IsCable(source); }
+   bool IsSat(void) const { return cSource::IsSat(source); }
+   bool IsTerr(void) const { return cSource::IsTerr(source); }
++  bool IsSourceType(char Source) const { return cSource::IsType(source, Source); }
+   tChannelID GetChannelID(void) const { return tChannelID(source, nid, (nid || tid) ? tid : Transponder(), sid, rid); }
+   bool HasTimer(void) const;
+   int Modification(int Mask = CHANNELMOD_ALL);
+diff -ruN vdr-1.7.13/config.c vdr-1.7.14/config.c
+--- vdr-1.7.13/config.c	2010-01-31 13:36:36.000000000 +0100
++++ vdr-1.7.14/config.c	2010-03-12 17:41:37.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 2.10 2010/01/31 12:36:36 kls Exp $
++ * $Id: config.c 2.12 2010/03/12 16:41:37 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -354,6 +354,7 @@
+   UseVps = 0;
+   VpsMargin = 120;
+   RecordingDirs = 1;
++  FoldersInTimerMenu = 1;
+   VideoDisplayFormat = 1;
+   VideoFormat = 0;
+   UpdateChannels = 5;
+@@ -383,6 +384,7 @@
+   FontFixSize = 20;
+   MaxVideoFileSize = MAXVIDEOFILESIZEDEFAULT;
+   SplitEditedFiles = 0;
++  DelTimeshiftRec = 0;
+   MinEventTimeout = 30;
+   MinUserInactivity = 300;
+   NextWakeupTime = 0;
+@@ -542,6 +544,7 @@
+   else if (!strcasecmp(Name, "UseVps"))              UseVps             = atoi(Value);
+   else if (!strcasecmp(Name, "VpsMargin"))           VpsMargin          = atoi(Value);
+   else if (!strcasecmp(Name, "RecordingDirs"))       RecordingDirs      = atoi(Value);
++  else if (!strcasecmp(Name, "FoldersInTimerMenu"))  FoldersInTimerMenu = atoi(Value);
+   else if (!strcasecmp(Name, "VideoDisplayFormat"))  VideoDisplayFormat = atoi(Value);
+   else if (!strcasecmp(Name, "VideoFormat"))         VideoFormat        = atoi(Value);
+   else if (!strcasecmp(Name, "UpdateChannels"))      UpdateChannels     = atoi(Value);
+@@ -571,6 +574,7 @@
+   else if (!strcasecmp(Name, "FontFixSize"))         FontFixSize        = atoi(Value);
+   else if (!strcasecmp(Name, "MaxVideoFileSize"))    MaxVideoFileSize   = atoi(Value);
+   else if (!strcasecmp(Name, "SplitEditedFiles"))    SplitEditedFiles   = atoi(Value);
++  else if (!strcasecmp(Name, "DelTimeshiftRec"))     DelTimeshiftRec    = atoi(Value);
+   else if (!strcasecmp(Name, "MinEventTimeout"))     MinEventTimeout    = atoi(Value);
+   else if (!strcasecmp(Name, "MinUserInactivity"))   MinUserInactivity  = atoi(Value);
+   else if (!strcasecmp(Name, "NextWakeupTime"))      NextWakeupTime     = atoi(Value);
+@@ -635,6 +639,7 @@
+   Store("UseVps",             UseVps);
+   Store("VpsMargin",          VpsMargin);
+   Store("RecordingDirs",      RecordingDirs);
++  Store("FoldersInTimerMenu", FoldersInTimerMenu);
+   Store("VideoDisplayFormat", VideoDisplayFormat);
+   Store("VideoFormat",        VideoFormat);
+   Store("UpdateChannels",     UpdateChannels);
+@@ -664,6 +669,7 @@
+   Store("FontFixSize",        FontFixSize);
+   Store("MaxVideoFileSize",   MaxVideoFileSize);
+   Store("SplitEditedFiles",   SplitEditedFiles);
++  Store("DelTimeshiftRec",    DelTimeshiftRec);
+   Store("MinEventTimeout",    MinEventTimeout);
+   Store("MinUserInactivity",  MinUserInactivity);
+   Store("NextWakeupTime",     NextWakeupTime);
+diff -ruN vdr-1.7.13/config.h vdr-1.7.14/config.h
+--- vdr-1.7.13/config.h	2010-02-05 16:38:32.000000000 +0100
++++ vdr-1.7.14/config.h	2010-03-12 17:02:53.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.22 2010/02/05 15:38:32 kls Exp $
++ * $Id: config.h 2.25 2010/03/12 16:02:53 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.13"
+-#define VDRVERSNUM   10713  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.14"
++#define VDRVERSNUM   10714  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.13"
+-#define APIVERSNUM   10713  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.14"
++#define APIVERSNUM   10714  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+@@ -253,6 +253,7 @@
+   int UseVps;
+   int VpsMargin;
+   int RecordingDirs;
++  int FoldersInTimerMenu;
+   int VideoDisplayFormat;
+   int VideoFormat;
+   int UpdateChannels;
+@@ -276,6 +277,7 @@
+   int FontFixSize;
+   int MaxVideoFileSize;
+   int SplitEditedFiles;
++  int DelTimeshiftRec;
+   int MinEventTimeout, MinUserInactivity;
+   time_t NextWakeupTime;
+   int MultiSpeedMode;
+diff -ruN vdr-1.7.13/dvbdevice.c vdr-1.7.14/dvbdevice.c
+--- vdr-1.7.13/dvbdevice.c	2010-02-21 18:10:35.000000000 +0100
++++ vdr-1.7.14/dvbdevice.c	2010-03-07 14:58:24.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.29 2010/02/21 17:10:35 kls Exp $
++ * $Id: dvbdevice.c 2.32 2010/03/07 13:58:24 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -27,6 +27,8 @@
+ #define DVBC_LOCK_TIMEOUT  2000 //ms
+ #define DVBT_TUNE_TIMEOUT  9000 //ms
+ #define DVBT_LOCK_TIMEOUT  2000 //ms
++#define ATSC_TUNE_TIMEOUT  9000 //ms
++#define ATSC_LOCK_TIMEOUT  2000 //ms
+ 
+ // --- DVB Parameter Maps ----------------------------------------------------
+ 
+@@ -184,17 +186,17 @@
+   char buffer[64];
+   char *q = buffer;
+   *q = 0;
+-  ST(" S ")  q += sprintf(q, "%c", polarization);
+-  ST("  T")  q += PrintParameter(q, 'B', MapToUser(bandwidth, BandwidthValues));
+-  ST("CST")  q += PrintParameter(q, 'C', MapToUser(coderateH, CoderateValues));
+-  ST("  T")  q += PrintParameter(q, 'D', MapToUser(coderateL, CoderateValues));
+-  ST("  T")  q += PrintParameter(q, 'G', MapToUser(guard, GuardValues));
+-  ST("CST")  q += PrintParameter(q, 'I', MapToUser(inversion, InversionValues));
+-  ST("CST")  q += PrintParameter(q, 'M', MapToUser(modulation, ModulationValues));
+-  ST(" S ")  q += PrintParameter(q, 'O', MapToUser(rollOff, RollOffValues));
+-  ST(" S ")  q += PrintParameter(q, 'S', MapToUser(system, SystemValues));
+-  ST("  T")  q += PrintParameter(q, 'T', MapToUser(transmission, TransmissionValues));
+-  ST("  T")  q += PrintParameter(q, 'Y', MapToUser(hierarchy, HierarchyValues));
++  ST("  S ")  q += sprintf(q, "%c", polarization);
++  ST("   T")  q += PrintParameter(q, 'B', MapToUser(bandwidth, BandwidthValues));
++  ST(" CST")  q += PrintParameter(q, 'C', MapToUser(coderateH, CoderateValues));
++  ST("   T")  q += PrintParameter(q, 'D', MapToUser(coderateL, CoderateValues));
++  ST("   T")  q += PrintParameter(q, 'G', MapToUser(guard, GuardValues));
++  ST("ACST")  q += PrintParameter(q, 'I', MapToUser(inversion, InversionValues));
++  ST("ACST")  q += PrintParameter(q, 'M', MapToUser(modulation, ModulationValues));
++  ST("  S ")  q += PrintParameter(q, 'O', MapToUser(rollOff, RollOffValues));
++  ST("  S ")  q += PrintParameter(q, 'S', MapToUser(system, SystemValues));
++  ST("   T")  q += PrintParameter(q, 'T', MapToUser(transmission, TransmissionValues));
++  ST("   T")  q += PrintParameter(q, 'Y', MapToUser(hierarchy, HierarchyValues));
+   return buffer;
+ }
+ 
+@@ -486,6 +488,16 @@
+      tuneTimeout = DVBT_TUNE_TIMEOUT;
+      lockTimeout = DVBT_LOCK_TIMEOUT;
+      }
++  else if (frontendType == SYS_ATSC) {
++     // ATSC
++     SETCMD(DTV_DELIVERY_SYSTEM, frontendType);
++     SETCMD(DTV_FREQUENCY, FrequencyToHz(channel.Frequency()));
++     SETCMD(DTV_INVERSION, dtp.Inversion());
++     SETCMD(DTV_MODULATION, dtp.Modulation());
++     
++     tuneTimeout = ATSC_TUNE_TIMEOUT;
++     lockTimeout = ATSC_LOCK_TIMEOUT;     
++     }
+   else {
+      esyslog("ERROR: attempt to set channel with unknown DVB frontend type");
+      return false;
+@@ -564,7 +576,7 @@
+ class cDvbSourceParam : public cSourceParam {
+ private:
+   int param;
+-  cChannel data;
++  int srate;
+   cDvbTransponderParameters dtp;
+ public:
+   cDvbSourceParam(char Source, const char *Description);
+@@ -577,19 +589,19 @@
+ :cSourceParam(Source, Description)
+ {
+   param = 0;
++  srate = 0;
+ }
+ 
+ void cDvbSourceParam::SetData(cChannel *Channel)
+ {
+-  data = *Channel;
+-  dtp.Parse(data.Parameters());
++  srate = Channel->Srate();
++  dtp.Parse(Channel->Parameters());
+   param = 0;
+ }
+ 
+ void cDvbSourceParam::GetData(cChannel *Channel)
+ {
+-  data.SetTransponderData(Channel->Source(), Channel->Frequency(), data.Srate(), dtp.ToString(Source()), true);
+-  *Channel = data;
++  Channel->SetTransponderData(Channel->Source(), Channel->Frequency(), srate, dtp.ToString(Source()), true);
+ }
+ 
+ cOsdItem *cDvbSourceParam::GetOsdItem(void)
+@@ -598,18 +610,18 @@
+ #undef ST
+ #define ST(s) if (strchr(s, type))
+   switch (param++) {
+-    case  0: ST(" S ")  return new cMenuEditChrItem( tr("Polarization"), &dtp.polarization, "hvlr");             else return GetOsdItem();
+-    case  1: ST(" S ")  return new cMenuEditMapItem( tr("System"),       &dtp.system,       SystemValues);       else return GetOsdItem();
+-    case  2: ST("CS ")  return new cMenuEditIntItem( tr("Srate"),        &data.srate);                           else return GetOsdItem();
+-    case  3: ST("CST")  return new cMenuEditMapItem( tr("Inversion"),    &dtp.inversion,    InversionValues);    else return GetOsdItem();
+-    case  4: ST("CST")  return new cMenuEditMapItem( tr("CoderateH"),    &dtp.coderateH,    CoderateValues);     else return GetOsdItem();
+-    case  5: ST("  T")  return new cMenuEditMapItem( tr("CoderateL"),    &dtp.coderateL,    CoderateValues);     else return GetOsdItem();
+-    case  6: ST("CST")  return new cMenuEditMapItem( tr("Modulation"),   &dtp.modulation,   ModulationValues);   else return GetOsdItem();
+-    case  7: ST("  T")  return new cMenuEditMapItem( tr("Bandwidth"),    &dtp.bandwidth,    BandwidthValues);    else return GetOsdItem();
+-    case  8: ST("  T")  return new cMenuEditMapItem( tr("Transmission"), &dtp.transmission, TransmissionValues); else return GetOsdItem();
+-    case  9: ST("  T")  return new cMenuEditMapItem( tr("Guard"),        &dtp.guard,        GuardValues);        else return GetOsdItem();
+-    case 10: ST("  T")  return new cMenuEditMapItem( tr("Hierarchy"),    &dtp.hierarchy,    HierarchyValues);    else return GetOsdItem();
+-    case 11: ST(" S ")  return new cMenuEditMapItem( tr("Rolloff"),      &dtp.rollOff,      RollOffValues);      else return GetOsdItem();
++    case  0: ST("  S ")  return new cMenuEditChrItem( tr("Polarization"), &dtp.polarization, "HVLR");             else return GetOsdItem();
++    case  1: ST("  S ")  return new cMenuEditMapItem( tr("System"),       &dtp.system,       SystemValues);       else return GetOsdItem();
++    case  2: ST(" CS ")  return new cMenuEditIntItem( tr("Srate"),        &srate);                                else return GetOsdItem();
++    case  3: ST("ACST")  return new cMenuEditMapItem( tr("Inversion"),    &dtp.inversion,    InversionValues);    else return GetOsdItem();
++    case  4: ST(" CST")  return new cMenuEditMapItem( tr("CoderateH"),    &dtp.coderateH,    CoderateValues);     else return GetOsdItem();
++    case  5: ST("   T")  return new cMenuEditMapItem( tr("CoderateL"),    &dtp.coderateL,    CoderateValues);     else return GetOsdItem();
++    case  6: ST("ACST")  return new cMenuEditMapItem( tr("Modulation"),   &dtp.modulation,   ModulationValues);   else return GetOsdItem();
++    case  7: ST("   T")  return new cMenuEditMapItem( tr("Bandwidth"),    &dtp.bandwidth,    BandwidthValues);    else return GetOsdItem();
++    case  8: ST("   T")  return new cMenuEditMapItem( tr("Transmission"), &dtp.transmission, TransmissionValues); else return GetOsdItem();
++    case  9: ST("   T")  return new cMenuEditMapItem( tr("Guard"),        &dtp.guard,        GuardValues);        else return GetOsdItem();
++    case 10: ST("   T")  return new cMenuEditMapItem( tr("Hierarchy"),    &dtp.hierarchy,    HierarchyValues);    else return GetOsdItem();
++    case 11: ST("  S ")  return new cMenuEditMapItem( tr("Rolloff"),      &dtp.rollOff,      RollOffValues);      else return GetOsdItem();
+     default: return NULL;
+     }
+   return NULL;
+@@ -745,6 +757,7 @@
+ 
+ bool cDvbDevice::Initialize(void)
+ {
++  new cDvbSourceParam('A', "ATSC");
+   new cDvbSourceParam('C', "DVB-C");
+   new cDvbSourceParam('S', "DVB-S");
+   new cDvbSourceParam('T', "DVB-T");
+@@ -863,6 +876,7 @@
+ {
+   int type = Source & cSource::st_Mask;
+   return type == cSource::stNone
++      || type == cSource::stAtsc  && (frontendType == SYS_ATSC)
+       || type == cSource::stCable && (frontendType == SYS_DVBC_ANNEX_AC || frontendType == SYS_DVBC_ANNEX_B)
+       || type == cSource::stSat   && (frontendType == SYS_DVBS || frontendType == SYS_DVBS2)
+       || type == cSource::stTerr  && (frontendType == SYS_DVBT);
+diff -ruN vdr-1.7.13/dvbplayer.c vdr-1.7.14/dvbplayer.c
+--- vdr-1.7.13/dvbplayer.c	2010-02-06 13:34:28.000000000 +0100
++++ vdr-1.7.14/dvbplayer.c	2010-03-07 15:24:26.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.c 2.20 2010/02/06 12:34:28 kls Exp $
++ * $Id: dvbplayer.c 2.21 2010/03/07 14:24:26 kls Exp $
+  */
+ 
+ #include "dvbplayer.h"
+@@ -218,6 +218,7 @@
+   bool readIndependent;
+   cFrame *readFrame;
+   cFrame *playFrame;
++  cFrame *dropFrame;
+   void TrickSpeed(int Increment);
+   void Empty(void);
+   bool NextFile(uint16_t FileNumber = 0, off_t FileOffset = -1);
+@@ -266,6 +267,7 @@
+   readIndependent = false;
+   readFrame = NULL;
+   playFrame = NULL;
++  dropFrame = NULL;
+   isyslog("replay %s", FileName);
+   fileName = new cFileName(FileName, false, false, isPesRecording);
+   replayFile = fileName->Open();
+@@ -322,6 +324,7 @@
+   delete readFrame; // might not have been stored in the buffer in Action()
+   readFrame = NULL;
+   playFrame = NULL;
++  dropFrame = NULL;
+   ringBuffer->Clear();
+   ptsIndex.Clear();
+   DeviceClear();
+@@ -396,7 +399,6 @@
+   uint32_t LastStc = 0;
+   int LastReadIFrame = -1;
+   int SwitchToPlayFrame = 0;
+-  cFrame *DropFrame = NULL;
+ 
+   while (Running()) {
+         if (WaitingForData)
+@@ -503,10 +505,10 @@
+           else
+              Sleep = true;
+ 
+-          if (DropFrame) {
+-             if (!eof || (playDir != pdForward && DropFrame->Index() > 0) || (playDir == pdForward && DropFrame->Index() < readIndex)) {
+-                ringBuffer->Drop(DropFrame); // the very first and last frame are continously repeated to flush data through the device
+-                DropFrame = NULL;
++          if (dropFrame) {
++             if (!eof || (playDir != pdForward && dropFrame->Index() > 0) || (playDir == pdForward && dropFrame->Index() < readIndex)) {
++                ringBuffer->Drop(dropFrame); // the very first and last frame are continously repeated to flush data through the device
++                dropFrame = NULL;
+                 }
+              }
+ 
+@@ -554,7 +556,7 @@
+                    Sleep = true;
+                 }
+              if (pc <= 0) {
+-                DropFrame = playFrame;
++                dropFrame = playFrame;
+                 playFrame = NULL;
+                 p = NULL;
+                 }
+diff -ruN vdr-1.7.13/menu.c vdr-1.7.14/menu.c
+--- vdr-1.7.13/menu.c	2010-02-21 15:09:19.000000000 +0100
++++ vdr-1.7.14/menu.c	2010-03-12 17:03:07.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 2.17 2010/02/21 14:09:19 kls Exp $
++ * $Id: menu.c 2.21 2010/03/12 16:03:07 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -160,16 +160,23 @@
+   eOSState state = cMenuEditItem::ProcessKey(Key);
+ 
+   if (state == osUnknown) {
+-     if (NORMALKEY(Key) == kLeft) { // TODO might want to increase the delta if repeated quickly?
+-        if (source && source->Prev()) {
+-           source = (cSource *)source->Prev();
++     bool IsRepeat = Key & k_Repeat;
++     Key = NORMALKEY(Key);
++     if (Key == kLeft) { // TODO might want to increase the delta if repeated quickly?
++        if (source) {
++           if (source->Prev())
++              source = (cSource *)source->Prev();
++           else if (!IsRepeat)
++              source = Sources.Last();
+            *value = source->Code();
+            }
+         }
+-     else if (NORMALKEY(Key) == kRight) {
++     else if (Key == kRight) {
+         if (source) {
+            if (source->Next())
+               source = (cSource *)source->Next();
++           else if (!IsRepeat)
++              source = Sources.First();
+            }
+         else
+            source = Sources.First();
+@@ -1045,8 +1052,8 @@
+      strftime(buffer, sizeof(buffer), "%Y%m%d", &tm_r);
+      day = buffer;
+      }
+-  const char *File = strrchr(timer->File(), FOLDERDELIMCHAR);
+-  if (File)
++  const char *File = Setup.FoldersInTimerMenu ? NULL : strrchr(timer->File(), FOLDERDELIMCHAR);
++  if (File && strcmp(File + 1, TIMERMACRO_TITLE) && strcmp(File + 1, TIMERMACRO_EPISODE))
+      File++;
+   else
+      File = timer->File();
+@@ -2560,6 +2567,7 @@
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Scroll wraps"),           &data.MenuScrollWrap));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Menu key closes"),        &data.MenuKeyCloses));
+   Add(new cMenuEditBoolItem(tr("Setup.OSD$Recording directories"),  &data.RecordingDirs));
++  Add(new cMenuEditBoolItem(tr("Setup.OSD$Folders in timer menu"),  &data.FoldersInTimerMenu));
+   SetCurrent(Get(current));
+   Display();
+ }
+@@ -3016,6 +3024,7 @@
+ class cMenuSetupRecord : public cMenuSetupBase {
+ private:
+   const char *pauseKeyHandlingTexts[3];
++  const char *delTimeshiftRecTexts[3];
+ public:
+   cMenuSetupRecord(void);
+   };
+@@ -3025,6 +3034,9 @@
+   pauseKeyHandlingTexts[0] = tr("do not pause live video");
+   pauseKeyHandlingTexts[1] = tr("confirm pause live video");
+   pauseKeyHandlingTexts[2] = tr("pause live video");
++  delTimeshiftRecTexts[0] = tr("no");
++  delTimeshiftRecTexts[1] = tr("confirm");
++  delTimeshiftRecTexts[2] = tr("yes");
+   SetSection(tr("Recording"));
+   Add(new cMenuEditIntItem( tr("Setup.Recording$Margin at start (min)"),     &data.MarginStart));
+   Add(new cMenuEditIntItem( tr("Setup.Recording$Margin at stop (min)"),      &data.MarginStop));
+@@ -3042,6 +3054,7 @@
+   Add(new cMenuEditIntItem( tr("Setup.Recording$Instant rec. time (min)"),   &data.InstantRecordTime, 1, MAXINSTANTRECTIME));
+   Add(new cMenuEditIntItem( tr("Setup.Recording$Max. video file size (MB)"), &data.MaxVideoFileSize, MINVIDEOFILESIZE, MAXVIDEOFILESIZETS));
+   Add(new cMenuEditBoolItem(tr("Setup.Recording$Split edited files"),        &data.SplitEditedFiles));
++  Add(new cMenuEditStraItem(tr("Setup.Recording$Delete timeshift recording"),&data.DelTimeshiftRec, 3, delTimeshiftRecTexts));
+ }
+ 
+ // --- cMenuSetupReplay ------------------------------------------------------
+@@ -4156,14 +4169,15 @@
+   return false;
+ }
+ 
+-void cRecordControl::Stop(void)
++void cRecordControl::Stop(bool ExecuteUserCommand)
+ {
+   if (timer) {
+      DELETENULL(recorder);
+      timer->SetRecording(false);
+      timer = NULL;
+      cStatus::MsgRecording(device, NULL, fileName, false);
+-     cRecordingUserCommand::InvokeCommand(RUC_AFTERRECORDING, fileName);
++     if (ExecuteUserCommand)
++        cRecordingUserCommand::InvokeCommand(RUC_AFTERRECORDING, fileName);
+      }
+ }
+ 
+@@ -4287,10 +4301,12 @@
+ 
+ cRecordControl *cRecordControls::GetRecordControl(const char *FileName)
+ {
+-  for (int i = 0; i < MAXRECORDCONTROLS; i++) {
+-      if (RecordControls[i] && strcmp(RecordControls[i]->FileName(), FileName) == 0)
+-         return RecordControls[i];
+-      }
++  if (FileName) {
++     for (int i = 0; i < MAXRECORDCONTROLS; i++) {
++         if (RecordControls[i] && strcmp(RecordControls[i]->FileName(), FileName) == 0)
++            return RecordControls[i];
++         }
++     }
+   return NULL;
+ }
+ 
+@@ -4379,6 +4395,38 @@
+      currentReplayControl = NULL;
+ }
+ 
++void cReplayControl::Stop(void)
++{
++  if (Setup.DelTimeshiftRec && fileName) {
++     cRecordControl* rc = cRecordControls::GetRecordControl(fileName);
++     if (rc && rc->InstantId()) {
++        if (Active()) {
++           if (Setup.DelTimeshiftRec == 2 || Interface->Confirm(tr("Delete timeshift recording?"))) {
++              cTimer *timer = rc->Timer();
++              rc->Stop(false); // don't execute user command
++              if (timer) {
++                 isyslog("deleting timer %s", *timer->ToDescr());
++                 Timers.Del(timer);
++                 Timers.SetModified();
++                 }
++              cDvbPlayerControl::Stop();
++              cRecording *recording = Recordings.GetByName(fileName);;
++              if (recording) {
++                 if (recording->Delete()) {
++                    Recordings.DelByName(fileName);
++                    ClearLastReplayed(fileName);
++                    }
++                 else
++                    Skins.Message(mtError, tr("Error while deleting recording!"));
++                 }
++              return;
++              }
++           }
++        }
++     }
++  cDvbPlayerControl::Stop();
++}
++
+ void cReplayControl::SetRecording(const char *FileName, const char *Title)
+ {
+   free(fileName);
+@@ -4759,7 +4807,11 @@
+                            else
+                               Show();
+                            break;
+-            case kBack:    return osRecordings;
++            case kBack:    if (Setup.DelTimeshiftRec) { 
++                              cRecordControl* rc = cRecordControls::GetRecordControl(fileName);
++                              return rc && rc->InstantId() ? osEnd : osRecordings;
++                              }
++                           return osRecordings;
+             default:       return osUnknown;
+             }
+           }
+diff -ruN vdr-1.7.13/menu.h vdr-1.7.14/menu.h
+--- vdr-1.7.13/menu.h	2010-02-06 11:17:24.000000000 +0100
++++ vdr-1.7.14/menu.h	2010-03-06 17:15:59.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 2.2 2010/02/06 10:17:24 kls Exp $
++ * $Id: menu.h 2.3 2010/03/06 16:15:59 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -226,7 +226,7 @@
+   virtual ~cRecordControl();
+   bool Process(time_t t);
+   cDevice *Device(void) { return device; }
+-  void Stop(void);
++  void Stop(bool ExecuteUserCommand = true);
+   const char *InstantId(void) { return instantId; }
+   const char *FileName(void) { return fileName; }
+   cTimer *Timer(void) { return timer; }
+@@ -278,6 +278,7 @@
+ public:
+   cReplayControl(void);
+   virtual ~cReplayControl();
++  void Stop(void);
+   virtual cOsdObject *GetInfo(void);
+   virtual eOSState ProcessKey(eKeys Key);
+   virtual void Show(void);
+diff -ruN vdr-1.7.13/pat.c vdr-1.7.14/pat.c
+--- vdr-1.7.13/pat.c	2010-01-01 16:40:05.000000000 +0100
++++ vdr-1.7.14/pat.c	2010-03-06 13:00:30.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.c 2.7 2010/01/01 15:40:05 kls Exp $
++ * $Id: pat.c 2.8 2010/03/06 12:00:30 kls Exp $
+  */
+ 
+ #include "pat.h"
+@@ -447,6 +447,29 @@
+                          }
+                       }
+                       break;
++              case 0x81: // STREAMTYPE_USER_PRIVATE
++                      if (Channel->IsAtsc()) { // ATSC AC-3
++                         char lang[MAXLANGCODE1] = { 0 };
++                         SI::Descriptor *d;
++                         for (SI::Loop::Iterator it; (d = stream.streamDescriptors.getNext(it)); ) {
++                             switch (d->getDescriptorTag()) {
++                               case SI::ISO639LanguageDescriptorTag: {
++                                    SI::ISO639LanguageDescriptor *ld = (SI::ISO639LanguageDescriptor *)d;
++                                    strn0cpy(lang, I18nNormalizeLanguageCode(ld->languageCode), MAXLANGCODE1);
++                                    }
++                                    break;
++                               default: ;
++                               }
++                             delete d;
++                             }
++                         if (NumDpids < MAXDPIDS) {
++                            Dpids[NumDpids] = esPid;
++                            strn0cpy(DLangs[NumDpids], lang, MAXLANGCODE1);
++                            NumDpids++;
++                            }
++                         ProcessCaDescriptors = true;
++                         }
++                      break;
+               default: ;//printf("PID: %5d %5d %2d %3d %3d\n", pmt.getServiceId(), stream.getPid(), stream.getStreamType(), pmt.getVersionNumber(), Channel->Number());
+               }
+             if (ProcessCaDescriptors) {
+diff -ruN vdr-1.7.13/po/ca_ES.po vdr-1.7.14/po/ca_ES.po
+--- vdr-1.7.13/po/ca_ES.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/ca_ES.po	2010-03-12 17:41:03.000000000 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Catalanian\n"
+@@ -836,6 +836,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Gravacions en subcarpetes"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Guia de Programes"
+ 
+@@ -988,6 +991,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "sÌ"
++
+ msgid "Recording"
+ msgstr "Opcions de GravaciÛ"
+ 
+@@ -1039,6 +1048,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Separar arxius"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Opcions de ReproducciÛ"
+ 
+@@ -1156,6 +1168,9 @@
+ msgid "Pausing live video..."
+ msgstr "Pausa d'emissiÛ en directe..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Salta a:"
+@@ -1175,9 +1190,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " a‡bcÁdeÈËfghiÌjklmnoÚpqrstu˙vwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&∑"
+ 
+-msgid "yes"
+-msgstr "sÌ"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc·Á2\tdefÈ3\tghiÌ4\tjkl5\tmnoÒÛ6\tpqrs7\ttuv˙8\twxyz9"
+ 
+diff -ruN vdr-1.7.13/po/cs_CZ.po vdr-1.7.14/po/cs_CZ.po
+--- vdr-1.7.13/po/cs_CZ.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/cs_CZ.po	2010-03-12 17:41:03.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2008-02-28 15:00+0200\n"
+ "Last-Translator: VladimÌr B·rta <vladimir.barta@k2atmitec.cz>, Ji¯Ì Dobr˝ <jdobry@centrum.cz>\n"
+ "Language-Team: Czech\n"
+@@ -834,6 +834,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Seznam nahr·vek"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+@@ -986,6 +989,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "ano"
++
+ msgid "Recording"
+ msgstr "Nahr·v·nÌ"
+ 
+@@ -1037,6 +1046,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "DÏlit editovanÈ soubory"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "P¯ehr·v·nÌ"
+ 
+@@ -1154,6 +1166,9 @@
+ msgid "Pausing live video..."
+ msgstr "P¯eruπuje se bÏæÌcÌ program ..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Skok: "
+@@ -1173,9 +1188,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " a·bcËdÔeÈÏfghiÌjklmnÚoÛpqr¯sπtªu˙˘vwxy˝zæ0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "ano"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc·Ë2\tdefÔÈÏ3\tghiÌ4\tjkl5\tmnoÚÛ6\tpqrs¯π7\ttuvª˙˘8\twxyz˝æ9"
+ 
+diff -ruN vdr-1.7.13/po/da_DK.po vdr-1.7.14/po/da_DK.po
+--- vdr-1.7.13/po/da_DK.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/da_DK.po	2010-03-12 17:41:03.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish\n"
+@@ -833,6 +833,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Optagelser i foldere"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+@@ -985,6 +988,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "ja"
++
+ msgid "Recording"
+ msgstr "Optagelse"
+ 
+@@ -1036,6 +1045,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Opdel redigerede filer"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Afspilning"
+ 
+@@ -1153,6 +1165,9 @@
+ msgid "Pausing live video..."
+ msgstr "Pausere live udsendelse..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Hop: "
+@@ -1172,9 +1187,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " abcdefghijklmnopqrstuvwxyzÊ¯Â0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "ja"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabcÊÂ2\tdef3\tghi4\tjkl5\tmno¯6\tpqrs7\ttuv8\twxyz9"
+ 
+diff -ruN vdr-1.7.13/po/de_DE.po vdr-1.7.14/po/de_DE.po
+--- vdr-1.7.13/po/de_DE.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/de_DE.po	2010-03-12 17:41:03.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2010-01-16 16:46+0100\n"
+ "Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
+ "Language-Team: German\n"
+@@ -595,7 +595,7 @@
+ msgid "Folder name already exists!"
+ msgstr "Verzeichnisname existiert bereits!"
+ 
+-#, fuzzy, c-format
++#, c-format
+ msgid "Folder name must not contain '%c'!"
+ msgstr "Verzeichnisname darf kein '%c' enthalten!"
+ 
+@@ -833,6 +833,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Aufnahmeverzeichnisse"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr "Verzeichnisse im Timer-Men¸"
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+@@ -985,6 +988,12 @@
+ msgid "pause live video"
+ msgstr "Live-Signal anhalten"
+ 
++msgid "confirm"
++msgstr "best‰tigen"
++
++msgid "yes"
++msgstr "ja"
++
+ msgid "Recording"
+ msgstr "Aufnahme"
+ 
+@@ -1036,6 +1045,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Editierte Dateien aufteilen"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr "Zeitversetzte Aufnahme lˆschen"
++
+ msgid "Replay"
+ msgstr "Wiedergabe"
+ 
+@@ -1153,6 +1165,9 @@
+ msgid "Pausing live video..."
+ msgstr "Live-Signal wird angehalten..."
+ 
++msgid "Delete timeshift recording?"
++msgstr "Zeitversetzte Aufnahme lˆschen?"
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Springen: "
+@@ -1172,9 +1187,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " a‰bcdefghijklmnoˆpqrsﬂtu¸vwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "ja"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc‰2\tdef3\tghi4\tjkl5\tmnoˆ6\tpqrsﬂ7\ttuv¸8\twxyz9"
+ 
+diff -ruN vdr-1.7.13/po/el_GR.po vdr-1.7.14/po/el_GR.po
+--- vdr-1.7.13/po/el_GR.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/el_GR.po	2010-03-12 17:41:03.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek\n"
+@@ -833,6 +833,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "÷‹ÍÂÎÔÈ Â„„Ò·ˆ˛Ì"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "«ÎÂÍÙÒÔÌÈÍ¸Ú Ô‰Á„¸Ú ÒÔ„Ò‹ÏÏ·ÙÔÚ"
+ 
+@@ -985,6 +988,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "Ì·ﬂ"
++
+ msgid "Recording"
+ msgstr "≈„„Ò·ˆﬁ"
+ 
+@@ -1036,6 +1045,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "ƒÈ·Ï›ÎÈÛÏ¸Ú ÂÂÓÂÒ„·ÛÏ›Ì˘Ì ·Ò˜Âﬂ˘Ì"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "¡Ì··Ò·„˘„ﬁ"
+ 
+@@ -1153,6 +1165,9 @@
+ msgid "Pausing live video..."
+ msgstr "–‹„˘Ï· Ê˘ÌÙ·ÌÔ˝ ÛﬁÏ·ÙÔÚ"
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "‘ÔÔË›ÙÁÛÁ: "
+@@ -1172,9 +1187,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " ·‹‚„‰Â›ÊÁﬁËÈﬂÍÎÏÌÓÔ¸ÒÛÚÙı˝ˆ˜¯˘˛0123456789-.,#~\\^$[]|()*+?{}/:%@&abcdefghijklmnopqrstuvwxyz"
+ 
+-msgid "yes"
+-msgstr "Ì·ﬂ"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr ""
+ 
+diff -ruN vdr-1.7.13/po/es_ES.po vdr-1.7.14/po/es_ES.po
+--- vdr-1.7.13/po/es_ES.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/es_ES.po	2010-03-12 17:41:04.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Spanish\n"
+@@ -834,6 +834,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Mostrar directorios de grabaciones"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "GuÌa de ProgramaciÛn"
+ 
+@@ -986,6 +989,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "sÌ"
++
+ msgid "Recording"
+ msgstr "Opciones de grabaciÛn"
+ 
+@@ -1037,6 +1046,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Partir ficheros editados"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Opciones de reproducciÛn"
+ 
+@@ -1154,6 +1166,9 @@
+ msgid "Pausing live video..."
+ msgstr "Pausa de la emisiÛn en directo..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Saltar: "
+@@ -1173,9 +1188,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " a·bcÁdeÈfghiÌjklmnÒoÛpqrstu˙vwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "sÌ"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc·Á2\tdefÈ3\tghiÌ4\tjkl5\tmnoÒÛ6\tpqrs7\ttuv˙8\twxyz9"
+ 
+diff -ruN vdr-1.7.13/po/et_EE.po vdr-1.7.14/po/et_EE.po
+--- vdr-1.7.13/po/et_EE.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/et_EE.po	2010-03-12 17:41:04.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
+ "Language-Team: Estonian\n"
+@@ -833,6 +833,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Kausta nime salvestamine"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+@@ -985,6 +988,12 @@
+ msgid "pause live video"
+ msgstr "peatada"
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "jah"
++
+ msgid "Recording"
+ msgstr "Salvestamine"
+ 
+@@ -1036,6 +1045,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Failide jupitamine"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Taasesitus"
+ 
+@@ -1153,6 +1165,9 @@
+ msgid "Pausing live video..."
+ msgstr "Otse¸lekande peatamine..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "H¸pe: "
+@@ -1172,9 +1187,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " abcdefghijklmnopqrsz˛tuvwı‰ˆ¸xy0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "jah"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc‰2\tdef3\tghi4\tjkl5\tmnoıˆ6\tpqrs7\ttuv¸8\twxyz˛9"
+ 
+diff -ruN vdr-1.7.13/po/fi_FI.po vdr-1.7.14/po/fi_FI.po
+--- vdr-1.7.13/po/fi_FI.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/fi_FI.po	2010-03-12 17:41:04.000000000 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+ "Language-Team: Finnish\n"
+@@ -836,6 +836,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "N‰yt‰ tallennehakemistot"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Ohjelmaopas"
+ 
+@@ -988,6 +991,12 @@
+ msgid "pause live video"
+ msgstr "pys‰yt‰ l‰hetys"
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "kyll‰"
++
+ msgid "Recording"
+ msgstr "Tallennus"
+ 
+@@ -1039,6 +1048,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Jaottele muokatut tallenteet"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Toisto"
+ 
+@@ -1156,6 +1168,9 @@
+ msgid "Pausing live video..."
+ msgstr "Pys‰ytet‰‰n l‰hetys..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Siirry: "
+@@ -1175,9 +1190,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " abcdefghijklmnopqrstuvwxyzÂ‰ˆ0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "kyll‰"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc‰Â2\tdef3\tghi4\tjkl5\tmnoˆ6\tpqrs7\ttuv8\twxyz9"
+ 
+diff -ruN vdr-1.7.13/po/fr_FR.po vdr-1.7.14/po/fr_FR.po
+--- vdr-1.7.13/po/fr_FR.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/fr_FR.po	2010-03-12 17:41:04.000000000 +0100
+@@ -13,7 +13,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2008-02-27 18:14+0100\n"
+ "Last-Translator: Jean-Claude Repetto <jc@repetto.org>\n"
+ "Language-Team: French\n"
+@@ -839,6 +839,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Dossiers d'enregistrements"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Guide des programmes"
+ 
+@@ -991,6 +994,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "oui"
++
+ msgid "Recording"
+ msgstr "Enregistrement"
+ 
+@@ -1042,6 +1051,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "SÈparer les sÈquences ÈditÈes"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Lecture"
+ 
+@@ -1159,6 +1171,9 @@
+ msgid "Pausing live video..."
+ msgstr "Pause de l'Èmission en direct..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "AccËs direct : "
+@@ -1178,9 +1193,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " a‡bcÁdeÈËÍfghiÓjklmnoÙpqrstu˘˚vwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "oui"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc‡‚Á2\tdefÈËÍ3\tghiÓÔ4\tjkl5\tmnoÙ6\tpqrs7\ttuv˘8\twxyz9"
+ 
+diff -ruN vdr-1.7.13/po/hr_HR.po vdr-1.7.14/po/hr_HR.po
+--- vdr-1.7.13/po/hr_HR.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/hr_HR.po	2010-03-12 17:41:04.000000000 +0100
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian\n"
+@@ -835,6 +835,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Imenik za snimke"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG (elektronski programski vodiË)"
+ 
+@@ -987,6 +990,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "da"
++
+ msgid "Recording"
+ msgstr "Snimanje"
+ 
+@@ -1038,6 +1047,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Podijeli ureene datoteke"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Reprodukcija"
+ 
+@@ -1155,6 +1167,9 @@
+ msgid "Pausing live video..."
+ msgstr "Zaustavljanje izravnog prijenosa..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "SkoËi: "
+@@ -1174,9 +1189,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr "abcËÊdefghijklmnopqrsπtuvwxyzæ0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "da"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr "0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ 
+diff -ruN vdr-1.7.13/po/hu_HU.po vdr-1.7.14/po/hu_HU.po
+--- vdr-1.7.13/po/hu_HU.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/hu_HU.po	2010-03-12 17:41:04.000000000 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2007-12-01 21:42+0200\n"
+ "Last-Translator: Istv·n F¸ley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian\n"
+@@ -836,6 +836,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "FelvÈtelek list·ja"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+@@ -988,6 +991,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "igen"
++
+ msgid "Recording"
+ msgstr "FelvÈtel"
+ 
+@@ -1039,6 +1048,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Feldolgozott File-k feloszt·sa"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Lej·tsz·s"
+ 
+@@ -1156,6 +1168,9 @@
+ msgid "Pausing live video..."
+ msgstr "Az Èlı ad·s meg·llÌtva..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Ugr·s: "
+@@ -1175,9 +1190,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " a·bcdeÈfghiÌjklmnoÛˆıpqrstu˙¸˚vwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "igen"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\ta·bc2\tdeÈf3\tghiÌ4\tjkl5\tmnoÛˆı6\tpqrs7\ttu˙¸˚v8\twxyz9"
+ 
+diff -ruN vdr-1.7.13/po/it_IT.po vdr-1.7.14/po/it_IT.po
+--- vdr-1.7.13/po/it_IT.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/it_IT.po	2010-03-12 17:41:04.000000000 +0100
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2010-01-31 23:06+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian\n"
+@@ -840,6 +840,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Directory di registrazione"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Guida programmi EPG"
+ 
+@@ -992,6 +995,12 @@
+ msgid "pause live video"
+ msgstr "pausa video dal vivo"
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "s√¨"
++
+ msgid "Recording"
+ msgstr "Registrazione"
+ 
+@@ -1043,6 +1052,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Dividi i file modificati"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Riproduzione"
+ 
+@@ -1160,6 +1172,9 @@
+ msgid "Pausing live video..."
+ msgstr "Pausa del canale in visione..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Vai a: "
+@@ -1179,9 +1194,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " a√°√†bcde√©√®fghi√¨√Æjklmno√≤pqrstu√πvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&¬∞"
+ 
+-msgid "yes"
+-msgstr "s√¨"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+¬∞?{}/:%@&\ta√†bc2\tde√®f3\tghi√¨4\tjkl5\tmno√≤6\tpqrs7\ttu√πv8\twxyz9"
+ 
+diff -ruN vdr-1.7.13/po/lt_LT.po vdr-1.7.14/po/lt_LT.po
+--- vdr-1.7.13/po/lt_LT.po	2010-02-28 13:45:43.000000000 +0100
++++ vdr-1.7.14/po/lt_LT.po	2010-03-12 17:41:04.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.12\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-01-17 16:18+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2010-02-22 18:05+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian\n"
+@@ -833,6 +833,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "ƒÆra≈°≈≥ katalogai"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Elektroninis program≈≥ gidas (EPG)"
+ 
+@@ -985,6 +988,12 @@
+ msgid "pause live video"
+ msgstr "pristabdyti 'gyvƒÖ' video srautƒÖ"
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "taip"
++
+ msgid "Recording"
+ msgstr "ƒÆra≈°ymas"
+ 
+@@ -1036,6 +1045,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Suskaidyti koreguotus failus"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Pakartoti"
+ 
+@@ -1153,6 +1165,9 @@
+ msgid "Pausing live video..."
+ msgstr "Sustabdomas 'gyvo' video grojimas..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Per≈°okti: "
+@@ -1172,9 +1187,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " aƒÖbcƒçdeƒôƒófghiƒØjklmnopqrs≈°tu≈≥≈´vwxyz≈æ0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "taip"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\taƒÖbcƒç2\tdeƒôƒóf3\tghiƒØ4\tjkl5\tmno6\tpqrs≈°7\ttu≈≥≈´v8\twxyz≈æ9"
+ 
+diff -ruN vdr-1.7.13/po/nl_NL.po vdr-1.7.14/po/nl_NL.po
+--- vdr-1.7.13/po/nl_NL.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/nl_NL.po	2010-03-12 17:41:04.000000000 +0100
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2008-02-26 17:20+0100\n"
+ "Last-Translator: Johan Schuring <johan.schuring@vetteblei.nl>\n"
+ "Language-Team: Dutch\n"
+@@ -837,6 +837,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Opname mappen"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+@@ -989,6 +992,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "ja"
++
+ msgid "Recording"
+ msgstr "Opname"
+ 
+@@ -1040,6 +1049,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Bewerkte files opdelen"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Afspelen"
+ 
+@@ -1157,6 +1169,9 @@
+ msgid "Pausing live video..."
+ msgstr "Pauzeren live uitzending..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Springen: "
+@@ -1176,9 +1191,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "ja"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ 
+diff -ruN vdr-1.7.13/po/nn_NO.po vdr-1.7.14/po/nn_NO.po
+--- vdr-1.7.13/po/nn_NO.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/nn_NO.po	2010-03-12 17:41:04.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian\n"
+@@ -834,6 +834,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Kataloger til opptak"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Programoversikt"
+ 
+@@ -986,6 +989,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "ja"
++
+ msgid "Recording"
+ msgstr "Opptak"
+ 
+@@ -1037,6 +1046,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Splitt redigerte filer"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Spill av"
+ 
+@@ -1154,6 +1166,9 @@
+ msgid "Pausing live video..."
+ msgstr ""
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Hopp: "
+@@ -1173,9 +1188,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr ""
+ 
+-msgid "yes"
+-msgstr "ja"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr ""
+ 
+diff -ruN vdr-1.7.13/po/pl_PL.po vdr-1.7.14/po/pl_PL.po
+--- vdr-1.7.13/po/pl_PL.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/pl_PL.po	2010-03-12 17:41:04.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2008-03-09 12:59+0100\n"
+ "Last-Translator: Michael Rakowski <mrak@gmx.de>\n"
+ "Language-Team:  Polish\n"
+@@ -834,6 +834,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Katalogi nagraÒ"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+@@ -986,6 +989,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "tak"
++
+ msgid "Recording"
+ msgstr "Nagranie"
+ 
+@@ -1037,6 +1046,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Dziel edytowane pliki"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Odtwarzanie"
+ 
+@@ -1154,6 +1166,9 @@
+ msgid "Pausing live video..."
+ msgstr "PauzujÍ program na øywo..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Skok: "
+@@ -1173,9 +1188,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " a±bcÊdeÍfghijkl≥mnÒoÛpqrs∂tuvwxyzºø0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "tak"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2±Ê\tdef3Í\tghi4\tjkl5≥\tmno6ÒÛ\tpqrs7∂\ttuv8\twxyz9ºø"
+ 
+diff -ruN vdr-1.7.13/po/pt_PT.po vdr-1.7.14/po/pt_PT.po
+--- vdr-1.7.13/po/pt_PT.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/pt_PT.po	2010-03-12 17:41:04.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2008-03-18 17:04+0100\n"
+ "Last-Translator: anonymous\n"
+ "Language-Team: Portuguese\n"
+@@ -833,6 +833,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Directorias de gravaÁ„o"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Guia de programaÁ„o"
+ 
+@@ -985,6 +988,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "sim"
++
+ msgid "Recording"
+ msgstr "OpÁıes de gravaÁ„o"
+ 
+@@ -1036,6 +1045,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Dividir ficheiros editados"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "OpÁıes de reproduÁ„o"
+ 
+@@ -1153,6 +1165,9 @@
+ msgid "Pausing live video..."
+ msgstr "Video em directo em pausa..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Saltar: "
+@@ -1172,9 +1187,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "sim"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ 
+diff -ruN vdr-1.7.13/po/ro_RO.po vdr-1.7.14/po/ro_RO.po
+--- vdr-1.7.13/po/ro_RO.po	2010-02-28 13:19:49.000000000 +0100
++++ vdr-1.7.14/po/ro_RO.po	2010-03-12 17:41:04.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.12\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2010-02-11 13:38+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+ "Language-Team: Romanian\n"
+@@ -836,6 +836,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Directoare Ónregistr„ri"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+@@ -988,6 +991,12 @@
+ msgid "pause live video"
+ msgstr "Ónregistreaz„ emisiunea"
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "da"
++
+ msgid "Recording"
+ msgstr "Œnregistrare"
+ 
+@@ -1039,6 +1048,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Separare fi∫iere montate"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Redare"
+ 
+@@ -1156,6 +1168,9 @@
+ msgid "Pausing live video..."
+ msgstr "Trec Ón pauz„ emisiunea transmis„..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Salt la: "
+@@ -1175,9 +1190,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " a„‚bcdefghiÓjklmnopqrs∫t˛uvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "da"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\ta„‚bc2\tdef3\tghiÓ4\tjkl5\tmno6\tpqrs∫7\tt˛uv8\twxyz9"
+ 
+diff -ruN vdr-1.7.13/po/ru_RU.po vdr-1.7.14/po/ru_RU.po
+--- vdr-1.7.13/po/ru_RU.po	2010-02-28 13:19:50.000000000 +0100
++++ vdr-1.7.14/po/ru_RU.po	2010-03-12 17:41:04.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2008-12-15 14:37+0100\n"
+ "Last-Translator: Oleg Roitburd <oleg@roitburd.de>\n"
+ "Language-Team: Russian\n"
+@@ -834,6 +834,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "∫–‚–€ﬁ”ÿ Â‡–›’›ÿÔ ◊–ﬂÿ·’Ÿ"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "¬’€’”ÿ‘"
+ 
+@@ -986,6 +989,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "‘–"
++
+ msgid "Recording"
+ msgstr "∑–ﬂÿ·Ï"
+ 
+@@ -1037,6 +1046,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "¥’€ÿ‚Ï ﬁ‚‡’‘–⁄‚ÿ‡ﬁ“–››Î’ ‰–Ÿ€Î"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "≤ﬁ·ﬂ‡ﬁÿ◊“’‘’›ÿ’"
+ 
+@@ -1154,6 +1166,9 @@
+ msgid "Pausing live video..."
+ msgstr "¿’÷ÿ‹ ﬁ‚€ﬁ÷’››ﬁ”ﬁ ﬂ‡ﬁ·‹ﬁ‚‡–..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "ø’‡’Ÿ‚ÿ: "
+@@ -1173,9 +1188,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " abcdefghijklmnopqrstuvwxyz–—“”‘’Ò÷◊ÿŸ⁄€‹›ﬁﬂ‡·‚„‰ÂÊÁËÈÍÎÏÓÔ0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "‘–"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc–—“”2\tdef‘’Ò÷◊3\tghiÿŸ⁄€4\tjkl‹›ﬁ5\tmnoﬂ‡·6\tpqrs‚„‰Â7\ttuvÊÁËÈÍ8\twxyzÎÏÌÓÔ9"
+ 
+diff -ruN vdr-1.7.13/po/sk_SK.po vdr-1.7.14/po/sk_SK.po
+--- vdr-1.7.13/po/sk_SK.po	2010-02-28 13:19:50.000000000 +0100
++++ vdr-1.7.14/po/sk_SK.po	2010-03-12 17:41:04.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2009-09-30 12:50+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak\n"
+@@ -834,6 +834,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Zoznam z·znamov"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+@@ -986,6 +989,12 @@
+ msgid "pause live video"
+ msgstr "Preruπiª æivÈ vysielanie"
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "·no"
++
+ msgid "Recording"
+ msgstr "Nahr·vanie"
+ 
+@@ -1037,6 +1046,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Deliª upravovanÈ s˙bory"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Prehr·vanie"
+ 
+@@ -1154,6 +1166,9 @@
+ msgid "Pausing live video..."
+ msgstr "Preruπuje sa beæiaci program ..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Skok: "
+@@ -1173,9 +1188,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " a·‰bcËdÔeÈfghiÌjklÂµmnÚoÛÙpqr‡sπtªu˙vwxy˝zæ0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "·no"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc·Ë2\tdefÔÈÏ3\tghiÌ4\tjkl5\tmnoÚÛ6\tpqrs¯π7\ttuvª˙˘8\twxyz˝æ9"
+ 
+diff -ruN vdr-1.7.13/po/sl_SI.po vdr-1.7.14/po/sl_SI.po
+--- vdr-1.7.13/po/sl_SI.po	2010-02-28 13:19:50.000000000 +0100
++++ vdr-1.7.14/po/sl_SI.po	2010-03-12 17:41:04.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2008-02-28 19:44+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian\n"
+@@ -834,6 +834,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Direktoriji za posnetke"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "Programski vodnik"
+ 
+@@ -986,6 +989,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "da"
++
+ msgid "Recording"
+ msgstr "Snemanje"
+ 
+@@ -1037,6 +1046,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Razdeli urejene datoteke"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Predvajanje"
+ 
+@@ -1154,6 +1166,9 @@
+ msgid "Pausing live video..."
+ msgstr "Ustavljanje predvajanja v æivo..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "SkoËi: "
+@@ -1173,9 +1188,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " abcËdefghijklmnopqrsπtuvwxyzæ0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "da"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabcË2\tdef3\tghi4\tjkl5\tmno6\tpqrsπ7\ttuv8\twxyzæ9"
+ 
+diff -ruN vdr-1.7.13/po/sv_SE.po vdr-1.7.14/po/sv_SE.po
+--- vdr-1.7.13/po/sv_SE.po	2010-02-28 13:19:50.000000000 +0100
++++ vdr-1.7.14/po/sv_SE.po	2010-03-12 17:41:04.000000000 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2008-03-12 18:25+0100\n"
+ "Last-Translator: Magnus Andersson <svankan@bahnhof.se>\n"
+ "Language-Team: Swedish\n"
+@@ -836,6 +836,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Kataloger fˆr inspelningar"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+@@ -988,6 +991,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "ja"
++
+ msgid "Recording"
+ msgstr "Inspelning"
+ 
+@@ -1039,6 +1048,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "Dela upp redigerade filer"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Uppspelning"
+ 
+@@ -1156,6 +1168,9 @@
+ msgid "Pausing live video..."
+ msgstr "Pausar direktinspelningen"
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Hopp: "
+@@ -1175,9 +1190,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " abcdefghijklmnopqrstuvwxyzÂ‰ˆ0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "ja"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabcÂ‰2\tdef3\tghi4\tjkl5\tmnoˆ6\tpqrs7\ttuv8\twxyz"
+ 
+diff -ruN vdr-1.7.13/po/tr_TR.po vdr-1.7.14/po/tr_TR.po
+--- vdr-1.7.13/po/tr_TR.po	2010-02-28 13:19:50.000000000 +0100
++++ vdr-1.7.14/po/tr_TR.po	2010-03-12 17:41:04.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay YolgeÁen <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish\n"
+@@ -833,6 +833,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "Kay˝t dizinleri"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "EPG"
+ 
+@@ -985,6 +988,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "evet"
++
+ msgid "Recording"
+ msgstr "Kay˝t"
+ 
+@@ -1036,6 +1045,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "D¸zenlenmi˛ k¸t¸kleri ay˝r"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "Tekrar"
+ 
+@@ -1153,6 +1165,9 @@
+ msgid "Pausing live video..."
+ msgstr "Naklen yay˝n duraklat˝l˝yor..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Atla: "
+@@ -1172,9 +1187,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " abcÁdefgh˝ijklmnoˆprs˛tu¸vyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "evet"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabcÁ2\tdef3\tgh˝i4\tjkl5\tmnoˆ6\tprs˛7\ttu¸v8\tyz9"
+ 
+diff -ruN vdr-1.7.13/po/uk_UA.po vdr-1.7.14/po/uk_UA.po
+--- vdr-1.7.13/po/uk_UA.po	2010-02-28 13:19:50.000000000 +0100
++++ vdr-1.7.14/po/uk_UA.po	2010-03-12 17:41:04.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2009-05-31 13:17+0200\n"
+ "Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian\n"
+@@ -833,6 +833,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "–ö–∞—Ç–∞–ª–æ–≥–∏ –∑–±–µ—Ä—ñ–≥–∞–Ω–Ω—è –∑–∞–ø–∏—Å—ñ–≤"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "–¢–µ–ª–µ–≥—ñ–¥"
+ 
+@@ -985,6 +988,12 @@
+ msgid "pause live video"
+ msgstr "–ø—Ä–∏–∑—É–ø–∏–Ω–∏—Ç–∏ –ø–µ—Ä–µ–≥–ª—è–¥"
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "—Ç–∞–∫"
++
+ msgid "Recording"
+ msgstr "–ó–∞–ø–∏—Å"
+ 
+@@ -1036,6 +1045,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "–î—ñ–ª–∏—Ç–∏ –≤—ñ–¥—Ä–µ–¥–∞–≥–æ–≤–∞–Ω—ñ —Ñ–∞–π–ª–∏"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "–ü–µ—Ä–µ–≥–ª—è–¥"
+ 
+@@ -1153,6 +1165,9 @@
+ msgid "Pausing live video..."
+ msgstr "–†–µ–∂–∏–º –≤—ñ–¥–∫–ª–∞–¥–µ–Ω–æ–≥–æ –ø–µ—Ä–µ–≥–ª—è–¥—É..."
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "–ü–µ—Ä–µ–π—Ç–∏: "
+@@ -1172,9 +1187,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " abcdefghijklmnopqrstuvwxyz–∞–±–≤–≥–¥–µ—î—ë–∂–∑–∏—ñ—ó–π–∫–ª–º–Ω–æ–ø—Ä—Å—Ç—É—Ñ—Ö—Ü—á—à—â—ä—ã—å—é—è0123456789-.#~,/_@"
+ 
+-msgid "yes"
+-msgstr "—Ç–∞–∫"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr " 0\t-.#~,/_@1\tabc–∞–±–≤–≥2\tdef–¥–µ—î—ë–∂–∑3\tghi–∏—ñ—ó–π–∫–ª4\tjkl–º–Ω–æ5\tmno–ø—Ä—Å6\tpqrs—Ç—É—Ñ—Ö7\ttuv—Ü—á—à—â—ä8\twxyz—ã—å—ç—é—è9"
+ 
+diff -ruN vdr-1.7.13/po/zh_CN.po vdr-1.7.14/po/zh_CN.po
+--- vdr-1.7.13/po/zh_CN.po	2010-02-28 13:19:50.000000000 +0100
++++ vdr-1.7.14/po/zh_CN.po	2010-03-12 17:41:04.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-02-28 13:19+0100\n"
++"POT-Creation-Date: 2010-03-12 16:49+0100\n"
+ "PO-Revision-Date: 2009-09-23 23:50+0800\n"
+ "Last-Translator: Nan Feng <nfgx@21cn.com>\n"
+ "Language-Team: Chinese\n"
+@@ -836,6 +836,9 @@
+ msgid "Setup.OSD$Recording directories"
+ msgstr "ÂΩïÂÉèÁõÆÂΩï"
+ 
++msgid "Setup.OSD$Folders in timer menu"
++msgstr ""
++
+ msgid "EPG"
+ msgstr "ÁîµÂ≠êËäÇÁõÆÂçïËÆæÁΩÆ"
+ 
+@@ -988,6 +991,12 @@
+ msgid "pause live video"
+ msgstr ""
+ 
++msgid "confirm"
++msgstr ""
++
++msgid "yes"
++msgstr "ÊòØ"
++
+ msgid "Recording"
+ msgstr "ÂΩïÂÉèËÆæÁΩÆ"
+ 
+@@ -1039,6 +1048,9 @@
+ msgid "Setup.Recording$Split edited files"
+ msgstr "ÂàÜÁ¶ªÁºñËæëÊñá‰ª∂"
+ 
++msgid "Setup.Recording$Delete timeshift recording"
++msgstr ""
++
+ msgid "Replay"
+ msgstr "ÂõûÊîæËÆæÁΩÆ"
+ 
+@@ -1156,6 +1168,9 @@
+ msgid "Pausing live video..."
+ msgstr "ÊöÇÂÅúÂΩìÂâçËßÜÈ¢ë"
+ 
++msgid "Delete timeshift recording?"
++msgstr ""
++
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Jump: "
+ msgstr "Ë∑≥Ëøá: "
+@@ -1175,9 +1190,6 @@
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr "abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ 
+-msgid "yes"
+-msgstr "ÊòØ"
+-
+ msgid "CharMap$ 0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ msgstr "0\t-.,1#~\\^$[]|()*+?{}/:%@&\tabc2\tdef3\tghi4\tjkl5\tmno6\tpqrs7\ttuv8\twxyz9"
+ 
+diff -ruN vdr-1.7.13/recording.c vdr-1.7.14/recording.c
+--- vdr-1.7.13/recording.c	2010-01-16 12:18:30.000000000 +0100
++++ vdr-1.7.14/recording.c	2010-03-07 15:06:04.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.22 2010/01/16 11:18:30 kls Exp $
++ * $Id: recording.c 2.23 2010/03/07 14:06:04 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -58,9 +58,6 @@
+ #define DISKCHECKDELTA    100 // seconds between checks for free disk space
+ #define REMOVELATENCY      10 // seconds to wait until next check after removing a file
+ 
+-#define TIMERMACRO_TITLE    "TITLE"
+-#define TIMERMACRO_EPISODE  "EPISODE"
+-
+ #define MAX_SUBTITLE_LENGTH  40
+ 
+ #define MAX_LINK_LEVEL  6
+diff -ruN vdr-1.7.13/recording.h vdr-1.7.14/recording.h
+--- vdr-1.7.13/recording.h	2010-01-16 12:16:20.000000000 +0100
++++ vdr-1.7.14/recording.h	2010-03-07 15:06:15.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 2.13 2010/01/16 11:16:20 kls Exp $
++ * $Id: recording.h 2.14 2010/03/07 14:06:15 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -19,6 +19,8 @@
+ #include "tools.h"
+ 
+ #define FOLDERDELIMCHAR '~'
++#define TIMERMACRO_TITLE    "TITLE"
++#define TIMERMACRO_EPISODE  "EPISODE"
+ 
+ extern bool VfatFileSystem;
+ extern int InstanceId;
+diff -ruN vdr-1.7.13/sourceparams.c vdr-1.7.14/sourceparams.c
+--- vdr-1.7.13/sourceparams.c	2010-02-28 13:15:49.000000000 +0100
++++ vdr-1.7.14/sourceparams.c	2010-03-06 12:13:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sourceparams.c 1.1 2010/02/28 12:15:49 kls Exp $
++ * $Id: sourceparams.c 1.2 2010/03/06 11:13:39 kls Exp $
+  */
+ 
+ #include "sourceparams.h"
+@@ -21,7 +21,7 @@
+         return;
+         }
+      SourceParams.Add(this);
+-     if (Source != 'C' && Source != 'S' && Source != 'T')
++     if (!strchr("ACST", Source)) // no, it's not "ATSC" ;-)
+         Sources.Add(new cSource(Source, Description));
+      dsyslog("registered source parameters for '%c - %s'", source, Description);
+      }
+diff -ruN vdr-1.7.13/sources.c vdr-1.7.14/sources.c
+--- vdr-1.7.13/sources.c	2010-02-28 13:00:31.000000000 +0100
++++ vdr-1.7.14/sources.c	2010-02-28 16:15:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sources.c 2.1 2010/02/28 12:00:31 kls Exp $
++ * $Id: sources.c 2.2 2010/02/28 15:15:39 kls Exp $
+  */
+ 
+ #include "sources.h"
+@@ -55,35 +55,37 @@
+ 
+ int cSource::FromString(const char *s)
+ {
+-  if ('A' <= *s && *s <= 'Z') {
+-     int code = int(*s) << 24;
+-     if (code == stSat) {
+-        int pos = 0;
+-        bool dot = false;
+-        bool neg = false;
+-        while (*++s) {
+-              switch (*s) {
+-                case '0' ... '9': pos *= 10;
+-                                  pos += *s - '0';
+-                                  break;
+-                case '.':         dot = true;
+-                                  break;
+-                case 'E':         neg = true; // fall through to 'W'
+-                case 'W':         if (!dot)
+-                                     pos *= 10;
+-                                  break;
+-                default: esyslog("ERROR: unknown source character '%c'", *s);
+-                         return stNone;
+-                }
+-              }
+-        if (neg)
+-           pos = -pos;
+-        code |= (pos & st_Pos);
++  if (!isempty(s)) {
++     if ('A' <= *s && *s <= 'Z') {
++        int code = int(*s) << 24;
++        if (code == stSat) {
++           int pos = 0;
++           bool dot = false;
++           bool neg = false;
++           while (*++s) {
++                 switch (*s) {
++                   case '0' ... '9': pos *= 10;
++                                     pos += *s - '0';
++                                     break;
++                   case '.':         dot = true;
++                                     break;
++                   case 'E':         neg = true; // fall through to 'W'
++                   case 'W':         if (!dot)
++                                        pos *= 10;
++                                     break;
++                   default: esyslog("ERROR: unknown source character '%c'", *s);
++                            return stNone;
++                   }
++                 }
++           if (neg)
++              pos = -pos;
++           code |= (pos & st_Pos);
++           }
++        return code;
+         }
+-     return code;
++     else
++       esyslog("ERROR: unknown source key '%c'", *s);
+      }
+-  else
+-    esyslog("ERROR: unknown source key '%c'", *s);
+   return stNone;
+ }
+ 
+diff -ruN vdr-1.7.13/sources.conf vdr-1.7.14/sources.conf
+--- vdr-1.7.13/sources.conf	2010-02-28 13:05:32.000000000 +0100
++++ vdr-1.7.14/sources.conf	2010-03-06 12:07:05.000000000 +0100
+@@ -195,3 +195,12 @@
+ # Terrestrial
+ 
+ T       DVB-T
++
++# ATSC
++
++A       ATSC
++
++# Plugins
++
++I       IPTV
++V       Analog Video
+diff -ruN vdr-1.7.13/sources.h vdr-1.7.14/sources.h
+--- vdr-1.7.13/sources.h	2010-02-21 17:11:19.000000000 +0100
++++ vdr-1.7.14/sources.h	2010-03-07 14:53:11.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sources.h 2.1 2010/02/21 16:11:19 kls Exp $
++ * $Id: sources.h 2.3 2010/03/07 13:53:11 kls Exp $
+  */
+ 
+ #ifndef __SOURCES_H
+@@ -16,6 +16,7 @@
+ public:
+   enum eSourceType {
+     stNone  = 0x00000000,
++    stAtsc  = ('A' << 24),
+     stCable = ('C' << 24),
+     stSat   = ('S' << 24),
+     stTerr  = ('T' << 24),
+@@ -35,9 +36,11 @@
+   static cString ToString(int Code);
+   static int FromString(const char *s);
+   static int FromData(eSourceType SourceType, int Position = 0, bool East = false);
++  static bool IsAtsc(int Code) { return (Code & st_Mask) == stAtsc; }
+   static bool IsCable(int Code) { return (Code & st_Mask) == stCable; }
+   static bool IsSat(int Code) { return (Code & st_Mask) == stSat; }
+   static bool IsTerr(int Code) { return (Code & st_Mask) == stTerr; }
++  static bool IsType(int Code, char Source) { return int(Code & st_Mask) == (int(Source) << 24); }
+   };
+ 
+ class cSources : public cConfig<cSource> {
+diff -ruN vdr-1.7.13/vdr.5 vdr-1.7.14/vdr.5
+--- vdr-1.7.13/vdr.5	2010-02-21 15:29:06.000000000 +0100
++++ vdr-1.7.14/vdr.5	2010-03-06 15:04:54.000000000 +0100
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 2.15 2010/02/21 14:29:06 kls Exp $
++.\" $Id: vdr.5 2.17 2010/03/06 14:04:54 kls Exp $
+ .\"
+ .TH vdr 5 "10 Feb 2008" "1.6" "Video Disk Recorder Files"
+ .SH NAME
+@@ -402,14 +402,16 @@
+ .TS
+ tab (@);
+ l l.
+-\fBS\fR@Satellite
++\fBA\fR@ATSC
+ \fBC\fR@Cable
++\fBS\fR@Satellite
+ \fBT\fR@Terrestrial
+ .TE
+ 
+ and is followed by further data pertaining to that particular source. In case of
+ \fBS\fRatellite this is the orbital position in degrees, followed by \fBE\fR for
+ east or \fBW\fR for west.
++Plugins may define additional sources, using other characters in the range 'A'...'Z'.
+ .SS DISEQC
+ The file \fIdiseqc.conf\fR defines the \fBDiSEqC\fR control sequences to be sent
+ to the DVB-S card in order to access a given satellite position and/or band.

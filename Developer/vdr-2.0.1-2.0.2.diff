@@ -1,0 +1,264 @@
+diff -ruN vdr-2.0.1/CONTRIBUTORS vdr-2.0.2/CONTRIBUTORS
+--- vdr-2.0.1/CONTRIBUTORS	2013-04-11 10:58:49.000000000 +0200
++++ vdr-2.0.2/CONTRIBUTORS	2013-05-19 14:09:55.000000000 +0200
+@@ -1013,9 +1013,11 @@
+  for fixing the type of MBperMinute in cVideoDiskUsage::HasChanged()
+  for reporting a bug in sorting recordings in case two folders have the same name,
+  but one of them ends in an additional digit, as in "abc" and "abc2"
+- for reporting multiple occurrences of the same directory in the recordings list ini
++ for reporting multiple occurrences of the same directory in the recordings list in
+  case there are directories that only differ in non-alphanumeric characters
+  for reporting a problem with reduced number of retries in Transfer Mode on SD-FF cards
++ for fixing multiple occurrences of the same directory in the recordings list in case
++ there are directories that only differ in non-alphanumeric characters
+ 
+ Olivier Jacques <jacquesolivier@hotmail.com>)
+  for translating OSD texts to the French language
+@@ -2100,6 +2102,7 @@
+  for suggesting to make the 'Allowed' parameter in cMenuEditStrItem() NULL by default,
+  which results in using tr(FileNameChars)
+  for fixing handling "none" color entries in XPM files
++ for fixing displaying the frame number when setting an editing mark
+ 
+ David Woodhouse <dwmw2@infradead.org>
+  for his help in replacing the get/put_unaligned() macros from asm/unaligned.h with
+@@ -2598,6 +2601,8 @@
+  for suggesting to make the "Source" item in the "Edit channel" menu wrap around the
+  list of sources
+  for reporting a crash when creating a new channel if the channel list is empty
++ for reporting that editing marks were generated even if the edited recording resulted
++ in just one single sequence
+ 
+ Denis Knauf <denis.knauf@gmail.com>
+  for reporting a missing '-' at the next to last line of SVDRP help texts
+@@ -3141,7 +3146,11 @@
+ Stefan Braun <louis.braun@gmx.de>
+  for reporting an endless loop in cTextWrapper::Set() in case the given Width is smaller
+  than one character
++ for reporting an endless loop in the DrawEllipse() functions for very small ellipses
+ 
+ Jochen Dolze <vdr@dolze.de>
+  for changing cThread::SetIOPriority() from "best effort class" to "idle class" in order
+  to improve overall performance when an editing process is running
++
++Dominique Dumont <domi.dumont@free.fr>
++ for reporting a crash in the LCARS skin's main menu in case there is no current channel
+diff -ruN vdr-2.0.1/HISTORY vdr-2.0.2/HISTORY
+--- vdr-2.0.1/HISTORY	2013-04-13 13:30:25.000000000 +0200
++++ vdr-2.0.2/HISTORY	2013-05-19 14:09:35.000000000 +0200
+@@ -7328,7 +7328,7 @@
+   + no longer generating an editing mark at the "end" of the edited recording (this
+     was actually generated at the beginning of the last GOP, so that a subsequent
+     edit would have cut off the last GOP)
+-  + no longer generating any editing marks if the edited recording results on just
++  + no longer generating any editing marks if the edited recording results in just
+     one single sequence
+   + ignoring pairs of editing marks that are placed at exactly the same position of
+     a recording when actually cutting the recording
+@@ -7794,3 +7794,21 @@
+ - Changed cThread::SetIOPriority() from "best effort class" to "idle class" in order to
+   improve overall performance when an editing process is running (thanks to Jochen
+   Dolze).
++
++2013-05-19: Version 2.0.2
++
++- Fixed multiple occurrences of the same directory in the recordings list in case there
++  are directories that only differ in non-alphanumeric characters (was broken by
++  "Fixed selecting the last replayed recording in the Recordings menu in case there
++  are folders and plain recordings with names that differ only in non-alphanumeric
++  characters" in version 1.7.36).
++- Fixed displaying the frame number when setting an editing mark (thanks to Thomas
++  Günther).
++- Fixed no longer generating any editing marks if the edited recording results in just
++  one single sequence.
++- Fixed an error message when parsing SCR values in diseqc.conf.
++- Fixed an unexpected RCS version tag in the newplugin script.
++- Fixed an endless loop in the DrawEllipse() functions for very small ellipses (reported
++  by Stefan Braun).
++- Fixed a crash in the LCARS skin's main menu in case there is no current channel
++  (reported by Dominique Dumont).
+diff -ruN vdr-2.0.1/config.h vdr-2.0.2/config.h
+--- vdr-2.0.1/config.h	2013-04-05 12:41:32.000000000 +0200
++++ vdr-2.0.2/config.h	2013-04-27 12:18:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.76.1.1 2013/04/05 10:41:32 kls Exp $
++ * $Id: config.h 2.76.1.2 2013/04/27 10:18:08 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,8 +22,8 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.0.1"
+-#define VDRVERSNUM   20001  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.0.2"
++#define VDRVERSNUM   20002  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+diff -ruN vdr-2.0.1/cutter.c vdr-2.0.2/cutter.c
+--- vdr-2.0.1/cutter.c	2013-03-18 10:40:49.000000000 +0100
++++ vdr-2.0.2/cutter.c	2013-05-02 11:21:18.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: cutter.c 2.25 2013/03/18 09:40:49 kls Exp $
++ * $Id: cutter.c 2.25.1.1 2013/05/02 09:21:18 kls Exp $
+  */
+ 
+ #include "cutter.h"
+@@ -581,7 +581,7 @@
+             }
+          fileSize += Length;
+          // Generate marks at the editing points in the edited recording:
+-         if (numSequences > 0 && Index == BeginIndex) {
++         if (numSequences > 1 && Index == BeginIndex) {
+             if (toMarks.Count() > 0)
+                toMarks.Add(toIndex->Last());
+             toMarks.Add(toIndex->Last());
+diff -ruN vdr-2.0.1/diseqc.c vdr-2.0.2/diseqc.c
+--- vdr-2.0.1/diseqc.c	2011-09-17 16:13:31.000000000 +0200
++++ vdr-2.0.2/diseqc.c	2013-05-02 11:33:12.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: diseqc.c 2.9 2011/09/17 14:13:31 kls Exp $
++ * $Id: diseqc.c 2.9.1.1 2013/05/02 09:33:12 kls Exp $
+  */
+ 
+ #include "diseqc.h"
+@@ -192,7 +192,7 @@
+         }
+      return p;
+      }
+-  esyslog("ERROR: more than one scr bank in '%s'", s - 1);
++  esyslog("ERROR: invalid value for scr bank in '%s'", s - 1);
+   return NULL;
+ }
+ 
+diff -ruN vdr-2.0.1/menu.c vdr-2.0.2/menu.c
+--- vdr-2.0.1/menu.c	2013-03-18 10:11:48.000000000 +0100
++++ vdr-2.0.2/menu.c	2013-04-27 12:32:28.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 2.82 2013/03/18 09:11:48 kls Exp $
++ * $Id: menu.c 2.82.1.2 2013/04/27 10:32:28 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -2302,14 +2302,12 @@
+             }
+          else
+             delete Item;
+-         if (LastItem) {
++         if (LastItem || LastDir) {
+             if (CurrentRecording && strcmp(CurrentRecording, recording->FileName()) == 0)
+-               SetCurrent(LastItem);
++               SetCurrent(LastDir ? LastDir : LastItem);
+             }
+-         if (LastDir) {
++         if (LastDir)
+             LastDir->IncrementCounter(recording->IsNew());
+-            LastItem = LastDir;
+-            }
+          }
+       }
+   if (Refresh)
+@@ -4779,8 +4777,10 @@
+         marks.Add(Current);
+         bool Play, Forward;
+         int Speed;
+-        if (Setup.PauseOnMarkSet || GetReplayMode(Play, Forward, Speed) && !Play)
++        if (Setup.PauseOnMarkSet || GetReplayMode(Play, Forward, Speed) && !Play) {
+            Goto(Current, true);
++           displayFrames = true;
++           }
+         }
+      ShowTimed(2);
+      marksModified = true;
+diff -ruN vdr-2.0.1/newplugin vdr-2.0.2/newplugin
+--- vdr-2.0.1/newplugin	2013-01-12 14:46:00.000000000 +0100
++++ vdr-2.0.2/newplugin	2013-05-02 12:04:06.000000000 +0200
+@@ -12,7 +12,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: newplugin 2.17 2013/01/12 13:46:00 kls Exp $
++# $Id: newplugin 2.17.1.1 2013/05/02 10:04:06 kls Exp $
+ 
+ $PLUGIN_NAME = $ARGV[0] || die "Usage: newplugin <name>\n";
+ 
+@@ -352,8 +352,8 @@
+ 
+ sub CreateFile
+ {
+-  my ($Name, $Content) = @_;
+-  open(FILE, ">$PLUGINDIR/$Name") || die "$Name: V20001 $!\n";
++  my ($FileName, $Content) = @_;
++  open(FILE, ">$PLUGINDIR/$FileName") || die "$FileName: $!\n";
+   print FILE $Content;
+   close(FILE);
+ }
+diff -ruN vdr-2.0.1/osd.c vdr-2.0.2/osd.c
+--- vdr-2.0.1/osd.c	2013-02-14 16:50:19.000000000 +0100
++++ vdr-2.0.2/osd.c	2013-05-18 14:41:48.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 2.38 2013/02/14 15:50:19 kls Exp $
++ * $Id: osd.c 2.38.1.1 2013/05/18 12:41:48 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -639,8 +639,8 @@
+     case 8:          cy = y1; rx /= 2; break;
+     default: ;
+     }
+-  int TwoASquare = 2 * rx * rx;
+-  int TwoBSquare = 2 * ry * ry;
++  int TwoASquare = max(1, 2 * rx * rx);
++  int TwoBSquare = max(1, 2 * ry * ry);
+   int x = rx;
+   int y = 0;
+   int XChange = ry * ry * (1 - 2 * rx);
+@@ -1380,8 +1380,8 @@
+     case 8:          cy = y1; rx /= 2; break;
+     default: ;
+     }
+-  int TwoASquare = 2 * rx * rx;
+-  int TwoBSquare = 2 * ry * ry;
++  int TwoASquare = max(1, 2 * rx * rx);
++  int TwoBSquare = max(1, 2 * ry * ry);
+   int x = rx;
+   int y = 0;
+   int XChange = ry * ry * (1 - 2 * rx);
+diff -ruN vdr-2.0.1/skinlcars.c vdr-2.0.2/skinlcars.c
+--- vdr-2.0.1/skinlcars.c	2013-03-09 11:43:34.000000000 +0100
++++ vdr-2.0.2/skinlcars.c	2013-05-19 14:08:52.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinlcars.c 2.21 2013/03/09 10:43:34 kls Exp $
++ * $Id: skinlcars.c 2.21.1.1 2013/05/19 12:08:52 kls Exp $
+  */
+ 
+ // "Star Trek: The Next Generation"(R) is a registered trademark of Paramount Pictures,
+@@ -1340,6 +1340,8 @@
+      DrawMainFrameUpper(Theme.Color(clrChannelFrameBg));
+      osd->DrawText(xd00, yd00, tr("LIVE"), Theme.Color(clrChannelFrameBg), Theme.Color(clrBackground), tallFont, xd07 - xd00, yd01 - yd00, taTop | taRight | taBorder);
+      }
++  if (!Channel)
++     return;
+   if (initial || Channel != lastChannel) {
+      osd->DrawText(xa00, yt00, itoa(Channel->Number()), Theme.Color(clrChannelFrameFg), Theme.Color(clrChannelFrameBg), tallFont, xa02 - xa00, yt02 - yt00, taTop | taRight | taBorder);
+      osd->DrawText(xa03, yt00, Channel->Name(), Theme.Color(clrChannelName), Theme.Color(clrBackground), tallFont, xd00 - xa03, yd01 - yd00, taTop | taLeft);

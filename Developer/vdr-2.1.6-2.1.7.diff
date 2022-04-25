@@ -1,0 +1,4289 @@
+diff -ruN vdr-2.1.6/CONTRIBUTORS vdr-2.1.7/CONTRIBUTORS
+--- vdr-2.1.6/CONTRIBUTORS	2014-03-16 13:53:47.000000000 +0100
++++ vdr-2.1.7/CONTRIBUTORS	2015-01-17 16:02:26.000000000 +0100
+@@ -232,6 +232,7 @@
+  featured DVB cards
+  for pointing out a bug in handling lowercase polarization characters in channel
+  definitions if no DiSEqC is used
++ for fixing a bug in the Makefile when installing plugins with LCLBLD=1
+ 
+ Ulrich Rˆder <roeder@efr-net.de>
+  for pointing out that there are channels that have a symbol rate higher than 27500
+@@ -622,6 +623,7 @@
+  via the main menu and by pressing the Recordings key
+  for helping to debug a problem with frame detection in MPEG-2 streams that have "bottom fields"
+  or varying GOP structures
++ for a patch that was used to implement the command line option --updindex
+ 
+ Jeremy Hall <jhall@UU.NET>
+  for fixing an incomplete initialization of the filter parameters in eit.c
+@@ -1188,6 +1190,8 @@
+  for reporting a problem with adding new source types in case they are already
+  registered
+  for adding support for "Pilot", "T2-System-Id" and "SISO/MISO" parameters
++ for fixing a problem with subtitles not being displayed because the broadcaster
++ doesn't set the data's version numbers as required by the DVB standard
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -2546,6 +2550,7 @@
+  for suggestions used in revising priority handling to allow receivers with a priority
+  that is lower than that of live viewing
+  for fixing handling IDLEPRIORITY in cDvbDevice::ProvidesChannel()
++ for suggesting to add functions to set and retrieve the priority of a cReceiver
+ 
+ Jˆrn Reder <joern@zyn.de>
+  for reporting that a recording may unnecessarily block a device with a CAM, while
+@@ -2615,6 +2620,7 @@
+  for a patch that fixed part of a crash in i18n character set conversion
+  for fixing cDvbPlayer::NextFile() to handle files larger than 2GB
+  for implementing full handling of the stream types of Dolby Digital pids
++ for adding subsystem id support for DVB devices connected via USB
+ 
+ Patrice Staudt <staudt@engsystem.net>
+  for adding full weekday names to i18n.c for plugins to use
+@@ -2895,6 +2901,8 @@
+  the caller to have it display only a certain subset of the recordings
+  for adding handling UTF-8 'umlaut' characters to cKbdRemote
+  for fixing learning keyboard remote control codes
++ for making VDR read command line options from *.conf files in /etc/vdr/conf.d
++ for adding a missing backslash to the help text of the SVDRP command MOVR
+ 
+ Alex Lasnier <alex@fepg.org>
+  for adding tuning support for ATSC devices
+@@ -3168,6 +3176,7 @@
+  recording is started
+  for suggesting that floating point numbers presented to the user shall be displayed
+  in the way defined by the current locale
++ for changing the German weekday names from "MonDieMitDonFreSamSon" to "Mo.Di.Mi.Do.Fr.Sa.So."
+ 
+ Cedric Dewijs <cedric.dewijs@telfort.nl>
+  for adding maximum SNR value for PCTV Systems PCTV 73ESE
+@@ -3259,11 +3268,18 @@
+  for suggesting to add an additional parameter named Forward to cDevice::TrickSpeed()
+  for suggesting to add a note to ePlayMode in device.h that VDR itself always uses
+  pmAudioVideo when replaying a recording
++ for fixing a possible crash in the LCARS skin
++ for implementing cOsd::DrawScaledBitmap()
++ for adding handling for DTS audio tracks to cPatPmtParser::ParsePmt()
++ for adding support for PGS subtitles
++ for adding cOsdProvider::OsdSizeChanged()
+ 
+ Eike Sauer <EikeSauer@t-online.de>
+  for reporting a problem with channels that need more than 5 TS packets for detecting
+  frame borders
+  for reporting a problem in handling the frame detection buffer length
++ for suggesting to add a comment to cRecorder::Activate() about the need to call
++ Detach() in the destructor
+ 
+ Christian Paulick <cpaulick@xeatre.tv>
+  for reporting a problem with frame detection in MPEG-2 streams that have "bottom fields"
+@@ -3284,3 +3300,32 @@
+ Christian Winkler <winkler_chr@yahoo.de>
+  for reporting a problem with transfer mode on full featured DVB cards for encrypted
+  channels that have no audio pid
++
++Dietmar Spingler <d_spingler@gmx.de>
++ for reporting a problem that led to a fix in detaching receivers from devices in case
++ a CAM needs to receive the TS
++ for reporting a problem that led to a fix with EMM pids not being properly reset for
++ CAMs that need to receive the TS
++ for suggesting to add the channel name to log messages that reference a channel
++
++Stefan Schallenberg <infos@nafets.de>
++ for adding the functions IndexOf(), InsertUnique(), AppendUnique() and RemoveElement()
++ to the cVector class
++
++Claus Muus <email@clausmuus.de>
++ for adding the new parameters "Setup/Miscellaneous/Volume steps" and
++ ".../Volume linearize"
++
++Dieter Ferdinand <dieter.ferdinand@gmx.de>
++ for reporting a problem with jumping to an absolute position via the Red key in
++ case replay was paused
++ for reporting a problem with the system getting unresponsive when removing a huge
++ number of files in the thread that removes deleted recordings
++
++Jasmin Jessich <jasmin@anw.at>
++ for modifying the CAM API so that it is possible to implement CAMs that can be freely
++ assigned to any devices
++
++Martin Schirrmacher <schirrmie@gmail.com>
++ for suggesting to provide a way for skin plugins to get informed about the currently
++ used sort mode of a menu
+diff -ruN vdr-2.1.6/HISTORY vdr-2.1.7/HISTORY
+--- vdr-2.1.6/HISTORY	2014-03-16 13:53:19.000000000 +0100
++++ vdr-2.1.7/HISTORY	2015-01-18 11:14:48.000000000 +0100
+@@ -8260,3 +8260,137 @@
+   IsOnVideoDirectoryFileSystem().
+ - Added support for systemd (thanks to Christopher Reimer). To activate this you
+   need to add "SDNOTIFY=1" to the 'make' call.
++
++2014-03-22: Version 2.0.6
++
++- Updated 'sources.conf' (thanks to Antti Hartikainen).
++- cFont::CreateFont() now returns a dummy font in case there are no fonts installed.
++  This prevents a crash with the LCARS skin on a system that has no fonts.
++- Fixed detecting frame borders in MPEG-2 streams that have "bottom fields" or varying
++  GOP structures (reported by Christian Paulick, with help from Helmut Auer).
++- Fixed a wrong alignment in cCiDateTime::SendDateTime().
++- Now checking whether the primary device actually has a decoder before retuning the
++  current channel after a change in its parameters. This fixes broken recordings on
++  the primary device on "headless" systems.
++- Increased MIN_TS_PACKETS_FOR_FRAME_DETECTOR to 100 and introduced counting the number
++  of actual video TS packets in cTsPayload in order to be able to record channels that
++  sometimes need even more than 10 TS packets for detecting frame borders (reported by
++  Eike Sauer and Oliver Endriss).
++- Fixed sorting recordings by time in the Recordings menu if "Setup/OSD/Recording
++  directories" is set to "no".
++- Fixed clearing non-editable members in the channel editor (thanks to Rolf Ahrenberg).
++- Fixed flickering if subtitles are active while the OSD demo is running.
++- Fixed a possible crash in the OSD demo (reported by Christopher Reimer).
++- Fixed learning keyboard remote control codes (thanks to Lars Hanisch).
++- Fixed the replay progress display for very long recordings.
++- Improved PAT/PMT scanning to speed up initial tuning to encrypted channels on
++  transponders with many PAT entries (reported by Mariusz Bialonczyk).
++- Fixed detecting broken video data streams when recording.
++- Fixed handling frame detection buffer length (reported by Eike Sauer).
++- Fixed keeping the current position in the Recordings menu if a recording was
++  deleted in a sub folder.
++- Fixed handling transfer mode on full featured DVB cards for encrypted channels
++  that have no audio pid (reported by Christian Winkler).
++- Fixed a possible endless loop in cH264Parser::GetGolombUe(), which caused recordings
++  on some HD channels to get stuck and resulted in buffer overflows.
++- Fixed handling PAT packets when detecting frames, so that they can be properly
++  taken into account when regenerating the index of a recording.
++- Fixed adding new source types in case they are already registered (reported by Rolf
++  Ahrenberg).
++- Fixed drawing the live indicator in the LCARS skin in case there are no devices.
++- The SDT is now only parsed *after* the NIT has been read, and it explicitly uses
++  the source value derived from the NIT. This should prevent new channels from being
++  created with the wrong source.
++- Now initializing the isOnVideoDirectoryFileSystem member of cRecording when
++  scanning the video directory, so that it won't cause a delay when opening the menu
++  on a system with a large number of recordings.
++- The APIVERSION has been increased to 2.0.6 due to the changes to pat.h, sdt.h and
++  the functional modification to cFont::CreateFont().
++
++2015-01-18: Version 2.1.7
++
++- No longer logging an error message in DirSizeMB() if the given directory doesn't
++  exist. This avoids lots of log entries in case several VDRs use the same video
++  directory and one of them has already physically removed a recording directory,
++  while the others still have it in their list of deleted recordings.
++- Updated the Italian OSD texts (thanks to Diego Pierotto).
++- A cCamSlot that has WantsTsData set to true in its constructor now also gets
++  the CAT and EMM PIDs data.
++- Fixed a possible division by zero in frame rate detection.
++- VDR now reads command line options from *.conf files in /etc/vdr/conf.d (thanks
++  to Lars Hanisch). See vdr.1 and vdr.5 for details.
++- Fixed a possible crash in the LCARS skin (thanks to Thomas Reufer).
++- Updated the dvbhddevice plugin source.
++- Fixed a bug in the Makefile when installing plugins with LCLBLD=1 (thanks to
++  Stefan Huelswitt).
++- The pid of the PMT in which the CA descriptors of a given channel are broadcast
++  is now stored together with the CA descriptors and can be retrieved by calling
++  GetPmtPid() (this information is only required to receive encrypted channels
++  with the OctopusNet receiver via the 'satip' plugin).
++- Channels that are not listed in the SDT are now only marked as OBSOLETE if
++  "Setup/DVB/Update channels" is set to a value other than "no" or "PIDs only".
++- Fixed multiple OBSOLETE marks in channels that are not listed in the SDT in case
++  "Setup/Miscellaneous/Show channel names with source" is set to "yes".
++- The new function cOsd::DrawScaledBitmap() is now used for drawing subtitles.
++  This function can be reimplemented by high level OSDs which may be able to do
++  the scaling in hardware or otherwise more efficiently (thanks to Thomas Reufer).
++- Fixed detaching receivers from devices in case a CAM needs to receive the TS
++  (reported by Dietmar Spingler).
++- Fixed resetting the receiver for EMM pids for CAMs that need to receive the TS
++  (reported by Dietmar Spingler).
++- Fixed (well, actually worked around) a problem with subtitles not being displayed
++  because the broadcaster doesn't set the data's version numbers as required by the
++  DVB standard (thanks to Rolf Ahrenberg).
++- Fixed support for systemd (thanks to Christopher Reimer).
++- Added a missing backslash to the help text of the SVDRP command MOVR (thanks to
++  Lars Hanisch).
++- Added subsystem id support for DVB devices connected via USB (thanks to Jose
++  Alberto Reguero).
++- Added the functions IndexOf(), InsertUnique(), AppendUnique() and RemoveElement()
++  to the cVector class (thanks to Stefan Schallenberg).
++- Fixed a possible out-of-bounds access in cVector::Remove().
++- Added functions to set and retrieve the priority of a cReceiver (suggested by
++  Frank Schmirler).
++- Added the new parameters "Setup/Miscellaneous/Volume steps" and
++  ".../Volume linearize" (thanks to Claus Muus). See the MANUAL for details.
++- Fixed jumping to an absolute position via the Red key in case replay was paused
++  (reported by Dieter Ferdinand).
++- Changed the German weekday names from "MonDieMitDonFreSamSon" to
++  "Mo.Di.Mi.Do.Fr.Sa.So." (thanks to Stefan Blochberger).
++- Now handling CAT sections that consist of more than one TS packet.
++- Added handling for DTS audio tracks to cPatPmtParser::ParsePmt() (thanks to
++  Thomas Reufer).
++- Added support for PGS subtitles (thanks to Thomas Reufer).
++- Use of the function cOsd::GetBitmap() outside of derived classes is now deprecated,
++  and it may be made 'protected' in a future version, since it doesn't work with
++  TrueColor OSDs. Plugin authors may want to modify their code so that it
++  works without this function.
++- Modified the descriptions of several threads, so that the important information
++  (like device or frontend numbers) is within the first 15 characters of the
++  string, because only these are displayed in thread listings. Plugin authors may
++  want to do the same.
++- Added the channel name to log messages that reference a channel (suggested by
++  Dietmar Spingler).
++- Modified the CAM API so that it is possible to implement CAMs that can be freely
++  assigned to any devices (thanks to Jasmin Jessich).
++- Plugins can now implement the function SetMenuSortMode() in their skin objects
++  derived from cSkinDisplayMenu, to get informed about the currently used sort
++  mode, if applicable (suggested by Martin Schirrmacher).
++- Added cOsdProvider::OsdSizeChanged(), which plugins that implement an output device
++  can call to signal a change in the OSD that requires a redraw of the currently
++  displayed object (thanks to Thomas Reufer).
++- Added a comment to cRecorder::Activate() about the need to call Detach() in the
++  destructor (suggested by Eike Sauer).
++- Now returning from removing deleted recordings after at most 10 seconds, or if the
++  user presses a remote control key, to keep the system from getting unresponsive
++  when removing a huge number of files (reported by Dieter Ferdinand).
++- Fixed generating the index file of an existing recording in case at the of a TS file
++  there is less data in the buffer than needed by the frame detector. In such a case
++  it was possible that frames were missed, and there was most likely a distortion
++  when replaying that part of a recording. This is mostly a problem for recordings that
++  consist of more than one *.ts file. Single file recordings could only lose some
++  frames at their very end, which probably doesn't matter. At any rate, if you have
++  generated an index file with VDR version 2.0.6, 2.1.5 or 2.1.6, you may want to
++  do so again with this version to make sure the index is OK.
++- Added the new command line option --updindex, which can be used to update an
++  incomplete index of a recording (based on a patch from Helmut Auer).
+diff -ruN vdr-2.1.6/MANUAL vdr-2.1.7/MANUAL
+--- vdr-2.1.6/MANUAL	2014-03-15 14:40:37.000000000 +0100
++++ vdr-2.1.7/MANUAL	2015-01-17 12:37:10.000000000 +0100
+@@ -999,6 +999,17 @@
+                          VDR was stopped will be used. The valid range is from
+                          0 (silent) to 255 (loudest).
+ 
++  Volume steps = 51      The number of steps the volume will use when moving from
++                         the lowest to the highest value. The valid range is from
++                         5 to 255.
++
++  Volume linearize = 0   How to linearize the volume control. The valid range is
++                         from -20 to 20. A value of 0 results in no linearization.
++                         The higher this value is, the more fine grained the control
++                         of the volume is for low sound levels. Lower values do the
++                         same for high sound levels. This allows you to adjust the
++                         more or less linear volume control of your sound card.
++
+   Channels wrap = no     During zapping with the "Up" and "Down" keys (or the
+                          "Channel+" and "Channel-" keys) the current channel will
+                          wrap around the beginning or end of the channel list if
+diff -ruN vdr-2.1.6/Make.config.template vdr-2.1.7/Make.config.template
+--- vdr-2.1.6/Make.config.template	2013-02-18 11:55:39.000000000 +0100
++++ vdr-2.1.7/Make.config.template	2014-04-14 13:43:53.000000000 +0200
+@@ -6,7 +6,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Make.config.template 3.0 2013/02/18 10:55:39 kls Exp $
++# $Id: Make.config.template 3.1 2014/04/14 11:43:53 kls Exp $
+ 
+ ### The C compiler and options:
+ 
+@@ -38,6 +38,7 @@
+ 
+ #VIDEODIR  = /srv/vdr/video
+ #CONFDIR   = /var/lib/vdr
++#ARGSDIR   = /etc/vdr/conf.d
+ #CACHEDIR  = /var/cache/vdr
+ 
+ # Overrides for preset/legacy configurations:
+diff -ruN vdr-2.1.6/Makefile vdr-2.1.7/Makefile
+--- vdr-2.1.6/Makefile	2014-03-16 13:47:35.000000000 +0100
++++ vdr-2.1.7/Makefile	2015-01-01 14:52:07.000000000 +0100
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 3.2 2014/03/16 12:47:35 kls Exp $
++# $Id: Makefile 3.4 2015/01/01 13:52:07 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -31,6 +31,7 @@
+ DESTDIR   ?=
+ VIDEODIR  ?= /srv/vdr/video
+ CONFDIR   ?= /var/lib/vdr
++ARGSDIR   ?= /etc/vdr/conf.d
+ CACHEDIR  ?= /var/cache/vdr
+ 
+ PREFIX    ?= /usr/local
+@@ -66,7 +67,7 @@
+ 
+ SILIB    = $(LSIDIR)/libsi.a
+ 
+-OBJS = audio.o channels.o ci.o config.o cutter.o device.o diseqc.o dvbdevice.o dvbci.o\
++OBJS = args.o audio.o channels.o ci.o config.o cutter.o device.o diseqc.o dvbdevice.o dvbci.o\
+        dvbplayer.o dvbspu.o dvbsubtitle.o eit.o eitscan.o epg.o filter.o font.o i18n.o interface.o keys.o\
+        lirc.o menu.o menuitems.o nit.o osdbase.o osd.o pat.o player.o plugin.o positioner.o\
+        receiver.o recorder.o recording.o remote.o remux.o ringbuffer.o sdt.o sections.o shutdown.o\
+@@ -104,6 +105,7 @@
+ DEFINES += -DLIRC_DEVICE=\"$(LIRC_DEVICE)\"
+ DEFINES += -DVIDEODIR=\"$(VIDEODIR)\"
+ DEFINES += -DCONFDIR=\"$(CONFDIR)\"
++DEFINES += -DARGSDIR=\"$(ARGSDIR)\"
+ DEFINES += -DCACHEDIR=\"$(CACHEDIR)\"
+ DEFINES += -DRESDIR=\"$(RESDIR)\"
+ DEFINES += -DPLUGINDIR=\"$(LIBDIR)\"
+@@ -146,8 +148,9 @@
+ vdr.pc:
+ 	@echo "bindir=$(BINDIR)" > $@
+ 	@echo "mandir=$(MANDIR)" >> $@
+-	@echo "configdir=$(CONFDIR)" >> $@
+ 	@echo "videodir=$(VIDEODIR)" >> $@
++	@echo "configdir=$(CONFDIR)" >> $@
++	@echo "argsdir=$(ARGSDIR)" >> $@
+ 	@echo "cachedir=$(CACHEDIR)" >> $@
+ 	@echo "resdir=$(RESDIR)" >> $@
+ 	@echo "libdir=$(LIBDIR)" >> $@
+@@ -225,7 +228,7 @@
+ 	    INCLUDES="-I$(CWD)/include"\
+ 	    $(MAKE) --no-print-directory -C "$(PLUGINDIR)/src/$$i" VDRDIR="$(CWD)" || failed="$$failed $$i";\
+ 	    if [ -n "$(LCLBLD)" ] ; then\
+-	       (cd $(PLUGINDIR)/src/$$i; for l in `find -name 'libvdr-*.so' -o -name 'lib$$i-*.so'`; do install $$l $(LIBDIR)/`basename $$l`.$(APIVERSION); done);\
++	       (cd $(PLUGINDIR)/src/$$i; for l in `find -name "libvdr-*.so" -o -name "lib$$i-*.so"`; do install $$l $(LIBDIR)/`basename $$l`.$(APIVERSION); done);\
+ 	       if [ -d $(PLUGINDIR)/src/$$i/po ]; then\
+ 	          for l in `ls $(PLUGINDIR)/src/$$i/po/*.mo`; do\
+ 	              install -D -m644 $$l $(LOCDIR)/`basename $$l | cut -d. -f1`/LC_MESSAGES/vdr-$$i.mo;\
+@@ -265,6 +268,7 @@
+ install-dirs:
+ 	@mkdir -p $(DESTDIR)$(VIDEODIR)
+ 	@mkdir -p $(DESTDIR)$(CONFDIR)
++	@mkdir -p $(DESTDIR)$(ARGSDIR)
+ 	@mkdir -p $(DESTDIR)$(CACHEDIR)
+ 	@mkdir -p $(DESTDIR)$(RESDIR)
+ 
+diff -ruN vdr-2.1.6/PLUGINS/src/dvbhddevice/dvbhdffdevice.c vdr-2.1.7/PLUGINS/src/dvbhddevice/dvbhdffdevice.c
+--- vdr-2.1.6/PLUGINS/src/dvbhddevice/dvbhdffdevice.c	2014-03-15 14:11:00.000000000 +0100
++++ vdr-2.1.7/PLUGINS/src/dvbhddevice/dvbhdffdevice.c	2014-11-16 11:19:03.000000000 +0100
+@@ -108,17 +108,12 @@
+ 
+ void cDvbHdFfDevice::MakePrimaryDevice(bool On)
+ {
+-  if (On) {
+-     new cHdffOsdProvider(mHdffCmdIf);
+-     //TODO the same code is also used in cHdffSetupPage::Store() and cHdffMenu::SetVideoConversion() - combine?
+-     HdffVideoFormat_t videoFormat;
+-     videoFormat.AutomaticEnabled = true;
+-     videoFormat.AfdEnabled = false;
+-     videoFormat.TvFormat = (HdffTvFormat_t) gHdffSetup.TvFormat;
+-     videoFormat.VideoConversion = (HdffVideoConversion_t) gHdffSetup.VideoConversion;
+-     mHdffCmdIf->CmdAvSetVideoFormat(0, &videoFormat);
+-     }
+-  cDvbDevice::MakePrimaryDevice(On);
++    if (On) {
++        new cHdffOsdProvider(mHdffCmdIf);
++
++        gHdffSetup.SetVideoFormat(mHdffCmdIf);
++    }
++    cDvbDevice::MakePrimaryDevice(On);
+ }
+ 
+ bool cDvbHdFfDevice::HasDecoder(void) const
+@@ -243,6 +238,26 @@
+     return result;
+ }
+ 
++void cDvbHdFfDevice::SetVideoDisplayFormat(eVideoDisplayFormat VideoDisplayFormat)
++{
++    if (gHdffSetup.TvFormat == HDFF_TV_FORMAT_4_BY_3)
++    {
++        switch (VideoDisplayFormat)
++        {
++            case vdfPanAndScan:
++            case vdfCenterCutOut:
++                gHdffSetup.VideoConversion = HDFF_VIDEO_CONVERSION_CENTRE_CUT_OUT;
++                break;
++
++            case vdfLetterBox:
++                gHdffSetup.VideoConversion = HDFF_VIDEO_CONVERSION_LETTERBOX_16_BY_9;
++                break;
++        }
++        gHdffSetup.SetVideoFormat(mHdffCmdIf);
++    }
++    cDevice::SetVideoDisplayFormat(VideoDisplayFormat);
++}
++
+ void cDvbHdFfDevice::GetVideoSize(int &Width, int &Height, double &VideoAspect)
+ {
+   if (fd_video >= 0) {
+@@ -795,6 +810,11 @@
+         mHdffCmdIf->CmdAvEnableSync(0, true);
+         isPlayingVideo = true;
+     }
++
++    // ignore padding PES packets
++    if (Data[3] == 0xBE)
++        return Length;
++
+     //TODO: support greater Length
+     uint8_t tsBuffer[188 * 16];
+     uint32_t tsLength;
+diff -ruN vdr-2.1.6/PLUGINS/src/dvbhddevice/dvbhdffdevice.h vdr-2.1.7/PLUGINS/src/dvbhddevice/dvbhdffdevice.h
+--- vdr-2.1.6/PLUGINS/src/dvbhddevice/dvbhdffdevice.h	2014-03-14 12:51:37.000000000 +0100
++++ vdr-2.1.7/PLUGINS/src/dvbhddevice/dvbhdffdevice.h	2014-11-16 11:19:03.000000000 +0100
+@@ -51,6 +51,7 @@
+ // Video format facilities
+ 
+ public:
++  virtual void SetVideoDisplayFormat(eVideoDisplayFormat VideoDisplayFormat);
+   virtual void GetVideoSize(int &Width, int &Height, double &VideoAspect);
+   virtual void GetOsdSize(int &Width, int &Height, double &PixelAspect);
+ 
+diff -ruN vdr-2.1.6/PLUGINS/src/dvbhddevice/hdffosd.c vdr-2.1.7/PLUGINS/src/dvbhddevice/hdffosd.c
+--- vdr-2.1.6/PLUGINS/src/dvbhddevice/hdffosd.c	2014-02-08 13:46:14.000000000 +0100
++++ vdr-2.1.7/PLUGINS/src/dvbhddevice/hdffosd.c	2014-09-21 14:13:02.000000000 +0200
+@@ -663,14 +663,23 @@
+ {
+     if (!Active() || (mDisplay == HDFF_INVALID_HANDLE))
+         return;
+-    //struct timeval start;
+-    //struct timeval end;
+-    //struct timezone timeZone;
+-    //gettimeofday(&start, &timeZone);
++#ifdef MEASURE_OSD_TIME
++    struct timeval start;
++    struct timeval end;
++    struct timezone timeZone;
++    gettimeofday(&start, &timeZone);
++#endif
+ 
+     bool render = false;
+     if (IsTrueColor())
+     {
++        uint8_t * buffer = 0;
++        if (gHdffSetup.TrueColorFormat != 0)
++        {
++            buffer = new uint8_t[MAX_BITMAP_SIZE];
++            if (!buffer)
++                return;
++        }
+         LOCK_PIXMAPS;
+         while (cPixmapMemory *pm = RenderPixmaps())
+         {
+@@ -682,17 +691,56 @@
+                 Chunk = h;
+             for (int y = 0; y < h; y += Chunk)
+             {
+-                 int hc = Chunk;
+-                 if (y + hc > h)
+-                     hc = h - y;
+-                 mHdffCmdIf->CmdOsdDrawBitmap(mDisplay,
+-                     Left() + pm->ViewPort().X(), Top() + pm->ViewPort().Y() + y,
+-                     pm->Data() + y * d, w, hc, hc * d,
+-                     HDFF_COLOR_TYPE_ARGB8888, HDFF_INVALID_HANDLE);
++                int hc = Chunk;
++                if (y + hc > h)
++                    hc = h - y;
++                if (gHdffSetup.TrueColorFormat == 0) // ARGB8888 (32 bit)
++                {
++                    mHdffCmdIf->CmdOsdDrawBitmap(mDisplay,
++                        Left() + pm->ViewPort().X(), Top() + pm->ViewPort().Y() + y,
++                        pm->Data() + y * d, w, hc, hc * d,
++                        HDFF_COLOR_TYPE_ARGB8888, HDFF_INVALID_HANDLE);
++                }
++                else if (gHdffSetup.TrueColorFormat == 1) // ARGB8565 (24 bit)
++                {
++                    const tColor * pixmapData = (const tColor *) (pm->Data() + y * d);
++                    uint8_t * bitmapData = buffer;
++                    for (int i = 0; i < hc * w; i++)
++                    {
++                        bitmapData[2] =  (pixmapData[i] & 0xFF000000) >> 24;
++                        bitmapData[1] = ((pixmapData[i] & 0x00F80000) >> 16)
++                                      | ((pixmapData[i] & 0x0000E000) >> 13);
++                        bitmapData[0] = ((pixmapData[i] & 0x00001C00) >> 5)
++                                      | ((pixmapData[i] & 0x000000F8) >> 3);
++                        bitmapData += 3;
++                    }
++                    mHdffCmdIf->CmdOsdDrawBitmap(mDisplay,
++                        Left() + pm->ViewPort().X(), Top() + pm->ViewPort().Y() + y,
++                        buffer, w, hc, hc * w * 3,
++                        HDFF_COLOR_TYPE_ARGB8565, HDFF_INVALID_HANDLE);
++                }
++                else if (gHdffSetup.TrueColorFormat == 2) // ARGB4444 (16 bit)
++                {
++                    const tColor * pixmapData = (const tColor *) (pm->Data() + y * d);
++                    uint16_t * bitmapData = (uint16_t *) buffer;
++                    for (int i = 0; i < hc * w; i++)
++                    {
++                        bitmapData[i] = ((pixmapData[i] & 0xF0000000) >> 16)
++                                      | ((pixmapData[i] & 0x00F00000) >> 12)
++                                      | ((pixmapData[i] & 0x0000F000) >> 8)
++                                      | ((pixmapData[i] & 0x000000F0) >> 4);
++                    }
++                    mHdffCmdIf->CmdOsdDrawBitmap(mDisplay,
++                        Left() + pm->ViewPort().X(), Top() + pm->ViewPort().Y() + y,
++                        buffer, w, hc, hc * w * 2,
++                        HDFF_COLOR_TYPE_ARGB4444, HDFF_INVALID_HANDLE);
++                }
+             }
+             delete pm;
+             render = true;
+         }
++        if (buffer)
++            delete[] buffer;
+     }
+     else
+     {
+@@ -755,10 +803,12 @@
+     if (render)
+     {
+         mHdffCmdIf->CmdOsdRenderDisplay(mDisplay);
+-        //gettimeofday(&end, &timeZone);
+-        //int timeNeeded = end.tv_usec - start.tv_usec;
+-        //timeNeeded += (end.tv_sec - start.tv_sec) * 1000000;
+-        //printf("time = %d\n", timeNeeded);
++#ifdef MEASURE_OSD_TIME
++        gettimeofday(&end, &timeZone);
++        int timeNeeded = end.tv_usec - start.tv_usec;
++        timeNeeded += (end.tv_sec - start.tv_sec) * 1000000;
++        printf("time = %d\n", timeNeeded);
++#endif
+     }
+     refresh = false;
+ }
+diff -ruN vdr-2.1.6/PLUGINS/src/dvbhddevice/menu.c vdr-2.1.7/PLUGINS/src/dvbhddevice/menu.c
+--- vdr-2.1.6/PLUGINS/src/dvbhddevice/menu.c	2013-08-23 12:04:47.000000000 +0200
++++ vdr-2.1.7/PLUGINS/src/dvbhddevice/menu.c	2014-11-16 11:19:03.000000000 +0100
+@@ -56,12 +56,7 @@
+ 
+ void cHdffMenu::SetVideoConversion(void)
+ {
+-    HdffVideoFormat_t videoFormat;
+-    videoFormat.AutomaticEnabled = true;
+-    videoFormat.AfdEnabled = false;
+-    videoFormat.TvFormat = (HdffTvFormat_t) gHdffSetup.TvFormat;
+-    videoFormat.VideoConversion = (HdffVideoConversion_t) gHdffSetup.VideoConversion;
+-    mHdffCmdIf->CmdAvSetVideoFormat(0, &videoFormat);
++    gHdffSetup.SetVideoFormat(mHdffCmdIf);
+ 
+     char str[128];
+     sprintf(str, "%s: %s", tr("Video Conversion"), gHdffSetup.GetVideoConversionString());
+diff -ruN vdr-2.1.6/PLUGINS/src/dvbhddevice/po/de_DE.po vdr-2.1.7/PLUGINS/src/dvbhddevice/po/de_DE.po
+--- vdr-2.1.6/PLUGINS/src/dvbhddevice/po/de_DE.po	2014-03-16 12:07:01.246918403 +0100
++++ vdr-2.1.7/PLUGINS/src/dvbhddevice/po/de_DE.po	2014-10-03 15:10:39.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: vdr-dvbhddevice 0.0.4\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+-"POT-Creation-Date: 2013-08-23 12:10+0200\n"
++"POT-Creation-Date: 2014-09-21 14:01+0200\n"
+ "PO-Revision-Date: 2011-04-25 21:44+0200\n"
+ "Last-Translator: Christoph Haubrich\n"
+ "Language-Team: <see README>\n"
+@@ -121,5 +121,8 @@
+ msgid "Allow True Color OSD"
+ msgstr "Erlaube True Color OSD"
+ 
++msgid "True Color format"
++msgstr "True Color Format"
++
+ msgid "Hide mainmenu entry"
+ msgstr "Hauptmen√ºeintrag verstecken"
+diff -ruN vdr-2.1.6/PLUGINS/src/dvbhddevice/po/fi_FI.po vdr-2.1.7/PLUGINS/src/dvbhddevice/po/fi_FI.po
+--- vdr-2.1.6/PLUGINS/src/dvbhddevice/po/fi_FI.po	2014-03-16 12:07:01.199909993 +0100
++++ vdr-2.1.7/PLUGINS/src/dvbhddevice/po/fi_FI.po	2014-10-03 15:10:39.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: vdr-dvbhddevice 0.0.4\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+-"POT-Creation-Date: 2013-08-23 12:10+0200\n"
++"POT-Creation-Date: 2014-09-21 14:01+0200\n"
+ "PO-Revision-Date: 2011-04-25 21:44+0200\n"
+ "Last-Translator: Rolf Ahrenberg\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
+@@ -121,5 +121,8 @@
+ msgid "Allow True Color OSD"
+ msgstr "Salli tosiv√§rit kuvaruutun√§yt√∂lle"
+ 
++msgid "True Color format"
++msgstr ""
++
+ msgid "Hide mainmenu entry"
+ msgstr "Piilota valinta p√§√§valikosta"
+diff -ruN vdr-2.1.6/PLUGINS/src/dvbhddevice/po/it_IT.po vdr-2.1.7/PLUGINS/src/dvbhddevice/po/it_IT.po
+--- vdr-2.1.6/PLUGINS/src/dvbhddevice/po/it_IT.po	2014-03-16 12:07:01.219913571 +0100
++++ vdr-2.1.7/PLUGINS/src/dvbhddevice/po/it_IT.po	2014-10-03 15:10:39.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: vdr-dvbhddevice 0.0.4\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+-"POT-Creation-Date: 2013-08-23 12:10+0200\n"
++"POT-Creation-Date: 2014-09-21 14:01+0200\n"
+ "PO-Revision-Date: 2013-09-19 00:00+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team:  <see README>\n"
+@@ -125,5 +125,8 @@
+ msgid "Allow True Color OSD"
+ msgstr "Permetti OSD True Color"
+ 
++msgid "True Color format"
++msgstr ""
++
+ msgid "Hide mainmenu entry"
+ msgstr "Nascondi voce menu principale"
+diff -ruN vdr-2.1.6/PLUGINS/src/dvbhddevice/setup.c vdr-2.1.7/PLUGINS/src/dvbhddevice/setup.c
+--- vdr-2.1.6/PLUGINS/src/dvbhddevice/setup.c	2013-03-02 18:58:21.000000000 +0100
++++ vdr-2.1.7/PLUGINS/src/dvbhddevice/setup.c	2014-11-16 11:19:03.000000000 +0100
+@@ -33,6 +33,7 @@
+     RemoteAddress = -1;
+     HighLevelOsd = 1;
+     TrueColorOsd = 1;
++    TrueColorFormat = 0;
+     HideMainMenu = 0;
+ }
+ 
+@@ -54,6 +55,7 @@
+     else if (strcmp(Name, "RemoteAddress")     == 0) RemoteAddress     = atoi(Value);
+     else if (strcmp(Name, "HighLevelOsd")      == 0) HighLevelOsd      = atoi(Value);
+     else if (strcmp(Name, "TrueColorOsd")      == 0) TrueColorOsd      = atoi(Value);
++    else if (strcmp(Name, "TrueColorFormat")   == 0) TrueColorFormat   = atoi(Value);
+     else if (strcmp(Name, "HideMainMenu")      == 0) HideMainMenu      = atoi(Value);
+     else return false;
+     return true;
+@@ -180,6 +182,16 @@
+     }
+ }
+ 
++void cHdffSetup::SetVideoFormat(HDFF::cHdffCmdIf * HdffCmdIf)
++{
++    HdffVideoFormat_t videoFormat;
++
++    videoFormat.AutomaticEnabled = true;
++    videoFormat.AfdEnabled = false;
++    videoFormat.TvFormat = (HdffTvFormat_t) TvFormat;
++    videoFormat.VideoConversion = (HdffVideoConversion_t) VideoConversion;
++    HdffCmdIf->CmdAvSetVideoFormat(0, &videoFormat);
++}
+ 
+ cHdffSetupPage::cHdffSetupPage(HDFF::cHdffCmdIf * pHdffCmdIf)
+ {
+@@ -190,6 +202,7 @@
+     const int kAudioDownmixes = 5;
+     const int kOsdSizes = 5;
+     const int kRemoteProtocols = 3;
++    const int kTrueColorFormats = 3;
+ 
+     static const char * ResolutionItems[kResolutions] =
+     {
+@@ -246,6 +259,13 @@
+         "RC6",
+     };
+ 
++    static const char * TrueColorFormatItems[kTrueColorFormats] =
++    {
++        "ARGB8888",
++        "ARGB8565",
++        "ARGB4444",
++    };
++
+     mHdffCmdIf = pHdffCmdIf;
+     mNewHdffSetup = gHdffSetup;
+ 
+@@ -265,6 +285,7 @@
+     Add(new cMenuEditIntItem(tr("Remote Control Address"), &mNewHdffSetup.RemoteAddress, -1, 31));
+     Add(new cMenuEditBoolItem(tr("High Level OSD"), &mNewHdffSetup.HighLevelOsd));
+     Add(new cMenuEditBoolItem(tr("Allow True Color OSD"), &mNewHdffSetup.TrueColorOsd));
++    Add(new cMenuEditStraItem(tr("True Color format"), &mNewHdffSetup.TrueColorFormat, kTrueColorFormats, TrueColorFormatItems));
+     Add(new cMenuEditBoolItem(tr("Hide mainmenu entry"), &mNewHdffSetup.HideMainMenu));
+ 
+     mVideoConversion = 0;
+@@ -395,6 +416,7 @@
+     SetupStore("RemoteAddress", mNewHdffSetup.RemoteAddress);
+     SetupStore("HighLevelOsd", mNewHdffSetup.HighLevelOsd);
+     SetupStore("TrueColorOsd", mNewHdffSetup.TrueColorOsd);
++    SetupStore("TrueColorFormat", mNewHdffSetup.TrueColorFormat);
+     SetupStore("HideMainMenu", mNewHdffSetup.HideMainMenu);
+ 
+     if (mHdffCmdIf)
+@@ -403,14 +425,9 @@
+         {
+             mHdffCmdIf->CmdHdmiSetVideoMode(mNewHdffSetup.GetVideoMode());
+         }
+-        HdffVideoFormat_t videoFormat;
+         HdffHdmiConfig_t hdmiConfig;
+ 
+-        videoFormat.AutomaticEnabled = true;
+-        videoFormat.AfdEnabled = false;
+-        videoFormat.TvFormat = (HdffTvFormat_t) mNewHdffSetup.TvFormat;
+-        videoFormat.VideoConversion = (HdffVideoConversion_t) mNewHdffSetup.VideoConversion;
+-        mHdffCmdIf->CmdAvSetVideoFormat(0, &videoFormat);
++        mNewHdffSetup.SetVideoFormat(mHdffCmdIf);
+ 
+         mHdffCmdIf->CmdAvSetAudioDelay(mNewHdffSetup.AudioDelay);
+         mHdffCmdIf->CmdAvSetAudioDownmix((HdffAudioDownmixMode_t) mNewHdffSetup.AudioDownmix);
+diff -ruN vdr-2.1.6/PLUGINS/src/dvbhddevice/setup.h vdr-2.1.7/PLUGINS/src/dvbhddevice/setup.h
+--- vdr-2.1.6/PLUGINS/src/dvbhddevice/setup.h	2013-03-02 18:58:21.000000000 +0100
++++ vdr-2.1.7/PLUGINS/src/dvbhddevice/setup.h	2014-11-16 11:19:03.000000000 +0100
+@@ -18,6 +18,7 @@
+     HdffVideoMode_t GetVideoMode(void);
+     void SetNextVideoConversion(void);
+     const char * GetVideoConversionString(void);
++    void SetVideoFormat(HDFF::cHdffCmdIf * HdffCmdIf);
+ 
+     int Resolution;
+     int VideoModeAdaption;
+@@ -36,6 +37,7 @@
+ 
+     int HighLevelOsd;
+     int TrueColorOsd;
++    int TrueColorFormat;
+ 
+     int HideMainMenu;
+ };
+diff -ruN vdr-2.1.6/args.c vdr-2.1.7/args.c
+--- vdr-2.1.6/args.c	1970-01-01 01:00:00.000000000 +0100
++++ vdr-2.1.7/args.c	2014-04-14 14:02:38.000000000 +0200
+@@ -0,0 +1,129 @@
++/*
++ * args.c: Read arguments from files
++ *
++ * See the main source file 'vdr.c' for copyright information and
++ * how to reach the author.
++ *
++ * Original version written by Lars Hanisch <dvb@flensrocker.de>.
++ *
++ * $Id: args.c 1.1 2014/04/14 12:02:38 kls Exp $
++ */
++
++#include "args.h"
++#include <unistd.h>
++
++cArgs::cArgs(const char *Argv0)
++{
++  argv0 = Argv0;
++  argc = 0;
++  argv = NULL;
++}
++
++cArgs::~cArgs(void)
++{
++  if (argv != NULL)
++     delete [] argv;
++}
++
++bool cArgs::AddArg(const char *s)
++{
++  if (inVdrSection)
++     args.Append(strdup(s));
++  else if (*lastArg == NULL)
++     return false;
++  else
++     lastArg = cString::sprintf("%s %s", *lastArg, s);
++  return true;
++}
++
++bool cArgs::ReadDirectory(const char *Directory)
++{
++  if (argv != NULL)
++     delete [] argv;
++  argc = 0;
++  argv = NULL;
++  args.Clear();
++  lastArg = NULL;
++  inVdrSection = false;
++  cFileNameList files(Directory, false);
++  if (files.Size() == 0)
++     return false;
++  for (int i = 0; i < files.Size(); i++) {
++      const char *fileName = files.At(i);
++      if (startswith(fileName, ".") || !endswith(fileName, ".conf"))
++         continue;
++      cString fullFileName = AddDirectory(Directory, fileName);
++      struct stat fs;
++      if ((access(*fullFileName, F_OK) != 0) || (stat(*fullFileName, &fs) != 0) || S_ISDIR(fs.st_mode))
++         continue;
++      bool ok = true;
++      int line = 0;
++      FILE *f = fopen(*fullFileName, "r");
++      if (f) {
++         char *s;
++         cReadLine ReadLine;
++         while ((s = ReadLine.Read(f)) != NULL) {
++               line++;
++               s = stripspace(skipspace(s));
++               if (!isempty(s) && (s[0] != '#')) {
++                  if (startswith(s, "[") && endswith(s, "]")) {
++                     s[strlen(s) - 1] = 0;
++                     s++;
++                     if (*lastArg) {
++                        args.Append(strdup(*lastArg));
++                        lastArg = NULL;
++                        }
++                     if (strcmp(s, "vdr") == 0)
++                        inVdrSection = true;
++                     else {
++                        inVdrSection = false;
++                        lastArg = cString::sprintf("--plugin=%s", s);
++                        }
++                     }
++                  else {
++                     if ((strlen(s) > 2) && (s[0] == '-') && (s[1] != '-')) { // short option, split at first space
++                        char *p = strchr(s, ' ');
++                        if (p == NULL) {
++                           ok = AddArg(s);
++                           if (!ok)
++                              break;
++                           }
++                        else {
++                           *p = 0;
++                           p++;
++                           ok = AddArg(s);
++                           if (!ok)
++                              break;
++                           ok = AddArg(p);
++                           if (!ok)
++                              break;
++                           }
++                        }
++                     else {
++                        ok = AddArg(s);
++                        if (!ok)
++                           break;
++                        }
++                     }
++                  }
++               }
++         fclose(f);
++         }
++       if (!ok) {
++          esyslog("ERROR: args file %s, line %d", *fullFileName, line);
++          return false;
++          }
++      }
++  if (*lastArg) {
++     args.Append(strdup(*lastArg));
++     lastArg = NULL;
++     }
++  argv = new char*[args.Size() + 1];
++  argv[0] = strdup(*argv0);
++  argc = 1;
++  for (int i = 0; i < args.Size(); i++) {
++      argv[argc] = args.At(i);
++      argc++;
++      }
++  return true;
++}
+diff -ruN vdr-2.1.6/args.h vdr-2.1.7/args.h
+--- vdr-2.1.6/args.h	1970-01-01 01:00:00.000000000 +0100
++++ vdr-2.1.7/args.h	2014-04-14 13:54:21.000000000 +0200
+@@ -0,0 +1,34 @@
++/*
++ * args.h: Read arguments from files
++ *
++ * See the main source file 'vdr.c' for copyright information and
++ * how to reach the author.
++ *
++ * Original version written by Lars Hanisch <dvb@flensrocker.de>.
++ *
++ * $Id: args.h 1.1 2014/04/14 11:54:21 kls Exp $
++ */
++
++#ifndef __ARGS_H
++#define __ARGS_H
++
++#include "tools.h"
++
++class cArgs {
++private:
++  cString argv0;
++  cStringList args;
++  cString lastArg;
++  bool inVdrSection;
++  int argc;
++  char **argv;
++  bool AddArg(const char *s);
++public:
++  cArgs(const char *Argv0);
++  ~cArgs(void);
++  bool ReadDirectory(const char *Directory);
++  int GetArgc(void) const { return argc; };
++  char **GetArgv(void) const { return argv; };
++  };
++
++#endif //__ARGS_H
+diff -ruN vdr-2.1.6/channels.c vdr-2.1.7/channels.c
+--- vdr-2.1.6/channels.c	2014-03-10 14:14:02.000000000 +0100
++++ vdr-2.1.7/channels.c	2015-01-14 13:15:03.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 3.5 2014/03/10 13:14:02 kls Exp $
++ * $Id: channels.c 3.7 2015/01/14 12:15:03 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -221,7 +221,7 @@
+      nameSource = NULL;
+      shortNameSource = NULL;
+      if (Number() && !Quiet) {
+-        dsyslog("changing transponder data of channel %d from %s to %s", Number(), *OldTransponderData, *TransponderDataToString());
++        dsyslog("changing transponder data of channel %d (%s) from %s to %s", Number(), name, *OldTransponderData, *TransponderDataToString());
+         modification |= CHANNELMOD_TRANSP;
+         Channels.SetModified();
+         }
+@@ -233,7 +233,7 @@
+ {
+   if (nid != Nid || tid != Tid || sid != Sid || rid != Rid) {
+      if (Number()) {
+-        dsyslog("changing id of channel %d from %d-%d-%d-%d to %d-%d-%d-%d", Number(), nid, tid, sid, rid, Nid, Tid, Sid, Rid);
++        dsyslog("changing id of channel %d (%s) from %d-%d-%d-%d to %d-%d-%d-%d", Number(), name, nid, tid, sid, rid, Nid, Tid, Sid, Rid);
+         modification |= CHANNELMOD_ID;
+         Channels.SetModified();
+         Channels.UnhashChannel(this);
+@@ -278,7 +278,7 @@
+ {
+   if (!isempty(PortalName) && strcmp(portalName, PortalName) != 0) {
+      if (Number()) {
+-        dsyslog("changing portal name of channel %d from '%s' to '%s'", Number(), portalName, PortalName);
++        dsyslog("changing portal name of channel %d (%s) from '%s' to '%s'", Number(), name, portalName, PortalName);
+         modification |= CHANNELMOD_NAME;
+         Channels.SetModified();
+         }
+@@ -368,7 +368,7 @@
+      q += IntArrayToString(q, Spids, 10, SLangs);
+      *q = 0;
+      if (Number())
+-        dsyslog("changing pids of channel %d from %d+%d=%d:%s:%s:%d to %d+%d=%d:%s:%s:%d", Number(), vpid, ppid, vtype, OldApidsBuf, OldSpidsBuf, tpid, Vpid, Ppid, Vtype, NewApidsBuf, NewSpidsBuf, Tpid);
++        dsyslog("changing pids of channel %d (%s) from %d+%d=%d:%s:%s:%d to %d+%d=%d:%s:%s:%d", Number(), name, vpid, ppid, vtype, OldApidsBuf, OldSpidsBuf, tpid, Vpid, Ppid, Vtype, NewApidsBuf, NewSpidsBuf, Tpid);
+      vpid = Vpid;
+      ppid = Ppid;
+      vtype = Vtype;
+@@ -427,7 +427,7 @@
+      IntArrayToString(OldCaIdsBuf, caids, 16);
+      IntArrayToString(NewCaIdsBuf, CaIds, 16);
+      if (Number())
+-        dsyslog("changing caids of channel %d from %s to %s", Number(), OldCaIdsBuf, NewCaIdsBuf);
++        dsyslog("changing caids of channel %d (%s) from %s to %s", Number(), name, OldCaIdsBuf, NewCaIdsBuf);
+      for (int i = 0; i <= MAXCAIDS; i++) { // <= to copy the terminating 0
+          caids[i] = CaIds[i];
+          if (!CaIds[i])
+@@ -444,7 +444,7 @@
+      modification |= CHANNELMOD_CA;
+      Channels.SetModified();
+      if (Number() && Level > 1)
+-        dsyslog("changing ca descriptors of channel %d", Number());
++        dsyslog("changing ca descriptors of channel %d (%s)", Number(), name);
+      }
+ }
+ 
+@@ -470,7 +470,7 @@
+      }
+   char buffer[((linkChannels ? linkChannels->Count() : 0) + (LinkChannels ? LinkChannels->Count() : 0)) * 6 + 256]; // 6: 5 digit channel number plus blank, 256: other texts (see below) plus reserve
+   char *q = buffer;
+-  q += sprintf(q, "linking channel %d from", Number());
++  q += sprintf(q, "linking channel %d (%s) from", Number(), name);
+   if (linkChannels) {
+      for (cLinkChannel *lc = linkChannels->First(); lc; lc = linkChannels->Next(lc)) {
+          lc->Channel()->SetRefChannel(NULL);
+@@ -1040,8 +1040,11 @@
+ {
+   for (cChannel *channel = First(); channel; channel = Next(channel)) {
+       if (time(NULL) - channel->Seen() > CHANNELTIMEOBSOLETE && channel->Source() == Source && channel->Nid() == Nid && channel->Tid() == Tid && channel->Rid() == 0) {
++         bool OldShowChannelNamesWithSource = Setup.ShowChannelNamesWithSource;
++         Setup.ShowChannelNamesWithSource = false;
+          if (!endswith(channel->Name(), CHANNELMARKOBSOLETE))
+             channel->SetName(cString::sprintf("%s %s", channel->Name(), CHANNELMARKOBSOLETE), channel->ShortName(), cString::sprintf("%s %s", CHANNELMARKOBSOLETE, channel->Provider()));
++         Setup.ShowChannelNamesWithSource = OldShowChannelNamesWithSource;
+          }
+       }
+ }
+diff -ruN vdr-2.1.6/ci.c vdr-2.1.7/ci.c
+--- vdr-2.1.6/ci.c	2014-02-25 10:59:55.000000000 +0100
++++ vdr-2.1.7/ci.c	2015-01-15 10:14:57.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 3.12 2014/02/25 09:59:55 kls Exp $
++ * $Id: ci.c 3.17 2015/01/15 09:14:57 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -20,6 +20,8 @@
+ #include "device.h"
+ #include "pat.h"
+ #include "receiver.h"
++#include "remux.h"
++#include "libsi/si.h"
+ #include "tools.h"
+ 
+ // Set these to 'true' for debug output:
+@@ -105,14 +107,135 @@
+ 
+ // --- cCaPidReceiver --------------------------------------------------------
+ 
+-// A dummy receiver, just used to make the device receive the CA pids.
++// A receiver that is used to make the device receive the ECM pids, as well as the
++// CAT and the EMM pids.
+ 
+ class cCaPidReceiver : public cReceiver {
++private:
++  int catVersion;
++  cVector<int> emmPids;
++  uchar buffer[2048]; // 11 bit length, max. 2048 byte
++  uchar *bufp;
++  int length;
++  void AddEmmPid(int Pid);
++  void DelEmmPids(void);
++protected:
++  virtual void Activate(bool On);
+ public:
++  cCaPidReceiver(void);
+   virtual ~cCaPidReceiver() { Detach(); }
+-  virtual void Receive(uchar *Data, int Length) {}
++  virtual void Receive(uchar *Data, int Length);
++  bool HasCaPids(void) { return NumPids() - emmPids.Size() - 1 > 0; }
++  void Reset(void) { DelEmmPids(); catVersion = -1; }
+   };
+ 
++cCaPidReceiver::cCaPidReceiver(void)
++{
++  catVersion = -1;
++  bufp = NULL;
++  length = 0;
++  AddPid(CATPID);
++}
++
++void cCaPidReceiver::AddEmmPid(int Pid)
++{
++  for (int i = 0; i < emmPids.Size(); i++) {
++      if (emmPids[i] == Pid)
++         return;
++      }
++  emmPids.Append(Pid);
++  AddPid(Pid);
++}
++
++void cCaPidReceiver::DelEmmPids(void)
++{
++  for (int i = 0; i < emmPids.Size(); i++)
++      DelPid(emmPids[i]);
++  emmPids.Clear();
++}
++
++void cCaPidReceiver::Activate(bool On)
++{
++  catVersion = -1; // can be done independent of 'On'
++}
++
++void cCaPidReceiver::Receive(uchar *Data, int Length)
++{
++  if (TsPid(Data) == CATPID) {
++     uchar *p = NULL;
++     if (TsPayloadStart(Data)) {
++        if (Data[5] == SI::TableIdCAT) {
++           length = (int(Data[6] & 0x03) << 8) | Data[7]; // section length
++           if (length > 5) {
++              int v = (Data[10] & 0x3E) >> 1; // version number
++              if (v != catVersion) {
++                 if (Data[11] == 0 && Data[12] == 0) { // section number, last section number
++                    if (length > TS_SIZE - 8) {
++                       int n = TS_SIZE - 13;
++                       memcpy(buffer, Data + 13, n);
++                       bufp = buffer + n;
++                       length -= n + 5; // 5 = header
++                       }
++                    else {
++                       p = Data + 13; // no need to copy the data
++                       length -= 5; // header
++                       }
++                    }
++                 else
++                    dsyslog("multi table CAT section - unhandled!");
++                 catVersion = v;
++                 }
++              }
++           }
++        }
++     else if (bufp && length > 0) {
++        int n = min(length, TS_SIZE - 4);
++        if (bufp + n - buffer <= int(sizeof(buffer))) {
++           memcpy(bufp, Data + 4, n);
++           bufp += n;
++           length -= n;
++           if (length <= 0) {
++              p = buffer;
++              length = bufp - buffer;
++              }
++           }
++        else {
++           esyslog("ERROR: buffer overflow in cCaPidReceiver::Receive()");
++           bufp = 0;
++           length = 0;
++           }
++        }
++     if (p) {
++        int OldCatVersion = catVersion; // must preserve the current version number
++        cDevice *AttachedDevice = Device();
++        if (AttachedDevice)
++           AttachedDevice->Detach(this);
++        DelEmmPids();
++        for (int i = 0; i < length - 4; i++) { // -4 = checksum
++            if (p[i] == 0x09) {
++               int CaId = int(p[i + 2] << 8) | p[i + 3];
++               int EmmPid = int(((p[i + 4] & 0x1F) << 8)) | p[i + 5];
++               AddEmmPid(EmmPid);
++               switch (CaId >> 8) {
++                 case 0x01: for (int j = i + 7; j < p[i + 1] + 2; j += 4) {
++                                EmmPid = (int(p[j] & 0x0F) << 8) | p[j + 1];
++                                AddEmmPid(EmmPid);
++                                }
++                            break;
++                 }
++               i += p[i + 1] + 2 - 1; // -1 to compensate for the loop increment
++               }
++            }
++        if (AttachedDevice)
++           AttachedDevice->AttachReceiver(this);
++        catVersion = OldCatVersion;
++        p = NULL;
++        bufp = 0;
++        length = 0;
++        }
++     }
++}
++
+ // --- cTPDU -----------------------------------------------------------------
+ 
+ #define MAX_TPDU_SIZE  2048
+@@ -1508,7 +1631,6 @@
+ cCiAdapter::cCiAdapter(void)
+ :cThread("CI adapter")
+ {
+-  assignedDevice = NULL;
+   for (int i = 0; i < MAX_CAM_SLOTS_PER_ADAPTER; i++)
+       camSlots[i] = NULL;
+ }
+@@ -1534,6 +1656,17 @@
+      }
+ }
+ 
++cCamSlot *cCiAdapter::ItCamSlot(int &Iter)
++{
++  if (Iter >= 0) {
++     for (; Iter < MAX_CAM_SLOTS_PER_ADAPTER; ) {
++         if (cCamSlot *Found = camSlots[Iter++])
++            return Found;
++         }
++     }
++  return NULL;
++}
++
+ void cCiAdapter::Action(void)
+ {
+   cTPDU TPDU;
+@@ -1561,6 +1694,7 @@
+ cCamSlot::cCamSlot(cCiAdapter *CiAdapter, bool ReceiveCaPids)
+ {
+   ciAdapter = CiAdapter;
++  assignedDevice = NULL;
+   caPidReceiver = ReceiveCaPids ? new cCaPidReceiver : NULL;
+   slotIndex = -1;
+   lastModuleStatus = msReset; // avoids initial reset log message
+@@ -1578,8 +1712,8 @@
+ 
+ cCamSlot::~cCamSlot()
+ {
+-  if (ciAdapter && ciAdapter->assignedDevice)
+-     ciAdapter->assignedDevice->SetCamSlot(NULL);
++  if (assignedDevice)
++     assignedDevice->SetCamSlot(NULL);
+   delete caPidReceiver;
+   CamSlots.Del(this, false);
+   DeleteAllConnections();
+@@ -1590,13 +1724,13 @@
+   cMutexLock MutexLock(&mutex);
+   if (ciAdapter) {
+      if (ciAdapter->Assign(Device, true)) {
+-        if (!Device && ciAdapter->assignedDevice)
+-           ciAdapter->assignedDevice->SetCamSlot(NULL);
++        if (!Device && assignedDevice)
++           assignedDevice->SetCamSlot(NULL);
+         if (!Query) {
+            StopDecrypting();
+            source = transponder = 0;
+            if (ciAdapter->Assign(Device)) {
+-              ciAdapter->assignedDevice = Device;
++              assignedDevice = Device;
+               if (Device) {
+                  Device->SetCamSlot(this);
+                  dsyslog("CAM %d: assigned to device %d", slotNumber, Device->DeviceNumber() + 1);
+@@ -1613,17 +1747,6 @@
+   return false;
+ }
+ 
+-cDevice *cCamSlot::Device(void)
+-{
+-  cMutexLock MutexLock(&mutex);
+-  if (ciAdapter) {
+-     cDevice *d = ciAdapter->assignedDevice;
+-     if (d && d->CamSlot() == this)
+-        return d;
+-     }
+-  return NULL;
+-}
+-
+ void cCamSlot::NewConnection(void)
+ {
+   cMutexLock MutexLock(&mutex);
+@@ -1811,7 +1934,7 @@
+      const int *CaSystemIds = cas->GetCaSystemIds();
+      if (CaSystemIds && *CaSystemIds) {
+         if (caProgramList.Count()) {
+-           if (caPidReceiver && caPidReceiver->NumPids()) {
++           if (caPidReceiver && caPidReceiver->HasCaPids()) {
+               if (cDevice *d = Device())
+                  d->Detach(caPidReceiver);
+               }
+@@ -1845,7 +1968,7 @@
+                       }
+                    }
+                }
+-           if (caPidReceiver && caPidReceiver->NumPids()) {
++           if (caPidReceiver && caPidReceiver->HasCaPids()) {
+               if (cDevice *d = Device())
+                  d->AttachReceiver(caPidReceiver);
+               }
+@@ -1854,6 +1977,11 @@
+         else {
+            cCiCaPmt CaPmt(CmdId, 0, 0, 0, NULL);
+            cas->SendPMT(&CaPmt);
++           if (caPidReceiver) {
++              if (cDevice *d = Device())
++                 d->Detach(caPidReceiver);
++              caPidReceiver->Reset();
++              }
+            }
+         }
+      }
+diff -ruN vdr-2.1.6/ci.h vdr-2.1.7/ci.h
+--- vdr-2.1.6/ci.h	2014-01-31 10:21:21.000000000 +0100
++++ vdr-2.1.7/ci.h	2015-01-15 10:18:09.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.h 3.7 2014/01/31 09:21:21 kls Exp $
++ * $Id: ci.h 3.9 2015/01/15 09:18:09 kls Exp $
+  */
+ 
+ #ifndef __CI_H
+@@ -79,11 +79,14 @@
+ class cCiAdapter : public cThread {
+   friend class cCamSlot;
+ private:
+-  cDevice *assignedDevice;
+   cCamSlot *camSlots[MAX_CAM_SLOTS_PER_ADAPTER];
+   void AddCamSlot(cCamSlot *CamSlot);
+        ///< Adds the given CamSlot to this CI adapter.
+ protected:
++  cCamSlot *ItCamSlot(int &Iter);
++       ///< Iterates over all added CAM slots of this adapter. Iter has to be
++       ///< initialized to 0 and is required to store the iteration state.
++       ///< Returns NULL if no further CAM slot is found.
+   virtual void Action(void);
+        ///< Handles the attached CAM slots in a separate thread.
+        ///< The derived class must call the Start() function to
+@@ -119,7 +122,7 @@
+ class cCiTransportConnection;
+ class cCiSession;
+ class cCiCaProgramData;
+-class cReceiver;
++class cCaPidReceiver;
+ 
+ class cCamSlot : public cListObject {
+   friend class cCiAdapter;
+@@ -128,7 +131,8 @@
+   cMutex mutex;
+   cCondVar processed;
+   cCiAdapter *ciAdapter;
+-  cReceiver *caPidReceiver;
++  cDevice *assignedDevice;
++  cCaPidReceiver *caPidReceiver;
+   int slotIndex;
+   int slotNumber;
+   cCiTransportConnection *tc[MAX_CONNECTIONS_PER_CAM_SLOT + 1];  // connection numbering starts with 1
+@@ -164,7 +168,7 @@
+        ///< device it was previously assigned to. The value of Query
+        ///< is ignored in that case, and this function always returns
+        ///< 'true'.
+-  cDevice *Device(void);
++  cDevice *Device(void) { return assignedDevice; }
+        ///< Returns the device this CAM slot is currently assigned to.
+   bool WantsTsData(void) const { return caPidReceiver != NULL; }
+        ///< Returns true if this CAM slot wants to receive the TS data through
+diff -ruN vdr-2.1.6/config.c vdr-2.1.7/config.c
+--- vdr-2.1.6/config.c	2013-08-31 14:41:28.000000000 +0200
++++ vdr-2.1.7/config.c	2015-01-12 15:32:17.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 3.2 2013/08/31 12:41:28 kls Exp $
++ * $Id: config.c 3.3 2015/01/12 14:32:17 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -473,6 +473,8 @@
+   ResumeID = 0;
+   CurrentChannel = -1;
+   CurrentVolume = MAXVOLUME;
++  VolumeSteps = 51;
++  VolumeLinearize = 0;
+   CurrentDolby = 0;
+   InitialChannel = "";
+   DeviceBondings = "";
+@@ -686,6 +688,8 @@
+   else if (!strcasecmp(Name, "CurrentVolume"))       CurrentVolume      = atoi(Value);
+   else if (!strcasecmp(Name, "CurrentDolby"))        CurrentDolby       = atoi(Value);
+   else if (!strcasecmp(Name, "InitialChannel"))      InitialChannel     = Value;
++  else if (!strcasecmp(Name, "VolumeSteps"))         VolumeSteps        = atoi(Value);
++  else if (!strcasecmp(Name, "VolumeLinearize"))     VolumeLinearize    = atoi(Value);
+   else if (!strcasecmp(Name, "InitialVolume"))       InitialVolume      = atoi(Value);
+   else if (!strcasecmp(Name, "DeviceBondings"))      DeviceBondings     = Value;
+   else if (!strcasecmp(Name, "ChannelsWrap"))        ChannelsWrap       = atoi(Value);
+@@ -801,6 +805,8 @@
+   Store("CurrentVolume",      CurrentVolume);
+   Store("CurrentDolby",       CurrentDolby);
+   Store("InitialChannel",     InitialChannel);
++  Store("VolumeSteps",        VolumeSteps);
++  Store("VolumeLinearize",    VolumeLinearize);
+   Store("InitialVolume",      InitialVolume);
+   Store("DeviceBondings",     DeviceBondings);
+   Store("ChannelsWrap",       ChannelsWrap);
+diff -ruN vdr-2.1.6/config.h vdr-2.1.7/config.h
+--- vdr-2.1.6/config.h	2014-02-25 11:00:23.000000000 +0100
++++ vdr-2.1.7/config.h	2015-01-12 15:32:17.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 3.8 2014/02/25 10:00:23 kls Exp $
++ * $Id: config.h 3.10 2015/01/12 14:32:17 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.1.6"
+-#define VDRVERSNUM   20106  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.1.7"
++#define VDRVERSNUM   20107  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "2.1.6"
+-#define APIVERSNUM   20106  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "2.1.7"
++#define APIVERSNUM   20107  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+@@ -336,6 +336,8 @@
+   int ResumeID;
+   int CurrentChannel;
+   int CurrentVolume;
++  int VolumeSteps;
++  int VolumeLinearize;
+   int CurrentDolby;
+   int InitialVolume;
+   int ChannelsWrap;
+diff -ruN vdr-2.1.6/device.c vdr-2.1.7/device.c
+--- vdr-2.1.6/device.c	2014-03-15 14:23:28.000000000 +0100
++++ vdr-2.1.7/device.c	2015-01-14 13:02:44.000000000 +0100
+@@ -4,11 +4,12 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 3.15 2014/03/15 13:23:28 kls Exp $
++ * $Id: device.c 3.19 2015/01/14 12:02:44 kls Exp $
+  */
+ 
+ #include "device.h"
+ #include <errno.h>
++#include <math.h>
+ #include <sys/ioctl.h>
+ #include <sys/mman.h>
+ #include "audio.h"
+@@ -76,7 +77,7 @@
+   cardIndex = nextCardIndex++;
+   dsyslog("new device number %d", CardIndex() + 1);
+ 
+-  SetDescription("receiver on device %d", CardIndex() + 1);
++  SetDescription("device %d receiver", CardIndex() + 1);
+ 
+   mute = false;
+   volume = Setup.CurrentVolume;
+@@ -695,7 +696,7 @@
+ bool cDevice::SwitchChannel(const cChannel *Channel, bool LiveView)
+ {
+   if (LiveView) {
+-     isyslog("switching to channel %d", Channel->Number());
++     isyslog("switching to channel %d (%s)", Channel->Number(), Channel->Name());
+      cControl::Shutdown(); // prevents old channel from being shown too long if GetDevice() takes longer
+      }
+   for (int i = 3; i--;) {
+@@ -918,8 +919,10 @@
+ void cDevice::SetVolume(int Volume, bool Absolute)
+ {
+   int OldVolume = volume;
+-  volume = constrain(Absolute ? Volume : volume + Volume, 0, MAXVOLUME);
+-  SetVolumeDevice(volume);
++  double VolumeDelta = double(MAXVOLUME) / Setup.VolumeSteps;
++  double VolumeLinearize = (Setup.VolumeLinearize >= 0) ? (Setup.VolumeLinearize / 10.0 + 1.0) : (1.0 / ((-Setup.VolumeLinearize / 10.0) + 1.0));
++  volume = constrain(int(floor((Absolute ? Volume : volume + Volume) / VolumeDelta + 0.5) * VolumeDelta), 0, MAXVOLUME);
++  SetVolumeDevice(MAXVOLUME - int(pow(1.0 - pow(double(volume) / MAXVOLUME, VolumeLinearize), 1.0 / VolumeLinearize) * MAXVOLUME));
+   Absolute |= mute;
+   cStatus::MsgSetVolume(Absolute ? volume : volume - OldVolume, Absolute);
+   if (volume > 0) {
+@@ -1699,10 +1702,11 @@
+          receiversLeft = true;
+       }
+   if (camSlot) {
+-     if (Receiver->priority > MINPRIORITY) // priority check to avoid an infinite loop with the CAM slot's caPidReceiver
++     if (Receiver->priority > MINPRIORITY) { // priority check to avoid an infinite loop with the CAM slot's caPidReceiver
+         camSlot->StartDecrypting();
+-     if (!camSlot->IsDecrypting())
+-        camSlot->Assign(NULL);
++        if (!camSlot->IsDecrypting())
++           camSlot->Assign(NULL);
++        }
+      }
+   if (!receiversLeft)
+      Cancel(-1);
+@@ -1731,7 +1735,7 @@
+ 
+ cTSBuffer::cTSBuffer(int File, int Size, int CardIndex)
+ {
+-  SetDescription("TS buffer on device %d", CardIndex);
++  SetDescription("device %d TS buffer", CardIndex);
+   f = File;
+   cardIndex = CardIndex;
+   delivered = false;
+diff -ruN vdr-2.1.6/device.h vdr-2.1.7/device.h
+--- vdr-2.1.6/device.h	2014-03-15 15:04:58.000000000 +0100
++++ vdr-2.1.7/device.h	2015-01-12 15:39:09.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 3.9 2014/03/15 14:04:58 kls Exp $
++ * $Id: device.h 3.10 2015/01/12 14:39:09 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -30,7 +30,7 @@
+ #define MAXPIDHANDLES      64 // the maximum number of different PIDs per device
+ #define MAXRECEIVERS       16 // the maximum number of receivers per device
+ #define MAXVOLUME         255
+-#define VOLUMEDELTA         5 // used to increase/decrease the volume
++#define VOLUMEDELTA       (MAXVOLUME / Setup.VolumeSteps) // used to increase/decrease the volume
+ #define MAXOCCUPIEDTIMEOUT 99 // max. time (in seconds) a device may be occupied
+ 
+ enum eSetChannelResult { scrOk, scrNotAvailable, scrNoTransfer, scrFailed };
+diff -ruN vdr-2.1.6/dvbci.c vdr-2.1.7/dvbci.c
+--- vdr-2.1.6/dvbci.c	2007-01-04 13:49:10.000000000 +0100
++++ vdr-2.1.7/dvbci.c	2015-01-14 12:13:49.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbci.c 3.0 2007/01/04 12:49:10 kls Exp $
++ * $Id: dvbci.c 3.1 2015/01/14 11:13:49 kls Exp $
+  */
+ 
+ #include "dvbci.h"
+@@ -17,7 +17,7 @@
+ cDvbCiAdapter::cDvbCiAdapter(cDevice *Device, int Fd)
+ {
+   device = Device;
+-  SetDescription("CI adapter on device %d", device->DeviceNumber());
++  SetDescription("device %d CI adapter", device->DeviceNumber());
+   fd = Fd;
+   ca_caps_t Caps;
+   if (ioctl(fd, CA_GET_CAP, &Caps) == 0) {
+diff -ruN vdr-2.1.6/dvbdevice.c vdr-2.1.7/dvbdevice.c
+--- vdr-2.1.6/dvbdevice.c	2014-03-16 11:38:31.000000000 +0100
++++ vdr-2.1.7/dvbdevice.c	2015-01-14 13:09:19.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 3.11 2014/03/16 10:38:31 kls Exp $
++ * $Id: dvbdevice.c 3.14 2015/01/14 12:09:19 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -372,7 +372,7 @@
+   tunerStatus = tsIdle;
+   bondedTuner = NULL;
+   bondedMaster = false;
+-  SetDescription("tuner on frontend %d/%d", adapter, frontend);
++  SetDescription("frontend %d/%d tuner", adapter, frontend);
+   Start();
+ }
+ 
+@@ -771,7 +771,7 @@
+   else if (Channel->IsTerr())
+      ds = Dtp->System() == DVB_SYSTEM_1 ? SYS_DVBT : SYS_DVBT2;
+   else
+-     esyslog("ERROR: can't determine frontend type for channel %d", Channel->Number());
++     esyslog("ERROR: can't determine frontend type for channel %d (%s)", Channel->Number(), Channel->Name());
+   return ds;
+ }
+ 
+@@ -823,7 +823,7 @@
+               }
+            }
+         else {
+-           esyslog("ERROR: no DiSEqC parameters found for channel %d", channel.Number());
++           esyslog("ERROR: no DiSEqC parameters found for channel %d (%s)", channel.Number(), channel.Name());
+            return false;
+            }
+         }
+@@ -961,7 +961,7 @@
+                   lastDiseqc = NULL;
+                   lastSource = 0;
+                   if (time(NULL) - lastTimeoutReport > 60) { // let's not get too many of these
+-                     isyslog("frontend %d/%d timed out while tuning to channel %d, tp %d", adapter, frontend, channel.Number(), channel.Transponder());
++                     isyslog("frontend %d/%d timed out while tuning to channel %d (%s), tp %d", adapter, frontend, channel.Number(), channel.Name(), channel.Transponder());
+                      lastTimeoutReport = time(NULL);
+                      }
+                   continue;
+@@ -979,7 +979,7 @@
+                   }
+                else if (Status & FE_HAS_LOCK) {
+                   if (LostLock) {
+-                     isyslog("frontend %d/%d regained lock on channel %d, tp %d", adapter, frontend, channel.Number(), channel.Transponder());
++                     isyslog("frontend %d/%d regained lock on channel %d (%s), tp %d", adapter, frontend, channel.Number(), channel.Name(), channel.Transponder());
+                      LostLock = false;
+                      }
+                   tunerStatus = tsLocked;
+@@ -988,7 +988,7 @@
+                   }
+                else if (tunerStatus == tsLocked) {
+                   LostLock = true;
+-                  isyslog("frontend %d/%d lost lock on channel %d, tp %d", adapter, frontend, channel.Number(), channel.Transponder());
++                  isyslog("frontend %d/%d lost lock on channel %d (%s), tp %d", adapter, frontend, channel.Number(), channel.Name(), channel.Transponder());
+                   tunerStatus = tsTuned;
+                   Timer.Set(lockTimeout);
+                   lastTimeoutReport = 0;
+@@ -1751,12 +1751,28 @@
+                                 SubsystemId = strtoul(s, NULL, 0) << 16;
+                              fclose(f);
+                              }
++                          else {
++                             FileName = cString::sprintf("/sys/class/dvb/%s/device/idVendor", e->d_name);
++                             if ((f = fopen(FileName, "r")) != NULL) {
++                                if (char *s = ReadLine.Read(f))
++                                   SubsystemId = strtoul(s, NULL, 16) << 16;
++                                fclose(f);
++                                }
++                             }
+                           FileName = cString::sprintf("/sys/class/dvb/%s/device/subsystem_device", e->d_name);
+                           if ((f = fopen(FileName, "r")) != NULL) {
+                              if (char *s = ReadLine.Read(f))
+                                 SubsystemId |= strtoul(s, NULL, 0);
+                              fclose(f);
+                              }
++                          else {
++                             FileName = cString::sprintf("/sys/class/dvb/%s/device/idProduct", e->d_name);
++                             if ((f = fopen(FileName, "r")) != NULL) {
++                                if (char *s = ReadLine.Read(f))
++                                   SubsystemId |= strtoul(s, NULL, 16);
++                                fclose(f);
++                                }
++                             }
+                           break;
+                           }
+                        }
+diff -ruN vdr-2.1.6/dvbsubtitle.c vdr-2.1.7/dvbsubtitle.c
+--- vdr-2.1.6/dvbsubtitle.c	2014-02-08 13:29:13.000000000 +0100
++++ vdr-2.1.7/dvbsubtitle.c	2015-01-14 12:31:09.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Original author: Marco Schluessler <marco@lordzodiac.de>
+  * With some input from the "subtitles plugin" by Pekka Virtanen <pekka.virtanen@sci.fi>
+  *
+- * $Id: dvbsubtitle.c 3.5 2014/02/08 12:29:13 kls Exp $
++ * $Id: dvbsubtitle.c 3.9 2015/01/14 11:31:09 kls Exp $
+  */
+ 
+ #include "dvbsubtitle.h"
+@@ -25,6 +25,12 @@
+ #define END_OF_DISPLAY_SET_SEGMENT  0x80
+ #define STUFFING_SEGMENT            0xFF
+ 
++#define PGS_PALETTE_SEGMENT         0x14
++#define PGS_OBJECT_SEGMENT          0x15
++#define PGS_PRESENTATION_SEGMENT    0x16
++#define PGS_WINDOW_SEGMENT          0x17
++#define PGS_DISPLAY_SEGMENT         0x80
++
+ // Set these to 'true' for debug output, which is written into the file dbg-log.htm
+ // in the current working directory. The HTML file shows the actual bitmaps (dbg-nnn.jpg)
+ // used to display the subtitles.
+@@ -53,6 +59,8 @@
+ #define DBGMAXBITMAPS  100 // debug output will be stopped after this many bitmaps
+ #define DBGBITMAPWIDTH 400
+ 
++#define FIX_SUBTITLE_VERSION_BROADCASTER_STUPIDITY // some don't properly handle version numbers, which renders them useless because subtitles are not displayed
++
+ // --- cSubtitleDebug --------------------------------------------------------
+ 
+ class cSubtitleDebug {
+@@ -144,6 +152,7 @@
+ public:
+   cSubtitleClut(int ClutId);
+   void Parse(cBitStream &bs);
++  void ParsePgs(cBitStream &bs);
+   int ClutId(void) { return clutId; }
+   int ClutVersionNumber(void) { return clutVersionNumber; }
+   const cPalette *GetPalette(int Bpp);
+@@ -221,8 +230,10 @@
+ void cSubtitleClut::Parse(cBitStream &bs)
+ {
+   int Version = bs.GetBits(4);
++#ifndef FIX_SUBTITLE_VERSION_BROADCASTER_STUPIDITY
+   if (clutVersionNumber == Version)
+      return; // no update
++#endif
+   clutVersionNumber = Version;
+   bs.SkipBits(4); // reserved
+   dbgcluts("<b>clut</b> id %d version %d<br>\n", clutId, clutVersionNumber);
+@@ -263,6 +274,31 @@
+         }
+ }
+ 
++void cSubtitleClut::ParsePgs(cBitStream &bs)
++{
++  int Version = bs.GetBits(8);
++  if (clutVersionNumber == Version)
++     return; // no update
++  clutVersionNumber = Version;
++  dbgcluts("<b>clut</b> id %d version %d<br>\n", clutId, clutVersionNumber);
++  for (int i = 0; i < 256; ++i)
++      SetColor(8, i, ArgbToColor(0, 0, 0, 0));
++  while (!bs.IsEOF()) {
++        uchar clutEntryId = bs.GetBits(8);
++        uchar yval  = bs.GetBits(8);
++        uchar crval = bs.GetBits(8);
++        uchar cbval = bs.GetBits(8);
++        uchar tval  = bs.GetBits(8);
++        tColor value = 0;
++        if (yval) {
++           value = yuv2rgb(yval, cbval, crval);
++           value |= ((10 - (clutEntryId ? Setup.SubtitleFgTransparency : Setup.SubtitleBgTransparency)) * tval / 10) << 24;
++           }
++        dbgcluts("%2d %08X<br>\n", clutEntryId, value);
++        SetColor(8, clutEntryId, value);
++        }
++}
++
+ tColor cSubtitleClut::yuv2rgb(int Y, int Cb, int Cr)
+ {
+   int Ey, Epb, Epr;
+@@ -310,6 +346,7 @@
+   bool nonModifyingColorFlag;
+   int topLength;
+   int botLength;
++  int topIndex;
+   uchar *topData;
+   uchar *botData;
+   char *txtData;
+@@ -318,12 +355,14 @@
+   bool Decode2BppCodeString(cBitmap *Bitmap, int px, int py, cBitStream *bs, int&x, int y, const uint8_t *MapTable);
+   bool Decode4BppCodeString(cBitmap *Bitmap, int px, int py, cBitStream *bs, int&x, int y, const uint8_t *MapTable);
+   bool Decode8BppCodeString(cBitmap *Bitmap, int px, int py, cBitStream *bs, int&x, int y);
++  bool DecodePgsCodeString(cBitmap *Bitmap, int px, int py, cBitStream *bs, int&x, int y);
+   void DecodeSubBlock(cBitmap *Bitmap, int px, int py, const uchar *Data, int Length, bool Even);
+   void DecodeCharacterString(const uchar *Data, int NumberOfCodes);
+ public:
+   cSubtitleObject(int ObjectId);
+   ~cSubtitleObject();
+   void Parse(cBitStream &bs);
++  void ParsePgs(cBitStream &bs);
+   int ObjectId(void) { return objectId; }
+   int ObjectVersionNumber(void) { return objectVersionNumber; }
+   int ObjectCodingMethod(void) { return objectCodingMethod; }
+@@ -339,6 +378,7 @@
+   nonModifyingColorFlag = false;
+   topLength = 0;
+   botLength = 0;
++  topIndex = 0;
+   topData = NULL;
+   botData = NULL;
+   txtData = NULL;
+@@ -355,8 +395,10 @@
+ void cSubtitleObject::Parse(cBitStream &bs)
+ {
+   int Version = bs.GetBits(4);
++#ifndef FIX_SUBTITLE_VERSION_BROADCASTER_STUPIDITY
+   if (objectVersionNumber == Version)
+      return; // no update
++#endif
+   objectVersionNumber = Version;
+   objectCodingMethod = bs.GetBits(2);
+   nonModifyingColorFlag = bs.GetBit();
+@@ -398,6 +440,29 @@
+      }
+ }
+ 
++void cSubtitleObject::ParsePgs(cBitStream &bs)
++{
++  int Version = bs.GetBits(8);
++  if (objectVersionNumber == Version)
++     return; // no update
++  objectVersionNumber = Version;
++  objectCodingMethod = 0;
++  int sequenceDescriptor = bs.GetBits(8);
++  if (!(sequenceDescriptor & 0x80) && topData != NULL) {
++     memcpy(topData + topIndex, bs.GetData(), (bs.Length() - bs.Index()) / 8);
++     topIndex += (bs.Length() - bs.Index()) / 8;
++     return;
++     }
++  topLength = bs.GetBits(24) - 4 + 1; // exclude width / height, add sub block type
++  bs.SkipBits(32);
++  if ((topData = MALLOC(uchar, topLength)) != NULL) {
++     topData[topIndex++] = 0xFF; // PGS end of line
++     memcpy(topData + 1, bs.GetData(), (bs.Length() - bs.Index()) / 8);
++     topIndex += (bs.Length() - bs.Index()) / 8 + 1;
++     }
++  dbgobjects("<b>object</b> id %d version %d method %d modify %d", objectId, objectVersionNumber, objectCodingMethod, nonModifyingColorFlag);
++}
++
+ void cSubtitleObject::DecodeCharacterString(const uchar *Data, int NumberOfCodes)
+ {
+   // "ETSI EN 300 743 V1.3.1 (2006-11)", chapter 7.2.5 "Object data segment" specifies
+@@ -484,6 +549,13 @@
+                x = 0;
+                y += 2;
+                break;
++          case 0xFF:
++               dbgpixel("PGS code string, including EOLs<br>\n");
++               while (DecodePgsCodeString(Bitmap, px, py, &bs, x, y) && !bs.IsEOF()) {
++                     x = 0;
++                     y++;
++                     }
++               break;
+           default: dbgpixel("unknown sub block %s %d<br>\n", __FUNCTION__, __LINE__);
+           }
+         }
+@@ -607,6 +679,28 @@
+   return true;
+ }
+ 
++bool cSubtitleObject::DecodePgsCodeString(cBitmap *Bitmap, int px, int py, cBitStream *bs, int &x, int y)
++{
++  while (!bs->IsEOF()) {
++        int color = bs->GetBits(8);
++        int rl = 1;
++        if (!color) {
++           int flags = bs->GetBits(8);
++           rl = flags & 0x3f;
++           if (flags & 0x40)
++              rl = (rl << 8) + bs->GetBits(8);
++           color = flags & 0x80 ? bs->GetBits(8) : 0;
++           }
++        if (rl > 0) {
++           DrawLine(Bitmap, px + x, py + y, color, rl);
++           x += rl;
++           }
++        else if (!rl)
++           return true;
++        }
++  return false;
++}
++
+ void cSubtitleObject::Render(cBitmap *Bitmap, int px, int py, tIndex IndexFg, tIndex IndexBg)
+ {
+   if (objectCodingMethod == 0) { // coding of pixels
+@@ -654,7 +748,7 @@
+ // --- cSubtitleObjectRef ----------------------------------------------------
+ 
+ class cSubtitleObjectRef : public cListObject {
+-private:
++protected:
+   int objectId;
+   int objectType;
+   int objectProviderFlag;
+@@ -663,6 +757,7 @@
+   int foregroundPixelCode;
+   int backgroundPixelCode;
+ public:
++  cSubtitleObjectRef(void);
+   cSubtitleObjectRef(cBitStream &bs);
+   int ObjectId(void) { return objectId; }
+   int ObjectType(void) { return objectType; }
+@@ -673,6 +768,17 @@
+   int BackgroundPixelCode(void) { return backgroundPixelCode; }
+   };
+ 
++cSubtitleObjectRef::cSubtitleObjectRef(void)
++{
++  objectId = 0;
++  objectType = 0;
++  objectProviderFlag = 0;
++  objectHorizontalPosition = 0;
++  objectVerticalPosition = 0;
++  foregroundPixelCode = 0;
++  backgroundPixelCode = 0;
++}
++
+ cSubtitleObjectRef::cSubtitleObjectRef(cBitStream &bs)
+ {
+   objectId = bs.GetBits(16);
+@@ -692,6 +798,38 @@
+   dbgregions("<b>objectref</b> id %d type %d flag %d x %d y %d fg %d bg %d<br>\n", objectId, objectType, objectProviderFlag, objectHorizontalPosition, objectVerticalPosition, foregroundPixelCode, backgroundPixelCode);
+ }
+ 
++// --- cSubtitleObjectRefPgs - PGS variant of cSubtitleObjectRef -------------
++
++class cSubtitleObjectRefPgs : public cSubtitleObjectRef {
++private:
++  int windowId;
++  int compositionFlag;
++  int cropX;
++  int cropY;
++  int cropW;
++  int cropH;
++public:
++  cSubtitleObjectRefPgs(cBitStream &bs);
++};
++
++cSubtitleObjectRefPgs::cSubtitleObjectRefPgs(cBitStream &bs)
++:cSubtitleObjectRef()
++{
++  objectId = bs.GetBits(16);
++  windowId = bs.GetBits(8);
++  compositionFlag = bs.GetBits(8);
++  bs.SkipBits(32); // skip absolute position, object is aligned to region
++  if ((compositionFlag & 0x80) != 0) {
++     cropX = bs.GetBits(16);
++     cropY = bs.GetBits(16);
++     cropW = bs.GetBits(16);
++     cropH = bs.GetBits(16);
++     }
++  else
++     cropX = cropY = cropW = cropH = 0;
++  dbgregions("<b>objectrefPgs</b> id %d flag %d x %d y %d cropX %d cropY %d cropW %d cropH %d<br>\n", objectId, compositionFlag, objectHorizontalPosition, objectVerticalPosition, cropX, cropY, cropW, cropH);
++}
++
+ // --- cSubtitleRegion -------------------------------------------------------
+ 
+ class cSubtitleRegion : public cListObject {
+@@ -711,6 +849,8 @@
+ public:
+   cSubtitleRegion(int RegionId);
+   void Parse(cBitStream &bs);
++  void ParsePgs(cBitStream &bs);
++  void SetDimensions(int Width, int Height);
+   int RegionId(void) { return regionId; }
+   int RegionVersionNumber(void) { return regionVersionNumber; }
+   bool RegionFillFlag(void) { return regionFillFlag; }
+@@ -740,8 +880,10 @@
+ void cSubtitleRegion::Parse(cBitStream &bs)
+ {
+   int Version = bs.GetBits(4);
++#ifndef FIX_SUBTITLE_VERSION_BROADCASTER_STUPIDITY
+   if (regionVersionNumber == Version)
+      return; // no update
++#endif
+   regionVersionNumber = Version;
+   regionFillFlag = bs.GetBit();
+   bs.SkipBits(3); // reserved
+@@ -761,6 +903,24 @@
+         objectRefs.Add(new cSubtitleObjectRef(bs));
+ }
+ 
++void cSubtitleRegion::ParsePgs(cBitStream &bs)
++{
++  regionDepth = 8;
++  bs.SkipBits(8); // skip palette update flag
++  clutId = bs.GetBits(8);
++  dbgregions("<b>region</b> id %d version %d clutId %d<br>\n", regionId, regionVersionNumber, clutId);
++  int objects = bs.GetBits(8);
++  while (objects--)
++        objectRefs.Add(new cSubtitleObjectRefPgs(bs));
++}
++
++void cSubtitleRegion::SetDimensions(int Width, int Height)
++{
++  regionWidth = Width;
++  regionHeight = Height;
++  dbgregions("<b>region</b> id %d width %d height %d<br>\n", regionId, regionWidth, regionHeight);
++}
++
+ void cSubtitleRegion::Render(cBitmap *Bitmap, cSubtitleObjects *Objects)
+ {
+   if (regionFillFlag) {
+@@ -786,12 +946,20 @@
+   int regionHorizontalAddress;
+   int regionVerticalAddress;
+ public:
++  cSubtitleRegionRef(int id, int x, int y);
+   cSubtitleRegionRef(cBitStream &bs);
+   int RegionId(void) { return regionId; }
+   int RegionHorizontalAddress(void) { return regionHorizontalAddress; }
+   int RegionVerticalAddress(void) { return regionVerticalAddress; }
+   };
+ 
++cSubtitleRegionRef::cSubtitleRegionRef(int id, int x, int y)
++{
++  regionId = id;
++  regionHorizontalAddress = x;
++  regionVerticalAddress = y;
++  dbgpages("<b>regionref</b> id %d tx %d y %d<br>\n", regionId, regionHorizontalAddress, regionVerticalAddress);
++}
+ cSubtitleRegionRef::cSubtitleRegionRef(cBitStream &bs)
+ {
+   regionId = bs.GetBits(8);
+@@ -818,6 +986,7 @@
+ public:
+   cDvbSubtitlePage(int PageId);
+   void Parse(int64_t Pts, cBitStream &bs);
++  void ParsePgs(int64_t Pts, cBitStream &bs);
+   int PageId(void) { return pageId; }
+   int PageTimeout(void) { return pageTimeout; }
+   int PageVersionNumber(void) { return pageVersionNumber; }
+@@ -830,6 +999,7 @@
+   cSubtitleClut *GetClutById(int ClutId, bool New = false);
+   cSubtitleRegion *GetRegionById(int RegionId, bool New = false);
+   cSubtitleRegionRef *GetRegionRefByIndex(int RegionRefIndex) { return regionRefs.Get(RegionRefIndex); }
++  void AddRegionRef(cSubtitleRegionRef *rf) { regionRefs.Add(rf); }
+   void SetPending(bool Pending) { pending = Pending; }
+   };
+ 
+@@ -849,8 +1019,10 @@
+      pts = Pts;
+   pageTimeout = bs.GetBits(8);
+   int Version = bs.GetBits(4);
++#ifndef FIX_SUBTITLE_VERSION_BROADCASTER_STUPIDITY
+   if (pageVersionNumber == Version)
+      return; // no update
++#endif
+   pageVersionNumber = Version;
+   pageState = bs.GetBits(2);
+   switch (pageState) {
+@@ -877,6 +1049,35 @@
+   pending = true;
+ }
+ 
++void cDvbSubtitlePage::ParsePgs(int64_t Pts, cBitStream &bs)
++{
++  if (Pts >= 0)
++     pts = Pts;
++  pageTimeout = 60000;
++  int Version = bs.GetBits(16);
++  if (pageVersionNumber == Version)
++     return;
++  pageVersionNumber = Version;
++  pageState = bs.GetBits(2);
++  switch (pageState) {
++    case 0: // normal case - page update
++         regions.Clear();
++         break;
++    case 1: // acquisition point - page refresh
++    case 2: // epoch start - new page
++    case 3: // epoch continue - new page
++         regions.Clear();
++         cluts.Clear();
++         objects.Clear();
++         break;
++    default: dbgpages("unknown page state: %d<br>\n", pageState);
++    }
++  bs.SkipBits(6);
++  dbgpages("<hr>\n<b>page</b> id %d version %d pts %"PRId64" timeout %d state %d<br>\n", pageId, pageVersionNumber, pts, pageTimeout, pageState);
++  regionRefs.Clear();
++  pending = true;
++}
++
+ tArea *cDvbSubtitlePage::GetAreas(int &NumAreas, double FactorX, double FactorY)
+ {
+   if (regions.Count() > 0) {
+@@ -1077,11 +1278,7 @@
+   if (State() == 0 || Osd->SetAreas(areas, numAreas) == oeOk) {
+      for (int i = 0; i < bitmaps.Size(); i++) {
+          cBitmap *b = bitmaps[i];
+-         if (Scale)
+-            b = b->Scaled(osdFactorX, osdFactorY, AntiAlias);
+-         Osd->DrawBitmap(int(round(b->X0() * osdFactorX)), int(round(b->Y0() * osdFactorY)), *b);
+-         if (b != bitmaps[i])
+-            delete b;
++         Osd->DrawScaledBitmap(int(round(b->X0() * osdFactorX)), int(round(b->Y0() * osdFactorY)), *b, osdFactorX, osdFactorY, AntiAlias);
+          }
+      Osd->Flush();
+      }
+@@ -1123,7 +1320,7 @@
+ int cDvbSubtitleConverter::setupLevel = 0;
+ 
+ cDvbSubtitleConverter::cDvbSubtitleConverter(void)
+-:cThread("subtitleConverter")
++:cThread("subtitle converter")
+ {
+   dvbSubtitleAssembler = new cDvbSubtitleAssembler;
+   osd = NULL;
+@@ -1226,22 +1423,24 @@
+            dbgconverter("converter PTS: %"PRId64"<br>\n", pts);
+         const uchar *data = Data + PayloadOffset;
+         int length = Length - PayloadOffset;
+-        if (length > 3) {
+-           if (data[0] == 0x20 && data[1] == 0x00 && data[2] == 0x0F) {
++        if (length > 0) {
++           if (length > 2 && data[0] == 0x20 && data[1] == 0x00 && data[2] == 0x0F) {
+               data += 2;
+               length -= 2;
+               }
+            const uchar *b = data;
+            while (length > 0) {
+-                 if (b[0] == 0x0F) {
+-                    int n = ExtractSegment(b, length, pts);
+-                    if (n < 0)
+-                       break;
+-                    b += n;
+-                    length -= n;
+-                    }
++                 if (b[0] == STUFFING_SEGMENT)
++                    break;
++                 int n;
++                 if (b[0] == 0x0F)
++                    n = ExtractSegment(b, length, pts);
+                  else
++                    n = ExtractPgsSegment(b, length, pts);
++                 if (n < 0)
+                     break;
++                 b += n;
++                 length -= n;
+                  }
+            }
+         }
+@@ -1391,23 +1590,25 @@
+        case DISPLAY_DEFINITION_SEGMENT: {
+             dbgsegments("DISPLAY_DEFINITION_SEGMENT<br>\n");
+             int version = bs.GetBits(4);
+-            if (version != ddsVersionNumber) {
+-               bool displayWindowFlag = bs.GetBit();
+-               windowHorizontalOffset = 0;
+-               windowVerticalOffset   = 0;
+-               bs.SkipBits(3); // reserved
+-               displayWidth  = windowWidth  = bs.GetBits(16) + 1;
+-               displayHeight = windowHeight = bs.GetBits(16) + 1;
+-               if (displayWindowFlag) {
+-                  windowHorizontalOffset = bs.GetBits(16);                              // displayWindowHorizontalPositionMinimum
+-                  windowWidth            = bs.GetBits(16) - windowHorizontalOffset + 1; // displayWindowHorizontalPositionMaximum
+-                  windowVerticalOffset   = bs.GetBits(16);                              // displayWindowVerticalPositionMinimum
+-                  windowHeight           = bs.GetBits(16) - windowVerticalOffset + 1;   // displayWindowVerticalPositionMaximum
+-                  }
+-               SetOsdData();
+-               ddsVersionNumber = version;
+-               dbgdisplay("<b>display</b> version %d flag %d width %d height %d ofshor %d ofsver %d<br>\n", ddsVersionNumber, displayWindowFlag, windowWidth, windowHeight, windowHorizontalOffset, windowVerticalOffset);
++#ifndef FIX_SUBTITLE_VERSION_BROADCASTER_STUPIDITY
++            if (version == ddsVersionNumber)
++               break; // no update
++#endif
++            bool displayWindowFlag = bs.GetBit();
++            windowHorizontalOffset = 0;
++            windowVerticalOffset   = 0;
++            bs.SkipBits(3); // reserved
++            displayWidth  = windowWidth  = bs.GetBits(16) + 1;
++            displayHeight = windowHeight = bs.GetBits(16) + 1;
++            if (displayWindowFlag) {
++               windowHorizontalOffset = bs.GetBits(16);                              // displayWindowHorizontalPositionMinimum
++               windowWidth            = bs.GetBits(16) - windowHorizontalOffset + 1; // displayWindowHorizontalPositionMaximum
++               windowVerticalOffset   = bs.GetBits(16);                              // displayWindowVerticalPositionMinimum
++               windowHeight           = bs.GetBits(16) - windowVerticalOffset + 1;   // displayWindowVerticalPositionMaximum
+                }
++            SetOsdData();
++            ddsVersionNumber = version;
++            dbgdisplay("<b>display</b> version %d flag %d width %d height %d ofshor %d ofsver %d<br>\n", ddsVersionNumber, displayWindowFlag, windowWidth, windowHeight, windowHorizontalOffset, windowVerticalOffset);
+             break;
+             }
+        case DISPARITY_SIGNALING_SEGMENT: {
+@@ -1462,6 +1663,71 @@
+        }
+      return bs.Length() / 8;
+      }
++  return -1;
++}
++
++int cDvbSubtitleConverter::ExtractPgsSegment(const uchar *Data, int Length, int64_t Pts)
++{
++  cBitStream bs(Data, Length * 8);
++  if (Length >= 3) {
++     int segmentType = bs.GetBits(8);
++     int segmentLength = bs.GetBits(16);
++     if (!bs.SetLength(bs.Index() + segmentLength * 8))
++        return -1;
++     LOCK_THREAD;
++     cDvbSubtitlePage *page = GetPageById(0, true);
++     switch (segmentType) {
++       case PGS_PRESENTATION_SEGMENT: {
++            if (page->Pending()) {
++               dbgsegments("PGS_DISPLAY_SEGMENT (simulated)<br>\n");
++               FinishPage(page);
++               }
++            dbgsegments("PGS_PRESENTATION_SEGMENT<br>\n");
++            displayWidth  = windowWidth  = bs.GetBits(16);
++            displayHeight = windowHeight = bs.GetBits(16);
++            bs.SkipBits(8);
++            page->ParsePgs(Pts, bs);
++            SD.SetFactor(double(DBGBITMAPWIDTH) / windowWidth);
++            cSubtitleRegion *region = page->GetRegionById(0, true);
++            region->ParsePgs(bs);
++            break;
++            }
++       case PGS_WINDOW_SEGMENT: {
++            bs.SkipBits(16);
++            int regionHorizontalAddress = bs.GetBits(16);
++            int regionVerticalAddress   = bs.GetBits(16);
++            int regionWidth  = bs.GetBits(16);
++            int regionHeight = bs.GetBits(16);
++            cSubtitleRegion *region = page->GetRegionById(0, true);
++            region->SetDimensions(regionWidth, regionHeight);
++            page->AddRegionRef(new cSubtitleRegionRef(0, regionHorizontalAddress, regionVerticalAddress));
++            dbgsegments("PGS_WINDOW_SEGMENT<br>\n");
++            break;
++            }
++       case PGS_PALETTE_SEGMENT: {
++            dbgsegments("PGS_PALETTE_SEGMENT<br>\n");
++            cSubtitleClut *clut = page->GetClutById(bs.GetBits(8), true);
++            clut->ParsePgs(bs);
++            break;
++            }
++       case PGS_OBJECT_SEGMENT: {
++            dbgsegments("PGS_OBJECT_SEGMENT<br>\n");
++            cSubtitleObject *object = page->GetObjectById(bs.GetBits(16), true);
++            object->ParsePgs(bs);
++            break;
++            }
++       case PGS_DISPLAY_SEGMENT: {
++            dbgsegments("PGS_DISPLAY_SEGMENT<br>\n");
++            FinishPage(page);
++            page->SetPending(false);
++            break;
++            }
++       default:
++            dbgsegments("*** unknown segment type: %02X<br>\n", segmentType);
++            return -1;
++       }
++     return bs.Length() / 8;
++     }
+   return -1;
+ }
+ 
+diff -ruN vdr-2.1.6/dvbsubtitle.h vdr-2.1.7/dvbsubtitle.h
+--- vdr-2.1.6/dvbsubtitle.h	2013-09-06 12:53:30.000000000 +0200
++++ vdr-2.1.7/dvbsubtitle.h	2015-01-14 11:01:48.000000000 +0100
+@@ -6,7 +6,7 @@
+  *
+  * Original author: Marco Schluessler <marco@lordzodiac.de>
+  *
+- * $Id: dvbsubtitle.h 3.1 2013/09/06 10:53:30 kls Exp $
++ * $Id: dvbsubtitle.h 3.2 2015/01/14 10:01:48 kls Exp $
+  */
+ 
+ #ifndef __DVBSUBTITLE_H
+@@ -43,6 +43,7 @@
+   void SetOsdData(void);
+   bool AssertOsd(void);
+   int ExtractSegment(const uchar *Data, int Length, int64_t Pts);
++  int ExtractPgsSegment(const uchar *Data, int Length, int64_t Pts);
+   void FinishPage(cDvbSubtitlePage *Page);
+ public:
+   cDvbSubtitleConverter(void);
+diff -ruN vdr-2.1.6/interface.c vdr-2.1.7/interface.c
+--- vdr-2.1.6/interface.c	2012-11-19 13:21:43.000000000 +0100
++++ vdr-2.1.7/interface.c	2015-01-11 14:37:47.000000000 +0100
+@@ -4,12 +4,15 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: interface.c 3.0 2012/11/19 12:21:43 kls Exp $
++ * $Id: interface.c 3.1 2015/01/11 13:37:47 kls Exp $
+  */
+ 
+ #include "interface.h"
+ #include <ctype.h>
+ #include <stdlib.h>
++#ifdef SDNOTIFY
++#include <systemd/sd-daemon.h>
++#endif
+ #include <unistd.h>
+ #include "i18n.h"
+ #include "status.h"
+@@ -159,6 +162,9 @@
+       bool known = Keys.KnowsRemote(Remote->Name());
+       dsyslog("remote control %s - %s", Remote->Name(), known ? "keys known" : "learning keys");
+       if (!known) {
++#ifdef SDNOTIFY
++         sd_notify(0, "READY=1\nSTATUS=Learning keys...");
++#endif
+          cSkinDisplayMenu *DisplayMenu = Skins.Current()->DisplayMenu();
+          DisplayMenu->SetMenuCategory(mcUnknown);
+          char Headline[256];
+diff -ruN vdr-2.1.6/menu.c vdr-2.1.7/menu.c
+--- vdr-2.1.6/menu.c	2014-03-16 11:38:31.000000000 +0100
++++ vdr-2.1.7/menu.c	2015-01-15 12:14:21.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 3.23 2014/03/16 10:38:31 kls Exp $
++ * $Id: menu.c 3.28 2015/01/15 11:14:21 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -387,6 +387,9 @@
+             currentItem = item;
+          }
+       }
++  SetMenuSortMode(cMenuChannelItem::SortMode() == cMenuChannelItem::csmName ? msmName :
++                  cMenuChannelItem::SortMode() == cMenuChannelItem::csmProvider ? msmProvider :
++                  msmNumber);
+   if (cMenuChannelItem::SortMode() != cMenuChannelItem::csmNumber)
+      Sort();
+   SetCurrent(currentItem);
+@@ -2670,6 +2673,7 @@
+             LastDir->IncrementCounter(recording->IsNew());
+          }
+       }
++  SetMenuSortMode(RecordingsSortMode == rsmName ? msmName : msmTime);
+   if (Refresh)
+      Display();
+ }
+@@ -3597,6 +3601,8 @@
+   Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Remote control repeat delta (ms)"), &data.RcRepeatDelta, 0));
+   Add(new cMenuEditChanItem(tr("Setup.Miscellaneous$Initial channel"),            &data.InitialChannel, tr("Setup.Miscellaneous$as before")));
+   Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Initial volume"),             &data.InitialVolume, -1, 255, tr("Setup.Miscellaneous$as before")));
++  Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Volume steps"),               &data.VolumeSteps, 5, 255));
++  Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Volume linearize"),           &data.VolumeLinearize, -20, 20));
+   Add(new cMenuEditBoolItem(tr("Setup.Miscellaneous$Channels wrap"),              &data.ChannelsWrap));
+   Add(new cMenuEditBoolItem(tr("Setup.Miscellaneous$Show channel names with source"), &data.ShowChannelNamesWithSource));
+   Add(new cMenuEditBoolItem(tr("Setup.Miscellaneous$Emergency exit"),             &data.EmergencyExit));
+@@ -4027,6 +4033,7 @@
+   displayChannel = Skins.Current()->DisplayChannel(withInfo);
+   number = 0;
+   timeout = Switched || Setup.TimeoutRequChInfo;
++  cOsdProvider::OsdSizeChanged(osdState); // just to get the current state
+   positioner = NULL;
+   channel = Channels.GetByNumber(Number);
+   lastPresent = lastFollowing = NULL;
+@@ -4112,6 +4119,10 @@
+ 
+ eOSState cDisplayChannel::ProcessKey(eKeys Key)
+ {
++  if (cOsdProvider::OsdSizeChanged(osdState)) {
++     delete displayChannel;
++     displayChannel = Skins.Current()->DisplayChannel(withInfo);
++     }
+   cChannel *NewChannel = NULL;
+   if (Key != kNone)
+      lastTime.Set();
+@@ -4754,7 +4765,7 @@
+      int Priority = Timer ? Timer->Priority() : Pause ? Setup.PausePriority : Setup.DefaultPriority;
+      cDevice *device = cDevice::GetDevice(channel, Priority, false);
+      if (device) {
+-        dsyslog("switching device %d to channel %d", device->DeviceNumber() + 1, channel->Number());
++        dsyslog("switching device %d to channel %d (%s)", device->DeviceNumber() + 1, channel->Number(), channel->Name());
+         if (!device->SwitchChannel(channel, false)) {
+            ShutdownHandler.RequestEmergencyExit();
+            return false;
+@@ -4769,7 +4780,7 @@
+            }
+         }
+      else if (!Timer || !Timer->Pending()) {
+-        isyslog("no free DVB device to record channel %d!", ch);
++        isyslog("no free DVB device to record channel %d (%s)!", ch, channel->Name());
+         Skins.Message(mtError, tr("No free DVB device to record!"));
+         }
+      }
+@@ -4864,7 +4875,7 @@
+       if (RecordControls[i]) {
+          if (RecordControls[i]->Timer() && RecordControls[i]->Timer()->Channel() == Channel) {
+             if (RecordControls[i]->Device()->ProvidesTransponder(Channel)) { // avoids retune on devices that don't really access the transponder
+-               isyslog("stopping recording due to modification of channel %d", Channel->Number());
++               isyslog("stopping recording due to modification of channel %d (%s)", Channel->Number(), Channel->Name());
+                RecordControls[i]->Stop();
+                // This will restart the recording, maybe even from a different
+                // device in case conditional access has changed.
+@@ -5145,7 +5156,10 @@
+     case kOk:
+          if (timeSearchPos > 0) {
+             Seconds = min(Total - STAY_SECONDS_OFF_END, Seconds);
+-            Goto(SecondsToFrames(Seconds, FramesPerSecond()), Key == kDown || Key == kPause || Key == kOk);
++            bool Still = Key == kDown || Key == kPause || Key == kOk;
++            Goto(SecondsToFrames(Seconds, FramesPerSecond()), Still);
++            if (!Still)
++               Play();
+             }
+          timeSearchActive = false;
+          break;
+diff -ruN vdr-2.1.6/menu.h vdr-2.1.7/menu.h
+--- vdr-2.1.6/menu.h	2013-12-25 13:06:03.000000000 +0100
++++ vdr-2.1.7/menu.h	2015-01-15 12:12:57.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 3.5 2013/12/25 12:06:03 kls Exp $
++ * $Id: menu.h 3.6 2015/01/15 11:12:57 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -121,6 +121,7 @@
+   cTimeMs lastTime;
+   int number;
+   bool timeout;
++  int osdState;
+   const cPositioner *positioner;
+   cChannel *channel;
+   const cEvent *lastPresent;
+diff -ruN vdr-2.1.6/osd.c vdr-2.1.7/osd.c
+--- vdr-2.1.6/osd.c	2013-09-03 13:59:17.000000000 +0200
++++ vdr-2.1.7/osd.c	2015-01-15 12:20:56.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 3.2 2013/09/03 11:59:17 kls Exp $
++ * $Id: osd.c 3.4 2015/01/15 11:20:56 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -1917,6 +1917,16 @@
+      }
+ }
+ 
++void cOsd::DrawScaledBitmap(int x, int y, const cBitmap &Bitmap, double FactorX, double FactorY, bool AntiAlias)
++{
++  const cBitmap *b = &Bitmap;
++  if (!DoubleEqual(FactorX, 1.0) || !DoubleEqual(FactorY, 1.0))
++     b = b->Scaled(FactorX, FactorY, AntiAlias);
++  DrawBitmap(x, y, *b);
++  if (b != &Bitmap)
++     delete b;
++}
++
+ void cOsd::DrawText(int x, int y, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width, int Height, int Alignment)
+ {
+   if (isTrueColor)
+@@ -1968,6 +1978,7 @@
+ int cOsdProvider::oldHeight = 0;
+ double cOsdProvider::oldAspect = 1.0;
+ cImage *cOsdProvider::images[MAXOSDIMAGES] = { NULL };
++int cOsdProvider::osdState = 0;
+ 
+ cOsdProvider::cOsdProvider(void)
+ {
+@@ -2005,6 +2016,7 @@
+   int Width;
+   int Height;
+   double Aspect;
++  cMutexLock MutexLock(&cOsd::mutex);
+   cDevice::PrimaryDevice()->GetOsdSize(Width, Height, Aspect);
+   if (Width != oldWidth || Height != oldHeight || !DoubleEqual(Aspect, oldAspect) || Force) {
+      Setup.OSDLeft = int(round(Width * Setup.OSDLeftP));
+@@ -2022,9 +2034,18 @@
+      oldHeight = Height;
+      oldAspect = Aspect;
+      dsyslog("OSD size changed to %dx%d @ %g", Width, Height, Aspect);
++     osdState++;
+      }
+ }
+ 
++bool cOsdProvider::OsdSizeChanged(int &State)
++{
++  cMutexLock MutexLock(&cOsd::mutex);
++  bool Result = osdState != State;
++  State = osdState;
++  return Result;
++}
++
+ bool cOsdProvider::SupportsTrueColor(void)
+ {
+   if (osdProvider) {
+diff -ruN vdr-2.1.6/osd.h vdr-2.1.7/osd.h
+--- vdr-2.1.6/osd.h	2013-09-06 14:13:47.000000000 +0200
++++ vdr-2.1.7/osd.h	2015-01-15 12:23:52.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.h 3.2 2013/09/06 12:13:47 kls Exp $
++ * $Id: osd.h 3.5 2015/01/15 11:23:52 kls Exp $
+  */
+ 
+ #ifndef __OSD_H
+@@ -817,6 +817,8 @@
+        ///< If this is a true color OSD, a pointer to a dummy bitmap with 8bpp
+        ///< is returned. This is done so that skins that call this function
+        ///< in order to preset the bitmap's palette won't crash.
++       ///< Use of this function outside of derived classes is deprecated and it
++       ///< may be made 'protected' in a future version.
+   virtual cPixmap *CreatePixmap(int Layer, const cRect &ViewPort, const cRect &DrawPort = cRect::Null);
+        ///< Creates a new true color pixmap on this OSD (see cPixmap for details).
+        ///< The caller must not delete the returned object, it will be deleted when
+@@ -885,6 +887,11 @@
+        ///< If Overlay is true, any pixel in Bitmap that has color index 0 will
+        ///< not overwrite the corresponding pixel in the target area.
+        ///< If this is a true color OSD, ReplacePalette has no meaning.
++  virtual void DrawScaledBitmap(int x, int y, const cBitmap &Bitmap, double FactorX, double FactorY, bool AntiAlias = false);
++       ///< Sets the pixels in the OSD with the data from the given Bitmap, putting
++       ///< the upper left corner of the Bitmap at (x, y) and scaled by the given
++       ///< factors. If AntiAlias is true and either of the factors is greater than
++       ///< 1.0, anti-aliasing is applied.
+   virtual void DrawText(int x, int y, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width = 0, int Height = 0, int Alignment = taDefault);
+        ///< Draws the given string at coordinates (x, y) with the given foreground
+        ///< and background color and font. If Width and Height are given, the text
+@@ -942,6 +949,7 @@
+   static int oldHeight;
+   static double oldAspect;
+   static cImage *images[MAXOSDIMAGES];
++  static int osdState;
+ protected:
+   virtual cOsd *CreateOsd(int Left, int Top, uint Level) = 0;
+       ///< Returns a pointer to a newly created cOsd object, which will be located
+@@ -978,6 +986,12 @@
+       ///< font sizes accordingly. If Force is true, all settings are recalculated,
+       ///< even if the video resolution hasn't changed since the last call to
+       ///< this function.
++  static bool OsdSizeChanged(int &State);
++      ///< Checks if the OSD size has changed and a currently displayed OSD needs to
++      ///< be redrawn. An internal reference value is incremented on every size change
++      ///< and is compared against State when calling the method.
++      ///< OsdSizeChanged() can be called with an uninitialized State to just get
++      ///< the current value of State.
+   static bool SupportsTrueColor(void);
+       ///< Returns true if the current OSD provider is able to handle a true color OSD.
+   static int StoreImage(const cImage &Image);
+diff -ruN vdr-2.1.6/osdbase.c vdr-2.1.7/osdbase.c
+--- vdr-2.1.6/osdbase.c	2013-09-22 16:01:17.000000000 +0200
++++ vdr-2.1.7/osdbase.c	2015-01-15 11:11:11.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osdbase.c 3.2 2013/09/22 14:01:17 kls Exp $
++ * $Id: osdbase.c 3.3 2015/01/15 10:11:11 kls Exp $
+  */
+ 
+ #include "osdbase.h"
+@@ -86,6 +86,7 @@
+   displayMenuItems = 0;
+   title = NULL;
+   menuCategory = mcUnknown;
++  menuSortMode = msmUnknown;
+   SetTitle(Title);
+   SetCols(c0, c1, c2, c3, c4);
+   first = 0;
+@@ -114,6 +115,11 @@
+   menuCategory = MenuCategory;
+ }
+ 
++void cOsdMenu::SetMenuSortMode(eMenuSortMode MenuSortMode)
++{
++  menuSortMode = MenuSortMode;
++}
++
+ void cOsdMenu::SetDisplayMenu(void)
+ {
+   if (displayMenu) {
+@@ -224,6 +230,7 @@
+   cStatus::MsgOsdClear();
+   if (menuCategory != displayMenu->MenuCategory())
+      displayMenu->SetMenuCategory(menuCategory);
++  displayMenu->SetMenuSortMode(menuSortMode);
+   displayMenuItems = displayMenu->MaxItems();
+   displayMenu->SetTabs(cols[0], cols[1], cols[2], cols[3], cols[4]);//XXX
+   displayMenu->SetTitle(title);
+diff -ruN vdr-2.1.6/osdbase.h vdr-2.1.7/osdbase.h
+--- vdr-2.1.6/osdbase.h	2013-09-22 16:00:47.000000000 +0200
++++ vdr-2.1.7/osdbase.h	2015-01-15 11:09:18.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osdbase.h 3.1 2013/09/22 14:00:47 kls Exp $
++ * $Id: osdbase.h 3.2 2015/01/15 10:09:18 kls Exp $
+  */
+ 
+ #ifndef __OSDBASE_H
+@@ -92,6 +92,7 @@
+   int cols[cSkinDisplayMenu::MaxTabs];
+   int first, current, marked;
+   eMenuCategory menuCategory;
++  eMenuSortMode menuSortMode;
+   cOsdMenu *subMenu;
+   const char *helpRed, *helpGreen, *helpYellow, *helpBlue;
+   bool helpDisplayed;
+@@ -131,6 +132,7 @@
+   virtual ~cOsdMenu();
+   virtual bool NeedsFastResponse(void) { return subMenu ? subMenu->NeedsFastResponse() : cOsdObject::NeedsFastResponse(); }
+   void SetMenuCategory(eMenuCategory MenuCategory);
++  void SetMenuSortMode(eMenuSortMode MenuSortMode);
+   int Current(void) const { return current; }
+   void Add(cOsdItem *Item, bool Current = false, cOsdItem *After = NULL);
+   void Ins(cOsdItem *Item, bool Current = false, cOsdItem *Before = NULL);
+diff -ruN vdr-2.1.6/pat.c vdr-2.1.7/pat.c
+--- vdr-2.1.6/pat.c	2014-02-19 09:57:43.000000000 +0100
++++ vdr-2.1.7/pat.c	2015-01-04 14:14:01.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.c 3.4 2014/02/19 08:57:43 kls Exp $
++ * $Id: pat.c 3.5 2015/01/04 13:14:01 kls Exp $
+  */
+ 
+ #include "pat.h"
+@@ -69,12 +69,13 @@
+   int source;
+   int transponder;
+   int serviceId;
++  int pmtPid; // needed for OctopusNet - otherwise irrelevant!
+   int numCaIds;
+   int caIds[MAXCAIDS + 1];
+   cList<cCaDescriptor> caDescriptors;
+   void AddCaId(int CaId);
+ public:
+-  cCaDescriptors(int Source, int Transponder, int ServiceId);
++  cCaDescriptors(int Source, int Transponder, int ServiceId, int PmtPid);
+   bool operator== (const cCaDescriptors &arg) const;
+   bool Is(int Source, int Transponder, int ServiceId);
+   bool Is(cCaDescriptors * CaDescriptors);
+@@ -82,14 +83,16 @@
+   void AddCaDescriptor(SI::CaDescriptor *d, int EsPid);
+   int GetCaDescriptors(const int *CaSystemIds, int BufSize, uchar *Data, int EsPid);
+   int GetCaPids(const int *CaSystemIds, int BufSize, int *Pids);
++  const int GetPmtPid(void) { return pmtPid; };
+   const int *CaIds(void) { return caIds; }
+   };
+ 
+-cCaDescriptors::cCaDescriptors(int Source, int Transponder, int ServiceId)
++cCaDescriptors::cCaDescriptors(int Source, int Transponder, int ServiceId, int PmtPid)
+ {
+   source = Source;
+   transponder = Transponder;
+   serviceId = ServiceId;
++  pmtPid = PmtPid;
+   numCaIds = 0;
+   caIds[0] = 0;
+ }
+@@ -218,6 +221,7 @@
+       // and 2 if an existing descriptor was changed.
+   int GetCaDescriptors(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, uchar *Data, int EsPid);
+   int GetCaPids(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, int *Pids);
++  int GetPmtPid(int Source, int Transponder, int ServiceId);
+   };
+ 
+ int cCaDescriptorHandler::AddCaDescriptors(cCaDescriptors *CaDescriptors)
+@@ -258,6 +262,16 @@
+   return 0;
+ }
+ 
++int cCaDescriptorHandler::GetPmtPid(int Source, int Transponder, int ServiceId)
++{
++  cMutexLock MutexLock(&mutex);
++  for (cCaDescriptors *ca = First(); ca; ca = Next(ca)) {
++      if (ca->Is(Source, Transponder, ServiceId))
++         return ca->GetPmtPid();
++      }
++  return 0;
++}
++
+ cCaDescriptorHandler CaDescriptorHandler;
+ 
+ int GetCaDescriptors(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, uchar *Data, int EsPid)
+@@ -270,6 +284,11 @@
+   return CaDescriptorHandler.GetCaPids(Source, Transponder, ServiceId, CaSystemIds, BufSize, Pids);
+ }
+ 
++int GetPmtPid(int Source, int Transponder, int ServiceId)
++{
++  return CaDescriptorHandler.GetPmtPid(Source, Transponder, ServiceId);
++}
++
+ // --- cPatFilter ------------------------------------------------------------
+ 
+ //#define DEBUG_PAT_PMT
+@@ -384,7 +403,7 @@
+      cChannel *Channel = Channels.GetByServiceID(Source(), Transponder(), pmt.getServiceId());
+      if (Channel) {
+         SI::CaDescriptor *d;
+-        cCaDescriptors *CaDescriptors = new cCaDescriptors(Channel->Source(), Channel->Transponder(), Channel->Sid());
++        cCaDescriptors *CaDescriptors = new cCaDescriptors(Channel->Source(), Channel->Transponder(), Channel->Sid(), Pid);
+         // Scan the common loop:
+         for (SI::Loop::Iterator it; (d = (SI::CaDescriptor*)pmt.commonDescriptors.getNext(it, SI::CaDescriptorTag)); ) {
+             CaDescriptors->AddCaDescriptor(d, 0);
+diff -ruN vdr-2.1.6/pat.h vdr-2.1.7/pat.h
+--- vdr-2.1.6/pat.h	2014-02-18 12:22:34.000000000 +0100
++++ vdr-2.1.7/pat.h	2015-01-04 14:17:22.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.h 3.3 2014/02/18 11:22:34 kls Exp $
++ * $Id: pat.h 3.4 2015/01/04 13:17:22 kls Exp $
+  */
+ 
+ #ifndef __PAT_H
+@@ -56,4 +56,7 @@
+          ///< Returns the number of pids copied into Pids (0 if no CA descriptors are
+          ///< available), or -1 if BufSize was too small to hold all CA pids.
+ 
++int GetPmtPid(int Source, int Transponder, int ServiceId);
++         ///< Gets the Pid of the PMT in which the CA descriptors for this channel are defined.
++
+ #endif //__PAT_H
+diff -ruN vdr-2.1.6/po/ar.po vdr-2.1.7/po/ar.po
+--- vdr-2.1.6/po/ar.po	2014-03-16 12:06:52.096281218 +0100
++++ vdr-2.1.7/po/ar.po	2015-01-12 15:56:42.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2008-10-16 11:16-0400\n"
+ "Last-Translator: Osama Alrawab <alrawab@hotmail.com>\n"
+ "Language-Team: Arabic <ar@li.org>\n"
+@@ -1256,6 +1256,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "ŸÅÿπŸÑ ÿßŸÑÿµŸàÿ™"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Channels wrap"
+ 
+diff -ruN vdr-2.1.6/po/ca_ES.po vdr-2.1.7/po/ca_ES.po
+--- vdr-2.1.6/po/ca_ES.po	2014-03-16 12:06:51.118106213 +0100
++++ vdr-2.1.7/po/ca_ES.po	2015-01-12 15:56:41.000000000 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Catalan <vdr@linuxtv.org>\n"
+@@ -1255,6 +1255,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Volum inicial"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Primer canal desprÈs de l'ultim"
+ 
+diff -ruN vdr-2.1.6/po/cs_CZ.po vdr-2.1.7/po/cs_CZ.po
+--- vdr-2.1.6/po/cs_CZ.po	2014-03-16 12:06:52.035270303 +0100
++++ vdr-2.1.7/po/cs_CZ.po	2015-01-12 15:56:42.000000000 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2010-05-06 11:00+0200\n"
+ "Last-Translator: Ale≈° Ju≈ô√≠k <ajurik@quick.cz>\n"
+ "Language-Team: Czech <vdr@linuxtv.org>\n"
+@@ -1255,6 +1255,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Hlasitost po spu≈°tƒõn√≠"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "P≈ôech√°zet z konce na zaƒç√°tek seznamu kan√°l≈Ø"
+ 
+diff -ruN vdr-2.1.6/po/da_DK.po vdr-2.1.7/po/da_DK.po
+--- vdr-2.1.6/po/da_DK.po	2014-03-16 12:06:51.684207494 +0100
++++ vdr-2.1.7/po/da_DK.po	2015-01-12 15:56:41.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish <vdr@linuxtv.org>\n"
+@@ -1252,6 +1252,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Lydstyrke ved opstart"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr ""
+ 
+diff -ruN vdr-2.1.6/po/de_DE.po vdr-2.1.7/po/de_DE.po
+--- vdr-2.1.6/po/de_DE.po	2014-03-16 12:06:52.326322374 +0100
++++ vdr-2.1.7/po/de_DE.po	2015-01-13 11:01:50.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2010-01-16 16:46+0100\n"
+ "Last-Translator: Klaus Schmidinger <vdr@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
+@@ -1252,6 +1252,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Lautst‰rke beim Einschalten"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr "Anzahl Lautst‰rke Schritte"
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr "Lautst‰rke Kurve korrigieren"
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Rundum zappen"
+ 
+@@ -1449,7 +1455,7 @@
+ 
+ #. TRANSLATORS: abbreviated weekdays, beginning with monday (must all be 3 letters!)
+ msgid "MonTueWedThuFriSatSun"
+-msgstr "MonDieMitDonFreSamSon"
++msgstr "Mo.Di.Mi.Do.Fr.Sa.So."
+ 
+ msgid "Monday"
+ msgstr "Montag"
+diff -ruN vdr-2.1.6/po/el_GR.po vdr-2.1.7/po/el_GR.po
+--- vdr-2.1.6/po/el_GR.po	2014-03-16 12:06:51.894245071 +0100
++++ vdr-2.1.7/po/el_GR.po	2015-01-12 15:56:41.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek <vdr@linuxtv.org>\n"
+@@ -1252,6 +1252,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr ""
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr ""
+ 
+diff -ruN vdr-2.1.6/po/es_ES.po vdr-2.1.7/po/es_ES.po
+--- vdr-2.1.6/po/es_ES.po	2014-03-16 12:06:51.754220019 +0100
++++ vdr-2.1.7/po/es_ES.po	2015-01-12 15:56:41.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Spanish <vdr@linuxtv.org>\n"
+@@ -1253,6 +1253,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Volumen inicial"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Primer canal despuÈs del ˙ltimo"
+ 
+diff -ruN vdr-2.1.6/po/et_EE.po vdr-2.1.7/po/et_EE.po
+--- vdr-2.1.6/po/et_EE.po	2014-03-16 12:06:51.085100308 +0100
++++ vdr-2.1.7/po/et_EE.po	2015-01-12 15:56:41.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
+ "Language-Team: Estonian <vdr@linuxtv.org>\n"
+@@ -1252,6 +1252,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Helitugevus k√§ivitamisel"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Kanalite ringkerimine"
+ 
+diff -ruN vdr-2.1.6/po/fi_FI.po vdr-2.1.7/po/fi_FI.po
+--- vdr-2.1.6/po/fi_FI.po	2014-03-16 12:06:51.720213936 +0100
++++ vdr-2.1.7/po/fi_FI.po	2015-01-12 15:56:41.000000000 +0100
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Matti Lehtim√§ki <matti.lehtimaki@gmail.com>\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
+@@ -1256,6 +1256,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "√Ñ√§nenvoimakkuus k√§ynnistett√§ess√§"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Kanavien rullaus"
+ 
+diff -ruN vdr-2.1.6/po/fr_FR.po vdr-2.1.7/po/fr_FR.po
+--- vdr-2.1.6/po/fr_FR.po	2014-03-16 12:06:52.007265293 +0100
++++ vdr-2.1.7/po/fr_FR.po	2015-01-12 15:56:42.000000000 +0100
+@@ -17,7 +17,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2013-02-24 12:56+0100\n"
+ "Last-Translator: Dominique Plu <dplu@free.fr>\n"
+ "Language-Team: French <vdr@linuxtv.org>\n"
+@@ -1262,6 +1262,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Volume initial"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Affichage circulaire des cha√Ænes"
+ 
+diff -ruN vdr-2.1.6/po/hr_HR.po vdr-2.1.7/po/hr_HR.po
+--- vdr-2.1.6/po/hr_HR.po	2014-03-16 12:06:52.207301080 +0100
++++ vdr-2.1.7/po/hr_HR.po	2015-01-12 15:56:42.000000000 +0100
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian <vdr@linuxtv.org>\n"
+@@ -1254,6 +1254,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "PoËetna jaËina zvuka"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr ""
+ 
+diff -ruN vdr-2.1.6/po/hu_HU.po vdr-2.1.7/po/hu_HU.po
+--- vdr-2.1.6/po/hu_HU.po	2014-03-16 12:06:51.648201053 +0100
++++ vdr-2.1.7/po/hu_HU.po	2015-01-12 15:56:41.000000000 +0100
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2013-03-01 19:22+0200\n"
+ "Last-Translator: Istv√°n F√ºley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian <vdr@linuxtv.org>\n"
+@@ -1256,6 +1256,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Hanger≈ë indul√°sn√°l"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Csatornalista g√∂rget√©se"
+ 
+diff -ruN vdr-2.1.6/po/it_IT.po vdr-2.1.7/po/it_IT.po
+--- vdr-2.1.6/po/it_IT.po	2014-03-16 12:06:51.828233261 +0100
++++ vdr-2.1.7/po/it_IT.po	2015-01-12 15:56:41.000000000 +0100
+@@ -11,8 +11,8 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
+-"PO-Revision-Date: 2013-11-10 23:02+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
++"PO-Revision-Date: 2014-03-23 00:54+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
+ "Language: it\n"
+@@ -84,13 +84,13 @@
+ msgstr "StreamId"
+ 
+ msgid "Pilot"
+-msgstr ""
++msgstr "Pilot"
+ 
+ msgid "T2SystemId"
+-msgstr ""
++msgstr "T2SystemId"
+ 
+ msgid "SISO/MISO"
+-msgstr ""
++msgstr "SISO/MISO"
+ 
+ msgid "Starting EPG scan"
+ msgstr "Inizio scansione EPG"
+@@ -580,10 +580,10 @@
+ msgstr "Sid"
+ 
+ msgid "Nid"
+-msgstr ""
++msgstr "Nid"
+ 
+ msgid "Tid"
+-msgstr ""
++msgstr "Tid"
+ 
+ msgid "Channel settings are not unique!"
+ msgstr "Parametri canale non univoci!"
+@@ -795,7 +795,7 @@
+ msgstr "Registrazione sparita!"
+ 
+ msgid "Edited version already exists - overwrite?"
+-msgstr ""
++msgstr "Versione modificata gi√† esistente. Sovrascrivere?"
+ 
+ msgid "Error while queueing recording for cutting!"
+ msgstr "Errore durante l'accodamento della registrazione per il taglio!"
+@@ -1259,6 +1259,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Volume iniziale"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Riavvolgimento canali"
+ 
+diff -ruN vdr-2.1.6/po/lt_LT.po vdr-2.1.7/po/lt_LT.po
+--- vdr-2.1.6/po/lt_LT.po	2014-03-16 12:06:51.933252050 +0100
++++ vdr-2.1.7/po/lt_LT.po	2015-01-12 15:56:41.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2010-10-30 11:55+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian <vdr@linuxtv.org>\n"
+@@ -1252,6 +1252,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Garsas ƒØjungimo metu"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Kanal≈≥ pridengimas"
+ 
+diff -ruN vdr-2.1.6/po/mk_MK.po vdr-2.1.7/po/mk_MK.po
+--- vdr-2.1.6/po/mk_MK.po	2014-03-16 12:06:52.065275671 +0100
++++ vdr-2.1.7/po/mk_MK.po	2015-01-12 15:56:42.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2012-11-19 15:18+0100\n"
+ "Last-Translator: Dimitar Petrovski <dimeptr@gmail.com>\n"
+ "Language-Team: Macedonian <en@li.org>\n"
+@@ -1253,6 +1253,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "–ü–æ—á–µ—Ç–Ω–∞ —ò–∞—á–∏–Ω–∞ –Ω–∞ –∑–≤—É–∫"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "–ü—Ä–µ–º–æ—Ç—É–≤–∞—ö–µ –∫–∞–Ω–∞–ª–∏"
+ 
+diff -ruN vdr-2.1.6/po/nl_NL.po vdr-2.1.7/po/nl_NL.po
+--- vdr-2.1.6/po/nl_NL.po	2014-03-16 12:06:51.862239345 +0100
++++ vdr-2.1.7/po/nl_NL.po	2015-01-12 15:56:41.000000000 +0100
+@@ -12,7 +12,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2008-02-26 17:20+0100\n"
+ "Last-Translator: Cedric Dewijs <cedric.dewijs@telfort.nl>\n"
+ "Language-Team: Dutch <vdr@linuxtv.org>\n"
+@@ -1257,6 +1257,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Opstartvolume"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Doorscrollen kanalenlijst"
+ 
+diff -ruN vdr-2.1.6/po/nn_NO.po vdr-2.1.7/po/nn_NO.po
+--- vdr-2.1.6/po/nn_NO.po	2014-03-16 12:06:52.174295175 +0100
++++ vdr-2.1.7/po/nn_NO.po	2015-01-12 15:56:42.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian Nynorsk <vdr@linuxtv.org>\n"
+@@ -1253,6 +1253,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr ""
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr ""
+ 
+diff -ruN vdr-2.1.6/po/pl_PL.po vdr-2.1.7/po/pl_PL.po
+--- vdr-2.1.6/po/pl_PL.po	2014-03-16 12:06:50.988082950 +0100
++++ vdr-2.1.7/po/pl_PL.po	2015-01-12 15:56:41.000000000 +0100
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2008-03-09 12:59+0100\n"
+ "Last-Translator: Marek Nazarko <mnazarko@gmail.com>\n"
+ "Language-Team: Polish <vdr@linuxtv.org>\n"
+@@ -1254,6 +1254,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Pocz±tkowa g≥o∂no∂Ê"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Zawijanie kana≥Ûw"
+ 
+diff -ruN vdr-2.1.6/po/pt_PT.po vdr-2.1.7/po/pt_PT.po
+--- vdr-2.1.6/po/pt_PT.po	2014-03-16 12:06:50.947075613 +0100
++++ vdr-2.1.7/po/pt_PT.po	2015-01-12 15:56:41.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2010-03-28 22:49+0100\n"
+ "Last-Translator: Cris Silva <hudokkow@gmail.com>\n"
+ "Language-Team: Portuguese <vdr@linuxtv.org>\n"
+@@ -1253,6 +1253,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Volume inicial"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Retroceder canais"
+ 
+diff -ruN vdr-2.1.6/po/ro_RO.po vdr-2.1.7/po/ro_RO.po
+--- vdr-2.1.6/po/ro_RO.po	2014-03-16 12:06:51.057095298 +0100
++++ vdr-2.1.7/po/ro_RO.po	2015-01-12 15:56:41.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2013-02-09 23:01+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sorceforge.net>\n"
+ "Language-Team: Romanian <vdr@linuxtv.org>\n"
+@@ -1254,6 +1254,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Volumul la pornire"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Lista de canale √Æn buclƒÉ"
+ 
+diff -ruN vdr-2.1.6/po/ru_RU.po vdr-2.1.7/po/ru_RU.po
+--- vdr-2.1.6/po/ru_RU.po	2014-03-16 12:06:52.248308417 +0100
++++ vdr-2.1.7/po/ru_RU.po	2015-01-12 15:56:42.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2013-03-10 17:13+0100\n"
+ "Last-Translator: Oleg Roitburd <oroitburd@gmail.com>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
+@@ -1253,6 +1253,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "≥‡ﬁ‹⁄ﬁ·‚Ï ﬂ‡ÿ “⁄€ÓÁ’›ÿÿ"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "ﬂ‡ﬁ⁄‡„‚⁄– ⁄–›–€ﬁ“"
+ 
+diff -ruN vdr-2.1.6/po/sk_SK.po vdr-2.1.7/po/sk_SK.po
+--- vdr-2.1.6/po/sk_SK.po	2014-03-16 12:06:52.134288018 +0100
++++ vdr-2.1.7/po/sk_SK.po	2015-01-12 15:56:42.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2013-03-04 21:24+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak <vdr@linuxtv.org>\n"
+@@ -1252,6 +1252,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Hlasitosª po spustenÌ"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Kan·ly cyklovaª pri prepnutÌ"
+ 
+diff -ruN vdr-2.1.6/po/sl_SI.po vdr-2.1.7/po/sl_SI.po
+--- vdr-2.1.6/po/sl_SI.po	2014-03-16 12:06:52.285315038 +0100
++++ vdr-2.1.7/po/sl_SI.po	2015-01-12 15:56:42.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2013-03-04 12:46+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian <vdr@linuxtv.org>\n"
+@@ -1253,6 +1253,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Privzeta glasnost"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Menjava kanala"
+ 
+diff -ruN vdr-2.1.6/po/sr_RS.po vdr-2.1.7/po/sr_RS.po
+--- vdr-2.1.6/po/sr_RS.po	2014-03-16 12:06:51.024089391 +0100
++++ vdr-2.1.7/po/sr_RS.po	2015-01-12 15:56:41.000000000 +0100
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2013-03-16 15:05+0100\n"
+ "Last-Translator: Zoran Turalija <zoran.turalija@gmail.com>\n"
+ "Language-Team: Serbian <vdr@linuxtv.org>\n"
+@@ -1253,6 +1253,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "PoËetna jaËina tona"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Prelazak sa kraja na poËetak liste kanala"
+ 
+diff -ruN vdr-2.1.6/po/sv_SE.po vdr-2.1.7/po/sv_SE.po
+--- vdr-2.1.6/po/sv_SE.po	2014-03-16 12:06:51.975259565 +0100
++++ vdr-2.1.7/po/sv_SE.po	2015-01-12 15:56:42.000000000 +0100
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2013-02-18 17:04+0100\n"
+ "Last-Translator: Richard Lithvall <r-vdr@boomer.se>\n"
+ "Language-Team: Swedish <vdr@linuxtv.org>\n"
+@@ -1256,6 +1256,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "Ljudstyrka vid uppstart"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "Cirkul‰r kanallista"
+ 
+diff -ruN vdr-2.1.6/po/tr_TR.po vdr-2.1.7/po/tr_TR.po
+--- vdr-2.1.6/po/tr_TR.po	2014-03-16 12:06:51.607193742 +0100
++++ vdr-2.1.7/po/tr_TR.po	2015-01-12 15:56:41.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay YolgeÁen <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish <vdr@linuxtv.org>\n"
+@@ -1252,6 +1252,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "AÁ˝l˝˛daki ses"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr ""
+ 
+diff -ruN vdr-2.1.6/po/uk_UA.po vdr-2.1.7/po/uk_UA.po
+--- vdr-2.1.6/po/uk_UA.po	2014-03-16 12:06:51.784225389 +0100
++++ vdr-2.1.7/po/uk_UA.po	2015-01-12 15:56:41.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2013-02-09 16:00+0100\n"
+ "Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian <vdr@linuxtv.org>\n"
+@@ -1253,6 +1253,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "–ì—É—á–Ω—ñ—Å—Ç—å –ø—Ä–∏ –≤–∫–ª—é—á–µ–Ω–Ω—ñ"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "–ö—ñ–Ω–µ—Ü—å –∫–∞–Ω–∞–ª—ñ–≤"
+ 
+diff -ruN vdr-2.1.6/po/zh_CN.po vdr-2.1.7/po/zh_CN.po
+--- vdr-2.1.6/po/zh_CN.po	2014-03-16 12:06:51.356148794 +0100
++++ vdr-2.1.7/po/zh_CN.po	2015-01-12 15:56:41.000000000 +0100
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.0.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2013-11-03 15:59+0100\n"
++"POT-Creation-Date: 2015-01-12 15:40+0100\n"
+ "PO-Revision-Date: 2013-03-04 14:52+0800\n"
+ "Last-Translator: NFVDR <nfvdr@live.com>\n"
+ "Language-Team: Chinese (simplified) <nfvdr@live.com>\n"
+@@ -1254,6 +1254,12 @@
+ msgid "Setup.Miscellaneous$Initial volume"
+ msgstr "ÂàùÂßãÂåñÂ£∞Èü≥"
+ 
++msgid "Setup.Miscellaneous$Volume steps"
++msgstr ""
++
++msgid "Setup.Miscellaneous$Volume linearize"
++msgstr ""
++
+ msgid "Setup.Miscellaneous$Channels wrap"
+ msgstr "È¢ëÈÅìÊéíÂ∫è"
+ 
+diff -ruN vdr-2.1.6/receiver.c vdr-2.1.7/receiver.c
+--- vdr-2.1.6/receiver.c	2014-02-08 16:57:30.000000000 +0100
++++ vdr-2.1.7/receiver.c	2015-01-12 15:04:31.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: receiver.c 3.2 2014/02/08 15:57:30 kls Exp $
++ * $Id: receiver.c 3.3 2015/01/12 14:04:31 kls Exp $
+  */
+ 
+ #include "receiver.h"
+@@ -14,7 +14,7 @@
+ cReceiver::cReceiver(const cChannel *Channel, int Priority)
+ {
+   device = NULL;
+-  priority = constrain(Priority, MINPRIORITY, MAXPRIORITY);
++  SetPriority(Priority);
+   numPids = 0;
+   SetPids(Channel);
+ }
+@@ -29,6 +29,11 @@
+      }
+ }
+ 
++void cReceiver::SetPriority(int Priority)
++{
++  priority = constrain(Priority, MINPRIORITY, MAXPRIORITY);
++}
++
+ bool cReceiver::AddPid(int Pid)
+ {
+   if (Pid) {
+diff -ruN vdr-2.1.6/receiver.h vdr-2.1.7/receiver.h
+--- vdr-2.1.6/receiver.h	2014-01-01 12:45:09.000000000 +0100
++++ vdr-2.1.7/receiver.h	2015-01-12 15:03:22.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: receiver.h 3.1 2014/01/01 11:45:09 kls Exp $
++ * $Id: receiver.h 3.3 2015/01/12 14:03:22 kls Exp $
+  */
+ 
+ #ifndef __RECEIVER_H
+@@ -24,6 +24,7 @@
+   int numPids;
+   bool WantsPid(int Pid);
+ protected:
++  cDevice *Device(void) { return device; }
+   void Detach(void);
+   virtual void Activate(bool On) {}
+                ///< This function is called just before the cReceiver gets attached to
+@@ -48,6 +49,8 @@
+                ///< that this cReceiver may be detached at any time in favor of a timer recording
+                ///< or live viewing (without blocking the cDevice it is attached to).
+   virtual ~cReceiver();
++  int Priority(void) { return priority; }
++  void SetPriority(int Priority);
+   bool AddPid(int Pid);
+                ///< Adds the given Pid to the list of PIDs of this receiver.
+   bool AddPids(const int *Pids);
+diff -ruN vdr-2.1.6/recorder.h vdr-2.1.7/recorder.h
+--- vdr-2.1.6/recorder.h	2010-12-27 12:17:04.000000000 +0100
++++ vdr-2.1.7/recorder.h	2015-01-15 15:27:02.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.h 3.0 2010/12/27 11:17:04 kls Exp $
++ * $Id: recorder.h 3.1 2015/01/15 14:27:02 kls Exp $
+  */
+ 
+ #ifndef __RECORDER_H
+@@ -31,12 +31,16 @@
+   bool NextFile(void);
+ protected:
+   virtual void Activate(bool On);
++       ///< If you override Activate() you need to call Detach() (which is a
++       ///< member of the cReceiver class) from your own destructor in order
++       ///< to properly get a call to Activate(false) when your object is
++       ///< destroyed.
+   virtual void Receive(uchar *Data, int Length);
+   virtual void Action(void);
+ public:
+   cRecorder(const char *FileName, const cChannel *Channel, int Priority);
+-               // Creates a new recorder for the given Channel and
+-               // the given Priority that will record into the file FileName.
++       ///< Creates a new recorder for the given Channel and
++       ///< the given Priority that will record into the file FileName.
+   virtual ~cRecorder();
+   };
+ 
+diff -ruN vdr-2.1.6/recording.c vdr-2.1.7/recording.c
+--- vdr-2.1.6/recording.c	2014-03-16 12:09:17.000000000 +0100
++++ vdr-2.1.7/recording.c	2015-01-17 15:52:28.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 3.18 2014/03/16 11:09:17 kls Exp $
++ * $Id: recording.c 3.21 2015/01/17 14:52:28 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -65,6 +65,7 @@
+ #define REMOVELATENCY      10 // seconds to wait until next check after removing a file
+ #define MARKSUPDATEDELTA   10 // seconds between checks for updating editing marks
+ #define MININDEXAGE      3600 // seconds before an index file is considered no longer to be written
++#define MAXREMOVETIME      10 // seconds after which to return from removing deleted recordings
+ 
+ #define MAX_LINK_LEVEL  6
+ 
+@@ -97,11 +98,16 @@
+   // Make sure only one instance of VDR does this:
+   cLockFile LockFile(cVideoDirectory::Name());
+   if (LockFile.Lock()) {
++     time_t StartTime = time(NULL);
+      bool deleted = false;
+      cThreadLock DeletedRecordingsLock(&DeletedRecordings);
+      for (cRecording *r = DeletedRecordings.First(); r; ) {
+          if (cIoThrottle::Engaged())
+             return;
++         if (time(NULL) - StartTime > MAXREMOVETIME)
++            return; // don't stay here too long
++         if (cRemote::HasKeys())
++            return; // react immediately on user input
+          if (r->Deleted() && time(NULL) - r->Deleted() > DELETEDLIFETIME) {
+             cRecording *next = DeletedRecordings.Next(r);
+             r->Remove();
+@@ -2235,17 +2241,19 @@
+ class cIndexFileGenerator : public cThread {
+ private:
+   cString recordingName;
++  bool update;
+ protected:
+   virtual void Action(void);
+ public:
+-  cIndexFileGenerator(const char *RecordingName);
++  cIndexFileGenerator(const char *RecordingName, bool Update = false);
+   ~cIndexFileGenerator();
+   };
+ 
+-cIndexFileGenerator::cIndexFileGenerator(const char *RecordingName)
++cIndexFileGenerator::cIndexFileGenerator(const char *RecordingName, bool Update)
+ :cThread("index file generator")
+ ,recordingName(RecordingName)
+ {
++  update = Update;
+   Start();
+ }
+ 
+@@ -2264,15 +2272,34 @@
+   cRingBufferLinear Buffer(IFG_BUFFER_SIZE, MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE);
+   cPatPmtParser PatPmtParser;
+   cFrameDetector FrameDetector;
+-  cIndexFile IndexFile(recordingName, true);
++  cIndexFile IndexFile(recordingName, true, false, false, true);
+   int BufferChunks = KILOBYTE(1); // no need to read a lot at the beginning when parsing PAT/PMT
+   off_t FileSize = 0;
+   off_t FrameOffset = -1;
++  uint16_t FileNumber = 1;
++  off_t FileOffset = 0;
++  int Last = -1;
++  if (update) {
++     // Look for current index and position to end of it if present:
++     bool Independent;
++     int Length;
++     Last = IndexFile.Last();
++     if (Last >= 0 && !IndexFile.Get(Last, &FileNumber, &FileOffset, &Independent, &Length))
++        Last = -1; // reset Last if an error occurred
++     if (Last >= 0) {
++        Rewind = true;
++        isyslog("updating index file");
++        }
++     else
++        isyslog("generating index file");
++     }
+   Skins.QueueMessage(mtInfo, tr("Regenerating index file"));
++  bool Stuffed = false;
+   while (Running()) {
+         // Rewind input file:
+         if (Rewind) {
+-           ReplayFile = FileName.SetOffset(1);
++           ReplayFile = FileName.SetOffset(FileNumber, FileOffset);
++           FileSize = FileOffset;
+            Buffer.Clear();
+            Rewind = false;
+            }
+@@ -2287,7 +2314,8 @@
+               int Processed = FrameDetector.Analyze(Data, Length);
+               if (Processed > 0) {
+                  if (FrameDetector.NewFrame()) {
+-                    IndexFile.Write(FrameDetector.IndependentFrame(), FileName.Number(), FrameOffset >= 0 ? FrameOffset : FileSize);
++                    if (IndexFileWritten || Last < 0) // check for first frame and do not write if in update mode
++                       IndexFile.Write(FrameDetector.IndependentFrame(), FileName.Number(), FrameOffset >= 0 ? FrameOffset : FileSize);
+                     FrameOffset = -1;
+                     IndexFileWritten = true;
+                     }
+@@ -2332,10 +2360,25 @@
+         else if (ReplayFile) {
+            int Result = Buffer.Read(ReplayFile, BufferChunks);
+            if (Result == 0) { // EOF
+-              ReplayFile = FileName.NextFile();
+-              FileSize = 0;
+-              FrameOffset = -1;
+-              Buffer.Clear();
++              if (Buffer.Available() > 0 && !Stuffed) {
++                 // So the last call to Buffer.Get() returned NULL, but there is still
++                 // data in the buffer, and we're at the end of the current TS file.
++                 // The remaining data in the buffer is less than what's needed for the
++                 // frame detector to analyze frames, so we need to put some stuffing
++                 // packets into the buffer to flush out the rest of the data (otherwise
++                 // any frames within the remaining data would not be seen here):
++                 uchar StuffingPacket[TS_SIZE] = { TS_SYNC_BYTE, 0xFF };
++                 for (int i = 0; i <= MIN_TS_PACKETS_FOR_FRAME_DETECTOR; i++)
++                     Buffer.Put(StuffingPacket, sizeof(StuffingPacket));
++                 Stuffed = true;
++                 }
++              else {
++                 ReplayFile = FileName.NextFile();
++                 FileSize = 0;
++                 FrameOffset = -1;
++                 Buffer.Clear();
++                 Stuffed = false;
++                 }
+               }
+            }
+         // Recording has been processed:
+@@ -2397,7 +2440,7 @@
+ #define INDEXFILECHECKINTERVAL 500 // ms between checks for existence of the regenerated index file
+ #define INDEXFILETESTINTERVAL   10 // ms between tests for the size of the index file in case of pausing live video
+ 
+-cIndexFile::cIndexFile(const char *FileName, bool Record, bool IsPesRecording, bool PauseLive)
++cIndexFile::cIndexFile(const char *FileName, bool Record, bool IsPesRecording, bool PauseLive, bool Update)
+ :resumeFile(FileName, IsPesRecording)
+ {
+   f = -1;
+@@ -2436,7 +2479,7 @@
+               esyslog("ERROR: invalid file size (%"PRId64") in '%s'", buf.st_size, *fileName);
+               }
+            last = int((buf.st_size + delta) / sizeof(tIndexTs) - 1);
+-           if (!Record && last >= 0) {
++           if ((!Record || Update) && last >= 0) {
+               size = last + 1;
+               index = MALLOC(tIndexTs, size);
+               if (index) {
+@@ -2724,15 +2767,16 @@
+   return -1;
+ }
+ 
+-bool GenerateIndex(const char *FileName)
++bool GenerateIndex(const char *FileName, bool Update)
+ {
+   if (DirectoryOk(FileName)) {
+      cRecording Recording(FileName);
+      if (Recording.Name()) {
+         if (!Recording.IsPesRecording()) {
+            cString IndexFileName = AddDirectory(FileName, INDEXFILESUFFIX);
+-           unlink(IndexFileName);
+-           cIndexFileGenerator *IndexFileGenerator = new cIndexFileGenerator(FileName);
++           if (!Update)
++              unlink(IndexFileName);
++           cIndexFileGenerator *IndexFileGenerator = new cIndexFileGenerator(FileName, Update);
+            while (IndexFileGenerator->Active())
+                  cCondWait::SleepMs(INDEXFILECHECKINTERVAL);
+            if (access(IndexFileName, R_OK) == 0)
+diff -ruN vdr-2.1.6/recording.h vdr-2.1.7/recording.h
+--- vdr-2.1.6/recording.h	2014-01-01 13:45:18.000000000 +0100
++++ vdr-2.1.7/recording.h	2015-01-17 15:33:05.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 3.4 2014/01/01 12:45:18 kls Exp $
++ * $Id: recording.h 3.5 2015/01/17 14:33:05 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -429,7 +429,7 @@
+   void ConvertToPes(tIndexTs *IndexTs, int Count);
+   bool CatchUp(int Index = -1);
+ public:
+-  cIndexFile(const char *FileName, bool Record, bool IsPesRecording = false, bool PauseLive = false);
++  cIndexFile(const char *FileName, bool Record, bool IsPesRecording = false, bool PauseLive = false, bool Update = false);
+   ~cIndexFile();
+   bool Ok(void) { return index != NULL; }
+   bool Write(bool Independent, uint16_t FileNumber, off_t FileOffset);
+@@ -488,7 +488,11 @@
+       // be modified and may be reallocated if more space is needed. The return
+       // value points to the resulting string, which may be different from s.
+ 
+-bool GenerateIndex(const char *FileName);
++bool GenerateIndex(const char *FileName, bool Update = false);
++       ///< Generates the index of the existing recording with the given FileName.
++       ///< If Update is true, an existing index file will be checked whether it is
++       ///< complete, and will be updated if it isn't. Otherwise an existing index
++       ///< file will be removed before a new one is generated.
+ 
+ enum eRecordingsSortMode { rsmName, rsmTime };
+ extern eRecordingsSortMode RecordingsSortMode;
+diff -ruN vdr-2.1.6/remux.c vdr-2.1.7/remux.c
+--- vdr-2.1.6/remux.c	2014-03-08 16:05:35.000000000 +0100
++++ vdr-2.1.7/remux.c	2015-01-14 10:57:09.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 3.5 2014/03/08 15:05:35 kls Exp $
++ * $Id: remux.c 3.9 2015/01/14 09:57:09 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -822,9 +822,12 @@
+                          }
+                       }
+                       break;
+-           case 0x81: // STREAMTYPE_USER_PRIVATE
++           case 0x81: // STREAMTYPE_USER_PRIVATE - AC3 audio for ATSC and BD
++           case 0x82: // STREAMTYPE_USER_PRIVATE - DTS audio for BD
+                       {
+-                      dbgpatpmt(" AC3");
++                      dbgpatpmt(" %s",
++                          stream.getStreamType() == 0x81 ? "AC3" :
++                          stream.getStreamType() == 0x82 ? "DTS" : "");
+                       char lang[MAXLANGCODE1] = { 0 };
+                       SI::Descriptor *d;
+                       for (SI::Loop::Iterator it; (d = stream.streamDescriptors.getNext(it)); ) {
+@@ -850,6 +853,36 @@
+                          }
+                       }
+                       break;
++           case 0x90: // PGS subtitles for BD
++                      {
++                      dbgpatpmt(" subtitling");
++                      char lang[MAXLANGCODE1] = { 0 };
++                      SI::Descriptor *d;
++                      for (SI::Loop::Iterator it; (d = stream.streamDescriptors.getNext(it)); ) {
++                          switch (d->getDescriptorTag()) {
++                            case SI::ISO639LanguageDescriptorTag: {
++                                 SI::ISO639LanguageDescriptor *ld = (SI::ISO639LanguageDescriptor *)d;
++                                 dbgpatpmt(" '%s'", ld->languageCode);
++                                 strn0cpy(lang, I18nNormalizeLanguageCode(ld->languageCode), MAXLANGCODE1);
++                                 if (NumSpids < MAXSPIDS) {
++                                    spids[NumSpids] = stream.getPid();
++                                    *slangs[NumSpids] = 0;
++                                    subtitlingTypes[NumSpids] = 0;
++                                    compositionPageIds[NumSpids] = 0;
++                                    ancillaryPageIds[NumSpids] = 0;
++                                    if (updatePrimaryDevice)
++                                       cDevice::PrimaryDevice()->SetAvailableTrack(ttSubtitle, NumSpids, stream.getPid(), lang);
++                                    NumSpids++;
++                                    spids[NumSpids] = 0;
++                                    }
++                                 }
++                                 break;
++                            default: ;
++                            }
++                          delete d;
++                          }
++                      }
++                      break;
+            default: ;
+            }
+          dbgpatpmt("\n");
+@@ -1511,7 +1544,12 @@
+                        for (int i = 0; i < numPtsValues; i++)
+                            ptsValues[i] = ptsValues[i + 1] - ptsValues[i];
+                        qsort(ptsValues, numPtsValues, sizeof(uint32_t), CmpUint32);
+-                       uint32_t Delta = ptsValues[0] / (framesPerPayloadUnit +  parser->IFrameTemporalReferenceOffset());
++                       int Div = framesPerPayloadUnit;
++                       if (framesPerPayloadUnit > 1)
++                          Div += parser->IFrameTemporalReferenceOffset();
++                       if (Div <= 0)
++                          Div = 1;
++                       uint32_t Delta = ptsValues[0] / Div;
+                        // determine frame info:
+                        if (isVideo) {
+                           if (abs(Delta - 3600) <= 1)
+diff -ruN vdr-2.1.6/remux.h vdr-2.1.7/remux.h
+--- vdr-2.1.6/remux.h	2014-02-08 13:41:50.000000000 +0100
++++ vdr-2.1.7/remux.h	2014-03-22 15:58:24.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 3.3 2014/02/08 12:41:50 kls Exp $
++ * $Id: remux.h 3.4 2014/03/22 14:58:24 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+@@ -50,6 +50,7 @@
+ #define TS_ADAPT_EXTENSION    0x01
+ 
+ #define PATPID 0x0000 // PAT PID (constant 0)
++#define CATPID 0x0001 // CAT PID (constant 1)
+ #define MAXPID 0x2000 // for arrays that use a PID as the index
+ 
+ #define PTSTICKS  90000 // number of PTS ticks per second
+diff -ruN vdr-2.1.6/sdt.c vdr-2.1.7/sdt.c
+--- vdr-2.1.6/sdt.c	2014-03-10 15:42:20.000000000 +0100
++++ vdr-2.1.7/sdt.c	2015-01-04 15:33:35.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sdt.c 3.3 2014/03/10 14:42:20 kls Exp $
++ * $Id: sdt.c 3.4 2015/01/04 14:33:35 kls Exp $
+  */
+ 
+ #include "sdt.h"
+@@ -152,7 +152,9 @@
+             delete LinkChannels;
+          }
+       }
+-  if (sdt.getSectionNumber() == sdt.getLastSectionNumber())
+-     Channels.MarkObsoleteChannels(source, sdt.getOriginalNetworkId(), sdt.getTransportStreamId());
++  if (sdt.getSectionNumber() == sdt.getLastSectionNumber()) {
++     if (Setup.UpdateChannels == 1 || Setup.UpdateChannels >= 3)
++        Channels.MarkObsoleteChannels(Source(), sdt.getOriginalNetworkId(), sdt.getTransportStreamId());
++     }
+   Channels.Unlock();
+ }
+diff -ruN vdr-2.1.6/sections.c vdr-2.1.7/sections.c
+--- vdr-2.1.6/sections.c	2012-10-04 14:21:59.000000000 +0200
++++ vdr-2.1.7/sections.c	2015-01-14 12:35:53.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sections.c 3.0 2012/10/04 12:21:59 kls Exp $
++ * $Id: sections.c 3.1 2015/01/14 11:35:53 kls Exp $
+  */
+ 
+ #include "sections.h"
+@@ -40,10 +40,11 @@
+ // --- cSectionHandler -------------------------------------------------------
+ 
+ cSectionHandler::cSectionHandler(cDevice *Device)
+-:cThread("section handler", true)
++:cThread(NULL, true)
+ {
+   shp = new cSectionHandlerPrivate;
+   device = Device;
++  SetDescription("device %d section handler", device->CardIndex() + 1);
+   statusCount = 0;
+   on = false;
+   waitForLock = false;
+diff -ruN vdr-2.1.6/skinlcars.c vdr-2.1.7/skinlcars.c
+--- vdr-2.1.6/skinlcars.c	2014-03-10 13:04:06.000000000 +0100
++++ vdr-2.1.7/skinlcars.c	2014-06-12 10:48:15.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinlcars.c 3.7 2014/03/10 12:04:06 kls Exp $
++ * $Id: skinlcars.c 3.8 2014/06/12 08:48:15 kls Exp $
+  */
+ 
+ // "Star Trek: The Next Generation"(R) is a registered trademark of Paramount Pictures,
+@@ -482,7 +482,7 @@
+ void cSkinLCARSDisplayChannel::DrawDate(void)
+ {
+   cString s = DayDateTime();
+-  if (initial || strcmp(s, lastDate)) {
++  if (initial || !*lastDate || strcmp(s, lastDate)) {
+      osd->DrawText(xc12, yc11, s, Theme.Color(clrDateFg), Theme.Color(clrDateBg), cFont::GetFont(fontOsd), xc13 - xc12, lineHeight, taRight | taBorder);
+      lastDate = s;
+      }
+@@ -1070,7 +1070,7 @@
+ void cSkinLCARSDisplayMenu::DrawDate(void)
+ {
+   cString s = DayDateTime();
+-  if (initial || strcmp(s, lastDate)) {
++  if (initial || !*lastDate || strcmp(s, lastDate)) {
+      const cFont *font = cFont::GetFont(fontOsd);
+      tColor ColorFg = Theme.Color(clrDateFg);
+      tColor ColorBg = Theme.Color(clrDateBg);
+diff -ruN vdr-2.1.6/skins.h vdr-2.1.7/skins.h
+--- vdr-2.1.6/skins.h	2014-02-17 12:05:29.000000000 +0100
++++ vdr-2.1.7/skins.h	2015-01-15 11:45:47.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skins.h 3.3 2014/02/17 11:05:29 kls Exp $
++ * $Id: skins.h 3.4 2015/01/15 10:45:47 kls Exp $
+  */
+ 
+ #ifndef __SKINS_H
+@@ -121,6 +121,14 @@
+   mcCam
+   };
+ 
++enum eMenuSortMode {
++  msmUnknown = 0,
++  msmNumber,
++  msmName,
++  msmTime,
++  msmProvider
++  };
++
+ class cSkinDisplayMenu : public cSkinDisplay {
+        ///< This class implements the general purpose menu display, which is
+        ///< used throughout the program to display information and let the
+@@ -167,6 +175,10 @@
+   virtual void SetTabs(int Tab1, int Tab2 = 0, int Tab3 = 0, int Tab4 = 0, int Tab5 = 0);
+        ///< Sets the tab columns to the given values, which are the number of
+        ///< characters in each column.
++  virtual void SetMenuSortMode(eMenuSortMode MenuSortMode) {}
++       ///< Sets the mode by which the items in this menu are sorted.
++       ///< This is purely informative and may be used by a skin to display the
++       ///< current sort mode by means of some text or symbol.
+   virtual void Scroll(bool Up, bool Page);
+        ///< If this menu contains a text area that can be scrolled, this function
+        ///< will be called to actually scroll the text. Up indicates whether the
+diff -ruN vdr-2.1.6/svdrp.c vdr-2.1.7/svdrp.c
+--- vdr-2.1.6/svdrp.c	2013-10-21 09:46:04.000000000 +0200
++++ vdr-2.1.7/svdrp.c	2015-01-12 12:16:27.000000000 +0100
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 3.5 2013/10/21 07:46:04 kls Exp $
++ * $Id: svdrp.c 3.6 2015/01/12 11:16:27 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -261,7 +261,7 @@
+   "    Move the recording with the given number. Before a recording can be\n"
+   "    moved, an LSTR command must have been executed in order to retrieve\n"
+   "    the recording numbers. The numbers don't change during subsequent MOVR\n"
+-  "    commands.n",
++  "    commands.\n",
+   "NEWC <settings>\n"
+   "    Create a new channel. Settings must be in the same format as returned\n"
+   "    by the LSTC command.",
+diff -ruN vdr-2.1.6/thread.h vdr-2.1.7/thread.h
+--- vdr-2.1.6/thread.h	2013-04-11 10:47:31.000000000 +0200
++++ vdr-2.1.7/thread.h	2015-01-14 12:39:55.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.h 3.1 2013/04/11 08:47:31 kls Exp $
++ * $Id: thread.h 3.2 2015/01/14 11:39:55 kls Exp $
+  */
+ 
+ #ifndef __THREAD_H
+@@ -110,12 +110,16 @@
+   cThread(const char *Description = NULL, bool LowPriority = false);
+        ///< Creates a new thread.
+        ///< If Description is present, a log file entry will be made when
+-       ///< the thread starts and stops. The Start() function must be called
+-       ///< to actually start the thread.
++       ///< the thread starts and stops (see SetDescription()).
++       ///< The Start() function must be called to actually start the thread.
+        ///< LowPriority can be set to true to make this thread run at a lower
+        ///< priority.
+   virtual ~cThread();
+   void SetDescription(const char *Description, ...) __attribute__ ((format (printf, 2, 3)));
++       ///< Sets the description of this thread, which will be used when logging
++       ///< starting or stopping of the thread. Make sure any important information
++       ///< is within the first 15 characters of Description, because only these
++       ///< may be displayed in thread listings (like 'htop', for instance).
+   bool Start(void);
+        ///< Actually starts the thread.
+        ///< If the thread is already running, nothing happens.
+diff -ruN vdr-2.1.6/tools.c vdr-2.1.7/tools.c
+--- vdr-2.1.6/tools.c	2013-09-22 15:19:19.000000000 +0200
++++ vdr-2.1.7/tools.c	2014-03-22 15:22:55.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 3.2 2013/09/22 13:19:19 kls Exp $
++ * $Id: tools.c 3.3 2014/03/22 14:22:55 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -609,7 +609,7 @@
+            }
+      return size;
+      }
+-  else
++  else if (errno != ENOENT)
+      LOG_ERROR_STR(DirName);
+   return -1;
+ }
+diff -ruN vdr-2.1.6/tools.h vdr-2.1.7/tools.h
+--- vdr-2.1.6/tools.h	2013-09-22 15:30:14.000000000 +0200
++++ vdr-2.1.7/tools.h	2015-01-14 10:09:06.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 3.3 2013/09/22 13:30:14 kls Exp $
++ * $Id: tools.h 3.6 2015/01/14 09:09:06 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -537,6 +537,14 @@
+   {
+     return At(Index);
+   }
++  int IndexOf(const T &Data) // returns the index of Data, or -1 if not found
++  {
++    for (int i = 0; i < size; i++) {
++        if (data[i] == Data)
++           return i;
++        }
++    return -1;
++  }
+   int Size(void) const { return size; }
+   virtual void Insert(T Data, int Before = 0)
+   {
+@@ -549,18 +557,45 @@
+     else
+        Append(Data);
+   }
++  bool InsertUnique(T Data, int Before = 0)
++  {
++    if (IndexOf(Data) < 0) {
++       Insert(Data, Before);
++       return true;
++       }
++    return false;
++  }
+   virtual void Append(T Data)
+   {
+     if (size >= allocated)
+        Realloc(allocated * 3 / 2); // increase size by 50%
+     data[size++] = Data;
+   }
++  bool AppendUnique(T Data)
++  {
++    if (IndexOf(Data) < 0) {
++       Append(Data);
++       return true;
++       }
++    return false;
++  }
+   virtual void Remove(int Index)
+   {
++    if (Index < 0)
++       return; // prevents out-of-bounds access
+     if (Index < size - 1)
+        memmove(&data[Index], &data[Index + 1], (size - Index) * sizeof(T));
+     size--;
+   }
++  bool RemoveElement(const T &Data)
++  {
++    int i = IndexOf(Data);
++    if (i >= 0) {
++       Remove(i);
++       return true;
++       }
++    return false;
++  }
+   virtual void Clear(void)
+   {
+     for (int i = 0; i < size; i++)
+diff -ruN vdr-2.1.6/vdr.1 vdr-2.1.7/vdr.1
+--- vdr-2.1.6/vdr.1	2013-12-25 12:01:36.000000000 +0100
++++ vdr-2.1.7/vdr.1	2015-01-17 15:46:22.000000000 +0100
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.1 3.1 2013/12/25 11:01:36 kls Exp $
++.\" $Id: vdr.1 3.3 2015/01/17 14:46:22 kls Exp $
+ .\"
+ .TH vdr 1 "31 Mar 2013" "2.0" "Video Disk Recorder"
+ .SH NAME
+@@ -178,6 +178,10 @@
+ Read resource files from \fIdir\fR
+ (default is to read them from the config directory).
+ .TP
++.BI \-\-showargs[= dir ]
++Read command line arguments from \fIdir\fR (default is \fI/etc/vdr/conf.d\fR),
++display them to the console and exit.
++.TP
+ .BI \-s\  cmd ,\ \-\-shutdown= cmd
+ Call \fIcmd\fR to shutdown the computer. See the file \fIINSTALL\fR for more
+ information.
+@@ -197,6 +201,18 @@
+ vdr can switch to a lesser privileged user id during normal
+ operation.
+ .TP
++.BI \-\-updindex= rec
++Update the index file for the given recording.
++\fIrec\fR must be the full path name of an existing recording.
++The recording must be in TS format.
++If the recording already has an index file, it will be checked
++whether it is complete, and will be updated if it isn't. If
++there is no index file yet, a new one will be generated.
++The program will return immediately after updating the index.
++Note that using this option while another instance of VDR is
++currently replaying the given recording, or if the recording
++has not been finished yet, may lead to unexpected results.
++.TP
+ .BI \-\-userdump
+ Allow coredumps if -u is given (only for debugging).
+ .TP
+@@ -213,6 +229,10 @@
+ .BI \-w\  sec ,\ \-\-watchdog= sec
+ Activate the watchdog timer with a timeout of \fIsec\fR seconds.
+ A value of \fB0\fR (default) disables the watchdog.
++.P
++If started without any options, vdr tries to read command line options
++from files named '*.conf' in the directory /etc/vdr/conf.d. Files are
++read in alphabetical order. See vdr(5) for details.
+ .SH SIGNALS
+ .TP
+ .B SIGINT, SIGTERM
+diff -ruN vdr-2.1.6/vdr.5 vdr-2.1.7/vdr.5
+--- vdr-2.1.6/vdr.5	2014-03-16 11:38:31.000000000 +0100
++++ vdr-2.1.7/vdr.5	2014-04-14 15:11:49.000000000 +0200
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 3.2 2014/03/16 10:38:31 kls Exp $
++.\" $Id: vdr.5 3.3 2014/04/14 13:11:49 kls Exp $
+ .\"
+ .TH vdr 5 "31 Mar 2013" "2.0" "Video Disk Recorder Files"
+ .SH NAME
+@@ -899,6 +899,33 @@
+ just 16 bit wide. The internal representation in VDR allows for 32 bit to
+ be used, so that external tools can generate EPG data that is guaranteed
+ not to collide with the ids of existing data.
++.SS COMMANDLINE OPTIONS
++If started without any options, vdr tries to read any files in the directory
++/etc/vdr/conf.d with names that do not begin with a '.' and that end with '.conf'.
++These files are read in alphabetical order. The format of these files is
++
++# comment
++.br
++[name]
++.br
++-a
++.br
++-b 123
++.br
++--long
++.br
++--longarg=123
++.br
++
++Any lines that begin with '#' as the first non-whitespace character are considered
++comments and are ignored.
++A command line option file consists of one or more sections, indicated by '[name]',
++where 'name' is either the fixed word 'vdr' (if this section contains options for
++the main VDR program) or the name of the plugin this section applies to.
++Each option must be written on a separate line, including the leading '-' (for
++a short option) or '--' (for a long option). If the option has additional arguments,
++they have to be written on the same line as the option itself, separated from the
++option with a blank (short option) or equal sign (long option).
+ .SH SEE ALSO
+ .BR vdr (1)
+ .SH AUTHOR
+diff -ruN vdr-2.1.6/vdr.c vdr-2.1.7/vdr.c
+--- vdr-2.1.6/vdr.c	2014-03-16 13:49:13.000000000 +0100
++++ vdr-2.1.7/vdr.c	2015-01-17 15:48:09.000000000 +0100
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 3.11 2014/03/16 12:49:13 kls Exp $
++ * $Id: vdr.c 3.15 2015/01/17 14:48:09 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -39,6 +39,7 @@
+ #endif
+ #include <termios.h>
+ #include <unistd.h>
++#include "args.h"
+ #include "audio.h"
+ #include "channels.h"
+ #include "config.h"
+@@ -190,6 +191,7 @@
+ #define DEFAULTWATCHDOG     0 // seconds
+ #define DEFAULTVIDEODIR VIDEODIR
+ #define DEFAULTCONFDIR dd(CONFDIR, VideoDirectory)
++#define DEFAULTARGSDIR dd(ARGSDIR, "/etc/vdr/conf.d")
+ #define DEFAULTCACHEDIR dd(CACHEDIR, VideoDirectory)
+ #define DEFAULTRESDIR dd(RESDIR, ConfigDirectory)
+ #define DEFAULTPLUGINDIR PLUGINDIR
+@@ -227,6 +229,15 @@
+   VdrUser = VDR_USER;
+ #endif
+ 
++  cArgs *Args = NULL;
++  if (argc == 1) {
++     Args = new cArgs(argv[0]);
++     if (Args->ReadDirectory(DEFAULTARGSDIR)) {
++        argc = Args->GetArgc();
++        argv = Args->GetArgv();
++        }
++     }
++
+   cVideoDirectory::SetName(VideoDirectory);
+   cPluginManager PluginManager(DEFAULTPLUGINDIR);
+ 
+@@ -254,9 +265,11 @@
+       { "port",     required_argument, NULL, 'p' },
+       { "record",   required_argument, NULL, 'r' },
+       { "resdir",   required_argument, NULL, 'r' | 0x100 },
++      { "showargs", optional_argument, NULL, 's' | 0x200 },
+       { "shutdown", required_argument, NULL, 's' },
+       { "split",    no_argument,       NULL, 's' | 0x100 },
+       { "terminal", required_argument, NULL, 't' },
++      { "updindex", required_argument, NULL, 'u' | 0x200 },
+       { "user",     required_argument, NULL, 'u' },
+       { "userdump", no_argument,       NULL, 'u' | 0x100 },
+       { "version",  no_argument,       NULL, 'V' },
+@@ -426,6 +439,19 @@
+           case 's' | 0x100:
+                     Setup.SplitEditedFiles = 1;
+                     break;
++          case 's' | 0x200: {
++                    const char *ArgsDir = optarg ? optarg : DEFAULTARGSDIR;
++                    cArgs Args(argv[0]);
++                    if (!Args.ReadDirectory(ArgsDir)) {
++                       fprintf(stderr, "vdr: can't read arguments from directory: %s\n", ArgsDir);
++                       return 2;
++                       }
++                    int c = Args.GetArgc();
++                    char **v = Args.GetArgv();
++                    for (int i = 1; i < c; i++)
++                        printf("%s\n", v[i]);
++                    return 0;
++                    }
+           case 't': Terminal = optarg;
+                     if (access(Terminal, R_OK | W_OK) < 0) {
+                        fprintf(stderr, "vdr: can't access terminal: %s\n", Terminal);
+@@ -438,6 +464,8 @@
+           case 'u' | 0x100:
+                     UserDump = true;
+                     break;
++          case 'u' | 0x200:
++                    return GenerateIndex(optarg, true) ? 0 : 2;
+           case 'V': DisplayVersion = true;
+                     break;
+           case 'v' | 0x100:
+@@ -539,9 +567,12 @@
+                "  -s CMD,   --shutdown=CMD call CMD to shutdown the computer\n"
+                "            --split        split edited files at the editing marks (only\n"
+                "                           useful in conjunction with --edit)\n"
++               "            --showargs[=DIR] print the arguments read from DIR and exit\n"
++               "                           (default: %s)\n"
+                "  -t TTY,   --terminal=TTY controlling tty\n"
+                "  -u USER,  --user=USER    run as user USER; only applicable if started as\n"
+                "                           root\n"
++               "            --updindex=REC update index for recording REC and exit\n"
+                "            --userdump     allow coredumps if -u is given (debugging)\n"
+                "  -v DIR,   --video=DIR    use DIR as video directory (default: %s)\n"
+                "  -V,       --version      print version information and exit\n"
+@@ -561,6 +592,7 @@
+                DEFAULTLOCDIR,
+                DEFAULTSVDRPPORT,
+                DEFAULTRESDIR,
++               DEFAULTARGSDIR,
+                DEFAULTVIDEODIR,
+                DEFAULTWATCHDOG
+                );
+@@ -849,7 +881,7 @@
+      }
+ 
+ #ifdef SDNOTIFY
+-  sd_notify(0, "READY=1");
++  sd_notify(0, "READY=1\nSTATUS=Ready");
+ #endif
+ 
+   // Main program loop:
+@@ -927,7 +959,7 @@
+                      if (Channel->Number() == cDevice::CurrentChannel() && cDevice::PrimaryDevice()->HasDecoder()) {
+                         if (!cDevice::PrimaryDevice()->Replaying() || cDevice::PrimaryDevice()->Transferring()) {
+                            if (cDevice::ActualDevice()->ProvidesTransponder(Channel)) { // avoids retune on devices that don't really access the transponder
+-                              isyslog("retuning due to modification of channel %d", Channel->Number());
++                              isyslog("retuning due to modification of channel %d (%s)", Channel->Number(), Channel->Name());
+                               Channels.SwitchTo(Channel->Number());
+                               }
+                            }
+@@ -1004,7 +1036,7 @@
+                         if (!Device->IsTunedToTransponder(Timer->Channel())) {
+                            if (Device == cDevice::ActualDevice() && !Device->IsPrimaryDevice())
+                               cDevice::PrimaryDevice()->StopReplay(); // stop transfer mode
+-                           dsyslog("switching device %d to channel %d", Device->DeviceNumber() + 1, Timer->Channel()->Number());
++                           dsyslog("switching device %d to channel %d (%s)", Device->DeviceNumber() + 1, Timer->Channel()->Number(), Timer->Channel()->Name());
+                            if (Device->SwitchChannel(Timer->Channel(), false))
+                               Device->SetOccupied(TIMERDEVICETIMEOUT);
+                            }

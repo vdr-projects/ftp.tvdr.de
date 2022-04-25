@@ -1,0 +1,258 @@
+--- ci.h	2003/03/23 15:18:40	1.4
++++ ci.h	2003/04/18 12:41:48	1.5
+@@ -81,6 +81,7 @@
+   cMutex mutex;
+   int numSlots;
+   bool enabled;
++  bool newCaSupport;
+   cCiSession *sessions[MAX_CI_SESSION];
+   cCiTransportLayer *tpl;
+   cCiTransportConnection *tc;
+@@ -96,12 +97,14 @@
+ public:
+   ~cCiHandler();
+   static cCiHandler *CreateCiHandler(const char *FileName);
++  int NumSlots(void) { return numSlots; }
+   void SetEnabled(bool Enabled) { enabled = Enabled; }
+   bool Process(void);
+   bool EnterMenu(int Slot);
+   cCiMenu *GetMenu(void);
+   cCiEnquiry *GetEnquiry(void);
+-  bool SetCaPmt(cCiCaPmt &CaPmt);
++  const unsigned short *GetCaSystemIds(int Slot);
++  bool SetCaPmt(cCiCaPmt &CaPmt, int Slot);
+   bool Reset(int Slot);
+   };
+ 
+--- ci.c	2003/03/23 15:18:40	1.9
++++ ci.c	2003/04/18 12:48:49	1.10
+@@ -769,7 +769,7 @@
+ cCiApplicationInformation::cCiApplicationInformation(int SessionId, cCiTransportConnection *Tc)
+ :cCiSession(SessionId, RI_APPLICATION_INFORMATION, Tc)
+ {
+-  dbgprotocol("New Aplication Information (session id %d)\n", SessionId);
++  dbgprotocol("New Application Information (session id %d)\n", SessionId);
+   state = 0;
+   creationTime = time(NULL);
+   menuString = NULL;
+@@ -827,12 +827,17 @@
+ 
+ // --- cCiConditionalAccessSupport -------------------------------------------
+ 
++#define MAXCASYSTEMIDS 16
++
+ class cCiConditionalAccessSupport : public cCiSession {
+ private:
+   int state;
++  int numCaSystemIds;
++  unsigned short caSystemIds[MAXCASYSTEMIDS + 1]; // list is zero terminated!
+ public:
+   cCiConditionalAccessSupport(int SessionId, cCiTransportConnection *Tc);
+   virtual bool Process(int Length = 0, const uint8_t *Data = NULL);
++  const unsigned short *GetCaSystemIds(void) { return caSystemIds; }
+   bool SendPMT(cCiCaPmt &CaPmt);
+   };
+ 
+@@ -841,6 +846,7 @@
+ {
+   dbgprotocol("New Conditional Access Support (session id %d)\n", SessionId);
+   state = 0;
++  caSystemIds[numCaSystemIds = 0] = 0;
+ }
+ 
+ bool cCiConditionalAccessSupport::Process(int Length, const uint8_t *Data)
+@@ -853,9 +859,16 @@
+             int l = 0;
+             const uint8_t *d = GetData(Data, l);
+             while (l > 1) {
+-                  dbgprotocol(" %04X", ((unsigned int)(*d) << 8) | *(d + 1));
++                  unsigned short id = ((unsigned short)(*d) << 8) | *(d + 1);
++                  dbgprotocol(" %04X", id);
+                   d += 2;
+                   l -= 2;
++                  if (numCaSystemIds < MAXCASYSTEMIDS) {
++                     caSystemIds[numCaSystemIds++] = id;
++                     caSystemIds[numCaSystemIds] = 0;
++                     }
++                  else
++                     esyslog("ERROR: too many CA system IDs!");
+                   }
+             dbgprotocol("\n");
+             }
+@@ -1274,6 +1287,7 @@
+ {
+   numSlots = NumSlots;
+   enabled = true;
++  newCaSupport = false;
+   for (int i = 0; i < MAX_CI_SESSION; i++)
+       sessions[i] = NULL;
+   tpl = new cCiTransportLayer(Fd, numSlots);
+@@ -1358,7 +1372,8 @@
+             switch (ResourceId) {
+               case RI_RESOURCE_MANAGER:           return sessions[i] = new cCiResourceManager(i + 1, tc);
+               case RI_APPLICATION_INFORMATION:    return sessions[i] = new cCiApplicationInformation(i + 1, tc);
+-              case RI_CONDITIONAL_ACCESS_SUPPORT: return sessions[i] = new cCiConditionalAccessSupport(i + 1, tc);
++              case RI_CONDITIONAL_ACCESS_SUPPORT: newCaSupport = true;
++                                                  return sessions[i] = new cCiConditionalAccessSupport(i + 1, tc);
+               case RI_HOST_CONTROL:               break; //XXX
+               case RI_DATE_TIME:                  return sessions[i] = new cCiDateTime(i + 1, tc);
+               case RI_MMI:                        return sessions[i] = new cCiMMI(i + 1, tc);
+@@ -1470,6 +1485,8 @@
+       if (sessions[i])
+          sessions[i]->Process();
+       }
++  if (newCaSupport)
++     newCaSupport = result = false; // triggers new SetCaPmt at caller!
+   return result;
+ }
+ 
+@@ -1502,16 +1519,18 @@
+   return NULL;
+ }
+ 
+-bool cCiHandler::SetCaPmt(cCiCaPmt &CaPmt)
++const unsigned short *cCiHandler::GetCaSystemIds(int Slot)
+ {
+   cMutexLock MutexLock(&mutex);
+-  bool result = false;
+-  for (int Slot = 0; Slot < numSlots; Slot++) {
+-      cCiConditionalAccessSupport *cas = (cCiConditionalAccessSupport *)GetSessionByResourceId(RI_CONDITIONAL_ACCESS_SUPPORT, Slot);
+-      if (cas)
+-         result |= cas->SendPMT(CaPmt);
+-      }
+-  return result;
++  cCiConditionalAccessSupport *cas = (cCiConditionalAccessSupport *)GetSessionByResourceId(RI_CONDITIONAL_ACCESS_SUPPORT, Slot);
++  return cas ? cas->GetCaSystemIds() : NULL;
++}
++
++bool cCiHandler::SetCaPmt(cCiCaPmt &CaPmt, int Slot)
++{
++  cMutexLock MutexLock(&mutex);
++  cCiConditionalAccessSupport *cas = (cCiConditionalAccessSupport *)GetSessionByResourceId(RI_CONDITIONAL_ACCESS_SUPPORT, Slot);
++  return cas && cas->SendPMT(CaPmt);
+ }
+ 
+ bool cCiHandler::Reset(int Slot)
+--- dvbdevice.c	2003/04/12 15:06:11	1.51
++++ dvbdevice.c	2003/04/18 11:35:08	1.52
+@@ -264,27 +264,29 @@
+                  }
+               }
+            if (tunerStatus >= tsLocked) {
+-              if (ciHandler && channel.Ca()) {
++              if (ciHandler && channel.Ca() > CACONFBASE) {
+                  if (ciHandler->Process()) {
+                     if (tunerStatus != tsCam) {//XXX TODO update in case the CA descriptors have changed
+-                       uchar buffer[2048];
+-                       int length = cSIProcessor::GetCaDescriptors(channel.Source(), channel.Frequency(), channel.Sid(), sizeof(buffer), buffer);
+-                       if (length > 0) {
+-                          cCiCaPmt CaPmt(channel.Sid());
+-                          CaPmt.AddCaDescriptor(length, buffer);
+-                          if (channel.Vpid())
+-                             CaPmt.AddPid(channel.Vpid());
+-                          if (channel.Apid1())
+-                             CaPmt.AddPid(channel.Apid1());
+-                          if (channel.Apid2())
+-                             CaPmt.AddPid(channel.Apid2());
+-                          if (channel.Dpid1())
+-                             CaPmt.AddPid(channel.Dpid1());
+-                          if (ciHandler->SetCaPmt(CaPmt)) {
+-                             tunerStatus = tsCam;
+-                             startTime = 0;
+-                             }
+-                          }
++                       for (int Slot = 0; Slot < ciHandler->NumSlots(); Slot++) {
++                           uchar buffer[2048];
++                           int length = cSIProcessor::GetCaDescriptors(channel.Source(), channel.Frequency(), channel.Sid(), ciHandler->GetCaSystemIds(Slot), sizeof(buffer), buffer);
++                           if (length > 0) {
++                              cCiCaPmt CaPmt(channel.Sid());
++                              CaPmt.AddCaDescriptor(length, buffer);
++                              if (channel.Vpid())
++                                 CaPmt.AddPid(channel.Vpid());
++                              if (channel.Apid1())
++                                 CaPmt.AddPid(channel.Apid1());
++                              if (channel.Apid2())
++                                 CaPmt.AddPid(channel.Apid2());
++                              if (channel.Dpid1())
++                                 CaPmt.AddPid(channel.Dpid1());
++                              if (ciHandler->SetCaPmt(CaPmt, Slot)) {
++                                 tunerStatus = tsCam;
++                                 startTime = 0;
++                                 }
++                              }
++                           }
+                        }
+                     }
+                  else
+--- eit.h	2003/04/13 14:01:24	1.26
++++ eit.h	2003/04/18 11:00:11	1.27
+@@ -168,10 +168,11 @@
+          // Caller must provide a cMutexLock which has to survive the entire
+          // time the returned cSchedules is accessed. Once the cSchedules is no
+          // longer used, the cMutexLock must be destroyed.
+-  static int GetCaDescriptors(int Source, int Transponder, int ServiceId, int BufSize, uchar *Data);
++  static int GetCaDescriptors(int Source, int Transponder, int ServiceId, const unsigned short *CaSystemIds, int BufSize, uchar *Data);
+          ///< Gets all CA descriptors for a given channel.
+          ///< Copies all available CA descriptors for the given Source, Transponder and ServiceId
+-         ///< into the provided buffer at Data (at most BufSize bytes).
++         ///< into the provided buffer at Data (at most BufSize bytes). Only those CA descriptors
++         ///< are copied that match one of the given CA system IDs.
+          ///< \return Returns the number of bytes copied into Data (0 if no CA descriptors are
+          ///< available), or -1 if BufSize was too small to hold all CA descriptors.
+   static bool Read(FILE *f = NULL);
+--- eit.c	2003/04/18 11:29:11	1.70
++++ eit.c	2003/04/18 11:30:42	1.71
+@@ -1059,12 +1059,8 @@
+ const cCaDescriptor *cCaDescriptors::Get(int Source, int Transponder, int ServiceId, int CaSystem)
+ {
+   for (cCaDescriptor *ca = First(); ca; ca = Next(ca)) {
+-      if (ca->source == Source && ca->transponder == Transponder && ca->serviceId == ServiceId) {
+-         if (CaSystem == -1 || ca->caSystem == CaSystem)
+-            return ca;
+-         if (CaSystem < 0)
+-            CaSystem++;
+-         }
++      if (ca->source == Source && ca->transponder == Transponder && ca->serviceId == ServiceId && ca->caSystem == CaSystem)
++         return ca;
+       }
+   return NULL;
+ }
+@@ -1452,24 +1448,24 @@
+      }
+ }
+ 
+-int cSIProcessor::GetCaDescriptors(int Source, int Transponder, int ServiceId, int BufSize, uchar *Data)
++int cSIProcessor::GetCaDescriptors(int Source, int Transponder, int ServiceId, const unsigned short *CaSystemIds, int BufSize, uchar *Data)
+ {
++  if (!CaSystemIds || !*CaSystemIds)
++     return 0;
+   if (BufSize > 0 && Data) {
+      cMutexLock MutexLock(&caDescriptorsMutex);
+      int length = 0;
+-     for (int i = -1; ; i--) {
+-         const cCaDescriptor *d = caDescriptors->Get(Source, Transponder, ServiceId, i);
+-         if (d) {
+-            if (length + d->Length() <= BufSize) {
+-               memcpy(Data + length, d->Data(), d->Length());
+-               length += d->Length();
+-               }
+-            else
+-               return -1;
+-            }
+-         else
+-            break;
+-         }
++     do {
++        const cCaDescriptor *d = caDescriptors->Get(Source, Transponder, ServiceId, *CaSystemIds);
++        if (d) {
++           if (length + d->Length() <= BufSize) {
++              memcpy(Data + length, d->Data(), d->Length());
++              length += d->Length();
++              }
++           else
++              return -1;
++           }
++        } while (*++CaSystemIds);
+      return length;
+      }
+   return -1;

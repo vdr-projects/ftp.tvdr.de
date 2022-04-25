@@ -1,0 +1,926 @@
+diff -ruN vdr-1.7.5/CONTRIBUTORS vdr-1.7.6/CONTRIBUTORS
+--- vdr-1.7.5/CONTRIBUTORS	2009-04-12 11:09:47.000000000 +0200
++++ vdr-1.7.6/CONTRIBUTORS	2009-04-25 16:21:23.000000000 +0200
+@@ -599,6 +599,7 @@
+  currently disabled
+  for suggesting to improve logging system time changes to avoid problems on slow
+  systems under heavy load
++ for making the SVDRP command PUTE support reading the EPG data from a given file
+ 
+ Jeremy Hall <jhall@UU.NET>
+  for fixing an incomplete initialization of the filter parameters in eit.c
+@@ -669,6 +670,7 @@
+  for adding missing AUDIO_PAUSE/AUDIO_CONTINUE calls to cDvbDevice
+  for reporting that the video type is unnecessarily written into channels.conf if
+  VPID is 0
++ for reporting chirping sound disturbences at editing points in TS recordings
+ 
+ Reinhard Walter Buchner <rw.buchner@freenet.de>
+  for adding some satellites to 'sources.conf'
+@@ -1069,6 +1071,7 @@
+  for setting the thread name, so that it can be seen in 'top -H'
+  for replacing the Finnish language code "smi" with "suo"
+  for adding cap_sys_nice to the capabilities that are not dropped
++ for adding cThread::SetIOPriority() and using it in cRemoveDeletedRecordingsThread
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1617,6 +1620,8 @@
+  for suppressing the automatic shutdown if the remote control is currently disabled
+  for fixing a problem with calling isyslog() from within the SignalHandler()
+  for reporting a problem with handling the maximum video file size
++ for suggesting to add a note to the INSTALL file about using subdirectories to
++ split a large disk into separate areas for VDR's video data and other stuff
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -1652,6 +1657,7 @@
+  one that fits the input
+  for reporting a problem with cStatus::MsgOsdTextItem() being called without a text
+  for reporting a missing install-i18n in the install target in the Makefile
++ for adding a missing 'const' to cRecording::FramesPerSecond()
+ 
+ Sascha Klek <sklek@gmx.de>
+  for reporting a problem with the '0' key in the "Day" item of the "Timers" menu
+diff -ruN vdr-1.7.5/HISTORY vdr-1.7.6/HISTORY
+--- vdr-1.7.5/HISTORY	2009-04-12 11:09:30.000000000 +0200
++++ vdr-1.7.6/HISTORY	2009-04-26 11:43:16.000000000 +0200
+@@ -6030,3 +6030,33 @@
+ - No longer writing the video type into channels.conf if VPID is 0 (thanks to
+   Oliver Endriss for reporting this).
+ - Improved efficiency of cEIT::cEIT() (thanks to Tobias Bratfisch).
++
++2009-04-26: Version 1.7.6
++
++- cDevice::PlayTs() now syncs on the TS packet sync bytes.
++- Made MAXFRAMESIZE a multiple of TS_SIZE to avoid breaking up TS packets.
++- No longer resetting the patPmtParser in cDevice::PlayTs(), because this
++  caused the selected audio and subtitle tracks to fall back to the default.
++- The SVDRP command PUTE now supports reading the EPG data from a given file
++  (thanks to Helmut Auer).
++- Added cThread::SetIOPriority() and using it in cRemoveDeletedRecordingsThread
++  (thanks to Rolf Ahrenberg).
++- Fixed the MEGABYTE() macro to make it correctly handle parameters resulting in
++  values larger than 2GB.
++- Added cDevice::NumProvidedSystems() to PLUGINS.html (was missing since it had
++  been implemented).
++- Fixed distortions when switching to the next file during replay.
++- Fixed detecting the frame rate for streams with PTS distances of 1800, which
++  apparently split one frame over two payload units.
++- Added missing 'const' to cRecording::FramesPerSecond() (thanks to Joachim Wilke).
++- Any TS packets in the first "frame" after a cut in an edited recording that don't
++  belong to a payload unit that started in that frame now get their TEI flag set,
++  so that a decoder will ignore them together with any PES data collected for that
++  PID so far (thanks to Oliver Endriss for reporting chirping sound disturbences at
++  editing points in TS recordings).
++- cDvbPlayer::Empty() subtracts 1 from readIndex, because Action() will first
++  increment it.
++- Only storing non-zero Pts values in ptsIndex.
++- Added a note to the INSTALL file about using subdirectories to split a large
++  disk into separate areas for VDR's video data and other stuff (suggested by
++  Udo Richter).
+diff -ruN vdr-1.7.5/INSTALL vdr-1.7.6/INSTALL
+--- vdr-1.7.5/INSTALL	2009-04-10 12:29:21.000000000 +0200
++++ vdr-1.7.6/INSTALL	2009-04-25 16:19:15.000000000 +0200
+@@ -324,7 +324,14 @@
+ Note that you should not copy any non-VDR files into the /videoX directories,
+ since this might cause a lot of unnecessary disk access when VDR cleans up those
+ directories and there is a large number of files and/or subdirectories in
+-there.
++there. If you have a large disk that you want to use for VDR's video data as
++well as other stuff, you may want to create a subdirectory for VDR, as in
++
++   /mydisk/video0
++
++and put your other stuff into, say,
++
++   /mydisk/otherstuff
+ 
+ If your video directory is mounted via a Samba share, and you are experiencing
+ problems with replaying in fast forward mode, you can comment out the line
+diff -ruN vdr-1.7.5/PLUGINS.html vdr-1.7.6/PLUGINS.html
+--- vdr-1.7.5/PLUGINS.html	2009-01-25 12:27:49.000000000 +0100
++++ vdr-1.7.6/PLUGINS.html	2009-04-18 11:48:33.000000000 +0200
+@@ -1802,6 +1802,9 @@
+ selecting which channel it shall tune to:
+ 
+ <p><table><tr><td class="code"><pre>
++<div class="modified">
++virtual int NumProvidedSystems(void) const;
++</div modified>
+ virtual bool ProvidesSource(int Source) const;
+ virtual bool ProvidesTransponder(const cChannel *Channel) const;
+ virtual bool ProvidesChannel(const cChannel *Channel, int Priority = -1, bool *NeedsDetachReceivers = NULL) const;
+diff -ruN vdr-1.7.5/channels.c vdr-1.7.6/channels.c
+--- vdr-1.7.5/channels.c	2009-04-10 13:29:55.000000000 +0200
++++ vdr-1.7.6/channels.c	2009-04-25 15:57:32.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 2.5 2009/04/10 11:29:55 kls Exp $
++ * $Id: channels.c 2.6 2009/04/25 13:57:32 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -535,7 +535,7 @@
+ 
+ void cChannel::SetCaIds(const int *CaIds)
+ {
+-  if (caids[0] && caids[0] <= 0x00FF)
++  if (caids[0] && caids[0] <= CA_USER_MAX)
+      return; // special values will not be overwritten
+   if (IntArraysDiffer(caids, CaIds)) {
+      char OldCaIdsBuf[MAXCAIDS * 5 + 10]; // 5: 4 digits plus delimiting ',', 10: paranoia
+@@ -864,7 +864,7 @@
+               while ((q = strtok_r(p, ",", &strtok_next)) != NULL) {
+                     if (NumCaIds < MAXCAIDS) {
+                        caids[NumCaIds++] = strtol(q, NULL, 16) & 0xFFFF;
+-                       if (NumCaIds == 1 && caids[0] <= 0x00FF)
++                       if (NumCaIds == 1 && caids[0] <= CA_USER_MAX)
+                           break;
+                        }
+                     else
+diff -ruN vdr-1.7.5/config.h vdr-1.7.6/config.h
+--- vdr-1.7.5/config.h	2009-01-30 17:05:34.000000000 +0100
++++ vdr-1.7.6/config.h	2009-04-12 16:20:52.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.7 2009/01/30 16:05:34 kls Exp $
++ * $Id: config.h 2.8 2009/04/12 14:20:52 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.5"
+-#define VDRVERSNUM   10705  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.6"
++#define VDRVERSNUM   10706  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.5"
+-#define APIVERSNUM   10705  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.6"
++#define APIVERSNUM   10706  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-1.7.5/cutter.c vdr-1.7.6/cutter.c
+--- vdr-1.7.5/cutter.c	2009-01-24 16:19:26.000000000 +0100
++++ vdr-1.7.6/cutter.c	2009-04-19 12:56:33.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: cutter.c 2.2 2009/01/24 15:19:26 kls Exp $
++ * $Id: cutter.c 2.3 2009/04/19 10:56:33 kls Exp $
+  */
+ 
+ #include "cutter.h"
+@@ -18,6 +18,7 @@
+ class cCuttingThread : public cThread {
+ private:
+   const char *error;
++  bool isPesRecording;
+   cUnbufferedFile *fromFile, *toFile;
+   cFileName *fromFileName, *toFileName;
+   cIndexFile *fromIndex, *toIndex;
+@@ -39,7 +40,7 @@
+   fromFileName = toFileName = NULL;
+   fromIndex = toIndex = NULL;
+   cRecording Recording(FromFileName);
+-  bool isPesRecording = Recording.IsPesRecording();
++  isPesRecording = Recording.IsPesRecording();
+   if (fromMarks.Load(FromFileName, Recording.FramesPerSecond(), isPesRecording) && fromMarks.Count()) {
+      fromFileName = new cFileName(FromFileName, false, true, isPesRecording);
+      toFileName = new cFileName(ToFileName, true, true, isPesRecording);
+@@ -140,7 +141,10 @@
+               LastIFrame = 0;
+ 
+               if (cutIn) {
+-                 cRemux::SetBrokenLink(buffer, Length);
++                 if (isPesRecording)
++                    cRemux::SetBrokenLink(buffer, Length);
++                 else
++                    TsSetTeiOnBrokenPackets(buffer, Length);
+                  cutIn = false;
+                  }
+               }
+diff -ruN vdr-1.7.5/device.c vdr-1.7.6/device.c
+--- vdr-1.7.5/device.c	2009-04-05 14:15:41.000000000 +0200
++++ vdr-1.7.6/device.c	2009-04-18 11:41:00.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.13 2009/04/05 12:15:41 kls Exp $
++ * $Id: device.c 2.16 2009/04/18 09:41:00 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -1075,6 +1075,7 @@
+         Detach(player);
+      DELETENULL(liveSubtitle);
+      DELETENULL(dvbSubtitleConverter);
++     patPmtParser.Reset();
+      player = Player;
+      if (!Transferring())
+         ClrAvailableTracks(false, true);
+@@ -1099,6 +1100,7 @@
+      SetPlayMode(pmNone);
+      SetVideoDisplayFormat(eVideoDisplayFormat(Setup.VideoDisplayFormat));
+      PlayTs(NULL, 0);
++     patPmtParser.Reset();
+      Audios.ClearAudio();
+      isPlayingVideo = false;
+      }
+@@ -1317,14 +1319,24 @@
+ {
+   int Played = 0;
+   if (Data == NULL) {
+-     patPmtParser.Reset();
+      tsToPesVideo.Reset();
+      tsToPesAudio.Reset();
+      tsToPesSubtitle.Reset();
+      }
++  else if (Length < TS_SIZE) {
++     esyslog("ERROR: skipped %d bytes of TS fragment", Length);
++     return Length;
++     }
+   else {
+      cMutexLock MutexLock(&mutexCurrentAudioTrack);
+      while (Length >= TS_SIZE) {
++           if (Data[0] != TS_SYNC_BYTE) {
++              int Skipped = 1;
++              while (Skipped < Length && (Data[Skipped] != TS_SYNC_BYTE || Length - Skipped > TS_SIZE && Data[Skipped + TS_SIZE] != TS_SYNC_BYTE))
++                    Skipped++;
++              esyslog("ERROR: skipped %d bytes to sync on start of TS packet", Skipped);
++              return Played + Skipped;
++              }
+            if (TsHasPayload(Data)) { // silently ignore TS packets w/o payload
+               int PayloadOffset = TsPayloadOffset(Data);
+               if (PayloadOffset < TS_SIZE) {
+diff -ruN vdr-1.7.5/dvbplayer.c vdr-1.7.6/dvbplayer.c
+--- vdr-1.7.5/dvbplayer.c	2009-04-05 15:04:33.000000000 +0200
++++ vdr-1.7.6/dvbplayer.c	2009-04-19 17:19:10.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.c 2.11 2009/04/05 13:04:33 kls Exp $
++ * $Id: dvbplayer.c 2.15 2009/04/19 15:19:10 kls Exp $
+  */
+ 
+ #include "dvbplayer.h"
+@@ -318,7 +318,7 @@
+   if (nonBlockingFileReader)
+      nonBlockingFileReader->Clear();
+   if (!firstPacket) // don't set the readIndex twice if Empty() is called more than once
+-     readIndex = ptsIndex.FindIndex(DeviceGetSTC());
++     readIndex = ptsIndex.FindIndex(DeviceGetSTC()) - 1;  // Action() will first increment it!
+   delete readFrame; // might not have been stored in the buffer in Action()
+   readFrame = NULL;
+   playFrame = NULL;
+@@ -398,189 +398,191 @@
+   int LastReadIFrame = -1;
+   int SwitchToPlayFrame = 0;
+ 
+-  while (Running() && (NextFile() || readIndex >= 0 || ringBuffer->Available())) {
+-        if (Sleep) {
+-           if (WaitingForData)
+-              nonBlockingFileReader->WaitForDataMs(3); // this keeps the CPU load low, but reacts immediately on new data
+-           else
+-              cCondWait::SleepMs(3); // this keeps the CPU load low
++  while (Running()) {
++        if (WaitingForData)
++           nonBlockingFileReader->WaitForDataMs(3); // this keeps the CPU load low, but reacts immediately on new data
++        else if (Sleep) {
++           cPoller Poller;
++           DevicePoll(Poller, 10);
+            Sleep = false;
+            }
+-        cPoller Poller;
+-        if (DevicePoll(Poller, 100)) {
+-
+-           LOCK_THREAD;
+-
+-           // Read the next frame from the file:
+-
+-           if (playMode != pmStill && playMode != pmPause) {
+-              if (!readFrame && (replayFile || readIndex >= 0)) {
+-                 if (!nonBlockingFileReader->Reading()) {
+-                    if (!SwitchToPlayFrame && (playMode == pmFast || (playMode == pmSlow && playDir == pdBackward))) {
+-                       uint16_t FileNumber;
+-                       off_t FileOffset;
+-                       bool TimeShiftMode = index->IsStillRecording();
+-                       int Index = -1;
+-                       readIndependent = false;
+-                       if (DeviceHasIBPTrickSpeed() && playDir == pdForward) {
+-                          if (index->Get(readIndex + 1, &FileNumber, &FileOffset, &readIndependent, &Length))
+-                             Index = readIndex + 1;
+-                          }
+-                       else {
+-                          int d = int(round(0.4 * framesPerSecond));
+-                          if (playDir != pdForward)
+-                             d = -d;
+-                          int NewIndex = readIndex + d;
+-                          if (NewIndex <= 0 && readIndex > 0)
+-                             NewIndex = 1; // make sure the very first frame is delivered
+-                          NewIndex = index->GetNextIFrame(NewIndex, playDir == pdForward, &FileNumber, &FileOffset, &Length, TimeShiftMode);
+-                          if (NewIndex < 0 && TimeShiftMode && playDir == pdForward)
+-                             SwitchToPlayFrame = Index;
+-                          Index = NewIndex;
+-                          readIndependent = true;
+-                          }
+-                       if (Index >= 0) {
+-                          readIndex = Index;
+-                          if (!NextFile(FileNumber, FileOffset))
+-                             continue;
+-                          }
+-                       else
+-                          eof = true;
+-                       }
+-                    else if (index) {
+-                       uint16_t FileNumber;
+-                       off_t FileOffset;
+-                       if (index->Get(readIndex + 1, &FileNumber, &FileOffset, &readIndependent, &Length) && NextFile(FileNumber, FileOffset))
+-                          readIndex++;
+-                       else
+-                          eof = true;
+-                       }
+-                    else // allows replay even if the index file is missing
+-                       Length = MAXFRAMESIZE / TS_SIZE * TS_SIZE;// FIXME: use a linear ringbuffer in this case, and fix cDevice::PlayPes()
+-                    if (Length == -1)
+-                       Length = MAXFRAMESIZE; // this means we read up to EOF (see cIndex)
+-                    else if (Length > MAXFRAMESIZE) {
+-                       esyslog("ERROR: frame larger than buffer (%d > %d)", Length, MAXFRAMESIZE);
+-                       Length = MAXFRAMESIZE;
+-                       }
+-                    b = MALLOC(uchar, Length);
+-                    }
+-                 if (!eof) {
+-                    int r = nonBlockingFileReader->Read(replayFile, b, Length);
+-                    if (r > 0) {
+-                       WaitingForData = false;
+-                       uint32_t Pts = 0;
+-                       if (readIndependent) {
+-                          Pts = isPesRecording ? PesGetPts(b) : TsGetPts(b, r);
+-                          LastReadIFrame = readIndex;
+-                          }
+-                       readFrame = new cFrame(b, -r, ftUnknown, readIndex, Pts); // hands over b to the ringBuffer
+-                       b = NULL;
+-                       }
+-                    else if (r == 0)
+-                       eof = true;
+-                    else if (r < 0 && errno == EAGAIN)
+-                       WaitingForData = true;
+-                    else if (r < 0 && FATALERRNO) {
+-                       LOG_ERROR;
+-                       break;
+-                       }
+-                    }
+-                 }
+-
+-              // Store the frame in the buffer:
+-
+-              if (readFrame) {
+-                 if (ringBuffer->Put(readFrame))
+-                    readFrame = NULL;
+-                 }
+-              }
+-           else
+-              Sleep = true;
+-
+-           // Get the next frame from the buffer:
+-
+-           if (!playFrame) {
+-              playFrame = ringBuffer->Get();
+-              p = NULL;
+-              pc = 0;
+-              }
++        {
++          LOCK_THREAD;
+ 
+-           // Play the frame:
++          // Read the next frame from the file:
+ 
+-           if (playFrame) {
+-              if (!p) {
+-                 p = playFrame->Data();
+-                 pc = playFrame->Count();
+-                 if (p) {
+-                    if (playFrame->Index() >= 0)
+-                       ptsIndex.Put(playFrame->Pts(), playFrame->Index());
+-                    if (firstPacket) {
+-                       if (isPesRecording) {
+-                          PlayPes(NULL, 0);
+-                          cRemux::SetBrokenLink(p, pc);
+-                          }
+-                       else
+-                          PlayTs(NULL, 0);
+-                       firstPacket = false;
+-                       }
+-                    }
+-                 }
+-              if (p) {
+-                 int w;
+-                 if (isPesRecording)
+-                    w = PlayPes(p, pc, playMode != pmPlay && !(playMode == pmSlow && playDir == pdForward) && DeviceIsPlayingVideo());
+-                 else
+-                    w = PlayTs(p, pc, playMode != pmPlay && !(playMode == pmSlow && playDir == pdForward) && DeviceIsPlayingVideo());
+-                 if (w > 0) {
+-                    p += w;
+-                    pc -= w;
+-                    }
+-                 else if (w < 0 && FATALERRNO)
+-                    LOG_ERROR;
+-                 }
+-              if (pc <= 0) {
+-                 if (!eof || (playDir != pdForward && playFrame->Index() > 0) || (playDir == pdForward && playFrame->Index() < readIndex))
+-                    ringBuffer->Drop(playFrame); // the very first and last frame are continously repeated to flush data through the device
+-                 playFrame = NULL;
+-                 p = NULL;
+-                 }
+-              }
+-           else
+-              Sleep = true;
+-
+-           // Handle hitting begin/end of recording:
+-
+-           if (eof || SwitchToPlayFrame) {
+-              bool SwitchToPlay = false;
+-              uint32_t Stc = DeviceGetSTC();
+-              if (Stc != LastStc)
+-                 StuckAtEof = 0;
+-              else if (!StuckAtEof)
+-                 StuckAtEof = time(NULL);
+-              else if (time(NULL) - StuckAtEof > MAXSTUCKATEOF) {
+-                 if (playDir == pdForward)
+-                    break; // automatically stop at end of recording
+-                 SwitchToPlay = true;
+-                 }
+-              LastStc = Stc;
+-              int Index = ptsIndex.FindIndex(Stc);
+-              if (playDir == pdForward && !SwitchToPlayFrame) {
+-                 if (Index >= LastReadIFrame)
+-                    break; // automatically stop at end of recording
+-                 }
+-              else if (Index <= 0 || SwitchToPlayFrame && Index >= SwitchToPlayFrame)
+-                 SwitchToPlay = true;
+-              if (SwitchToPlay) {
+-                 if (!SwitchToPlayFrame)
+-                    Empty();
+-                 DevicePlay();
+-                 playMode = pmPlay;
+-                 playDir = pdForward;
+-                 SwitchToPlayFrame = 0;
+-                 }
+-              }
+-           }
++          if (playMode != pmStill && playMode != pmPause) {
++             if (!readFrame && (replayFile || readIndex >= 0)) {
++                if (!nonBlockingFileReader->Reading()) {
++                   if (!SwitchToPlayFrame && (playMode == pmFast || (playMode == pmSlow && playDir == pdBackward))) {
++                      uint16_t FileNumber;
++                      off_t FileOffset;
++                      bool TimeShiftMode = index->IsStillRecording();
++                      int Index = -1;
++                      readIndependent = false;
++                      if (DeviceHasIBPTrickSpeed() && playDir == pdForward) {
++                         if (index->Get(readIndex + 1, &FileNumber, &FileOffset, &readIndependent, &Length))
++                            Index = readIndex + 1;
++                         }
++                      else {
++                         int d = int(round(0.4 * framesPerSecond));
++                         if (playDir != pdForward)
++                            d = -d;
++                         int NewIndex = readIndex + d;
++                         if (NewIndex <= 0 && readIndex > 0)
++                            NewIndex = 1; // make sure the very first frame is delivered
++                         NewIndex = index->GetNextIFrame(NewIndex, playDir == pdForward, &FileNumber, &FileOffset, &Length, TimeShiftMode);
++                         if (NewIndex < 0 && TimeShiftMode && playDir == pdForward)
++                            SwitchToPlayFrame = Index;
++                         Index = NewIndex;
++                         readIndependent = true;
++                         }
++                      if (Index >= 0) {
++                         readIndex = Index;
++                         if (!NextFile(FileNumber, FileOffset))
++                            continue;
++                         }
++                      else
++                         eof = true;
++                      }
++                   else if (index) {
++                      uint16_t FileNumber;
++                      off_t FileOffset;
++                      if (index->Get(readIndex + 1, &FileNumber, &FileOffset, &readIndependent, &Length) && NextFile(FileNumber, FileOffset))
++                         readIndex++;
++                      else
++                         eof = true;
++                      }
++                   else // allows replay even if the index file is missing
++                      Length = MAXFRAMESIZE;
++                   if (Length == -1)
++                      Length = MAXFRAMESIZE; // this means we read up to EOF (see cIndex)
++                   else if (Length > MAXFRAMESIZE) {
++                      esyslog("ERROR: frame larger than buffer (%d > %d)", Length, MAXFRAMESIZE);
++                      Length = MAXFRAMESIZE;
++                      }
++                   b = MALLOC(uchar, Length);
++                   }
++                if (!eof) {
++                   int r = nonBlockingFileReader->Read(replayFile, b, Length);
++                   if (r > 0) {
++                      WaitingForData = false;
++                      uint32_t Pts = 0;
++                      if (readIndependent) {
++                         Pts = isPesRecording ? PesGetPts(b) : TsGetPts(b, r);
++                         LastReadIFrame = readIndex;
++                         }
++                      readFrame = new cFrame(b, -r, ftUnknown, readIndex, Pts); // hands over b to the ringBuffer
++                      b = NULL;
++                      }
++                   else if (r == 0)
++                      eof = true;
++                   else if (r < 0 && errno == EAGAIN)
++                      WaitingForData = true;
++                   else if (r < 0 && FATALERRNO) {
++                      LOG_ERROR;
++                      break;
++                      }
++                   }
++                }
++
++             // Store the frame in the buffer:
++
++             if (readFrame) {
++                if (ringBuffer->Put(readFrame))
++                   readFrame = NULL;
++                else
++                   Sleep = true;
++                }
++             }
++          else
++             Sleep = true;
++
++          // Get the next frame from the buffer:
++
++          if (!playFrame) {
++             playFrame = ringBuffer->Get();
++             p = NULL;
++             pc = 0;
++             }
++
++          // Play the frame:
++
++          if (playFrame) {
++             if (!p) {
++                p = playFrame->Data();
++                pc = playFrame->Count();
++                if (p) {
++                   if (playFrame->Index() >= 0 && playFrame->Pts() != 0)
++                      ptsIndex.Put(playFrame->Pts(), playFrame->Index());
++                   if (firstPacket) {
++                      if (isPesRecording) {
++                         PlayPes(NULL, 0);
++                         cRemux::SetBrokenLink(p, pc);
++                         }
++                      else
++                         PlayTs(NULL, 0);
++                      firstPacket = false;
++                      }
++                   }
++                }
++             if (p) {
++                int w;
++                if (isPesRecording)
++                   w = PlayPes(p, pc, playMode != pmPlay && !(playMode == pmSlow && playDir == pdForward) && DeviceIsPlayingVideo());
++                else
++                   w = PlayTs(p, pc, playMode != pmPlay && !(playMode == pmSlow && playDir == pdForward) && DeviceIsPlayingVideo());
++                if (w > 0) {
++                   p += w;
++                   pc -= w;
++                   }
++                else if (w < 0 && FATALERRNO)
++                   LOG_ERROR;
++                else
++                   Sleep = true;
++                }
++             if (pc <= 0) {
++                if (!eof || (playDir != pdForward && playFrame->Index() > 0) || (playDir == pdForward && playFrame->Index() < readIndex))
++                   ringBuffer->Drop(playFrame); // the very first and last frame are continously repeated to flush data through the device
++                playFrame = NULL;
++                p = NULL;
++                }
++             }
++          else
++             Sleep = true;
++
++          // Handle hitting begin/end of recording:
++
++          if (eof || SwitchToPlayFrame) {
++             bool SwitchToPlay = false;
++             uint32_t Stc = DeviceGetSTC();
++             if (Stc != LastStc)
++                StuckAtEof = 0;
++             else if (!StuckAtEof)
++                StuckAtEof = time(NULL);
++             else if (time(NULL) - StuckAtEof > MAXSTUCKATEOF) {
++                if (playDir == pdForward)
++                   break; // automatically stop at end of recording
++                SwitchToPlay = true;
++                }
++             LastStc = Stc;
++             int Index = ptsIndex.FindIndex(Stc);
++             if (playDir == pdForward && !SwitchToPlayFrame) {
++                if (Index >= LastReadIFrame)
++                   break; // automatically stop at end of recording
++                }
++             else if (Index <= 0 || SwitchToPlayFrame && Index >= SwitchToPlayFrame)
++                SwitchToPlay = true;
++             if (SwitchToPlay) {
++                if (!SwitchToPlayFrame)
++                   Empty();
++                DevicePlay();
++                playMode = pmPlay;
++                playDir = pdForward;
++                SwitchToPlayFrame = 0;
++                }
++             }
++        }
+         }
+ 
+   cNonBlockingFileReader *nbfr = nonBlockingFileReader;
+diff -ruN vdr-1.7.5/recording.c vdr-1.7.6/recording.c
+--- vdr-1.7.5/recording.c	2009-01-30 17:27:19.000000000 +0100
++++ vdr-1.7.6/recording.c	2009-04-13 15:50:39.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.9 2009/01/30 16:27:19 kls Exp $
++ * $Id: recording.c 2.12 2009/04/13 13:50:39 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -85,6 +85,7 @@
+ void cRemoveDeletedRecordingsThread::Action(void)
+ {
+   SetPriority(19);
++  SetIOPriority(7);
+   // Make sure only one instance of VDR does this:
+   cLockFile LockFile(VideoDirectory);
+   if (LockFile.Lock()) {
+diff -ruN vdr-1.7.5/recording.h vdr-1.7.6/recording.h
+--- vdr-1.7.5/recording.h	2009-02-28 11:50:12.000000000 +0100
++++ vdr-1.7.6/recording.h	2009-04-19 11:00:45.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 2.5 2009/02/28 10:50:12 kls Exp $
++ * $Id: recording.h 2.7 2009/04/19 09:00:45 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -109,7 +109,7 @@
+   const char *PrefixFileName(char Prefix);
+   int HierarchyLevels(void) const;
+   void ResetResume(void) const;
+-  double FramesPerSecond(void) { return framesPerSecond; }
++  double FramesPerSecond(void) const { return framesPerSecond; }
+   bool IsNew(void) const { return GetResume() <= 0; }
+   bool IsEdited(void) const;
+   bool IsPesRecording(void) const { return isPesRecording; }
+@@ -207,7 +207,7 @@
+   };
+ 
+ // The maximum size of a single frame (up to HDTV 1920x1080):
+-#define MAXFRAMESIZE  KILOBYTE(512)
++#define MAXFRAMESIZE  (KILOBYTE(512) / TS_SIZE * TS_SIZE) // multiple of TS_SIZE to avoid breaking up TS packets
+ 
+ // The maximum file size is limited by the range that can be covered
+ // with a 40 bit 'unsigned int', which is 1TB. The actual maximum value
+diff -ruN vdr-1.7.5/remux.c vdr-1.7.6/remux.c
+--- vdr-1.7.5/remux.c	2009-04-05 16:07:48.000000000 +0200
++++ vdr-1.7.6/remux.c	2009-04-19 12:59:56.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 2.17 2009/04/05 14:07:48 kls Exp $
++ * $Id: remux.c 2.19 2009/04/19 10:59:56 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -124,6 +124,24 @@
+   return -1;
+ }
+ 
++void TsSetTeiOnBrokenPackets(uchar *p, int l)
++{
++  bool Processed[MAXPID] = { false };
++  while (l >= TS_SIZE) {
++        if (*p != TS_SYNC_BYTE)
++           break;
++        int Pid = TsPid(p);
++        if (!Processed[Pid]) {
++           if (!TsPayloadStart(p))
++              p[1] |= TS_ERROR;
++           else
++              Processed[Pid] = true;
++           }
++        l -= TS_SIZE;
++        p += TS_SIZE;
++        }
++}
++
+ // --- cPatPmtGenerator ------------------------------------------------------
+ 
+ cPatPmtGenerator::cPatPmtGenerator(cChannel *Channel)
+@@ -582,6 +600,10 @@
+ 
+ void cTsToPes::PutTs(const uchar *Data, int Length)
+ {
++  if (TsError(Data)) {
++     Reset();
++     return; // ignore packets with TEI set, and drop any PES data collected so far
++     }
+   if (TsPayloadStart(Data))
+      Reset();
+   else if (!size)
+@@ -732,6 +754,10 @@
+                           frameDuration = 3600; // PAL, 25 fps
+                        else if (Delta % 3003 == 0)
+                           frameDuration = 3003; // NTSC, 29.97 fps
++                       else if (Delta == 1800) {
++                          frameDuration = 3600; // PAL, 25 fps
++                          framesPerPayloadUnit = -2;
++                          }
+                        else if (Delta == 1501) {
+                           frameDuration = 3003; // NTSC, 29.97 fps
+                           framesPerPayloadUnit = -2;
+diff -ruN vdr-1.7.5/remux.h vdr-1.7.6/remux.h
+--- vdr-1.7.5/remux.h	2009-03-27 14:38:59.000000000 +0100
++++ vdr-1.7.6/remux.h	2009-04-19 12:57:09.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 2.9 2009/03/27 13:38:59 kls Exp $
++ * $Id: remux.h 2.10 2009/04/19 10:57:09 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+@@ -49,6 +49,8 @@
+ #define TS_ADAPT_TP_PRIVATE   0x02
+ #define TS_ADAPT_EXTENSION    0x01
+ 
++#define MAXPID 0x2000 // for arrays that use a PID as the index
++
+ inline bool TsHasPayload(const uchar *p)
+ {
+   return p[3] & TS_PAYLOAD_EXISTS;
+@@ -104,6 +106,7 @@
+ // The following functions all take a pointer to a sequence of complete TS packets.
+ 
+ int64_t TsGetPts(const uchar *p, int l);
++void TsSetTeiOnBrokenPackets(uchar *p, int l);
+ 
+ // Some PES handling tools:
+ // The following functions that take a pointer to PES data all assume that
+diff -ruN vdr-1.7.5/svdrp.c vdr-1.7.6/svdrp.c
+--- vdr-1.7.5/svdrp.c	2009-01-06 15:35:45.000000000 +0100
++++ vdr-1.7.6/svdrp.c	2009-04-13 15:35:29.000000000 +0200
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 2.2 2009/01/06 14:35:45 kls Exp $
++ * $Id: svdrp.c 2.3 2009/04/13 13:35:29 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -288,11 +288,14 @@
+   "    If 'help' is followed by a command, the detailed help for that command is\n"
+   "    given. The keyword 'main' initiates a call to the main menu function of the\n"
+   "    given plugin.\n",
+-  "PUTE\n"
++  "PUTE [ file ]\n"
+   "    Put data into the EPG list. The data entered has to strictly follow the\n"
+   "    format defined in vdr(5) for the 'epg.data' file.  A '.' on a line\n"
+   "    by itself terminates the input and starts processing of the data (all\n"
+-  "    entered data is buffered until the terminating '.' is seen).",
++  "    entered data is buffered until the terminating '.' is seen).\n"
++  "    If a file name is given, epg data will be read from this file (which\n"
++  "    must be accessible under the given name from the machine VDR is running\n"
++  "    on). In case of file input, no terminating '.' shall be given.\n",
+   "REMO [ on | off ]\n"
+   "    Turns the remote control on or off. Without a parameter, the current\n"
+   "    status of the remote control is reported.",
+@@ -1435,11 +1438,27 @@
+ 
+ void cSVDRP::CmdPUTE(const char *Option)
+ {
+-  delete PUTEhandler;
+-  PUTEhandler = new cPUTEhandler;
+-  Reply(PUTEhandler->Status(), "%s", PUTEhandler->Message());
+-  if (PUTEhandler->Status() != 354)
+-     DELETENULL(PUTEhandler);
++  if (*Option) {
++     FILE *f = fopen(Option, "r");
++     if (f) {
++        if (cSchedules::Read(f)) {
++           cSchedules::Cleanup(true);
++           Reply(250, "EPG data processed from \"%s\"", Option);
++           }
++        else
++           Reply(451, "Error while processing EPG from \"%s\"", Option);
++        fclose(f);
++        }
++     else
++        Reply(501, "Cannot open file \"%s\"", Option);
++     }
++  else {     
++     delete PUTEhandler;
++     PUTEhandler = new cPUTEhandler;
++     Reply(PUTEhandler->Status(), "%s", PUTEhandler->Message());
++     if (PUTEhandler->Status() != 354)
++        DELETENULL(PUTEhandler);
++     }
+ }
+ 
+ void cSVDRP::CmdREMO(const char *Option)
+diff -ruN vdr-1.7.5/thread.c vdr-1.7.6/thread.c
+--- vdr-1.7.5/thread.c	2008-09-06 11:39:43.000000000 +0200
++++ vdr-1.7.6/thread.c	2009-04-13 15:50:39.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.c 2.2 2008/09/06 09:39:43 kls Exp $
++ * $Id: thread.c 2.3 2009/04/13 13:50:39 kls Exp $
+  */
+ 
+ #include "thread.h"
+@@ -226,6 +226,12 @@
+      LOG_ERROR;
+ }
+ 
++void cThread::SetIOPriority(int Priority)
++{
++  if (syscall(SYS_ioprio_set, 1, 0, (Priority & 0xff) | (2 << 13)) < 0) // best effort class
++     LOG_ERROR;
++}
++
+ void cThread::SetDescription(const char *Description, ...)
+ {
+   free(description);
+diff -ruN vdr-1.7.5/thread.h vdr-1.7.6/thread.h
+--- vdr-1.7.5/thread.h	2007-02-24 17:13:28.000000000 +0100
++++ vdr-1.7.6/thread.h	2009-04-13 15:50:39.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.h 2.0 2007/02/24 16:13:28 kls Exp $
++ * $Id: thread.h 2.1 2009/04/13 13:50:39 kls Exp $
+  */
+ 
+ #ifndef __THREAD_H
+@@ -87,6 +87,7 @@
+   static void *StartThread(cThread *Thread);
+ protected:
+   void SetPriority(int Priority);
++  void SetIOPriority(int Priority);
+   void Lock(void) { mutex.Lock(); }
+   void Unlock(void) { mutex.Unlock(); }
+   virtual void Action(void) = 0;
+diff -ruN vdr-1.7.5/tools.h vdr-1.7.6/tools.h
+--- vdr-1.7.5/tools.h	2008-05-22 12:26:57.000000000 +0200
++++ vdr-1.7.6/tools.h	2009-04-14 22:41:39.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 2.1 2008/05/22 10:26:57 kls Exp $
++ * $Id: tools.h 2.2 2009/04/14 20:41:39 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -38,7 +38,7 @@
+ #define SECSINDAY  86400
+ 
+ #define KILOBYTE(n) ((n) * 1024)
+-#define MEGABYTE(n) ((n) * 1024 * 1024)
++#define MEGABYTE(n) ((n) * 1024LL * 1024LL)
+ 
+ #define MALLOC(type, size)  (type *)malloc(sizeof(type) * (size))
+ 

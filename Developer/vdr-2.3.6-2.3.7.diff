@@ -1,0 +1,1596 @@
+diff -ruN vdr-2.3.6/CONTRIBUTORS vdr-2.3.7/CONTRIBUTORS
+--- vdr-2.3.6/CONTRIBUTORS	2017-06-02 11:45:45.000000000 +0200
++++ vdr-2.3.7/CONTRIBUTORS	2017-06-11 11:01:47.000000000 +0200
+@@ -2115,6 +2115,10 @@
+  device, which avoids a busy loop on very fast machines
+  for fixing a possible crash when loading an invalid XPM file
+  for suggesting to speed up anti-aliased font rendering by caching the blend indexes
++ for extending the option "Setup/Miscellaneous/Show channel names with source" to
++ "type" or "full"
++ for making the "Channels" menu indicates whether a channel is encrypted or a radio
++ channel
+ 
+ Matthias Lenk <matthias.lenk@amd.com>
+  for reporting an out-of-bounds memory access with audio language ids
+@@ -2831,6 +2835,8 @@
+  respective recording did not exist
+  for fixing a double deletion of a cTimer in case HandleRemoteModifications() returned
+  false
++ for reporting an invalid lock sequence in the epgsearch plugin, which turned out to
++ be an abandoned member of class cSchedulesLock
+ 
+ Timo Helkio <timolavi@mbnet.fi>
+  for reporting a hangup when replaying a TS recording with subtitles activated
+@@ -3030,6 +3036,7 @@
+  is currently assigned to
+  for reporting a problem with the default return value of cEpgHandler::BeginSegmentTransfer()
+  in derived classes that don't implement this function
++ for reporting uninitialized variable SdWatchdog in vdr.c
+ 
+ Gerald Dachs <vdr@dachsweb.de>
+  for reporting a problem with checking for minimum line length of 21 characters in
+diff -ruN vdr-2.3.6/HISTORY vdr-2.3.7/HISTORY
+--- vdr-2.3.6/HISTORY	2017-06-04 11:35:18.000000000 +0200
++++ vdr-2.3.7/HISTORY	2017-06-11 12:32:14.454028915 +0200
+@@ -9102,3 +9102,30 @@
+ - Fixed the locking sequence when creating a new timer from the Schedules menu.
+ - Fixed the locking sequence when switching between 'Now', 'Next' and 'Schedule'
+   in the Schedules menu.
++
++2017-06-11: Version 2.3.7
++
++- Fixed false positives when checking the locking sequence, in case of nested locks
++  within the same thread.
++- Fixed uninitialized variable SdWatchdog in vdr.c (reported by Frank Neumann).
++- Fixed the locking sequence when starting an instant recording.
++- Fixed L(ock) and U(nlock) indicators in cStateLockLog.
++- Increased SLL_LENGTH in thread.c to better handle long caller lines, and enclosed
++  logCaller with DEBUG_LOCKCALL to preserve memory in normal operation.
++- Fixed a typo in CAMMENURETYTIMEOUT and added logging CAM enquiries.
++- The new configuration file 'camresponses.conf' can be used to define automatic
++  responses to CAM menus, for instance to avoid annyoing popup messages or entering
++  the parental rating PIN. See vdr.5 for details.
++- The option "Setup/Miscellaneous/Show channel names with source" can now be set to
++  "type" or "full" to show either the type or the full name of the source (thanks to
++  Martin Wache).
++- The "Channels" menu now indicates whether a channel is encrypted ('X') or a radio
++  channel ('R') (thanks to Martin Wache).
++- Changed ##Lock to ##_Lock in the DEF_LIST_LOCK and USE_LIST_LOCK macros defined
++  in tools.h, so that there is no cSchedulesLock any more. The epgsearch plugin still
++  had an abandoned member of class cSchedulesLock, which, as a side effect, caused an
++  invalid lock sequence to be flagged (reported by Johann Friedrichs). In order to
++  have the compiler report such things, these macros have been changed.
++- Introduced the new macro DISABLE_TEMPLATES_COLLIDING_WITH_STL, which can be defined
++  before including tools.h in case some plugin needs to use the STL and gets error
++  messages regarding one of the template functions defined in tools.h.
+diff -ruN vdr-2.3.6/MANUAL vdr-2.3.7/MANUAL
+--- vdr-2.3.6/MANUAL	2017-04-03 10:39:15.000000000 +0200
++++ vdr-2.3.7/MANUAL	2017-06-10 17:31:14.000000000 +0200
+@@ -1143,10 +1143,11 @@
+                          wrap around the beginning or end of the channel list if
+                          this parameter is set to 'yes'.
+ 
+-  Show channel names with source = no
++  Show channel names with source = off
+                          If this option is turned on, channel names will be displayed
+-                         with the source appended to them, as in "ZDF (S)", where
+-                         'S' stands for "Satellite".
++                         with the source appended to them, as in "ZDF (S)" (if the
++                         option is set to "type), or "ZDF (S19.2E)" (if it is set to
++                         "full"), where 'S' stands for "Satellite".
+ 
+   Emergency exit = yes   If, for some reason, a recording fails because the video
+                          data stream is broken, or the CAM doesn't decrypt etc.,
+diff -ruN vdr-2.3.6/camresponses.conf vdr-2.3.7/camresponses.conf
+--- vdr-2.3.6/camresponses.conf	1970-01-01 01:00:00.000000000 +0100
++++ vdr-2.3.7/camresponses.conf	2017-06-10 13:49:06.000000000 +0200
+@@ -0,0 +1,29 @@
++# CAM responses for VDR
++#
++# Format:
++#
++# nr text action
++#
++# nr:        the number of the CAM this action applies to (0 = all CAMs)
++# text:      the text in the CAM menu to react on (must be quoted with '"' if it contains
++#            blanks, escape '"' with '\')
++# action:    the action to take if the given text is encountered
++#
++# Possible actions are:
++#
++# - DISCARD:  simply discard the menu (equivalent to pressing 'Back' on the RC)
++# - CONFIRM:  confirm the menu (equivalent to pressing 'OK' without selecting a
++#             particular item)
++# - SELECT:   select the menu item containing the text (equivalent to positioning
++#             the cursor on the item and pressing 'OK')
++# - <number>: the given number is sent to the CAM as if it were typed in by the user
++#             (provided this is an input field).
++#
++# Note that the text given in a rule must match exactly, including any leading or
++# trailing blanks. If in doubt, you can get the exact text from the log file.
++# Action keywords are case insensitive.
++#
++# Examples:
++
++# * "Hello! This is your annoying \"nag\" message!" DISCARD
++# 3 "Please enter your PIN" 1234
+diff -ruN vdr-2.3.6/channels.c vdr-2.3.7/channels.c
+--- vdr-2.3.6/channels.c	2017-05-26 17:43:54.000000000 +0200
++++ vdr-2.3.7/channels.c	2017-06-10 17:08:56.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 4.4 2017/05/26 15:43:54 kls Exp $
++ * $Id: channels.c 4.5 2017/06/10 15:08:56 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -98,6 +98,7 @@
+   portalName = strcpyrealloc(portalName, Channel.portalName);
+   memcpy(&__BeginData__, &Channel.__BeginData__, (char *)&Channel.__EndData__ - (char *)&Channel.__BeginData__);
+   nameSource = NULL; // these will be recalculated automatically
++  nameSourceMode = 0;
+   shortNameSource = NULL;
+   parameters = Channel.parameters;
+   return *this;
+@@ -106,8 +107,12 @@
+ const char *cChannel::Name(void) const
+ {
+   if (Setup.ShowChannelNamesWithSource && !groupSep) {
+-     if (isempty(nameSource))
+-        nameSource = cString::sprintf("%s (%c)", name, cSource::ToChar(source));
++     if (isempty(nameSource) || nameSourceMode != Setup.ShowChannelNamesWithSource) {
++        if (Setup.ShowChannelNamesWithSource == 1)
++           nameSource = cString::sprintf("%s (%c)", name, cSource::ToChar(source));
++        else
++           nameSource = cString::sprintf("%s (%s)", name, *cSource::ToString(source));
++        }
+      return nameSource;
+      }
+   return name;
+@@ -194,6 +199,7 @@
+      parameters = Parameters;
+      schedule = NULL;
+      nameSource = NULL;
++     nameSourceMode = 0;
+      shortNameSource = NULL;
+      if (Number() && !Quiet) {
+         dsyslog("changing transponder data of channel %d (%s) from %s to %s", Number(), name, *OldTransponderData, *TransponderDataToString());
+@@ -262,6 +268,7 @@
+         if (nn) {
+            name = strcpyrealloc(name, Name);
+            nameSource = NULL;
++           nameSourceMode = 0;
+            }
+         if (ns) {
+            shortName = strcpyrealloc(shortName, ShortName);
+@@ -792,6 +799,7 @@
+         free(caidbuf);
+         free(namebuf);
+         nameSource = NULL;
++        nameSourceMode = 0;
+         shortNameSource = NULL;
+         if (!GetChannelID().Valid()) {
+            esyslog("ERROR: channel data results in invalid ID!");
+@@ -1093,8 +1101,8 @@
+   bool ChannelsModified = false;
+   for (cChannel *Channel = First(); Channel; Channel = Next(Channel)) {
+       if (time(NULL) - Channel->Seen() > CHANNELTIMEOBSOLETE && Channel->Source() == Source && Channel->Nid() == Nid && Channel->Tid() == Tid && Channel->Rid() == 0) {
+-         bool OldShowChannelNamesWithSource = Setup.ShowChannelNamesWithSource;
+-         Setup.ShowChannelNamesWithSource = false;
++         int OldShowChannelNamesWithSource = Setup.ShowChannelNamesWithSource;
++         Setup.ShowChannelNamesWithSource = 0;
+          if (!endswith(Channel->Name(), CHANNELMARKOBSOLETE))
+             ChannelsModified |= Channel->SetName(cString::sprintf("%s %s", Channel->Name(), CHANNELMARKOBSOLETE), Channel->ShortName(), cString::sprintf("%s %s", CHANNELMARKOBSOLETE, Channel->Provider()));
+          Setup.ShowChannelNamesWithSource = OldShowChannelNamesWithSource;
+diff -ruN vdr-2.3.6/channels.h vdr-2.3.7/channels.h
+--- vdr-2.3.6/channels.h	2015-08-17 11:39:48.000000000 +0200
++++ vdr-2.3.7/channels.h	2017-06-10 17:06:40.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.h 4.2 2015/08/17 09:39:48 kls Exp $
++ * $Id: channels.h 4.3 2017/06/10 15:06:40 kls Exp $
+  */
+ 
+ #ifndef __CHANNELS_H
+@@ -123,6 +123,7 @@
+   bool groupSep;
+   int __EndData__;
+   mutable cString nameSource;
++  mutable int nameSourceMode;
+   mutable cString shortNameSource;
+   cString parameters;
+   mutable int modification;
+diff -ruN vdr-2.3.6/ci.c vdr-2.3.7/ci.c
+--- vdr-2.3.6/ci.c	2017-05-18 11:05:46.000000000 +0200
++++ vdr-2.3.7/ci.c	2017-06-10 12:57:31.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 4.16 2017/05/18 09:05:46 kls Exp $
++ * $Id: ci.c 4.17 2017/06/10 10:57:31 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -78,17 +78,18 @@
+ ///< Copies the string at Data.
+ ///< Returns a pointer to a newly allocated string.
+ {
+-  // Some CAMs send funny characters at the beginning of strings.
+-  // Let's just skip them:
+-  while (Length > 0 && (*Data == ' ' || *Data == 0x05 || *Data == 0x96 || *Data == 0x97)) {
++  char *s = MALLOC(char, Length + 1);
++  char *p = s;
++  while (Length > 0) {
++        char c = *Data;
++        if (isprint(c)) // some CAMs send funny characters in their strings, let's just skip them
++           *p++ = c;
++        else if (c == 0x8A) // the character 0x8A is used as newline, so let's put a real '\n' in there
++           *p++ = '\n';
+         Length--;
+         Data++;
+         }
+-  char *s = MALLOC(char, Length + 1);
+-  strncpy(s, (char *)Data, Length);
+-  s[Length] = 0;
+-  // The character 0x8A is used as newline, so let's put a real '\n' in there:
+-  strreplace(s, 0x8A, '\n');
++  *p = 0;
+   return s;
+ }
+ 
+@@ -290,6 +291,137 @@
+      }
+ }
+ 
++// --- cCamResponse ----------------------------------------------------------
++
++// CAM Response Actions:
++
++#define CRA_NONE      0
++#define CRA_DISCARD  -1
++#define CRA_CONFIRM  -2
++#define CRA_SELECT   -3
++
++class cCamResponse : public cListObject {
++private:
++  int camNumber;
++  char *text;
++  int action;
++public:
++  cCamResponse(void);
++  ~cCamResponse();
++  bool Parse(const char *s);
++  int Matches(int CamNumber, const char *Text) const;
++  };
++
++cCamResponse::cCamResponse(void)
++{
++  camNumber = -1;
++  text = NULL;
++  action = CRA_NONE;
++}
++
++cCamResponse::~cCamResponse()
++{
++  free(text);
++}
++
++bool cCamResponse::Parse(const char *s)
++{
++  // Number:
++  s = skipspace(s);
++  if (*s == '*') {
++     camNumber = 0; // all CAMs
++     s++;
++     }
++  else {
++     char *e;
++     camNumber = strtol(s, &e, 10);
++     if (e == s || camNumber <= 0)
++        return false;
++     s = e;
++     }
++  // Text:
++  s = skipspace(s);
++  char *t = const_cast<char *>(s); // might have to modify it
++  char *q = NULL; // holds a copy in case of backslashes
++  bool InQuotes = false;
++  while (*t) {
++        if (*t == '"') {
++           if (t == s) { // opening quotes
++              InQuotes = true;
++              s++;
++              }
++           else if (InQuotes) // closing quotes
++              break;
++           }
++        else if (*t == '\\') {
++           if (!q) { // need to make a copy in order to strip backslashes
++              q = strdup(s);
++              t = q + (t - s);
++              s = q;
++              }
++           memmove(t, t + 1, strlen(t));
++           }
++        else if (*t == ' ') {
++           if (!InQuotes)
++              break;
++           }
++        t++;
++        }
++  free(text); // just for safety
++  text = NULL;
++  if (t != s) {
++     text = strndup(s, t - s);
++     s = t + 1;
++     }
++  free(q);
++  if (!text)
++     return false;
++  // Action:
++  s = skipspace(s);
++  if      (strcasecmp(s, "DISCARD") == 0) action = CRA_DISCARD;
++  else if (strcasecmp(s, "CONFIRM") == 0) action = CRA_CONFIRM;
++  else if (strcasecmp(s, "SELECT")  == 0) action = CRA_SELECT;
++  else if (isnumber(s))                   action = atoi(s);
++  else
++     return false;
++  return true;
++}
++
++int cCamResponse::Matches(int CamNumber, const char *Text) const
++{
++  if (!camNumber || camNumber == CamNumber) {
++     if (strcmp(text, Text) == 0)
++        return action;
++     }
++  return CRA_NONE;
++}
++
++// --- cCamResponses  --------------------------------------------------------
++
++class cCamResponses : public cConfig<cCamResponse> {
++public:
++  int GetMatch(int CamNumber, const char *Text) const;
++  };
++
++int cCamResponses::GetMatch(int CamNumber, const char *Text) const
++{
++  for (const cCamResponse *cr = First(); cr; cr = Next(cr)) {
++      int Action = cr->Matches(CamNumber, Text);
++      if (Action != CRA_NONE) {
++         dsyslog("CAM %d: auto response %4d to '%s'\n", CamNumber, Action, Text);
++         return Action;
++         }
++      }
++  return CRA_NONE;
++}
++
++cCamResponses CamResponses;
++
++bool CamResponsesLoad(const char *FileName, bool AllowComments, bool MustExist)
++{
++  return CamResponses.Load(FileName, AllowComments, MustExist);
++}
++
+ // --- cTPDU -----------------------------------------------------------------
+ 
+ #define MAX_TPDU_SIZE  4096
+@@ -1292,15 +1424,41 @@
+                if (l > 0) menu->titleText = GetText(l, &d);
+                if (l > 0) menu->subTitleText = GetText(l, &d);
+                if (l > 0) menu->bottomText = GetText(l, &d);
++               int Action = CRA_NONE;
++               int Select = -1;
++               int Item = 0;
+                while (l > 0) {
+                      char *s = GetText(l, &d);
+                      if (s) {
+                         if (!menu->AddEntry(s))
+                            free(s);
++                        else if (Action == CRA_NONE) {
++                           Action = CamResponses.GetMatch(CamSlot()->SlotNumber(), s);
++                           if (Action == CRA_SELECT)
++                              Select = Item;
++                           }
+                         }
+                      else
+                         break;
++                     Item++;
++                     }
++               if (Action != CRA_NONE) {
++                  delete menu;
++                  menu = NULL;
++                  cCondWait::SleepMs(100);
++                  if (Action == CRA_DISCARD) {
++                     SendCloseMMI();
++                     dsyslog("CAM %d: DISCARD", CamSlot()->SlotNumber());
+                      }
++                  else if (Action == CRA_CONFIRM) {
++                     SendMenuAnswer(1);
++                     dsyslog("CAM %d: CONFIRM", CamSlot()->SlotNumber());
++                     }
++                  else if (Action == CRA_SELECT) {
++                     SendMenuAnswer(Select + 1);
++                     dsyslog("CAM %d: SELECT %d", CamSlot()->SlotNumber(), Select + 1);
++                     }
++                  }
+                }
+             }
+             break;
+@@ -1319,6 +1477,19 @@
+                l--;
+                // I really wonder why there is no text length field here...
+                enquiry->text = CopyString(l, d);
++               int Action = CamResponses.GetMatch(CamSlot()->SlotNumber(), enquiry->text);
++               if (Action > CRA_NONE) {
++                  char s[enquiry->expectedLength * 2];
++                  snprintf(s, sizeof(s), "%d", Action);
++                  if (int(strlen(s)) == enquiry->expectedLength) {
++                     delete enquiry;
++                     enquiry = NULL;
++                     SendAnswer(s);
++                     dsyslog("CAM %d: PIN", CamSlot()->SlotNumber());
++                     }
++                  else
++                     esyslog("CAM %d: ERROR: unexpected PIN length %d, expected %d", CamSlot()->SlotNumber(), int(strlen(s)), enquiry->expectedLength);
++                  }
+                }
+             }
+             break;
+@@ -1449,6 +1620,7 @@
+ cCiEnquiry::cCiEnquiry(cCiMMI *MMI)
+ {
+   mmi = MMI;
++  mutex = NULL;
+   text = NULL;
+   blind = false;
+   expectedLength = 0;
+diff -ruN vdr-2.3.6/ci.h vdr-2.3.7/ci.h
+--- vdr-2.3.6/ci.h	2017-05-16 09:42:45.000000000 +0200
++++ vdr-2.3.7/ci.h	2017-06-09 16:21:26.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.h 4.9 2017/05/16 07:42:45 kls Exp $
++ * $Id: ci.h 4.10 2017/06/09 14:21:26 kls Exp $
+  */
+ 
+ #ifndef __CI_H
+@@ -529,4 +529,6 @@
+ 
+ extern cChannelCamRelations ChannelCamRelations;
+ 
++bool CamResponsesLoad(const char *FileName, bool AllowComments = false, bool MustExist = false);
++
+ #endif //__CI_H
+diff -ruN vdr-2.3.6/config.h vdr-2.3.7/config.h
+--- vdr-2.3.6/config.h	2017-05-28 14:42:49.000000000 +0200
++++ vdr-2.3.7/config.h	2017-06-05 13:15:37.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 4.10 2017/05/28 12:42:49 kls Exp $
++ * $Id: config.h 4.11 2017/06/05 11:15:37 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.3.6"
+-#define VDRVERSNUM   20306  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.3.7"
++#define VDRVERSNUM   20307  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "2.3.6"
+-#define APIVERSNUM   20306  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "2.3.7"
++#define APIVERSNUM   20307  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-2.3.6/menu.c vdr-2.3.7/menu.c
+--- vdr-2.3.6/menu.c	2017-06-04 11:30:56.000000000 +0200
++++ vdr-2.3.7/menu.c	2017-06-10 21:19:51.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 4.32 2017/06/04 09:30:56 kls Exp $
++ * $Id: menu.c 4.37 2017/06/10 19:19:51 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -43,7 +43,7 @@
+ #define MAXRECORDCONTROLS (MAXDEVICES * MAXRECEIVERS)
+ #define MAXINSTANTRECTIME (24 * 60 - 1) // 23:59 hours
+ #define MAXWAITFORCAMMENU  10 // seconds to wait for the CAM menu to open
+-#define CAMMENURETYTIMEOUT  3 // seconds after which opening the CAM menu is retried
++#define CAMMENURETRYTIMEOUT 3 // seconds after which opening the CAM menu is retried
+ #define CAMRESPONSETIMEOUT  5 // seconds to wait for a response from a CAM
+ #define MINFREEDISK       300 // minimum free disk space (in MB) required to start recording
+ #define NODISKSPACEDELTA  300 // seconds between "Not enough disk space to start recording!" messages
+@@ -327,13 +327,15 @@
+ {
+   cString buffer;
+   if (!channel->GroupSep()) {
++     const char *X = *channel->Caids() >= CA_ENCRYPTED_MIN ? "X" : "";
++     const char *R = !channel->Vpid() && (*channel->Apids() || *channel->Dpids()) ? "R" : "";
+      if (sortMode == csmProvider)
+-        buffer = cString::sprintf("%d\t%s - %s", channel->Number(), channel->Provider(), channel->Name());
++        buffer = cString::sprintf("%d\t%s%s\t%s - %s", channel->Number(), X, R, channel->Provider(), channel->Name());
+      else
+-        buffer = cString::sprintf("%d\t%s", channel->Number(), channel->Name());
++        buffer = cString::sprintf("%d\t%s%s\t%s", channel->Number(), X, R, channel->Name());
+      }
+   else
+-     buffer = cString::sprintf("---\t%s ----------------------------------------------------------------", channel->Name());
++     buffer = cString::sprintf("\t\t%s", channel->Name());
+   SetText(buffer);
+ }
+ 
+@@ -369,7 +371,7 @@
+   };
+ 
+ cMenuChannels::cMenuChannels(void)
+-:cOsdMenu(tr("Channels"), CHNUMWIDTH)
++:cOsdMenu(tr("Channels"), CHNUMWIDTH, 3)
+ {
+   SetMenuCategory(mcChannel);
+   number = 0;
+@@ -2294,8 +2296,10 @@
+      free(input);
+      input = MALLOC(char, Length + 1);
+      *input = 0;
++     dsyslog("CAM %d: Enquiry ------------------", camSlot->SlotNumber());
+      GenerateTitle();
+      Add(new cOsdItem(ciEnquiry->Text(), osUnknown, false));
++     dsyslog("CAM %d: '%s'", camSlot->SlotNumber(), ciEnquiry->Text());
+      Add(new cOsdItem("", osUnknown, false));
+      Add(new cMenuEditNumItem("", input, Length, ciEnquiry->Blind()));
+      }
+@@ -3836,7 +3840,7 @@
+         while (time(NULL) - t0 <= MAXWAITFORCAMMENU) {
+               if (item->CamSlot()->HasUserIO())
+                  break;
+-              if (time(NULL) - t1 >= CAMMENURETYTIMEOUT) {
++              if (time(NULL) - t1 >= CAMMENURETRYTIMEOUT) {
+                  dsyslog("CAM %d: retrying to enter CAM menu...", item->CamSlot()->SlotNumber());
+                  item->CamSlot()->EnterMenu();
+                  t1 = time(NULL);
+@@ -4008,6 +4012,7 @@
+ 
+ class cMenuSetupMisc : public cMenuSetupBase {
+ private:
++  const char *showChannelNamesWithSourceTexts[3];
+   cStringList svdrpServerNames;
+   void Set(void);
+ public:
+@@ -4018,6 +4023,9 @@
+ cMenuSetupMisc::cMenuSetupMisc(void)
+ {
+   SetMenuCategory(mcSetupMisc);
++  showChannelNamesWithSourceTexts[0] = tr("off");
++  showChannelNamesWithSourceTexts[1] = tr("type");
++  showChannelNamesWithSourceTexts[2] = tr("full");
+   SetSection(tr("Miscellaneous"));
+   Set();
+ }
+@@ -4047,7 +4055,7 @@
+   Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Volume steps"),               &data.VolumeSteps, 5, 255));
+   Add(new cMenuEditIntItem( tr("Setup.Miscellaneous$Volume linearize"),           &data.VolumeLinearize, -20, 20));
+   Add(new cMenuEditBoolItem(tr("Setup.Miscellaneous$Channels wrap"),              &data.ChannelsWrap));
+-  Add(new cMenuEditBoolItem(tr("Setup.Miscellaneous$Show channel names with source"), &data.ShowChannelNamesWithSource));
++  Add(new cMenuEditStraItem(tr("Setup.Miscellaneous$Show channel names with source"), &data.ShowChannelNamesWithSource, 3, showChannelNamesWithSourceTexts));
+   Add(new cMenuEditBoolItem(tr("Setup.Miscellaneous$Emergency exit"),             &data.EmergencyExit));
+   SetCurrent(Get(current));
+   Display();
+@@ -5061,6 +5069,7 @@
+ 
+ cRecordControl::cRecordControl(cDevice *Device, cTimers *Timers, cTimer *Timer, bool Pause)
+ {
++  const char *LastReplayed = cReplayControl::LastReplayed(); // must do this before locking schedules!
+   // Whatever happens here, the timers will be modified in some way...
+   Timers->SetModified();
+   // We're going to work with an event here, so we need to prevent
+@@ -5098,7 +5107,7 @@
+         }
+      else {
+         Timers->Del(timer);
+-        if (!cReplayControl::LastReplayed()) // an instant recording, maybe from cRecordControls::PauseLiveVideo()
++        if (!LastReplayed) // an instant recording, maybe from cRecordControls::PauseLiveVideo()
+            cReplayControl::SetRecording(fileName);
+         }
+      timer = NULL;
+@@ -5114,7 +5123,7 @@
+      if (device->AttachReceiver(recorder)) {
+         Recording.WriteInfo();
+         cStatus::MsgRecording(device, Recording.Name(), Recording.FileName(), true);
+-        if (!Timer && !cReplayControl::LastReplayed()) // an instant recording, maybe from cRecordControls::PauseLiveVideo()
++        if (!Timer && !LastReplayed) // an instant recording, maybe from cRecordControls::PauseLiveVideo()
+            cReplayControl::SetRecording(fileName);
+         SchedulesStateKey.Remove();
+         LOCK_RECORDINGS_WRITE;
+diff -ruN vdr-2.3.6/po/ar.po vdr-2.3.7/po/ar.po
+--- vdr-2.3.6/po/ar.po	2017-06-04 11:35:56.229844870 +0200
++++ vdr-2.3.7/po/ar.po	2017-06-11 11:48:15.630649216 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2008-10-16 11:16-0400\n"
+ "Last-Translator: Osama Alrawab <alrawab@hotmail.com>\n"
+ "Language-Team: Arabic <ar@li.org>\n"
+@@ -1302,6 +1302,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "رقم المواصلة"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "متفرقات"
+ 
+diff -ruN vdr-2.3.6/po/ca_ES.po vdr-2.3.7/po/ca_ES.po
+--- vdr-2.3.6/po/ca_ES.po	2017-06-04 11:35:56.118835207 +0200
++++ vdr-2.3.7/po/ca_ES.po	2017-06-11 11:48:15.470635253 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Catalan <vdr@linuxtv.org>\n"
+@@ -1301,6 +1301,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ID de Continuar"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Miscel�l�nia"
+ 
+diff -ruN vdr-2.3.6/po/cs_CZ.po vdr-2.3.7/po/cs_CZ.po
+--- vdr-2.3.6/po/cs_CZ.po	2017-06-04 11:35:56.206842869 +0200
++++ vdr-2.3.7/po/cs_CZ.po	2017-06-11 11:48:15.605647035 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2010-05-06 11:00+0200\n"
+ "Last-Translator: Aleš Juřík <ajurik@quick.cz>\n"
+ "Language-Team: Czech <vdr@linuxtv.org>\n"
+@@ -1301,6 +1301,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ID obnovení"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Různé"
+ 
+diff -ruN vdr-2.3.6/po/da_DK.po vdr-2.3.7/po/da_DK.po
+--- vdr-2.3.6/po/da_DK.po	2017-06-04 11:35:56.148837826 +0200
++++ vdr-2.3.7/po/da_DK.po	2017-06-11 11:48:15.512638923 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish <vdr@linuxtv.org>\n"
+@@ -1298,6 +1298,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "Genoptagelses ID"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Diverse"
+ 
+diff -ruN vdr-2.3.6/po/de_DE.po vdr-2.3.7/po/de_DE.po
+--- vdr-2.3.6/po/de_DE.po	2017-06-04 11:35:56.353855671 +0200
++++ vdr-2.3.7/po/de_DE.po	2017-06-11 11:48:15.692654626 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2015-02-10 13:45+0100\n"
+ "Last-Translator: Klaus Schmidinger <vdr@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
+@@ -1299,6 +1299,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "Wiedergabe-ID"
+ 
++msgid "type"
++msgstr "Typ"
++
++msgid "full"
++msgstr "Alles"
++
+ msgid "Miscellaneous"
+ msgstr "Sonstiges"
+ 
+diff -ruN vdr-2.3.6/po/el_GR.po vdr-2.3.7/po/el_GR.po
+--- vdr-2.3.6/po/el_GR.po	2017-06-04 11:35:56.178840436 +0200
++++ vdr-2.3.7/po/el_GR.po	2017-06-11 11:48:15.572644157 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek <vdr@linuxtv.org>\n"
+@@ -1298,6 +1298,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ID ������������"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "�������"
+ 
+diff -ruN vdr-2.3.6/po/es_ES.po vdr-2.3.7/po/es_ES.po
+--- vdr-2.3.6/po/es_ES.po	2017-06-04 11:35:56.149837912 +0200
++++ vdr-2.3.7/po/es_ES.po	2017-06-11 11:48:15.539641280 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2015-02-19 23:00+0100\n"
+ "Last-Translator: Gabriel Bonich <gbonich@gmail.com>\n"
+ "Language-Team: Spanish <vdr@linuxtv.org>\n"
+@@ -1299,6 +1299,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ID de continuaci�n"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Varios"
+ 
+diff -ruN vdr-2.3.6/po/et_EE.po vdr-2.3.7/po/et_EE.po
+--- vdr-2.3.6/po/et_EE.po	2017-06-04 11:35:56.118835207 +0200
++++ vdr-2.3.7/po/et_EE.po	2017-06-11 11:48:15.445633078 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
+ "Language-Team: Estonian <vdr@linuxtv.org>\n"
+@@ -1298,6 +1298,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "Taasesituse tunnus"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Muud seaded"
+ 
+diff -ruN vdr-2.3.6/po/fi_FI.po vdr-2.3.7/po/fi_FI.po
+--- vdr-2.3.6/po/fi_FI.po	2017-06-04 11:35:56.148837826 +0200
++++ vdr-2.3.7/po/fi_FI.po	2017-06-11 11:48:15.539641280 +0200
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Matti Lehtimäki <matti.lehtimaki@gmail.com>\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
+@@ -1302,6 +1302,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "Tallenteen paluutunniste"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Sekalaiset"
+ 
+diff -ruN vdr-2.3.6/po/fr_FR.po vdr-2.3.7/po/fr_FR.po
+--- vdr-2.3.6/po/fr_FR.po	2017-06-04 11:35:56.205842782 +0200
++++ vdr-2.3.7/po/fr_FR.po	2017-06-11 11:48:15.605647035 +0200
+@@ -18,7 +18,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2015-02-18 20:16+0100\n"
+ "Last-Translator: Bernard Jaulin <bernard.jaulin@gmail.com>\n"
+ "Language-Team: French <vdr@linuxtv.org>\n"
+@@ -1309,6 +1309,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ID résumé"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Divers"
+ 
+diff -ruN vdr-2.3.6/po/hr_HR.po vdr-2.3.7/po/hr_HR.po
+--- vdr-2.3.6/po/hr_HR.po	2017-06-04 11:35:56.235845392 +0200
++++ vdr-2.3.7/po/hr_HR.po	2017-06-11 11:48:15.670652706 +0200
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian <vdr@linuxtv.org>\n"
+@@ -1300,6 +1300,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ID nastavka"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Raznovrsno"
+ 
+diff -ruN vdr-2.3.6/po/hu_HU.po vdr-2.3.7/po/hu_HU.po
+--- vdr-2.3.6/po/hu_HU.po	2017-06-04 11:35:56.145837557 +0200
++++ vdr-2.3.7/po/hu_HU.po	2017-06-11 11:48:15.491637091 +0200
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2015-02-13 09:36+0200\n"
+ "Last-Translator: István Füley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian <vdr@linuxtv.org>\n"
+@@ -1303,6 +1303,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "Lejátszás azonosító"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Egyéb"
+ 
+diff -ruN vdr-2.3.6/po/it_IT.po vdr-2.3.7/po/it_IT.po
+--- vdr-2.3.6/po/it_IT.po	2017-06-04 11:35:56.175840165 +0200
++++ vdr-2.3.7/po/it_IT.po	2017-06-11 11:48:15.558642933 +0200
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2015-09-14 19:28+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
+@@ -1304,6 +1304,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ID di ripristino"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Generici"
+ 
+diff -ruN vdr-2.3.6/po/lt_LT.po vdr-2.3.7/po/lt_LT.po
+--- vdr-2.3.6/po/lt_LT.po	2017-06-04 11:35:56.201842434 +0200
++++ vdr-2.3.7/po/lt_LT.po	2017-06-11 11:48:15.580644856 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2015-02-11 14:02+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian <vdr@linuxtv.org>\n"
+@@ -1298,6 +1298,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "Kūrinio ID"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Kiti"
+ 
+diff -ruN vdr-2.3.6/po/mk_MK.po vdr-2.3.7/po/mk_MK.po
+--- vdr-2.3.6/po/mk_MK.po	2017-06-04 11:35:56.211843304 +0200
++++ vdr-2.3.7/po/mk_MK.po	2017-06-11 11:48:15.631649306 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2015-02-08 15:18+0100\n"
+ "Last-Translator: Dimitar Petrovski <dimeptr@gmail.com>\n"
+ "Language-Team: Macedonian <en@li.org>\n"
+@@ -1299,6 +1299,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ID на продолжеток"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Разно"
+ 
+diff -ruN vdr-2.3.6/po/nl_NL.po vdr-2.3.7/po/nl_NL.po
+--- vdr-2.3.6/po/nl_NL.po	2017-06-04 11:35:56.175840166 +0200
++++ vdr-2.3.7/po/nl_NL.po	2017-06-11 11:48:15.572644157 +0200
+@@ -13,7 +13,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2015-02-10 19:43+0100\n"
+ "Last-Translator: Erik Oomen <oomen.e@gmail.com>\n"
+ "Language-Team: Dutch <vdr@linuxtv.org>\n"
+@@ -1304,6 +1304,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "Hervattings ID"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Overig"
+ 
+diff -ruN vdr-2.3.6/po/nn_NO.po vdr-2.3.7/po/nn_NO.po
+--- vdr-2.3.6/po/nn_NO.po	2017-06-04 11:35:56.228844783 +0200
++++ vdr-2.3.7/po/nn_NO.po	2017-06-11 11:48:15.650650962 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian Nynorsk <vdr@linuxtv.org>\n"
+@@ -1299,6 +1299,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "Resume ID"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Forskjellig"
+ 
+diff -ruN vdr-2.3.6/po/pl_PL.po vdr-2.3.7/po/pl_PL.po
+--- vdr-2.3.6/po/pl_PL.po	2017-06-04 11:35:56.082832080 +0200
++++ vdr-2.3.7/po/pl_PL.po	2017-06-11 11:48:15.417630626 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2015-02-12 00:59+0100\n"
+ "Last-Translator: Tomasz Maciej Nowak <tmn505@gmail.com>\n"
+ "Language-Team: Polish <vdr@linuxtv.org>\n"
+@@ -1301,6 +1301,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ID wznowienia"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "R�ne"
+ 
+diff -ruN vdr-2.3.6/po/pt_PT.po vdr-2.3.7/po/pt_PT.po
+--- vdr-2.3.6/po/pt_PT.po	2017-06-04 11:35:56.081831989 +0200
++++ vdr-2.3.7/po/pt_PT.po	2017-06-11 11:48:15.369626450 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2010-03-28 22:49+0100\n"
+ "Last-Translator: Cris Silva <hudokkow@gmail.com>\n"
+ "Language-Team: Portuguese <vdr@linuxtv.org>\n"
+@@ -1299,6 +1299,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ID de resumo"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Outros"
+ 
+diff -ruN vdr-2.3.6/po/ro_RO.po vdr-2.3.7/po/ro_RO.po
+--- vdr-2.3.6/po/ro_RO.po	2017-06-04 11:35:56.082832080 +0200
++++ vdr-2.3.7/po/ro_RO.po	2017-06-11 11:48:15.436632293 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2015-02-11 22:26+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+ "Language-Team: Romanian <vdr@linuxtv.org>\n"
+@@ -1300,6 +1300,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "Identificator continuare"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Diverse"
+ 
+diff -ruN vdr-2.3.6/po/ru_RU.po vdr-2.3.7/po/ru_RU.po
+--- vdr-2.3.6/po/ru_RU.po	2017-06-04 11:35:56.242846001 +0200
++++ vdr-2.3.7/po/ru_RU.po	2017-06-11 11:48:15.670652706 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2017-01-05 19:50+1000\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2016-12-27 17:13+0100\n"
+ "Last-Translator: Pridvorov Andrey <ua0lnj@bk.ru>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
+@@ -1299,6 +1299,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ID воспроизведения"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Прочее"
+ 
+diff -ruN vdr-2.3.6/po/sk_SK.po vdr-2.3.7/po/sk_SK.po
+--- vdr-2.3.6/po/sk_SK.po	2017-06-04 11:35:56.226844609 +0200
++++ vdr-2.3.7/po/sk_SK.po	2017-06-11 11:48:15.632649395 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2015-02-17 18:59+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak <vdr@linuxtv.org>\n"
+@@ -1299,6 +1299,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ident. ��slo obnovenia prehr�vania"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "R�zne"
+ 
+diff -ruN vdr-2.3.6/po/sl_SI.po vdr-2.3.7/po/sl_SI.po
+--- vdr-2.3.6/po/sl_SI.po	2017-06-04 11:35:56.247846436 +0200
++++ vdr-2.3.7/po/sl_SI.po	2017-06-11 11:48:15.670652706 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2013-03-04 12:46+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian <vdr@linuxtv.org>\n"
+@@ -1299,6 +1299,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ID za predvajanje"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Ostalo"
+ 
+diff -ruN vdr-2.3.6/po/sr_RS.po vdr-2.3.7/po/sr_RS.po
+--- vdr-2.3.6/po/sr_RS.po	2017-06-04 11:35:56.081831989 +0200
++++ vdr-2.3.7/po/sr_RS.po	2017-06-11 11:48:15.417630626 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2013-03-16 15:05+0100\n"
+ "Last-Translator: Zoran Turalija <zoran.turalija@gmail.com>\n"
+ "Language-Team: Serbian <vdr@linuxtv.org>\n"
+@@ -1299,6 +1299,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ID reprodukcije"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Razno"
+ 
+diff -ruN vdr-2.3.6/po/sv_SE.po vdr-2.3.7/po/sv_SE.po
+--- vdr-2.3.6/po/sv_SE.po	2017-06-04 11:35:56.195841912 +0200
++++ vdr-2.3.7/po/sv_SE.po	2017-06-11 11:48:15.605647035 +0200
+@@ -12,7 +12,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2015-02-12 21:58+0100\n"
+ "Last-Translator: Magnus Sirvi� <sirwio@hotmail.com>\n"
+ "Language-Team: Swedish <vdr@linuxtv.org>\n"
+@@ -1303,6 +1303,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "�terupptagnings-ID"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Diverse"
+ 
+diff -ruN vdr-2.3.6/po/tr_TR.po vdr-2.3.7/po/tr_TR.po
+--- vdr-2.3.6/po/tr_TR.po	2017-06-04 11:35:56.117835118 +0200
++++ vdr-2.3.7/po/tr_TR.po	2017-06-11 11:48:15.508638575 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay Yolge�en <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish <vdr@linuxtv.org>\n"
+@@ -1298,6 +1298,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "G�steri� ID'si"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Di�erler"
+ 
+diff -ruN vdr-2.3.6/po/uk_UA.po vdr-2.3.7/po/uk_UA.po
+--- vdr-2.3.6/po/uk_UA.po	2017-06-04 11:35:56.178840436 +0200
++++ vdr-2.3.7/po/uk_UA.po	2017-06-11 11:48:15.539641280 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2015-02-13 18:14+0100\n"
+ "Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian <vdr@linuxtv.org>\n"
+@@ -1299,6 +1299,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "ID продовження"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "Різне"
+ 
+diff -ruN vdr-2.3.6/po/zh_CN.po vdr-2.3.7/po/zh_CN.po
+--- vdr-2.3.6/po/zh_CN.po	2017-06-04 11:35:56.117835118 +0200
++++ vdr-2.3.7/po/zh_CN.po	2017-06-11 11:48:15.470635253 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2015-09-11 10:38+0200\n"
++"POT-Creation-Date: 2017-06-10 17:19+0200\n"
+ "PO-Revision-Date: 2013-03-04 14:52+0800\n"
+ "Last-Translator: NFVDR <nfvdr@live.com>\n"
+ "Language-Team: Chinese (simplified) <nfvdr@live.com>\n"
+@@ -1300,6 +1300,12 @@
+ msgid "Setup.Replay$Resume ID"
+ msgstr "恢复 ID"
+ 
++msgid "type"
++msgstr ""
++
++msgid "full"
++msgstr ""
++
+ msgid "Miscellaneous"
+ msgstr "其它设置"
+ 
+diff -ruN vdr-2.3.6/thread.c vdr-2.3.7/thread.c
+--- vdr-2.3.6/thread.c	2017-06-03 14:43:22.000000000 +0200
++++ vdr-2.3.7/thread.c	2017-06-09 10:27:22.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.c 4.4 2017/06/03 12:43:22 kls Exp $
++ * $Id: thread.c 4.9 2017/06/09 08:27:22 kls Exp $
+  */
+ 
+ #include "thread.h"
+@@ -557,9 +557,10 @@
+ 
+ #ifdef DEBUG_LOCKSEQ
+ #define SLL_SIZE     20 // the number of log entries
+-#define SLL_LENGTH  256 // the maximum length of log entries
++#define SLL_LENGTH  512 // the maximum length of log entries
+ #define SLL_MAX_LIST  9 // max. number of lists to log
+ #define SLL_WRITE_FLAG 0x80000000
++#define SLL_LOCK_FLAG  0x40000000
+ 
+ class cStateLockLog {
+ private:
+@@ -568,7 +569,10 @@
+   cVector<int> flags;
+   tThreadId logThreadIds[SLL_SIZE];
+   int logFlags[SLL_SIZE];
++  uint8_t logCounter[SLL_SIZE][SLL_MAX_LIST];
++#ifdef DEBUG_LOCKCALL
+   char logCaller[SLL_SIZE][SLL_LENGTH];
++#endif
+   int logIndex;
+   bool dumped;
+   void Dump(const char *Name, tThreadId ThreadId);
+@@ -581,7 +585,10 @@
+ {
+   memset(logThreadIds, 0, sizeof(logThreadIds));
+   memset(logFlags, 0, sizeof(logFlags));
++  memset(logCounter, 0, sizeof(logCounter));
++#ifdef DEBUG_LOCKCALL
+   memset(logCaller, 0, sizeof(logCaller));
++#endif
+   logIndex = 0;
+   dumped = false;
+ }
+@@ -597,24 +604,26 @@
+          q += sprintf(q, "%5d", tid);
+          int Flags = logFlags[logIndex];
+          bool Write = Flags & SLL_WRITE_FLAG;
+-         Flags &= ~SLL_WRITE_FLAG;
++         bool Lock = Flags & SLL_LOCK_FLAG;
++         Flags &= ~(SLL_WRITE_FLAG | SLL_LOCK_FLAG);
+          int Changed = LastFlags ^ Flags;
+          LastFlags = Flags;
+-         bool Lock = (Flags & Changed) != 0;
+          for (int i = 0; i <= SLL_MAX_LIST; i++) {
+              char c = '-';
+              int b = 1 << i;
+              if ((Flags & b) != 0)
+                 c = '*';
+              if ((Changed & b) != 0)
+-                c = Lock ? Write ? 'W' : 'R' : '-';
++                c = Lock ? Write ? 'W' : 'R' : 'U';
+              q += sprintf(q, "  %c", c);
+              }
+          q += sprintf(q, "  %c", Lock ? 'L' : 'U');
++#ifdef DEBUG_LOCKCALL
+          if (*logCaller[logIndex]) {
+             *q++ = ' ';
+             strn0cpy(q, *cBackTrace::Demangle(logCaller[logIndex]), sizeof(msg) - (q - msg));
+             }
++#endif
+          dsyslog("%s", msg);
+          }
+       if (++logIndex >= SLL_SIZE)
+@@ -630,9 +639,9 @@
+ void cStateLockLog::Check(const char *Name, bool Lock, bool Write)
+ {
+   if (!dumped && Name) {
+-     int n = *Name - '0';
+-     if (1 <= n && n <= SLL_MAX_LIST) {
+-        int b = 1 << (n - 1);
++     int n = *Name - '0' - 1;
++     if (0 <= n && n < SLL_MAX_LIST) {
++        int b = 1 << n;
+         cMutexLock MutexLock(&mutex);
+         tThreadId ThreadId = cThread::ThreadId();
+         int Index = threadIds.IndexOf(ThreadId);
+@@ -651,14 +660,15 @@
+               ;
+            else if ((flags[Index] & b) == 0) // thread already holds "bigger" locks, so it may only re-lock one that it already has!
+               DoDump = true;
++           logCounter[Index][n]++;
+            flags[Index] |= b;
+            }
+-        else
++        else if (--logCounter[Index][n] == 0)
+            flags[Index] &= ~b;
+         logThreadIds[logIndex] = ThreadId;
+-        logFlags[logIndex] = flags[Index] | (Write ? SLL_WRITE_FLAG : 0);
++        logFlags[logIndex] = flags[Index] | (Write ? SLL_WRITE_FLAG : 0) | (Lock ? SLL_LOCK_FLAG : 0);
+ #ifdef DEBUG_LOCKCALL
+-        strn0cpy(logCaller[logIndex], cBackTrace::GetCaller(Lock ? 5 : 3, true), SLL_LENGTH);
++        strn0cpy(logCaller[logIndex], cBackTrace::GetCaller(Lock ? 3 : 5, true), SLL_LENGTH);
+ #endif
+         if (++logIndex >= SLL_SIZE)
+            logIndex = 0;
+diff -ruN vdr-2.3.6/tools.h vdr-2.3.7/tools.h
+--- vdr-2.3.6/tools.h	2017-05-22 13:07:04.000000000 +0200
++++ vdr-2.3.7/tools.h	2017-06-11 12:00:49.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 4.10 2017/05/22 11:07:04 kls Exp $
++ * $Id: tools.h 4.12 2017/06/11 10:00:49 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -51,16 +51,19 @@
+ #define CHECK(s) { if ((s) < 0) LOG_ERROR; } // used for 'ioctl()' calls
+ #define FATALERRNO (errno && errno != EAGAIN && errno != EINTR)
+ 
+-#ifndef _STL_ALGOBASE_H // in case some plugin needs to use the STL
++// In case some plugin needs to use the STL and gets an error message regarding one
++// of these functions, you can #define DISABLE_TEMPLATES_COLLIDING_WITH_STL before
++// including tools.h.
++#if !defined(__STL_CONFIG_H) // for old versions of the STL
++#if !defined(DISABLE_TEMPLATES_COLLIDING_WITH_STL) && !defined(_STL_ALGOBASE_H)
+ template<class T> inline T min(T a, T b) { return a <= b ? a : b; }
+ template<class T> inline T max(T a, T b) { return a >= b ? a : b; }
+ #endif
+-#ifndef __STL_CONFIG_H // in case some plugin needs to use the STL
+ template<class T> inline int sgn(T a) { return a < 0 ? -1 : a > 0 ? 1 : 0; }
+-#endif
+-#ifndef _MOVE_H // in case some plugin needs to use the STL
++#if !defined(DISABLE_TEMPLATES_COLLIDING_WITH_STL) && !defined(_MOVE_H)
+ template<class T> inline void swap(T &a, T &b) { T t = a; a = b; b = t; }
+ #endif
++#endif
+ 
+ template<class T> inline T constrain(T v, T l, T h) { return v < l ? l : v > h ? h : v; }
+ 
+@@ -614,19 +617,19 @@
+ // is left:
+ 
+ #define DEF_LIST_LOCK2(Class, Name) \
+-class c##Name##Lock { \
++class c##Name##_Lock { \
+ private: \
+   cStateKey stateKey; \
+   const c##Class *list; \
+ public: \
+-  c##Name##Lock(bool Write = false) \
++  c##Name##_Lock(bool Write = false) \
+   { \
+     if (Write) \
+        list = c##Class::Get##Name##Write(stateKey); \
+     else \
+        list = c##Class::Get##Name##Read(stateKey); \
+   } \
+-  ~c##Name##Lock() { if (list) stateKey.Remove(); } \
++  ~c##Name##_Lock() { if (list) stateKey.Remove(); } \
+   const c##Class *Name(void) const { return list; } \
+   c##Class *Name(void) { return const_cast<c##Class *>(list); } \
+   }
+@@ -636,13 +639,13 @@
+ // a suitable DEF_LIST_LOCK, and also a pointer to the provided list:
+ 
+ #define USE_LIST_LOCK_READ2(Class, Name) \
+-c##Name##Lock Name##Lock(false); \
+-const c##Class *Name __attribute__((unused)) = Name##Lock.Name();
++c##Name##_Lock Name##_Lock(false); \
++const c##Class *Name __attribute__((unused)) = Name##_Lock.Name();
+ #define USE_LIST_LOCK_READ(Class) USE_LIST_LOCK_READ2(Class, Class)
+ 
+ #define USE_LIST_LOCK_WRITE2(Class, Name) \
+-c##Name##Lock Name##Lock(true); \
+-c##Class *Name __attribute__((unused)) = Name##Lock.Name();
++c##Name##_Lock Name##_Lock(true); \
++c##Class *Name __attribute__((unused)) = Name##_Lock.Name();
+ #define USE_LIST_LOCK_WRITE(Class) USE_LIST_LOCK_WRITE2(Class, Class)
+ 
+ template<class T> class cVector {
+diff -ruN vdr-2.3.6/vdr.5 vdr-2.3.7/vdr.5
+--- vdr-2.3.6/vdr.5	2017-04-02 14:11:13.089583348 +0200
++++ vdr-2.3.7/vdr.5	2017-06-10 13:47:27.000000000 +0200
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 4.2 2017/04/02 11:41:51 kls Exp $
++.\" $Id: vdr.5 4.3 2017/06/10 11:47:27 kls Exp $
+ .\"
+ .TH vdr 5 "19 Feb 2015" "2.2" "Video Disk Recorder Files"
+ .SH NAME
+@@ -918,6 +918,45 @@
+ file is to speed up channel switching in systems with more than one CAM.
+ 
+ This file will be read at program startup and saved when the program ends.
++.SS CAM AUTO RESPONSE
++If your CAM keeps popping up annoying messages or you want to make sure VDR
++can record programmes with parental rating without having to enter the PIN
++(in case you can't turn that off in your CAM), you can set up auto responses
++in the file \fIcamresponses.conf\fR.
++
++Each line in this file specifies one rule to apply to texts received from
++the CAM. If the CAM's menu text matches the text in one of these rules,
++the given action is taken and sent to the CAM as an automatic response,
++without any menu appearing on the screen. The first match wins.
++
++The format of these rules is:
++
++nr text action
++
++where
++.TS
++tab (@);
++l l.
++nr       @is the number of the CAM this action applies to (0 = all CAMs)
++text     @is the text in the CAM menu to react on (must be quoted with '"' if it contains blanks, escape '"' with '\\')
++action   @is the action to take if the given text is encountered
++.TE
++
++Possible actions are:
++.TS
++tab (@);
++l l.
++DISCARD  @simply discard the menu (equivalent to pressing 'Back' on the RC)
++CONFIRM  @confirm the menu (equivalent to pressing 'OK' without selecting a particular item)
++SELECT   @select the menu item containing the text (equivalent to positioning the cursor on the item and pressing 'OK')
++<number> @the given number is sent to the CAM as if it were tyed in by the user (provided this is an input field).
++.TE
++
++Note that the text given in a rule must match exactly, including any leading or
++trailing blanks. If in doubt, you can get the exact text from the log file.
++Action keywords are case insensitive.
++
++Everything following (and including) a '#' character is considered to be comment.
+ .SS COMMANDLINE OPTIONS
+ If started without any options, vdr tries to read any files in the directory
+ /etc/vdr/conf.d with names that do not begin with a '.' and that end with '.conf'.
+diff -ruN vdr-2.3.6/vdr.c vdr-2.3.7/vdr.c
+--- vdr-2.3.6/vdr.c	2017-05-29 13:30:27.000000000 +0200
++++ vdr-2.3.7/vdr.c	2017-06-08 18:10:34.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 4.16 2017/05/29 11:30:27 kls Exp $
++ * $Id: vdr.c 4.18 2017/06/08 16:10:34 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -239,7 +239,7 @@
+   VdrUser = VDR_USER;
+ #endif
+ #ifdef SDNOTIFY
+-  time_t SdWatchdog;
++  time_t SdWatchdog = 0;
+   int SdWatchdogTimeout = 0;
+ #endif
+ 
+@@ -763,6 +763,7 @@
+   Keys.Load(AddDirectory(ConfigDirectory, "remote.conf"));
+   KeyMacros.Load(AddDirectory(ConfigDirectory, "keymacros.conf"), true);
+   Folders.Load(AddDirectory(ConfigDirectory, "folders.conf"));
++  CamResponsesLoad(AddDirectory(ConfigDirectory, "camresponses.conf"), true);
+ 
+   if (!*cFont::GetFontFileName(Setup.FontOsd)) {
+      const char *msg = "no fonts available - OSD will not show any text!";

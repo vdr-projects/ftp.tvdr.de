@@ -1,0 +1,180 @@
+diff -ruN vdr-1.4.2/CONTRIBUTORS vdr-1.4.2-1/CONTRIBUTORS
+--- vdr-1.4.2/CONTRIBUTORS	2006-08-20 12:46:02.000000000 +0200
++++ vdr-1.4.2-1/CONTRIBUTORS	2006-09-03 13:49:32.000000000 +0200
+@@ -640,6 +640,8 @@
+  for reporting a problem in extracting APIVERSION with older versions of 'sed'
+  for fixing broken APIVERSION extraction line in 'newplugin'
+  for making VDR no longer stop removing empty directories if an error occurs
++ for reporting a bug in handling relative volume settings that unmute the audio in
++ the call to cStatus::MsgSetVolume()
+ 
+ Reinhard Walter Buchner <rw.buchner@freenet.de>
+  for adding some satellites to 'sources.conf'
+@@ -1737,6 +1739,8 @@
+  for fixing a typo in skins.h
+  for making cSkins::QueueMessage() called from a background thread with an empty
+  message clears all messages that have been previously queued by that thread
++ for reporting that the cTimer::operator=() messes up the cListObject's pointers
++ for reporting a memory leak in the cTimer::operator=() when using the 'aux' string
+ 
+ Philip Prindeville <philipp_subx@redfish-solutions.com>
+  for updates to 'sources.conf'
+@@ -1987,3 +1991,9 @@
+ Tomas Berglund <tomber@telia.com>
+  for reporting a problem with sticky PIDs in CAMs when switching between encrypted
+  channels on the same transponder
++
++Matthias Schwarzott <zzam@gentoo.org>
++ for suggesting to add LC_ALL to the checks for UTF-8 at startup
++
++Martin Ostermann <martin@familie-ostermann.de>
++ for fixing processing the PDCDescriptor in 'libsi' on big endian systems
+diff -ruN vdr-1.4.2/HISTORY vdr-1.4.2-1/HISTORY
+--- vdr-1.4.2/HISTORY	2006-08-27 10:42:31.000000000 +0200
++++ vdr-1.4.2-1/HISTORY	2006-09-03 13:05:47.000000000 +0200
+@@ -4895,3 +4895,15 @@
+   which made it prefer any device that's already receiving and doesn't require
+   detatching receivers. This change has caused some unwanted behavior, so further
+   testing is necessary.
++
++2006-09-03: Version 1.4.2-1
++
++- Added LC_ALL to the checks for UTF-8 at startup (suggested by Matthias Schwarzott).
++- Fixed the cTimer::operator=() so that it won't mess up the cListObject's pointers
++  (reported by Alexander Rieger).
++- Fixed a memory leak in the cTimer::operator=() when using the 'aux' string
++  (reported by Alexander Rieger).
++- Fixed processing the PDCDescriptor in 'libsi' on big endian systems (thanks to
++  Martin Ostermann).
++- Fixed handling relative volume settings that unmute the audio in the call to
++  cStatus::MsgSetVolume() (reported by Oliver Endriss).
+diff -ruN vdr-1.4.2/config.h vdr-1.4.2-1/config.h
+--- vdr-1.4.2/config.h	2006-08-26 16:16:34.000000000 +0200
++++ vdr-1.4.2-1/config.h	2006-09-01 14:59:35.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.267 2006/08/26 14:16:34 kls Exp $
++ * $Id: config.h 1.268 2006/09/01 12:59:35 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -21,7 +21,7 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.4.2"
++#define VDRVERSION  "1.4.2-1"
+ #define VDRVERSNUM   10402  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+diff -ruN vdr-1.4.2/device.c vdr-1.4.2-1/device.c
+--- vdr-1.4.2/device.c	2006-08-26 16:11:03.000000000 +0200
++++ vdr-1.4.2-1/device.c	2006-09-03 12:13:25.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 1.136 2006/08/26 14:11:03 kls Exp $
++ * $Id: device.c 1.137 2006/09/03 10:13:25 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -779,6 +779,7 @@
+   int OldVolume = volume;
+   volume = min(max(Absolute ? Volume : volume + Volume, 0), MAXVOLUME);
+   SetVolumeDevice(volume);
++  Absolute |= mute;
+   cStatus::MsgSetVolume(Absolute ? volume : volume - OldVolume, Absolute);
+   if (volume > 0) {
+      mute = false;
+diff -ruN vdr-1.4.2/libsi/headers.h vdr-1.4.2-1/libsi/headers.h
+--- vdr-1.4.2/libsi/headers.h	2006-05-28 16:25:30.000000000 +0200
++++ vdr-1.4.2-1/libsi/headers.h	2006-09-02 22:25:16.000000000 +0200
+@@ -10,7 +10,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: headers.h 1.7 2006/05/28 14:25:30 kls Exp $
++ *   $Id: headers.h 1.8 2006/09/02 20:25:16 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -1534,15 +1534,9 @@
+ struct descr_pdc {
+    u_char descriptor_tag                         :8;
+    u_char descriptor_length                      :8;
+-#if BYTE_ORDER == BIG_ENDIAN
+-   u_char pil2                                   :8;
+-   u_char pil1                                   :8;
+-   u_char pil0                                   :8;
+-#else
+    u_char pil0                                   :8;
+    u_char pil1                                   :8;
+    u_char pil2                                   :8;
+-#endif
+ };
+ 
+ /* 0x6A ac3_descriptor */
+diff -ruN vdr-1.4.2/timers.c vdr-1.4.2-1/timers.c
+--- vdr-1.4.2/timers.c	2006-08-05 14:03:36.000000000 +0200
++++ vdr-1.4.2-1/timers.c	2006-09-02 12:20:36.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 1.62 2006/08/05 12:03:36 kls Exp $
++ * $Id: timers.c 1.63 2006/09/02 10:20:36 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -90,11 +90,24 @@
+ 
+ cTimer& cTimer::operator= (const cTimer &Timer)
+ {
+-  memcpy(this, &Timer, sizeof(*this));
+-  if (aux)
+-     aux = strdup(aux);
+-  event = NULL;
++  startTime    = Timer.startTime;
++  stopTime     = Timer.stopTime;
+   lastSetEvent = 0;
++  recording    = Timer.recording;
++  pending      = Timer.pending;
++  inVpsMargin  = Timer.inVpsMargin;
++  flags        = Timer.flags;
++  channel      = Timer.channel;
++  day          = Timer.day;
++  weekdays     = Timer.weekdays;
++  start        = Timer.start;
++  stop         = Timer.stop;
++  priority     = Timer.priority;
++  lifetime     = Timer.lifetime;
++  strncpy(file, Timer.file, sizeof(file));
++  free(aux);
++  aux = Timer.aux ? strdup(Timer.aux) : NULL;
++  event = NULL;
+   return *this;
+ }
+ 
+diff -ruN vdr-1.4.2/vdr.c vdr-1.4.2-1/vdr.c
+--- vdr-1.4.2/vdr.c	2006-08-05 12:46:38.000000000 +0200
++++ vdr-1.4.2-1/vdr.c	2006-09-01 14:57:44.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.278 2006/08/05 10:46:38 kls Exp $
++ * $Id: vdr.c 1.279 2006/09/01 12:57:44 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -450,6 +450,7 @@
+   // Check for UTF-8 and exit if present - asprintf() will fail if it encounters 8 bit ASCII codes
+   char *LangEnv;
+   if ((LangEnv = getenv("LANG"))     != NULL && strcasestr(LangEnv, "utf") ||
++      (LangEnv = getenv("LC_ALL"))   != NULL && strcasestr(LangEnv, "utf") ||
+       (LangEnv = getenv("LC_CTYPE")) != NULL && strcasestr(LangEnv, "utf")) {
+      fprintf(stderr, "vdr: please turn off UTF-8 before starting VDR\n");
+      return 2;

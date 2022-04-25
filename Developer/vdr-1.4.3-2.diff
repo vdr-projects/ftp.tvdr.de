@@ -1,0 +1,391 @@
+diff -ruN vdr-1.4.3-1/CONTRIBUTORS vdr-1.4.3-2/CONTRIBUTORS
+--- vdr-1.4.3-1/CONTRIBUTORS	2006-10-07 15:59:21.000000000 +0200
++++ vdr-1.4.3-2/CONTRIBUTORS	2006-10-14 13:09:01.000000000 +0200
+@@ -1825,6 +1825,15 @@
+  file is in the future
+  for fixing handling video directory updates in case an other process has touched the
+  .update file after the last NeedsUpdate() check
++ for fixing a possible crash if cPluginManager::GetPlugin() is called with a NULL
++ pointer
++ for fixing displaying the error log message in case an unknown plugin was requested
++ in a key macro
++ for pointing out that keys from expanded key macros should be put into the front of
++ the key queue to avoid problems if the queue is not empty at that time
++ for making cRemote::PutMacro() set a lock while it expands the macro
++ for pointing out that plugins from cRemote::PutMacro() and cRemote::CallPlugin()
++ need to be handled separately
+ 
+ Marcel Schaeben <mts280@gmx.de>
+  for his "Easy Input" patch
+diff -ruN vdr-1.4.3-1/HISTORY vdr-1.4.3-2/HISTORY
+--- vdr-1.4.3-1/HISTORY	2006-10-08 13:28:15.000000000 +0200
++++ vdr-1.4.3-2/HISTORY	2006-10-15 11:03:01.000000000 +0200
+@@ -4950,3 +4950,22 @@
+ - Fixed handling language codes and descriptions of recorded audio tracks on channels
+   with multiple tracks where not all of them appear in the event data (reported by
+   Boguslaw Juza).
++
++2006-10-15: Version 1.4.3-2
++
++- Fixed clearing an event's Title, ShortText and Description in case the data comes
++  from an external source.
++- Updated the Hungarian language texts (thanks to Guido Josten).
++- Fixed a possible crash if cPluginManager::GetPlugin() is called with a NULL
++  pointer (thanks to Petri Hintukainen).
++- Fixed displaying the error log message in case an unknown plugin was requested
++  in a key macro (thanks to Petri Hintukainen).
++- Keys from expanded key macros are now put into the front of the key queue to
++  avoid problems if the queue is not empty at that time (based on a patch from
++  Petri Hintukainen).
++- cKeyMacro now has an explicit counter for the number of keys it contains.
++- cRemote::PutMacro() now sets a lock while it expands the macro (thanks to
++  Petri Hintukainen).
++- Fixed handling plugins from cRemote::PutMacro() and cRemote::CallPlugin()
++  (based on a patch from Petri Hintukainen).
++- Increased the size of the key queue to avoid problems with long key macros.
+diff -ruN vdr-1.4.3-1/config.h vdr-1.4.3-2/config.h
+--- vdr-1.4.3-1/config.h	2006-09-24 12:09:25.000000000 +0200
++++ vdr-1.4.3-2/config.h	2006-10-14 12:28:38.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.272 2006/09/24 10:09:25 kls Exp $
++ * $Id: config.h 1.274 2006/10/14 10:28:38 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -21,13 +21,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.4.3-1"
++#define VDRVERSION  "1.4.3-2"
+ #define VDRVERSNUM   10403  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.4.3"
+-#define APIVERSNUM   10403  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.4.4"
++#define APIVERSNUM   10404  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-1.4.3-1/eit.c vdr-1.4.3-2/eit.c
+--- vdr-1.4.3-1/eit.c	2006-10-07 14:32:24.000000000 +0200
++++ vdr-1.4.3-2/eit.c	2006-10-09 18:14:36.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 1.121 2006/10/07 12:32:24 kls Exp $
++ * $Id: eit.c 1.122 2006/10/09 16:14:36 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -234,7 +234,7 @@
+             pEvent->SetTitle(ShortEventDescriptor->name.getText(buffer, sizeof(buffer)));
+             pEvent->SetShortText(ShortEventDescriptor->text.getText(buffer, sizeof(buffer)));
+             }
+-         else {
++         else if (!HasExternalData) {
+             pEvent->SetTitle(NULL);
+             pEvent->SetShortText(NULL);
+             }
+@@ -242,7 +242,7 @@
+             char buffer[ExtendedEventDescriptors->getMaximumTextLength(": ") + 1];
+             pEvent->SetDescription(ExtendedEventDescriptors->getText(buffer, sizeof(buffer), ": "));
+             }
+-         else
++         else if (!HasExternalData)
+             pEvent->SetDescription(NULL);
+          }
+       delete ExtendedEventDescriptors;
+@@ -250,7 +250,8 @@
+ 
+       pEvent->SetComponents(Components);
+ 
+-      pEvent->FixEpgBugs();
++      if (!HasExternalData)
++         pEvent->FixEpgBugs();
+       if (LinkChannels)
+          channel->SetLinkChannels(LinkChannels);
+       Modified = true;
+diff -ruN vdr-1.4.3-1/i18n.c vdr-1.4.3-2/i18n.c
+--- vdr-1.4.3-1/i18n.c	2006-10-08 10:50:30.000000000 +0200
++++ vdr-1.4.3-2/i18n.c	2006-10-14 11:26:41.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.284 2006/10/08 08:50:30 kls Exp $
++ * $Id: i18n.c 1.285 2006/10/14 09:26:41 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -3582,7 +3582,7 @@
+     "ÌïñöÞ áðåéêüíéóçò Âßíôåï",
+     "Format för video display",
+     "Formatul redãrii video",
+-    "",//TODO
++    "Képerny¿formátum",
+     "",//TODO
+     "ÈØàÞÚÞíÚàÐÝÝÞÕ Ø×ÞÑàÐÖÕÝØÕ",
+     "Format video prikaza",
+@@ -4596,7 +4596,7 @@
+     " áÜâãäåÝæçÞèéßêëìíîïüðñóòôõýö÷øùþ0123456789-.#~,/_@abcdefghijklmnopqrstuvwxyz",
+     " abcdefghijklmnopqrstuvwxyzåäö0123456789-.#~,/_@",
+     " aãâbcdefghiîjklmnopqrsºtþuvwxyz0123456789-.#~,/_@",
+-    " aábcdeéfghiíjklmnoóöpqrstuúüvwxyz0123456789-.,#~,/_@",
++    " aábcdeéfghiíjklmnoóö¿pqrstuúü¿vwxyz0123456789-.,#~,/_@",
+     " aàbcçdeéèfghiíjklmnoòpqrstuúvwxyz0123456789-.,#~,/_@·",
+     " abcdefghijklmnopqrstuvwxyzÐÑÒÓÔÕñÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìîï0123456789-.#~,/_@",
+     " abcèædðefghijklmnopqrs¹tuvwxyz¾0123456789-.#~,/_@", // hrv
+@@ -4619,7 +4619,7 @@
+     "",//TODO
+     " 0\t-.#~,/_@1\tabcåä2\tdef3\tghi4\tjkl5\tmnoö6\tpqrs7\ttuv8\twxyz",
+     " 0\t-.#~,/_@1\taãâbc2\tdef3\tghiî4\tjkl5\tmno6\tpqrsº7\ttþuv8\twxyz9",
+-    "",//TODO
++    " 0\t-.#~,/_@1\taábc2\tdeé3\tghií4\tjkl5\tmnoóö¿6\tpqrs7\ttuúü¿v8\twxyz9",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+diff -ruN vdr-1.4.3-1/keys.c vdr-1.4.3-2/keys.c
+--- vdr-1.4.3-1/keys.c	2006-04-15 15:50:43.000000000 +0200
++++ vdr-1.4.3-2/keys.c	2006-10-14 12:18:05.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: keys.c 1.13 2006/04/15 13:50:43 kls Exp $
++ * $Id: keys.c 1.14 2006/10/14 10:18:05 kls Exp $
+  */
+ 
+ #include "keys.h"
+@@ -186,8 +186,9 @@
+ 
+ cKeyMacro::cKeyMacro(void)
+ {
++  numKeys = 0;
+   for (int i = 0; i < MAXKEYSINMACRO; i++)
+-      macro[i] = kNone;
++      macro[i] = kNone; // for compatibility with old code that doesn't know about NumKeys()
+   plugin = NULL;
+ }
+ 
+@@ -241,9 +242,9 @@
+            return false;
+            }
+         }
+-  if (n < 2) {
+-     esyslog("ERROR: empty key macro");
+-     }
++  if (n < 2)
++     esyslog("ERROR: empty key macro"); // non fatal
++  numKeys = n;
+   return true;
+ }
+ 
+diff -ruN vdr-1.4.3-1/keys.h vdr-1.4.3-2/keys.h
+--- vdr-1.4.3-1/keys.h	2006-04-15 15:56:03.000000000 +0200
++++ vdr-1.4.3-2/keys.h	2006-10-14 12:41:20.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: keys.h 1.9 2006/04/15 13:56:03 kls Exp $
++ * $Id: keys.h 1.10 2006/10/14 10:41:20 kls Exp $
+  */
+ 
+ #ifndef __KEYS_H
+@@ -117,11 +117,16 @@
+ class cKeyMacro : public cListObject {
+ private:
+   eKeys macro[MAXKEYSINMACRO];
++  int numKeys;
+   char *plugin;
+ public:
+   cKeyMacro(void);
+   ~cKeyMacro();
+   bool Parse(char *s);
++  int NumKeys(void) const { return numKeys; }
++      ///< Returns the number of keys in this macro. The first key (with
++      ///< index 0) is the macro code. The actual macro expansion codes
++      ///< start at index 1 and go to NumKeys() - 1.
+   const eKeys *Macro(void) const { return macro; }
+   const char *Plugin(void) const { return plugin; }
+   };
+diff -ruN vdr-1.4.3-1/plugin.c vdr-1.4.3-2/plugin.c
+--- vdr-1.4.3-1/plugin.c	2006-08-13 10:51:44.000000000 +0200
++++ vdr-1.4.3-2/plugin.c	2006-10-14 11:49:16.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: plugin.c 1.23 2006/08/13 08:51:44 kls Exp $
++ * $Id: plugin.c 1.24 2006/10/14 09:49:16 kls Exp $
+  */
+ 
+ #include "plugin.h"
+@@ -416,7 +416,7 @@
+ 
+ cPlugin *cPluginManager::GetPlugin(const char *Name)
+ {
+-  if (pluginManager) {
++  if (pluginManager && Name) {
+      for (cDll *dll = pluginManager->dlls.First(); dll; dll = pluginManager->dlls.Next(dll)) {
+          cPlugin *p = dll->Plugin();
+          if (p && strcmp(p->Name(), Name) == 0)
+diff -ruN vdr-1.4.3-1/remote.c vdr-1.4.3-2/remote.c
+--- vdr-1.4.3-1/remote.c	2006-05-12 14:40:15.000000000 +0200
++++ vdr-1.4.3-2/remote.c	2006-10-14 13:05:57.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.c 1.51 2006/05/12 12:40:15 kls Exp $
++ * $Id: remote.c 1.54 2006/10/14 11:05:57 kls Exp $
+  */
+ 
+ #include "remote.h"
+@@ -29,7 +29,8 @@
+ char *cRemote::unknownCode = NULL;
+ cMutex cRemote::mutex;
+ cCondVar cRemote::keyPressed;
+-const char *cRemote::plugin = NULL;
++const char *cRemote::keyMacroPlugin = NULL;
++const char *cRemote::callPlugin = NULL;
+ 
+ cRemote::cRemote(const char *Name)
+ {
+@@ -105,14 +106,11 @@
+ {
+   const cKeyMacro *km = KeyMacros.Get(Key);
+   if (km) {
+-     plugin = km->Plugin();
+-     for (int i = 1; i < MAXKEYSINMACRO; i++) {
+-         if (km->Macro()[i] != kNone) {
+-            if (!Put(km->Macro()[i]))
+-               return false;
+-            }
+-         else
+-            break;
++     keyMacroPlugin = km->Plugin();
++     cMutexLock MutexLock(&mutex);
++     for (int i = km->NumKeys(); --i > 0; ) {
++         if (!Put(km->Macro()[i], true))
++            return false;
+          }
+      }
+   return true;
+@@ -148,8 +146,8 @@
+ bool cRemote::CallPlugin(const char *Plugin)
+ {
+   cMutexLock MutexLock(&mutex);
+-  if (!plugin) {
+-     plugin = Plugin;
++  if (!callPlugin) {
++     callPlugin = Plugin;
+      Put(k_Plugin);
+      return true;
+      }
+@@ -159,8 +157,13 @@
+ const char *cRemote::GetPlugin(void)
+ {
+   cMutexLock MutexLock(&mutex);
+-  const char *p = plugin;
+-  plugin = NULL;
++  const char *p = keyMacroPlugin;
++  if (p)
++     keyMacroPlugin = NULL;
++  else {
++     p = callPlugin;
++     callPlugin = NULL;
++     }
+   return p;
+ }
+ 
+diff -ruN vdr-1.4.3-1/remote.h vdr-1.4.3-2/remote.h
+--- vdr-1.4.3-1/remote.h	2006-04-17 10:59:48.000000000 +0200
++++ vdr-1.4.3-2/remote.h	2006-10-14 13:46:58.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.h 1.35 2006/04/17 08:59:48 kls Exp $
++ * $Id: remote.h 1.37 2006/10/14 11:46:58 kls Exp $
+  */
+ 
+ #ifndef __REMOTE_H
+@@ -19,7 +19,7 @@
+ 
+ class cRemote : public cListObject {
+ private:
+-  enum { MaxKeys = MAXKEYSINMACRO };
++  enum { MaxKeys = 2 * MAXKEYSINMACRO };
+   static eKeys keys[MaxKeys];
+   static int in;
+   static int out;
+@@ -28,7 +28,8 @@
+   static char *unknownCode;
+   static cMutex mutex;
+   static cCondVar keyPressed;
+-  static const char *plugin;
++  static const char *keyMacroPlugin;
++  static const char *callPlugin;
+   char *name;
+ protected:
+   cRemote(const char *Name);
+@@ -56,7 +57,7 @@
+       ///< false will be returned and the caller should try again later.
+   static const char *GetPlugin(void);
+       ///< Returns the name of the plugin that was set with a previous
+-      ///< call to CallPlugin(). The internally stored pointer to the
++      ///< call to PutMacro() or CallPlugin(). The internally stored pointer to the
+       ///< plugin name will be reset to NULL by this call.
+   static bool HasKeys(void);
+   static eKeys Get(int WaitMs = 1000, char **UnknownCode = NULL);
+diff -ruN vdr-1.4.3-1/vdr.c vdr-1.4.3-2/vdr.c
+--- vdr-1.4.3-1/vdr.c	2006-09-01 14:57:44.000000000 +0200
++++ vdr-1.4.3-2/vdr.c	2006-10-14 12:01:32.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.279 2006/09/01 12:57:44 kls Exp $
++ * $Id: vdr.c 1.280 2006/10/14 10:01:32 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -923,17 +923,20 @@
+           case kCommands:   DirectMainFunction(osCommands); break;
+           case kUser1 ... kUser9: cRemote::PutMacro(key); key = kNone; break;
+           case k_Plugin: {
+-               DELETE_MENU;
+-               if (cControl::Control())
+-                  cControl::Control()->Hide();
+-               cPlugin *plugin = cPluginManager::GetPlugin(cRemote::GetPlugin());
+-               if (plugin) {
+-                  Menu = plugin->MainMenuAction();
+-                  if (Menu)
+-                     Menu->Show();
++               const char *PluginName = cRemote::GetPlugin();
++               if (PluginName) {
++                  DELETE_MENU;
++                  if (cControl::Control())
++                     cControl::Control()->Hide();
++                  cPlugin *plugin = cPluginManager::GetPlugin(PluginName);
++                  if (plugin) {
++                     Menu = plugin->MainMenuAction();
++                     if (Menu)
++                        Menu->Show();
++                     }
++                  else
++                     esyslog("ERROR: unknown plugin '%s'", PluginName);
+                   }
+-               else
+-                  esyslog("ERROR: unknown plugin '%s'", cRemote::GetPlugin());
+                key = kNone; // nobody else needs to see these keys
+                }
+                break;

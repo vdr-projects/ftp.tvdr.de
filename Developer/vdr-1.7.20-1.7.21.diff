@@ -1,0 +1,3360 @@
+diff -ruN vdr-1.7.20/CONTRIBUTORS vdr-1.7.21/CONTRIBUTORS
+--- vdr-1.7.20/CONTRIBUTORS	2011-08-15 14:45:40.000000000 +0200
++++ vdr-1.7.21/CONTRIBUTORS	2011-08-27 16:27:22.000000000 +0200
+@@ -743,6 +743,7 @@
+  for helping to debug a crash when using the --terminal option without having access
+  to the given terminal
+  for fixing following symbolic links in RemoveFileOrDir()
++ for suggesting to cache the length of a recording's index
+ 
+ Peter Seyringer <e9425234@student.tuwien.ac.at>
+  for reporting a bug in saving the polarization parameter of channels that have a
+@@ -1111,6 +1112,11 @@
+  for fixing some crashes in subtitle display
+  for reporting that DELETENULL() was not thread safe
+  for reporting a crash in subtitle display, related to cOsd::Osds
++ for a patch that stores the subtitle PIDs in the channels.conf file
++ for suggesting to implement a way for devices to tell whether they can provide EIT data
++ for making the Audio and Subtitles options available through the Green and Yellow
++ keys in the Setup/DVB menu
++ for making the Recordings menu display the length (in hours:minutes) of each recording
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1708,6 +1714,9 @@
+  the marks file has just been written"
+  for suggesting a fix for a bug in handling DiSEqC codes
+  for fixing handling the channelID in cMenuEditChanItem
++ for a patch that sets the start time of an edited recording to the time of the first
++ editing mark
++ for adding the option --outputonly to the dvbsddevice plugin
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -2593,6 +2602,8 @@
+  for reporting a problem with the fps value in the info file of a recording being
+  overwritten in case a recording was interrupted and resumed, and the fps value
+  could not be determined after resuming recording
++ for reporting a problem with detecting frames for channels that split frames into
++ several payloads
+ 
+ Marcel Unbehaun <frostworks@gmx.de>
+  for adding cRecordingInfo::GetEvent()
+@@ -2760,3 +2771,6 @@
+ Frank Niederwipper <f.niederwipper@gmail.com>
+  for reporting a problem in timer handling in case a recording directory can't
+  be created
++
++Chris Mayo <aklhfex@gmail.com>
++ for reporting a problem with detecting frames on radio channels
+diff -ruN vdr-1.7.20/HISTORY vdr-1.7.21/HISTORY
+--- vdr-1.7.20/HISTORY	2011-08-15 15:44:16.000000000 +0200
++++ vdr-1.7.21/HISTORY	2011-09-04 15:07:04.000000000 +0200
+@@ -6698,3 +6698,47 @@
+ - cTimeMs is no longer initialized to the current time if the value given to the
+   constructor is negative (avoids the "cTimeMs: using monotonic clock..." log message
+   before VDR's starting log message).
++
++2011-09-04: Version 1.7.21
++
++- Fixed detecting frames for channels that split frames into several payloads
++  (reported by Derek Kelly).
++- Now initializing Setup.InitialChannel to an empty string to avoid problems in
++  case there is no setup.conf.
++- The start time of an edited recording is now set to the time of the first
++  editing mark (thanks to Udo Richter).
++  This obsoletes the CUTTIME patch.
++- Direct access to the members start, priority, lifetime, and deleted of cRecording
++  as well as to position and comment of cMark is now deprecated. Plugin authors
++  should switch to the new access functions for these members. For now the macro
++  __RECORDING_H_DEPRECATED_DIRECT_MEMBER_ACCESS is defined in recording.h, which
++  exposes these members, so that existing plugins will still compile. Comment out
++  this #define to check whether a particular plugin needs to be modified.
++  This #define may be removed in a future version.
++- The new functions cRecording::NumFrames() and cRecording::LengthInSeconds() return
++  the number of frames and length (in seconds) of a recording (suggested by Steffen
++  Barszus).
++- The subtitle PIDs are now stored in the channels.conf file as an extension to the
++  TPID field (thanks to Rolf Ahrenberg).
++- The new function cDevice::ProvidesEIT() is used to determine whether a device can
++  provide EIT data and will thus be used in cEITScanner::Process() to receive EIT
++  data from the channels it can receive (suggested by Rolf Ahrenberg). Note that by
++  default it is assumed that a device can't provide EIT data, and only the builtin
++  cDvbDevice returns true from this function.
++- The Audio and Subtitles options are now available through the Green and Yellow
++  keys in the Setup/DVB menu (thanks to Rolf Ahrenberg). This is mainly for remote
++  controls that don't have dedicated keys for these functions.
++- The SVDRP command HITK now accepts multiple keys (up to 31).
++- The Recordings menu now displays the length (in hours:minutes) of each recording
++  (thanks to Rolf Ahrenberg). Note that the "new" indicator has been moved from the
++  recording time to the length column. This new format is also used by the SVDRP
++  command LSTR, so in case you have an application that parses the LSTR output,
++  you will need to adjust it to the new format.
++- The dvbsddevice plugin now supports the new option --outputonly, which disables
++  receiving on SD FF devices and uses the device only for output (thanks to Udo
++  Richter).
++- Fixed detecting frames on radio channels (reported by Chris Mayo).
++- Revoked the changes to cFrameDetector that have been introduced in version 1.7.19.
++  Detecting frames in case the Picture Start Code or Access Unit Delimiter
++  extends over TS packet boundaries is now done by locally skipping TS packets
++  in cFrameDetector.
+diff -ruN vdr-1.7.20/PLUGINS/src/dvbhddevice/dvbhddevice.c vdr-1.7.21/PLUGINS/src/dvbhddevice/dvbhddevice.c
+--- vdr-1.7.20/PLUGINS/src/dvbhddevice/dvbhddevice.c	2011-04-24 11:31:21.000000000 +0200
++++ vdr-1.7.21/PLUGINS/src/dvbhddevice/dvbhddevice.c	2011-08-27 11:31:45.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbhddevice.c 1.13 2011/04/24 09:31:21 kls Exp $
++ * $Id: dvbhddevice.c 1.14 2011/08/27 09:31:45 kls Exp $
+  */
+ 
+ #include <vdr/plugin.h>
+@@ -11,7 +11,7 @@
+ #include "setup.h"
+ 
+ static const char *VERSION        = "0.0.4";
+-static const char *DESCRIPTION    = "HD Full Featured DVB device";
++static const char *DESCRIPTION    = trNOOP("HD Full Featured DVB device");
+ 
+ class cPluginDvbhddevice : public cPlugin {
+ private:
+@@ -20,7 +20,7 @@
+   cPluginDvbhddevice(void);
+   virtual ~cPluginDvbhddevice();
+   virtual const char *Version(void) { return VERSION; }
+-  virtual const char *Description(void) { return DESCRIPTION; }
++  virtual const char *Description(void) { return tr(DESCRIPTION); }
+   virtual cMenuSetupPage *SetupMenu(void);
+   virtual bool SetupParse(const char *Name, const char *Value);
+   };
+diff -ruN vdr-1.7.20/PLUGINS/src/dvbhddevice/dvbhdffdevice.c vdr-1.7.21/PLUGINS/src/dvbhddevice/dvbhdffdevice.c
+--- vdr-1.7.20/PLUGINS/src/dvbhddevice/dvbhdffdevice.c	2011-05-22 17:19:59.000000000 +0200
++++ vdr-1.7.21/PLUGINS/src/dvbhddevice/dvbhdffdevice.c	2011-08-27 11:32:18.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbhdffdevice.c 1.32 2011/05/22 15:19:59 kls Exp $
++ * $Id: dvbhdffdevice.c 1.33 2011/08/27 09:32:18 kls Exp $
+  */
+ 
+ #include "dvbhdffdevice.h"
+@@ -54,6 +54,7 @@
+      hdmiConfig.TransmitAudio = true;
+      hdmiConfig.ForceDviMode = false;
+      hdmiConfig.CecEnabled = gHdffSetup.CecEnabled;
++     hdmiConfig.VideoModeAdaption = (HDFF::eVideoModeAdaption) gHdffSetup.VideoModeAdaption;
+      mHdffCmdIf->CmdHdmiConfigure(&hdmiConfig);
+      if (gHdffSetup.CecEnabled)
+         mHdffCmdIf->CmdHdmiSendCecCommand(HDFF::cecCommandTvOn);
+@@ -110,7 +111,7 @@
+ {
+   HDFF::tVideoFormat videoFormat;
+   videoFormat.AutomaticEnabled = true;
+-  videoFormat.AfdEnabled = false;
++  videoFormat.AfdEnabled = true;
+   videoFormat.TvFormat = (HDFF::eTvFormat) gHdffSetup.TvFormat;
+   videoFormat.VideoConversion = (HDFF::eVideoConversion) gHdffSetup.VideoConversion;
+   mHdffCmdIf->CmdAvSetVideoFormat(0, &videoFormat);
+@@ -729,10 +730,25 @@
+     0x13C2300A, // Technotrend S2-6400 HDFF production version
+     0x00000000
+     };
+-  uint32_t SubsystemId = GetSubsystemId(Adapter, Frontend);
++  cString FileName;
++  cReadLine ReadLine;
++  FILE *f = NULL;
++  uint32_t SubsystemId = 0;
++  FileName = cString::sprintf("/sys/class/dvb/dvb%d.frontend%d/device/subsystem_vendor", Adapter, Frontend);
++  if ((f = fopen(FileName, "r")) != NULL) {
++     if (char *s = ReadLine.Read(f))
++        SubsystemId = strtoul(s, NULL, 0) << 16;
++     fclose(f);
++     }
++  FileName = cString::sprintf("/sys/class/dvb/dvb%d.frontend%d/device/subsystem_device", Adapter, Frontend);
++  if ((f = fopen(FileName, "r")) != NULL) {
++     if (char *s = ReadLine.Read(f))
++        SubsystemId |= strtoul(s, NULL, 0);
++     fclose(f);
++     }
+   for (uint32_t *sid = SubsystemIds; *sid; sid++) {
+       if (*sid == SubsystemId) {
+-         cString FileName = cString::sprintf("/dev/dvb/adapter%d/osd0", Adapter);
++         FileName = cString::sprintf("/dev/dvb/adapter%d/osd0", Adapter);
+          int fd = open(FileName, O_RDWR);
+          if (fd != -1) { //TODO treat the second path of the S2-6400 as a budget device
+             close(fd);
+diff -ruN vdr-1.7.20/PLUGINS/src/dvbhddevice/hdffcmd.c vdr-1.7.21/PLUGINS/src/dvbhddevice/hdffcmd.c
+--- vdr-1.7.20/PLUGINS/src/dvbhddevice/hdffcmd.c	2011-04-24 11:31:59.000000000 +0200
++++ vdr-1.7.21/PLUGINS/src/dvbhddevice/hdffcmd.c	2011-08-27 11:34:18.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: hdffcmd.c 1.20 2011/04/24 09:31:59 kls Exp $
++ * $Id: hdffcmd.c 1.21 2011/08/27 09:34:18 kls Exp $
+  */
+ 
+ #include "hdffcmd.h"
+@@ -1089,6 +1089,7 @@
+     {
+         cmdBuf.SetBits(1, 0);
+     }
++    cmdBuf.SetBits(3, (uint32_t) pConfig->VideoModeAdaption);
+     osd_cmd.cmd_len = CmdSetLength(cmdBuf);
+     ioctl(mOsdDev, OSD_RAW_CMD, &osd_cmd);
+ }
+diff -ruN vdr-1.7.20/PLUGINS/src/dvbhddevice/hdffmsgdef.h vdr-1.7.21/PLUGINS/src/dvbhddevice/hdffmsgdef.h
+--- vdr-1.7.20/PLUGINS/src/dvbhddevice/hdffmsgdef.h	2011-04-17 13:20:22.000000000 +0200
++++ vdr-1.7.21/PLUGINS/src/dvbhddevice/hdffmsgdef.h	2011-08-27 11:34:43.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: hdffmsgdef.h 1.12 2011/04/17 11:20:22 kls Exp $
++ * $Id: hdffmsgdef.h 1.13 2011/08/27 09:34:43 kls Exp $
+  */
+ 
+ #ifndef _HDFF_MSGDEF_H_
+@@ -274,6 +274,14 @@
+     videoModeMaxValue
+ } eHdmiVideoMode;
+ 
++typedef enum _eVideoModeAdaption
++{
++    videoModeAdaptOff,
++    videoModeAdaptFrameRate,
++    videoModeAdaptOnlyForHd,
++    videoModeAdaptAlways
++} eVideoModeAdaption;
++
+ typedef enum _eCecCommand
+ {
+     cecCommandTvOn,
+@@ -287,6 +295,7 @@
+     bool TransmitAudio;
+     bool ForceDviMode;
+     bool CecEnabled;
++    eVideoModeAdaption VideoModeAdaption;
+ } tHdmiConfig;
+ 
+ // Remote control definitions
+diff -ruN vdr-1.7.20/PLUGINS/src/dvbhddevice/po/de_DE.po vdr-1.7.21/PLUGINS/src/dvbhddevice/po/de_DE.po
+--- vdr-1.7.20/PLUGINS/src/dvbhddevice/po/de_DE.po	2011-05-05 20:50:52.000000000 +0200
++++ vdr-1.7.21/PLUGINS/src/dvbhddevice/po/de_DE.po	2011-08-27 11:37:09.000000000 +0200
+@@ -7,15 +7,30 @@
+ msgstr ""
+ "Project-Id-Version: VDR \n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+-"POT-Creation-Date: 2011-05-05 20:34+0200\n"
++"POT-Creation-Date: 2011-08-21 14:02+0200\n"
+ "PO-Revision-Date: 2011-04-25 21:44+0200\n"
+ "Last-Translator: Christoph Haubrich\n"
+ "Language-Team: <see README>\n"
+-"Language: \n"
++"Language: de\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=utf-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+ 
++msgid "HD Full Featured DVB device"
++msgstr "HD Full Featured DVB device"
++
++msgid "Off"
++msgstr "aus"
++
++msgid "Frame rate"
++msgstr "passende Framerate"
++
++msgid "HD Only"
++msgstr "nur bei HD"
++
++msgid "Always"
++msgstr "immer"
++
+ msgid "Automatic"
+ msgstr "automatisch"
+ 
+@@ -40,9 +55,6 @@
+ msgid "Analogue only"
+ msgstr "nur Analoge Ausg√§nge"
+ 
+-msgid "Always"
+-msgstr "immer"
+-
+ msgid "HDMI only"
+ msgstr "nur HDMI"
+ 
+@@ -55,6 +67,9 @@
+ msgid "Resolution"
+ msgstr "Aufl√∂sung"
+ 
++msgid "Video Mode Adaption"
++msgstr "Aufl√∂sungsanpassung"
++
+ msgid "TV format"
+ msgstr "TV-Format"
+ 
+diff -ruN vdr-1.7.20/PLUGINS/src/dvbhddevice/po/fi_FI.po vdr-1.7.21/PLUGINS/src/dvbhddevice/po/fi_FI.po
+--- vdr-1.7.20/PLUGINS/src/dvbhddevice/po/fi_FI.po	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.7.21/PLUGINS/src/dvbhddevice/po/fi_FI.po	2011-08-27 11:37:09.000000000 +0200
+@@ -0,0 +1,104 @@
++# VDR plugin language source file
++# Copyright (C) 2011 Andreas Regel
++# This file is distributed under the same license as the dvbhddevice package.
++# Christoph Haubrich, 2011
++#
++msgid ""
++msgstr ""
++"Project-Id-Version: VDR \n"
++"Report-Msgid-Bugs-To: <see README>\n"
++"POT-Creation-Date: 2011-08-21 14:02+0200\n"
++"PO-Revision-Date: 2011-04-25 21:44+0200\n"
++"Last-Translator: Rolf Ahrenberg\n"
++"Language-Team: Finnish <vdr@linuxtv.org>\n"
++"Language: fi\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++
++msgid "HD Full Featured DVB device"
++msgstr "DVB-laite HD-ulostulolla"
++
++msgid "Off"
++msgstr ""
++
++msgid "Frame rate"
++msgstr ""
++
++msgid "HD Only"
++msgstr ""
++
++msgid "Always"
++msgstr "aina"
++
++msgid "Automatic"
++msgstr "automaattinen"
++
++msgid "Letterbox 16/9"
++msgstr "letterbox 16:9"
++
++msgid "Letterbox 14/9"
++msgstr "letterbox 14:9"
++
++msgid "Pillarbox"
++msgstr "pillarbox"
++
++msgid "CentreCutOut"
++msgstr "center cut out"
++
++msgid "Always 16/9"
++msgstr "aina 16:9"
++
++msgid "Disabled"
++msgstr "ei k√§yt√∂ss√§"
++
++msgid "Analogue only"
++msgstr "vain analoginen"
++
++msgid "HDMI only"
++msgstr "vain HDMI"
++
++msgid "Follow resolution"
++msgstr "resoluution mukaan"
++
++msgid "none"
++msgstr "ei"
++
++msgid "Resolution"
++msgstr "Kuvaresoluutio"
++
++msgid "Video Mode Adaption"
++msgstr ""
++
++msgid "TV format"
++msgstr "N√§yt√∂n kuvasuhde"
++
++msgid "Video Conversion"
++msgstr "N√§ytt√∂muoto"
++
++msgid "Analogue Video"
++msgstr "Analoginen kuval√§ht√∂"
++
++msgid "Audio Delay (ms)"
++msgstr "√Ñ√§nen viive (ms)"
++
++msgid "Audio Downmix"
++msgstr "√Ñ√§nen alasmiksaus"
++
++msgid "OSD Size"
++msgstr "Kuvaruutun√§yt√∂n koko"
++
++msgid "HDMI CEC"
++msgstr "K√§yt√§ HDMI CEC-toimintoa"
++
++msgid "Remote Control Protocol"
++msgstr "Kaukos√§√§timen protokolla"
++
++msgid "Remote Control Address"
++msgstr "Kaukos√§√§timen osoite"
++
++msgid "High Level OSD"
++msgstr "K√§yt√§ korkean tason kuvaruutun√§ytt√∂√§"
++
++msgid "Allow True Color OSD"
++msgstr "Salli tosiv√§rit kuvaruutun√§yt√∂lle"
+diff -ruN vdr-1.7.20/PLUGINS/src/dvbhddevice/po/it_IT.po vdr-1.7.21/PLUGINS/src/dvbhddevice/po/it_IT.po
+--- vdr-1.7.20/PLUGINS/src/dvbhddevice/po/it_IT.po	2011-07-10 00:23:38.000000000 +0200
++++ vdr-1.7.21/PLUGINS/src/dvbhddevice/po/it_IT.po	2011-08-27 11:37:09.000000000 +0200
+@@ -7,11 +7,11 @@
+ msgstr ""
+ "Project-Id-Version: VDR\n"
+ "Report-Msgid-Bugs-To: <see README>\n"
+-"POT-Creation-Date: 2011-05-05 20:34+0200\n"
++"POT-Creation-Date: 2011-08-21 14:02+0200\n"
+ "PO-Revision-Date: 2011-07-10 00:23+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team:  <see README>\n"
+-"Language: \n"
++"Language: it\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=utf-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+@@ -19,6 +19,21 @@
+ "X-Poedit-Country: ITALY\n"
+ "X-Poedit-SourceCharset: utf-8\n"
+ 
++msgid "HD Full Featured DVB device"
++msgstr ""
++
++msgid "Off"
++msgstr ""
++
++msgid "Frame rate"
++msgstr ""
++
++msgid "HD Only"
++msgstr ""
++
++msgid "Always"
++msgstr "Sempre"
++
+ msgid "Automatic"
+ msgstr "Automatica"
+ 
+@@ -43,9 +58,6 @@
+ msgid "Analogue only"
+ msgstr "Solo analogica"
+ 
+-msgid "Always"
+-msgstr "Sempre"
+-
+ msgid "HDMI only"
+ msgstr "Solo HDMI"
+ 
+@@ -58,6 +70,9 @@
+ msgid "Resolution"
+ msgstr "Risoluzione"
+ 
++msgid "Video Mode Adaption"
++msgstr ""
++
+ msgid "TV format"
+ msgstr "Formato TV"
+ 
+@@ -90,4 +105,3 @@
+ 
+ msgid "Allow True Color OSD"
+ msgstr "Permetti OSD True Color"
+-
+diff -ruN vdr-1.7.20/PLUGINS/src/dvbhddevice/setup.c vdr-1.7.21/PLUGINS/src/dvbhddevice/setup.c
+--- vdr-1.7.20/PLUGINS/src/dvbhddevice/setup.c	2011-05-15 16:47:45.000000000 +0200
++++ vdr-1.7.21/PLUGINS/src/dvbhddevice/setup.c	2011-08-27 11:35:35.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: setup.c 1.12 2011/05/15 14:47:45 kls Exp $
++ * $Id: setup.c 1.13 2011/08/27 09:35:35 kls Exp $
+  */
+ 
+ #include "setup.h"
+@@ -20,6 +20,7 @@
+ cHdffSetup::cHdffSetup(void)
+ {
+     Resolution = kResolution1080i;
++    VideoModeAdaption = HDFF::videoModeAdaptOff;
+     TvFormat = HDFF::tvFormat16by9;
+     VideoConversion = HDFF::videoConversionPillarbox;
+     AnalogueVideo = HDFF::videoOutCvbsYuv;
+@@ -35,18 +36,19 @@
+ 
+ bool cHdffSetup::SetupParse(const char *Name, const char *Value)
+ {
+-    if      (strcmp(Name, "Resolution")      == 0) Resolution      = atoi(Value);
+-    else if (strcmp(Name, "TvFormat")        == 0) TvFormat        = atoi(Value);
+-    else if (strcmp(Name, "VideoConversion") == 0) VideoConversion = atoi(Value);
+-    else if (strcmp(Name, "AnalogueVideo")   == 0) AnalogueVideo   = atoi(Value);
+-    else if (strcmp(Name, "AudioDelay")      == 0) AudioDelay      = atoi(Value);
+-    else if (strcmp(Name, "AudioDownmix")    == 0) AudioDownmix    = atoi(Value);
+-    else if (strcmp(Name, "OsdSize")         == 0) OsdSize         = atoi(Value);
+-    else if (strcmp(Name, "CecEnabled")      == 0) CecEnabled      = atoi(Value);
+-    else if (strcmp(Name, "RemoteProtocol")  == 0) RemoteProtocol  = atoi(Value);
+-    else if (strcmp(Name, "RemoteAddress")   == 0) RemoteAddress   = atoi(Value);
+-    else if (strcmp(Name, "HighLevelOsd")    == 0) HighLevelOsd    = atoi(Value);
+-    else if (strcmp(Name, "TrueColorOsd")    == 0) TrueColorOsd    = atoi(Value);
++    if      (strcmp(Name, "Resolution")        == 0) Resolution        = atoi(Value);
++    else if (strcmp(Name, "VideoModeAdaption") == 0) VideoModeAdaption = atoi(Value);
++    else if (strcmp(Name, "TvFormat")          == 0) TvFormat          = atoi(Value);
++    else if (strcmp(Name, "VideoConversion")   == 0) VideoConversion   = atoi(Value);
++    else if (strcmp(Name, "AnalogueVideo")     == 0) AnalogueVideo     = atoi(Value);
++    else if (strcmp(Name, "AudioDelay")        == 0) AudioDelay        = atoi(Value);
++    else if (strcmp(Name, "AudioDownmix")      == 0) AudioDownmix      = atoi(Value);
++    else if (strcmp(Name, "OsdSize")           == 0) OsdSize           = atoi(Value);
++    else if (strcmp(Name, "CecEnabled")        == 0) CecEnabled        = atoi(Value);
++    else if (strcmp(Name, "RemoteProtocol")    == 0) RemoteProtocol    = atoi(Value);
++    else if (strcmp(Name, "RemoteAddress")     == 0) RemoteAddress     = atoi(Value);
++    else if (strcmp(Name, "HighLevelOsd")      == 0) HighLevelOsd      = atoi(Value);
++    else if (strcmp(Name, "TrueColorOsd")      == 0) TrueColorOsd      = atoi(Value);
+     else return false;
+     return true;
+ }
+@@ -113,6 +115,7 @@
+ cHdffSetupPage::cHdffSetupPage(HDFF::cHdffCmdIf * pHdffCmdIf)
+ {
+     const int kResolutions = 4;
++    const int kVideoModeAdaptions = 4;
+     const int kTvFormats = 2;
+     const int kVideoConversions = 6;
+     const int kAnalogueVideos = 4;
+@@ -128,6 +131,14 @@
+         "576i",
+     };
+ 
++    static const char * VideoModeAdaptionItems[kVideoModeAdaptions] =
++    {
++        tr("Off"),
++        tr("Frame rate"),
++        tr("HD Only"),
++        tr("Always")
++    };
++
+     static const char * TvFormatItems[kTvFormats] =
+     {
+         "4/3",
+@@ -182,6 +193,7 @@
+     mNewHdffSetup = gHdffSetup;
+ 
+     Add(new cMenuEditStraItem(tr("Resolution"), &mNewHdffSetup.Resolution, kResolutions, ResolutionItems));
++    Add(new cMenuEditStraItem(tr("Video Mode Adaption"), &mNewHdffSetup.VideoModeAdaption, kVideoModeAdaptions, VideoModeAdaptionItems));
+     Add(new cMenuEditStraItem(tr("TV format"), &mNewHdffSetup.TvFormat, kTvFormats, TvFormatItems));
+     Add(new cMenuEditStraItem(tr("Video Conversion"), &mNewHdffSetup.VideoConversion, kVideoConversions, VideoConversionItems));
+     Add(new cMenuEditStraItem(tr("Analogue Video"), &mNewHdffSetup.AnalogueVideo, kAnalogueVideos, AnalogueVideoItems));
+@@ -202,6 +214,7 @@
+ void cHdffSetupPage::Store(void)
+ {
+     SetupStore("Resolution", mNewHdffSetup.Resolution);
++    SetupStore("VideoModeAdaption", mNewHdffSetup.VideoModeAdaption);
+     SetupStore("TvFormat", mNewHdffSetup.TvFormat);
+     SetupStore("VideoConversion", mNewHdffSetup.VideoConversion);
+     SetupStore("AnalogueVideo", mNewHdffSetup.AnalogueVideo);
+@@ -237,6 +250,7 @@
+         hdmiConfig.TransmitAudio = true;
+         hdmiConfig.ForceDviMode = false;
+         hdmiConfig.CecEnabled = mNewHdffSetup.CecEnabled;
++        hdmiConfig.VideoModeAdaption = (HDFF::eVideoModeAdaption) mNewHdffSetup.VideoModeAdaption;
+         mHdffCmdIf->CmdHdmiConfigure(&hdmiConfig);
+ 
+         mHdffCmdIf->CmdRemoteSetProtocol((HDFF::eRemoteProtocol) mNewHdffSetup.RemoteProtocol);
+diff -ruN vdr-1.7.20/PLUGINS/src/dvbhddevice/setup.h vdr-1.7.21/PLUGINS/src/dvbhddevice/setup.h
+--- vdr-1.7.20/PLUGINS/src/dvbhddevice/setup.h	2011-04-17 13:20:22.000000000 +0200
++++ vdr-1.7.21/PLUGINS/src/dvbhddevice/setup.h	2011-08-27 11:36:02.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: setup.h 1.8 2011/04/17 11:20:22 kls Exp $
++ * $Id: setup.h 1.9 2011/08/27 09:36:02 kls Exp $
+  */
+ 
+ #ifndef _HDFF_SETUP_H_
+@@ -20,6 +20,7 @@
+     HDFF::eHdmiVideoMode GetVideoMode(void);
+ 
+     int Resolution;
++    int VideoModeAdaption;
+     int TvFormat;
+     int VideoConversion;
+     int AnalogueVideo;
+diff -ruN vdr-1.7.20/PLUGINS/src/dvbsddevice/HISTORY vdr-1.7.21/PLUGINS/src/dvbsddevice/HISTORY
+--- vdr-1.7.20/PLUGINS/src/dvbsddevice/HISTORY	2011-04-17 14:57:29.000000000 +0200
++++ vdr-1.7.21/PLUGINS/src/dvbsddevice/HISTORY	2011-08-27 13:36:27.000000000 +0200
+@@ -19,3 +19,7 @@
+ 2011-04-17: Version 0.0.4
+ 
+ - Removed an obsolete local variable in dvbsdffosd.c (thanks to Paul Menzel).
++
++2011-08-27: Version 0.0.5
++
++- Added option --outputonly to use the device only for output (thanks to Udo Richter).
+diff -ruN vdr-1.7.20/PLUGINS/src/dvbsddevice/dvbsddevice.c vdr-1.7.21/PLUGINS/src/dvbsddevice/dvbsddevice.c
+--- vdr-1.7.20/PLUGINS/src/dvbsddevice/dvbsddevice.c	2011-04-17 14:55:43.000000000 +0200
++++ vdr-1.7.21/PLUGINS/src/dvbsddevice/dvbsddevice.c	2011-08-27 13:34:58.000000000 +0200
+@@ -3,13 +3,14 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsddevice.c 1.4 2011/04/17 12:55:43 kls Exp $
++ * $Id: dvbsddevice.c 1.5 2011/08/27 11:34:58 kls Exp $
+  */
+ 
++#include <getopt.h>
+ #include <vdr/plugin.h>
+ #include "dvbsdffdevice.h"
+ 
+-static const char *VERSION        = "0.0.4";
++static const char *VERSION        = "0.0.5";
+ static const char *DESCRIPTION    = "SD Full Featured DVB device";
+ 
+ class cPluginDvbsddevice : public cPlugin {
+@@ -20,6 +21,8 @@
+   virtual ~cPluginDvbsddevice();
+   virtual const char *Version(void) { return VERSION; }
+   virtual const char *Description(void) { return DESCRIPTION; }
++  virtual const char *CommandLineHelp(void);
++  virtual bool ProcessArgs(int argc, char *argv[]);
+   };
+ 
+ cPluginDvbsddevice::cPluginDvbsddevice(void)
+@@ -32,4 +35,27 @@
+   delete probe;
+ }
+ 
++const char *cPluginDvbsddevice::CommandLineHelp(void)
++{
++  return "  -o        --outputonly   do not receive, just use as output device\n";
++}
++
++bool cPluginDvbsddevice::ProcessArgs(int argc, char *argv[])
++{
++  static struct option long_options[] = {
++       { "outputonly", no_argument, NULL, 'o' },
++       { NULL,         no_argument, NULL,  0  }
++     };
++
++  int c;
++  while ((c = getopt_long(argc, argv, "", long_options, NULL)) != -1) {
++        switch (c) {
++          case 'o': probe->SetOutputOnly(true);
++                    break;
++          default:  return false;
++          }
++        }
++  return true;
++}
++
+ VDRPLUGINCREATOR(cPluginDvbsddevice); // Don't touch this!
+diff -ruN vdr-1.7.20/PLUGINS/src/dvbsddevice/dvbsdffdevice.c vdr-1.7.21/PLUGINS/src/dvbsddevice/dvbsdffdevice.c
+--- vdr-1.7.20/PLUGINS/src/dvbsddevice/dvbsdffdevice.c	2011-05-22 17:22:14.000000000 +0200
++++ vdr-1.7.21/PLUGINS/src/dvbsddevice/dvbsdffdevice.c	2011-08-27 13:33:57.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsdffdevice.c 2.29 2011/05/22 15:22:14 kls Exp $
++ * $Id: dvbsdffdevice.c 2.30 2011/08/27 11:33:57 kls Exp $
+  */
+ 
+ #include "dvbsdffdevice.h"
+@@ -23,12 +23,13 @@
+ 
+ int cDvbSdFfDevice::devVideoOffset = -1;
+ 
+-cDvbSdFfDevice::cDvbSdFfDevice(int Adapter, int Frontend)
++cDvbSdFfDevice::cDvbSdFfDevice(int Adapter, int Frontend, bool OutputOnly)
+ :cDvbDevice(Adapter, Frontend)
+ {
+   spuDecoder = NULL;
+   digitalAudio = false;
+   playMode = pmNone;
++  outputOnly = OutputOnly;
+ 
+   // Devices that are only present on cards with decoders:
+ 
+@@ -357,6 +358,14 @@
+   return true;
+ }
+ 
++bool cDvbSdFfDevice::ProvidesSource(int Source) const
++{
++  if (outputOnly)
++     return false;
++  else
++     return cDvbDevice::ProvidesSource(Source);
++}
++
+ void cDvbSdFfDevice::TurnOffLiveMode(bool LiveView)
+ {
+   if (LiveView) {
+@@ -761,6 +770,11 @@
+ 
+ // --- cDvbSdFfDeviceProbe ---------------------------------------------------
+ 
++cDvbSdFfDeviceProbe::cDvbSdFfDeviceProbe(void)
++{
++  outputOnly = false;
++}
++
+ bool cDvbSdFfDeviceProbe::Probe(int Adapter, int Frontend)
+ {
+   static uint32_t SubsystemIds[] = {
+@@ -781,7 +795,7 @@
+   for (uint32_t *sid = SubsystemIds; *sid; sid++) {
+       if (*sid == SubsystemId) {
+          dsyslog("creating cDvbSdFfDevice");
+-         new cDvbSdFfDevice(Adapter, Frontend);
++         new cDvbSdFfDevice(Adapter, Frontend, outputOnly);
+          return true;
+          }
+       }
+diff -ruN vdr-1.7.20/PLUGINS/src/dvbsddevice/dvbsdffdevice.h vdr-1.7.21/PLUGINS/src/dvbsddevice/dvbsdffdevice.h
+--- vdr-1.7.20/PLUGINS/src/dvbsddevice/dvbsdffdevice.h	2011-05-21 14:56:49.000000000 +0200
++++ vdr-1.7.21/PLUGINS/src/dvbsddevice/dvbsdffdevice.h	2011-08-27 13:32:42.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsdffdevice.h 2.12 2011/05/21 12:56:49 kls Exp $
++ * $Id: dvbsdffdevice.h 2.13 2011/08/27 11:32:42 kls Exp $
+  */
+ 
+ #ifndef __DVBSDFFDEVICE_H
+@@ -17,10 +17,11 @@
+ class cDvbSdFfDevice : public cDvbDevice {
+ private:
+   int fd_osd, fd_audio, fd_video, fd_stc;
++  bool outputOnly;
+ protected:
+   virtual void MakePrimaryDevice(bool On);
+ public:
+-  cDvbSdFfDevice(int Adapter, int Frontend);
++  cDvbSdFfDevice(int Adapter, int Frontend, bool OutputOnly);
+   virtual ~cDvbSdFfDevice();
+   virtual bool HasDecoder(void) const;
+   virtual bool AvoidRecording(void) const;
+@@ -34,6 +35,8 @@
+ 
+ // Channel facilities
+ 
++public:
++  virtual bool ProvidesSource(int Source) const;
+ private:
+   void TurnOffLiveMode(bool LiveView);
+ protected:
+@@ -101,7 +104,11 @@
+   };
+ 
+ class cDvbSdFfDeviceProbe : public cDvbDeviceProbe {
++private:
++  bool outputOnly;
+ public:
++  cDvbSdFfDeviceProbe(void);
++  void SetOutputOnly(bool On) { outputOnly = On; }
+   virtual bool Probe(int Adapter, int Frontend);
+   };
+  
+diff -ruN vdr-1.7.20/PLUGINS/src/skincurses/skincurses.c vdr-1.7.21/PLUGINS/src/skincurses/skincurses.c
+--- vdr-1.7.20/PLUGINS/src/skincurses/skincurses.c	2011-05-15 23:41:47.000000000 +0200
++++ vdr-1.7.21/PLUGINS/src/skincurses/skincurses.c	2011-08-21 13:04:38.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: skincurses.c 2.6 2011/05/15 21:41:47 kls Exp $
++ * $Id: skincurses.c 2.7 2011/08/21 11:04:38 kls Exp $
+  */
+ 
+ #include <ncurses.h>
+@@ -436,7 +436,7 @@
+   int y = 2;
+   cTextScroller ts;
+   char t[32];
+-  snprintf(t, sizeof(t), "%s  %s", *DateString(Recording->start), *TimeString(Recording->start));
++  snprintf(t, sizeof(t), "%s  %s", *DateString(Recording->Start()), *TimeString(Recording->Start()));
+   ts.Set(osd, 0, y, ScOsdWidth, ScOsdHeight - y - 2, t, &Font, clrYellow, clrBackground);
+   y += ts.Height();
+   if (Info->GetEvent()->ParentalRating()) {
+diff -ruN vdr-1.7.20/channels.c vdr-1.7.21/channels.c
+--- vdr-1.7.20/channels.c	2010-11-07 13:24:59.000000000 +0100
++++ vdr-1.7.21/channels.c	2011-08-26 14:44:21.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 2.17 2010/11/07 12:24:59 kls Exp $
++ * $Id: channels.c 2.19 2011/08/26 12:44:21 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -497,8 +497,8 @@
+      if (Channel->vpid && Channel->vtype)
+         q += snprintf(q, sizeof(vpidbuf) - (q - vpidbuf), "=%d", Channel->vtype);
+      *q = 0;
+-     const int BufferSize = (MAXAPIDS + MAXDPIDS) * (5 + 1 + MAXLANGCODE2 + 5) + 10; // 5 digits plus delimiting ',' or ';' plus optional '=cod+cod@type', +10: paranoia
+-     char apidbuf[BufferSize];
++     const int ABufferSize = (MAXAPIDS + MAXDPIDS) * (5 + 1 + MAXLANGCODE2 + 5) + 10; // 5 digits plus delimiting ',' or ';' plus optional '=cod+cod@type', +10: paranoia
++     char apidbuf[ABufferSize];
+      q = apidbuf;
+      q += IntArrayToString(q, Channel->apids, 10, Channel->alangs, Channel->atypes);
+      if (Channel->dpids[0]) {
+@@ -506,11 +506,19 @@
+         q += IntArrayToString(q, Channel->dpids, 10, Channel->dlangs, Channel->dtypes);
+         }
+      *q = 0;
++     const int TBufferSize = MAXSPIDS * (5 + 1 + MAXLANGCODE2) + 10; // 5 digits plus delimiting ',' or ';' plus optional '=cod+cod', +10: paranoia and tpid
++     char tpidbuf[TBufferSize];
++     q = tpidbuf;
++     q += snprintf(q, sizeof(tpidbuf), "%d", Channel->tpid);
++     if (Channel->spids[0]) {
++        *q++ = ';';
++        q += IntArrayToString(q, Channel->spids, 10, Channel->slangs);
++        }
+      char caidbuf[MAXCAIDS * 5 + 10]; // 5: 4 digits plus delimiting ',', 10: paranoia
+      q = caidbuf;
+      q += IntArrayToString(q, Channel->caids, 16);
+      *q = 0;
+-     buffer = cString::sprintf("%s:%d:%s:%s:%d:%s:%s:%d:%s:%d:%d:%d:%d\n", FullName, Channel->frequency, *Channel->parameters, *cSource::ToString(Channel->source), Channel->srate, vpidbuf, apidbuf, Channel->tpid, caidbuf, Channel->sid, Channel->nid, Channel->tid, Channel->rid);
++     buffer = cString::sprintf("%s:%d:%s:%s:%d:%s:%s:%s:%s:%d:%d:%d:%d\n", FullName, Channel->frequency, *Channel->parameters, *cSource::ToString(Channel->source), Channel->srate, vpidbuf, apidbuf, tpidbuf, caidbuf, Channel->sid, Channel->nid, Channel->tid, Channel->rid);
+      }
+   return buffer;
+ }
+@@ -544,14 +552,17 @@
+      char *parambuf = NULL;
+      char *vpidbuf = NULL;
+      char *apidbuf = NULL;
++     char *tpidbuf = NULL;
+      char *caidbuf = NULL;
+-     int fields = sscanf(s, "%a[^:]:%d :%a[^:]:%a[^:] :%d :%a[^:]:%a[^:]:%d :%a[^:]:%d :%d :%d :%d ", &namebuf, &frequency, &parambuf, &sourcebuf, &srate, &vpidbuf, &apidbuf, &tpid, &caidbuf, &sid, &nid, &tid, &rid);
++     int fields = sscanf(s, "%a[^:]:%d :%a[^:]:%a[^:] :%d :%a[^:]:%a[^:]:%a[^:]:%a[^:]:%d :%d :%d :%d ", &namebuf, &frequency, &parambuf, &sourcebuf, &srate, &vpidbuf, &apidbuf, &tpidbuf, &caidbuf, &sid, &nid, &tid, &rid);
+      if (fields >= 9) {
+         if (fields == 9) {
+            // allow reading of old format
+            sid = atoi(caidbuf);
+            delete caidbuf;
+            caidbuf = NULL;
++           if (sscanf(tpidbuf, "%d", &tpid) != 1)
++              return false;
+            caids[0] = tpid;
+            caids[1] = 0;
+            tpid = 0;
+@@ -562,6 +573,7 @@
+         atypes[0] = 0;
+         dpids[0] = 0;
+         dtypes[0] = 0;
++        spids[0] = 0;
+         ok = false;
+         if (parambuf && sourcebuf && vpidbuf && apidbuf) {
+            parameters = parambuf;
+@@ -644,7 +656,30 @@
+               dpids[NumDpids] = 0;
+               dtypes[NumDpids] = 0;
+               }
+-
++           int NumSpids = 0;
++           if ((p = strchr(tpidbuf, ';')) != NULL) {
++              *p++ = 0;
++              char *q;
++              char *strtok_next;
++              while ((q = strtok_r(p, ",", &strtok_next)) != NULL) {
++                    if (NumSpids < MAXSPIDS) {
++                       char *l = strchr(q, '=');
++                       if (l) {
++                          *l++ = 0;
++                          strn0cpy(slangs[NumSpids], l, MAXLANGCODE2);
++                          }
++                       else
++                          *slangs[NumSpids] = 0;
++                       spids[NumSpids++] = strtol(q, NULL, 10);
++                       }
++                    else
++                       esyslog("ERROR: too many SPIDs!"); // no need to set ok to 'false'
++                    p = NULL;
++                    }
++              spids[NumSpids] = 0;
++              }
++           if (sscanf(tpidbuf, "%d", &tpid) != 1)
++              return false;
+            if (caidbuf) {
+               char *p = caidbuf;
+               char *q;
+@@ -681,6 +716,7 @@
+         free(sourcebuf);
+         free(vpidbuf);
+         free(apidbuf);
++        free(tpidbuf);
+         free(caidbuf);
+         free(namebuf);
+         if (!GetChannelID().Valid()) {
+diff -ruN vdr-1.7.20/config.c vdr-1.7.21/config.c
+--- vdr-1.7.20/config.c	2011-06-13 16:41:01.000000000 +0200
++++ vdr-1.7.21/config.c	2011-08-20 11:12:05.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 2.14 2011/06/13 14:41:01 kls Exp $
++ * $Id: config.c 2.15 2011/08/20 09:12:05 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -395,7 +395,7 @@
+   CurrentChannel = -1;
+   CurrentVolume = MAXVOLUME;
+   CurrentDolby = 0;
+-  // InitialChannel is initialized by constructor
++  InitialChannel = "";
+   InitialVolume = -1;
+   ChannelsWrap = 0;
+   EmergencyExit = 1;
+diff -ruN vdr-1.7.20/config.h vdr-1.7.21/config.h
+--- vdr-1.7.20/config.h	2011-06-21 23:43:01.000000000 +0200
++++ vdr-1.7.21/config.h	2011-08-20 10:51:47.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.33 2011/06/21 21:43:01 kls Exp $
++ * $Id: config.h 2.34 2011/08/20 08:51:47 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.20"
+-#define VDRVERSNUM   10720  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.21"
++#define VDRVERSNUM   10721  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.20"
+-#define APIVERSNUM   10720  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.21"
++#define APIVERSNUM   10721  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-1.7.20/cutter.c vdr-1.7.21/cutter.c
+--- vdr-1.7.20/cutter.c	2011-03-06 15:54:33.000000000 +0100
++++ vdr-1.7.21/cutter.c	2011-08-21 13:08:08.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: cutter.c 2.6 2011/03/06 14:54:33 kls Exp $
++ * $Id: cutter.c 2.8 2011/08/21 11:08:08 kls Exp $
+  */
+ 
+ #include "cutter.h"
+@@ -75,7 +75,7 @@
+      if (!fromFile || !toFile)
+         return;
+      fromFile->SetReadAhead(MEGABYTE(20));
+-     int Index = Mark->position;
++     int Index = Mark->Position();
+      Mark = fromMarks.Next(Mark);
+      off_t FileSize = 0;
+      int CurrentFileNumber = 0;
+@@ -163,14 +163,14 @@
+ 
+            // Check editing marks:
+ 
+-           if (Mark && Index >= Mark->position) {
++           if (Mark && Index >= Mark->Position()) {
+               Mark = fromMarks.Next(Mark);
+               toMarks.Add(LastIFrame);
+               if (Mark)
+                  toMarks.Add(toIndex->Last() + 1);
+               toMarks.Save();
+               if (Mark) {
+-                 Index = Mark->position;
++                 Index = Mark->Position();
+                  Mark = fromMarks.Next(Mark);
+                  CurrentFileNumber = 0; // triggers SetOffset before reading next frame
+                  cutIn = true;
+@@ -208,6 +208,12 @@
+      error = false;
+      ended = false;
+      cRecording Recording(FileName);
++
++     cMarks FromMarks;
++     FromMarks.Load(FileName);
++     if (cMark *First = FromMarks.First())
++        Recording.SetStartTime(Recording.Start() + (int(First->Position() / Recording.FramesPerSecond() + 30) / 60) * 60);
++
+      const char *evn = Recording.PrefixFileName('%');
+      if (evn && RemoveVideoFile(evn) && MakeDirs(evn, true)) {
+         // XXX this can be removed once RenameVideoFile() follows symlinks (see videodir.c)
+diff -ruN vdr-1.7.20/device.c vdr-1.7.21/device.c
+--- vdr-1.7.20/device.c	2011-06-02 15:14:16.000000000 +0200
++++ vdr-1.7.21/device.c	2011-08-26 14:56:00.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.41 2011/06/02 13:14:16 kls Exp $
++ * $Id: device.c 2.42 2011/08/26 12:56:00 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -612,6 +612,11 @@
+ {
+   return false;
+ }
++
++bool cDevice::ProvidesEIT(void) const
++{
++  return false;
++}
+ 
+ int cDevice::NumProvidedSystems(void) const
+ {
+diff -ruN vdr-1.7.20/device.h vdr-1.7.21/device.h
+--- vdr-1.7.20/device.h	2011-06-02 15:15:31.000000000 +0200
++++ vdr-1.7.21/device.h	2011-08-26 14:52:29.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 2.26 2011/06/02 13:15:31 kls Exp $
++ * $Id: device.h 2.27 2011/08/26 12:52:29 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -247,6 +247,10 @@
+          ///< function itself actually returns true.
+          ///< The default implementation always returns false, so a derived cDevice
+          ///< class that can provide channels must implement this function.
++  virtual bool ProvidesEIT(void) const;
++         ///< Returns true if this device provides EIT data and thus wants to be tuned
++         ///< to the channels it can receive regularly to update the data.
++         ///< The default implementation returns false.
+   virtual int NumProvidedSystems(void) const;
+          ///< Returns the number of individual "delivery systems" this device provides.
+          ///< The default implementation returns 0, so any derived class that can
+diff -ruN vdr-1.7.20/dvbdevice.c vdr-1.7.21/dvbdevice.c
+--- vdr-1.7.20/dvbdevice.c	2011-06-11 16:34:24.000000000 +0200
++++ vdr-1.7.21/dvbdevice.c	2011-08-26 14:57:34.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.42 2011/06/11 14:34:24 kls Exp $
++ * $Id: dvbdevice.c 2.43 2011/08/26 12:57:34 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -1081,6 +1081,11 @@
+   return result;
+ }
+ 
++bool cDvbDevice::ProvidesEIT(void) const
++{
++  return dvbTuner != NULL;
++}
++
+ int cDvbDevice::NumProvidedSystems(void) const
+ {
+   return numProvidedSystems;
+diff -ruN vdr-1.7.20/dvbdevice.h vdr-1.7.21/dvbdevice.h
+--- vdr-1.7.20/dvbdevice.h	2011-06-02 15:20:05.000000000 +0200
++++ vdr-1.7.21/dvbdevice.h	2011-08-26 14:55:45.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 2.15 2011/06/02 13:20:05 kls Exp $
++ * $Id: dvbdevice.h 2.16 2011/08/26 12:55:45 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -140,6 +140,7 @@
+   virtual bool ProvidesSource(int Source) const;
+   virtual bool ProvidesTransponder(const cChannel *Channel) const;
+   virtual bool ProvidesChannel(const cChannel *Channel, int Priority = -1, bool *NeedsDetachReceivers = NULL) const;
++  virtual bool ProvidesEIT(void) const;
+   virtual int NumProvidedSystems(void) const;
+   virtual int SignalStrength(void) const;
+   virtual int SignalQuality(void) const;
+diff -ruN vdr-1.7.20/eitscan.c vdr-1.7.21/eitscan.c
+--- vdr-1.7.20/eitscan.c	2011-08-12 16:18:04.000000000 +0200
++++ vdr-1.7.21/eitscan.c	2011-08-26 18:16:46.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: eitscan.c 2.2 2011/08/12 14:18:04 kls Exp $
++ * $Id: eitscan.c 2.4 2011/08/26 16:16:46 kls Exp $
+  */
+ 
+ #include "eitscan.h"
+@@ -143,7 +143,7 @@
+            bool AnyDeviceSwitched = false;
+            for (int i = 0; i < cDevice::NumDevices(); i++) {
+                cDevice *Device = cDevice::GetDevice(i);
+-               if (Device) {
++               if (Device && Device->ProvidesEIT()) {
+                   for (cScanData *ScanData = scanList->First(); ScanData; ScanData = scanList->Next(ScanData)) {
+                       const cChannel *Channel = ScanData->GetChannel();
+                       if (Channel) {
+diff -ruN vdr-1.7.20/menu.c vdr-1.7.21/menu.c
+--- vdr-1.7.20/menu.c	2011-08-06 15:13:34.000000000 +0200
++++ vdr-1.7.21/menu.c	2011-08-27 13:05:33.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 2.29 2011/08/06 13:13:34 kls Exp $
++ * $Id: menu.c 2.32 2011/08/27 11:05:33 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -2193,13 +2193,13 @@
+   totalEntries++;
+   if (New)
+      newEntries++;
+-  SetText(cString::sprintf("%d\t%d\t%s", totalEntries, newEntries, name));
++  SetText(cString::sprintf("%d\t\t%d\t%s", totalEntries, newEntries, name));
+ }
+ 
+ // --- cMenuRecordings -------------------------------------------------------
+ 
+ cMenuRecordings::cMenuRecordings(const char *Base, int Level, bool OpenSubMenus)
+-:cOsdMenu(Base ? Base : tr("Recordings"), 9, 7)
++:cOsdMenu(Base ? Base : tr("Recordings"), 9, 6, 6)
+ {
+   base = Base ? strdup(Base) : NULL;
+   level = Setup.RecordingDirs ? Level : -1;
+@@ -2770,6 +2770,7 @@
+   updateChannelsTexts[5] = tr("add new transponders");
+ 
+   SetSection(tr("DVB"));
++  SetHelp(NULL, tr("Button$Audio"), tr("Button$Subtitles"), NULL); 
+   Setup();
+ }
+ 
+@@ -2815,46 +2816,56 @@
+   eOSState state = cMenuSetupBase::ProcessKey(Key);
+ 
+   if (Key != kNone) {
+-     bool DoSetup = data.VideoFormat != newVideoFormat;
+-     DoSetup |= data.DisplaySubtitles != newDisplaySubtitles;
+-     if (numAudioLanguages != oldnumAudioLanguages) {
+-        for (int i = oldnumAudioLanguages; i < numAudioLanguages; i++) {
+-            data.AudioLanguages[i] = 0;
+-            for (int l = 0; l < I18nLanguages()->Size(); l++) {
+-                int k;
+-                for (k = 0; k < oldnumAudioLanguages; k++) {
+-                    if (data.AudioLanguages[k] == l)
+-                       break;
+-                    }
+-                if (k >= oldnumAudioLanguages) {
+-                   data.AudioLanguages[i] = l;
+-                   break;
++     switch (Key) {
++       case kGreen:  cRemote::Put(kAudio, true);
++                     state = osEnd;
++                     break;
++       case kYellow: cRemote::Put(kSubtitles, true);
++                     state = osEnd;
++                     break;
++       default: { 
++            bool DoSetup = data.VideoFormat != newVideoFormat;
++            DoSetup |= data.DisplaySubtitles != newDisplaySubtitles;
++            if (numAudioLanguages != oldnumAudioLanguages) {
++               for (int i = oldnumAudioLanguages; i < numAudioLanguages; i++) {
++                   data.AudioLanguages[i] = 0;
++                   for (int l = 0; l < I18nLanguages()->Size(); l++) {
++                       int k;
++                       for (k = 0; k < oldnumAudioLanguages; k++) {
++                           if (data.AudioLanguages[k] == l)
++                              break;
++                           }
++                       if (k >= oldnumAudioLanguages) {
++                          data.AudioLanguages[i] = l;
++                          break;
++                          }
++                       }
+                    }
+-                }
+-            }
+-        data.AudioLanguages[numAudioLanguages] = -1;
+-        DoSetup = true;
+-        }
+-     if (numSubtitleLanguages != oldnumSubtitleLanguages) {
+-        for (int i = oldnumSubtitleLanguages; i < numSubtitleLanguages; i++) {
+-            data.SubtitleLanguages[i] = 0;
+-            for (int l = 0; l < I18nLanguages()->Size(); l++) {
+-                int k;
+-                for (k = 0; k < oldnumSubtitleLanguages; k++) {
+-                    if (data.SubtitleLanguages[k] == l)
+-                       break;
+-                    }
+-                if (k >= oldnumSubtitleLanguages) {
+-                   data.SubtitleLanguages[i] = l;
+-                   break;
++               data.AudioLanguages[numAudioLanguages] = -1;
++               DoSetup = true;
++               }
++            if (numSubtitleLanguages != oldnumSubtitleLanguages) {
++               for (int i = oldnumSubtitleLanguages; i < numSubtitleLanguages; i++) {
++                   data.SubtitleLanguages[i] = 0;
++                   for (int l = 0; l < I18nLanguages()->Size(); l++) {
++                       int k;
++                       for (k = 0; k < oldnumSubtitleLanguages; k++) {
++                           if (data.SubtitleLanguages[k] == l)
++                              break;
++                           }
++                       if (k >= oldnumSubtitleLanguages) {
++                          data.SubtitleLanguages[i] = l;
++                          break;
++                          }
++                       }
+                    }
+-                }
++               data.SubtitleLanguages[numSubtitleLanguages] = -1;
++               DoSetup = true;
++               }
++            if (DoSetup)
++               Setup();
+             }
+-        data.SubtitleLanguages[numSubtitleLanguages] = -1;
+-        DoSetup = true;
+-        }
+-     if (DoSetup)
+-        Setup();
++       }
+      }
+   if (state == osBack && Key == kOk) {
+      if (::Setup.PrimaryDVB != oldPrimaryDVB)
+@@ -4667,7 +4678,7 @@
+      if (GetIndex(Current, Total)) {
+         cMark *m = Forward ? marks.GetNext(Current) : marks.GetPrev(Current);
+         if (m) {
+-           Goto(m->position, true);
++           Goto(m->Position(), true);
+            displayFrames = true;
+            }
+         }
+@@ -4684,14 +4695,15 @@
+         int p = SkipFrames(Forward ? 1 : -1);
+         cMark *m2;
+         if (Forward) {
+-           if ((m2 = marks.Next(m)) != NULL && m2->position <= p)
++           if ((m2 = marks.Next(m)) != NULL && m2->Position() <= p)
+               return;
+            }
+         else {
+-           if ((m2 = marks.Prev(m)) != NULL && m2->position >= p)
++           if ((m2 = marks.Prev(m)) != NULL && m2->Position() >= p)
+               return;
+            }
+-        Goto(m->position = p, true);
++        m->SetPosition(p);
++        Goto(m->Position(), true);
+         marks.Save();
+         }
+      }
+@@ -4726,7 +4738,7 @@
+         if ((m->Index() & 0x01) != 0)
+            m = marks.Next(m);
+         if (m) {
+-           Goto(m->position - SecondsToFrames(3, FramesPerSecond()));
++           Goto(m->Position() - SecondsToFrames(3, FramesPerSecond()));
+            Play();
+            }
+         }
+diff -ruN vdr-1.7.20/po/ar.po vdr-1.7.21/po/ar.po
+--- vdr-1.7.20/po/ar.po	2011-05-21 14:29:39.000000000 +0200
++++ vdr-1.7.21/po/ar.po	2011-08-27 11:55:35.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2008-10-16 11:16-0400\n"
+ "Last-Translator: Osama Alrawab <alrawab@hotmail.com>\n"
+ "Language-Team: Arabic <ar@li.org>\n"
+@@ -923,6 +923,12 @@
+ msgid "DVB"
+ msgstr "ÿßŸÑÿØŸâ ŸÅŸâ ÿ®Ÿâ"
+ 
++msgid "Button$Audio"
++msgstr "ÿßŸÑÿµŸàÿ™"
++
++msgid "Button$Subtitles"
++msgstr "ÿßŸÑÿ™ÿ±ÿ¨ŸÖÿ©"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "ŸÉÿ±ÿ™ ÿßŸÑÿ≥ÿ™ÿßŸÑÿßŸäÿ™ ÿßŸÑÿßŸàŸÑŸâ"
+ 
+@@ -1156,9 +1162,6 @@
+ msgid " Stop replaying"
+ msgstr " ÿßŸäŸÇÿßŸÅ ÿßŸÑÿßÿπÿßÿØÿ©"
+ 
+-msgid "Button$Audio"
+-msgstr "ÿßŸÑÿµŸàÿ™"
+-
+ msgid "Button$Pause"
+ msgstr "ÿ∑ŸÖÿ≥"
+ 
+@@ -1184,9 +1187,6 @@
+ msgid "No subtitles"
+ msgstr "ŸÑÿß ÿ™Ÿàÿ¨ÿØ ÿ™ÿ±ÿ¨ŸÖÿ© ŸÖÿ™ÿßÿ≠ÿ©"
+ 
+-msgid "Button$Subtitles"
+-msgstr "ÿßŸÑÿ™ÿ±ÿ¨ŸÖÿ©"
+-
+ msgid "No subtitles available!"
+ msgstr "ŸÑÿß ÿ™ÿ±ÿ¨ŸÖÿ© ŸÖÿ™ÿßÿ≠ÿ©"
+ 
+diff -ruN vdr-1.7.20/po/ca_ES.po vdr-1.7.21/po/ca_ES.po
+--- vdr-1.7.20/po/ca_ES.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/ca_ES.po	2011-08-27 11:55:33.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Catalan <vdr@linuxtv.org>\n"
+@@ -905,6 +905,12 @@
+ msgid "DVB"
+ msgstr "Tarja DVB"
+ 
++msgid "Button$Audio"
++msgstr "¿udio"
++
++msgid "Button$Subtitles"
++msgstr "SubtÌtols"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Tarja DVB prim‡ria"
+ 
+@@ -1132,9 +1138,6 @@
+ msgid " Stop replaying"
+ msgstr " Aturar la reproducciÛ"
+ 
+-msgid "Button$Audio"
+-msgstr "¿udio"
+-
+ msgid "Button$Pause"
+ msgstr "Pausa"
+ 
+@@ -1160,9 +1163,6 @@
+ msgid "No subtitles"
+ msgstr "Sense subtÌtols"
+ 
+-msgid "Button$Subtitles"
+-msgstr "SubtÌtols"
+-
+ msgid "No subtitles available!"
+ msgstr "No hi ha subtÌtols disponibles!"
+ 
+diff -ruN vdr-1.7.20/po/cs_CZ.po vdr-1.7.21/po/cs_CZ.po
+--- vdr-1.7.20/po/cs_CZ.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/cs_CZ.po	2011-08-27 11:55:33.000000000 +0200
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.14\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2010-05-06 11:00+0200\n"
+ "Last-Translator: Radek ≈†≈•astn√Ω <dedkus@gmail.com>\n"
+ "Language-Team: Czech <vdr@linuxtv.org>\n"
+@@ -904,6 +904,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "Zvuk"
++
++msgid "Button$Subtitles"
++msgstr "Titulky"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Prim√°rn√≠ DVB za≈ô√≠zen√≠"
+ 
+@@ -1131,9 +1137,6 @@
+ msgid " Stop replaying"
+ msgstr " Zastavit p≈ôehr√°v√°n√≠"
+ 
+-msgid "Button$Audio"
+-msgstr "Zvuk"
+-
+ msgid "Button$Pause"
+ msgstr "P≈ôeru≈°it"
+ 
+@@ -1159,9 +1162,6 @@
+ msgid "No subtitles"
+ msgstr "Bez titulk≈Ø"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Titulky"
+-
+ msgid "No subtitles available!"
+ msgstr "≈Ω√°dn√© dostupn√© titulky!"
+ 
+diff -ruN vdr-1.7.20/po/da_DK.po vdr-1.7.21/po/da_DK.po
+--- vdr-1.7.20/po/da_DK.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/da_DK.po	2011-08-27 11:55:34.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish <vdr@linuxtv.org>\n"
+@@ -902,6 +902,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "Audio"
++
++msgid "Button$Subtitles"
++msgstr "Undertekster"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "PrimÊr DVB enhed"
+ 
+@@ -1129,9 +1135,6 @@
+ msgid " Stop replaying"
+ msgstr " Stop afspilning"
+ 
+-msgid "Button$Audio"
+-msgstr "Audio"
+-
+ msgid "Button$Pause"
+ msgstr "Pause"
+ 
+@@ -1157,9 +1160,6 @@
+ msgid "No subtitles"
+ msgstr "Ingen undertekster"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Undertekster"
+-
+ msgid "No subtitles available!"
+ msgstr "Ingen undertekster tilgÊngelig!"
+ 
+diff -ruN vdr-1.7.20/po/de_DE.po vdr-1.7.21/po/de_DE.po
+--- vdr-1.7.20/po/de_DE.po	2011-05-21 14:29:39.000000000 +0200
++++ vdr-1.7.21/po/de_DE.po	2011-08-27 11:55:35.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2010-01-16 16:46+0100\n"
+ "Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
+@@ -902,6 +902,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "Audio"
++
++msgid "Button$Subtitles"
++msgstr "Untertitel"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Prim‰res DVB-Interface"
+ 
+@@ -1129,9 +1135,6 @@
+ msgid " Stop replaying"
+ msgstr " Wiedergabe beenden"
+ 
+-msgid "Button$Audio"
+-msgstr "Audio"
+-
+ msgid "Button$Pause"
+ msgstr "Pause"
+ 
+@@ -1157,9 +1160,6 @@
+ msgid "No subtitles"
+ msgstr "Keine Untertitel"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Untertitel"
+-
+ msgid "No subtitles available!"
+ msgstr "Keine Untertitel verf¸gbar!"
+ 
+diff -ruN vdr-1.7.20/po/el_GR.po vdr-1.7.21/po/el_GR.po
+--- vdr-1.7.20/po/el_GR.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/el_GR.po	2011-08-27 11:55:34.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek <vdr@linuxtv.org>\n"
+@@ -902,6 +902,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "π˜ÔÚ"
++
++msgid "Button$Subtitles"
++msgstr ""
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr " ˝ÒÈ· DVB Í‹ÒÙ·"
+ 
+@@ -1129,9 +1135,6 @@
+ msgid " Stop replaying"
+ msgstr " ‘›ÎÔÚ ·Ì··Ò·„˘„ﬁÚ"
+ 
+-msgid "Button$Audio"
+-msgstr "π˜ÔÚ"
+-
+ msgid "Button$Pause"
+ msgstr "–·˝ÛÁ"
+ 
+@@ -1157,9 +1160,6 @@
+ msgid "No subtitles"
+ msgstr ""
+ 
+-msgid "Button$Subtitles"
+-msgstr ""
+-
+ msgid "No subtitles available!"
+ msgstr ""
+ 
+diff -ruN vdr-1.7.20/po/es_ES.po vdr-1.7.21/po/es_ES.po
+--- vdr-1.7.20/po/es_ES.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/es_ES.po	2011-08-27 11:55:34.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Spanish <vdr@linuxtv.org>\n"
+@@ -903,6 +903,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "Audio"
++
++msgid "Button$Subtitles"
++msgstr "SubtÌtulos"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Interfaz DVB primario"
+ 
+@@ -1130,9 +1136,6 @@
+ msgid " Stop replaying"
+ msgstr " Parar reproduciÛn"
+ 
+-msgid "Button$Audio"
+-msgstr "Audio"
+-
+ msgid "Button$Pause"
+ msgstr "Pausa"
+ 
+@@ -1158,9 +1161,6 @@
+ msgid "No subtitles"
+ msgstr "Sin subtÌtulos"
+ 
+-msgid "Button$Subtitles"
+-msgstr "SubtÌtulos"
+-
+ msgid "No subtitles available!"
+ msgstr "°No hay subtÌtulos disponibles!"
+ 
+diff -ruN vdr-1.7.20/po/et_EE.po vdr-1.7.21/po/et_EE.po
+--- vdr-1.7.20/po/et_EE.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/et_EE.po	2011-08-27 11:55:33.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
+ "Language-Team: Estonian <vdr@linuxtv.org>\n"
+@@ -902,6 +902,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "Audio"
++
++msgid "Button$Subtitles"
++msgstr "Subtiitrid"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Esmane DVB seade"
+ 
+@@ -1129,9 +1135,6 @@
+ msgid " Stop replaying"
+ msgstr " Lıpetada taasesitamine"
+ 
+-msgid "Button$Audio"
+-msgstr "Audio"
+-
+ msgid "Button$Pause"
+ msgstr "Paus"
+ 
+@@ -1157,9 +1160,6 @@
+ msgid "No subtitles"
+ msgstr "Subtiitrid v‰ljas"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Subtiitrid"
+-
+ msgid "No subtitles available!"
+ msgstr "Subtiitrid puuduvad"
+ 
+diff -ruN vdr-1.7.20/po/fi_FI.po vdr-1.7.21/po/fi_FI.po
+--- vdr-1.7.20/po/fi_FI.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/fi_FI.po	2011-08-27 11:55:34.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
+@@ -905,6 +905,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "√Ñ√§ni"
++
++msgid "Button$Subtitles"
++msgstr "Tekstitys"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Ensisijainen DVB-sovitin"
+ 
+@@ -1132,9 +1138,6 @@
+ msgid " Stop replaying"
+ msgstr " Lopeta toisto"
+ 
+-msgid "Button$Audio"
+-msgstr "√Ñ√§ni"
+-
+ msgid "Button$Pause"
+ msgstr "Tauko"
+ 
+@@ -1160,9 +1163,6 @@
+ msgid "No subtitles"
+ msgstr "Ei tekstityst√§"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Tekstitys"
+-
+ msgid "No subtitles available!"
+ msgstr "Tekstitys ei ole valittavissa!"
+ 
+diff -ruN vdr-1.7.20/po/fr_FR.po vdr-1.7.21/po/fr_FR.po
+--- vdr-1.7.20/po/fr_FR.po	2011-05-21 14:29:39.000000000 +0200
++++ vdr-1.7.21/po/fr_FR.po	2011-08-27 11:55:35.000000000 +0200
+@@ -13,7 +13,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2008-02-27 18:14+0100\n"
+ "Last-Translator: Jean-Claude Repetto <jc@repetto.org>\n"
+ "Language-Team: French <vdr@linuxtv.org>\n"
+@@ -908,6 +908,12 @@
+ msgid "DVB"
+ msgstr "Cartes DVB"
+ 
++msgid "Button$Audio"
++msgstr "Audio"
++
++msgid "Button$Subtitles"
++msgstr "Sous-titres"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Carte DVB primaire"
+ 
+@@ -1135,9 +1141,6 @@
+ msgid " Stop replaying"
+ msgstr " ArrÍter la lecture"
+ 
+-msgid "Button$Audio"
+-msgstr "Audio"
+-
+ msgid "Button$Pause"
+ msgstr "Pause"
+ 
+@@ -1163,9 +1166,6 @@
+ msgid "No subtitles"
+ msgstr "Pas de sous-titres"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Sous-titres"
+-
+ msgid "No subtitles available!"
+ msgstr "Pas de sous-titres disponible !"
+ 
+diff -ruN vdr-1.7.20/po/hr_HR.po vdr-1.7.21/po/hr_HR.po
+--- vdr-1.7.20/po/hr_HR.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/hr_HR.po	2011-08-27 11:55:34.000000000 +0200
+@@ -9,7 +9,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian <vdr@linuxtv.org>\n"
+@@ -904,6 +904,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "Audio"
++
++msgid "Button$Subtitles"
++msgstr "Titlovi"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Primarni DVB ureaj"
+ 
+@@ -1131,9 +1137,6 @@
+ msgid " Stop replaying"
+ msgstr " Prekini reprodukciju"
+ 
+-msgid "Button$Audio"
+-msgstr "Audio"
+-
+ msgid "Button$Pause"
+ msgstr "Pauza"
+ 
+@@ -1159,9 +1162,6 @@
+ msgid "No subtitles"
+ msgstr "Bez titlova"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Titlovi"
+-
+ msgid "No subtitles available!"
+ msgstr "Titlovi nisu dostupni!"
+ 
+diff -ruN vdr-1.7.20/po/hu_HU.po vdr-1.7.21/po/hu_HU.po
+--- vdr-1.7.20/po/hu_HU.po	2011-05-21 14:29:39.000000000 +0200
++++ vdr-1.7.21/po/hu_HU.po	2011-08-27 11:55:35.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2007-12-01 21:42+0200\n"
+ "Last-Translator: Istv·n F¸ley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian <vdr@linuxtv.org>\n"
+@@ -905,6 +905,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "Hang"
++
++msgid "Button$Subtitles"
++msgstr "Feliratok"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Elsı DVB interface"
+ 
+@@ -1132,9 +1138,6 @@
+ msgid " Stop replaying"
+ msgstr " Lej·tsz·st befejzni"
+ 
+-msgid "Button$Audio"
+-msgstr "Hang"
+-
+ msgid "Button$Pause"
+ msgstr "Sz¸net"
+ 
+@@ -1160,9 +1163,6 @@
+ msgid "No subtitles"
+ msgstr "Felirat ki"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Feliratok"
+-
+ msgid "No subtitles available!"
+ msgstr "A csatorn·n nincs felirat!"
+ 
+diff -ruN vdr-1.7.20/po/it_IT.po vdr-1.7.21/po/it_IT.po
+--- vdr-1.7.20/po/it_IT.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/it_IT.po	2011-08-27 11:55:34.000000000 +0200
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2010-06-13 00:30+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
+@@ -909,6 +909,12 @@
+ msgid "DVB"
+ msgstr "Scheda DVB"
+ 
++msgid "Button$Audio"
++msgstr "Audio"
++
++msgid "Button$Subtitles"
++msgstr "Sottotitoli"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Scheda DVB primaria"
+ 
+@@ -1136,9 +1142,6 @@
+ msgid " Stop replaying"
+ msgstr " Ferma riproduzione"
+ 
+-msgid "Button$Audio"
+-msgstr "Audio"
+-
+ msgid "Button$Pause"
+ msgstr "Pausa"
+ 
+@@ -1164,9 +1167,6 @@
+ msgid "No subtitles"
+ msgstr "Nessun sottotitolo"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Sottotitoli"
+-
+ msgid "No subtitles available!"
+ msgstr "Nessun sottotitolo disponibile!"
+ 
+diff -ruN vdr-1.7.20/po/lt_LT.po vdr-1.7.21/po/lt_LT.po
+--- vdr-1.7.20/po/lt_LT.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/lt_LT.po	2011-08-27 11:55:35.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.16\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2010-10-30 11:55+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian <vdr@linuxtv.org>\n"
+@@ -902,6 +902,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "Garsas"
++
++msgid "Button$Subtitles"
++msgstr "Subtitrai"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Pirminiƒó DVB ƒØvestis"
+ 
+@@ -1129,9 +1135,6 @@
+ msgid " Stop replaying"
+ msgstr " Sustabdyti kartojimƒÖ"
+ 
+-msgid "Button$Audio"
+-msgstr "Garsas"
+-
+ msgid "Button$Pause"
+ msgstr "Pristabdyti"
+ 
+@@ -1157,9 +1160,6 @@
+ msgid "No subtitles"
+ msgstr "Nƒóra subtitr≈≥"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Subtitrai"
+-
+ msgid "No subtitles available!"
+ msgstr "Subtitrai nepateikiami!"
+ 
+diff -ruN vdr-1.7.20/po/mk_MK.po vdr-1.7.21/po/mk_MK.po
+--- vdr-1.7.20/po/mk_MK.po	2011-05-21 14:29:39.000000000 +0200
++++ vdr-1.7.21/po/mk_MK.po	2011-08-27 11:55:35.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR-1.7.14\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2010-03-11 00:54+0100\n"
+ "Last-Translator: Dimitar Petrovski <dimeptr@gmail.com>\n"
+ "Language-Team: Macedonian <en@li.org>\n"
+@@ -903,6 +903,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "–ê—É–¥–∏–æ"
++
++msgid "Button$Subtitles"
++msgstr "–¢–∏—Ç–ª"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "–ü—Ä–∏–º–∞—Ä–µ–Ω DVB —É—Ä–µ–¥"
+ 
+@@ -1130,9 +1136,6 @@
+ msgid " Stop replaying"
+ msgstr " –ó–∞–ø—Ä–∏ –ø—É—à—Ç–∞—ö–µ"
+ 
+-msgid "Button$Audio"
+-msgstr "–ê—É–¥–∏–æ"
+-
+ msgid "Button$Pause"
+ msgstr "–ü–∞—É–∑–∞"
+ 
+@@ -1158,9 +1161,6 @@
+ msgid "No subtitles"
+ msgstr "–ë–µ–∑ —Ç–∏—Ç–ª"
+ 
+-msgid "Button$Subtitles"
+-msgstr "–¢–∏—Ç–ª"
+-
+ msgid "No subtitles available!"
+ msgstr "–¢–∏—Ç–ª–æ–≤–∏ –Ω–µ–¥–æ—Å—Ç–∞–ø–Ω–∏!"
+ 
+diff -ruN vdr-1.7.20/po/nl_NL.po vdr-1.7.21/po/nl_NL.po
+--- vdr-1.7.20/po/nl_NL.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/nl_NL.po	2011-08-27 11:55:33.000000000 +0200
+@@ -11,7 +11,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2008-02-26 17:20+0100\n"
+ "Last-Translator: Johan Schuring <johan.schuring@vetteblei.nl>\n"
+ "Language-Team: Dutch <vdr@linuxtv.org>\n"
+@@ -906,6 +906,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "Audio"
++
++msgid "Button$Subtitles"
++msgstr "Ondertiteling"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Eerste DVB kaart"
+ 
+@@ -1133,9 +1139,6 @@
+ msgid " Stop replaying"
+ msgstr " Stop afspelen"
+ 
+-msgid "Button$Audio"
+-msgstr "Audio"
+-
+ msgid "Button$Pause"
+ msgstr "Pauze"
+ 
+@@ -1161,9 +1164,6 @@
+ msgid "No subtitles"
+ msgstr "Geen ondertiteling"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Ondertiteling"
+-
+ msgid "No subtitles available!"
+ msgstr "Geen ondertiteling beschikbaar"
+ 
+diff -ruN vdr-1.7.20/po/nn_NO.po vdr-1.7.21/po/nn_NO.po
+--- vdr-1.7.20/po/nn_NO.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/nn_NO.po	2011-08-27 11:55:34.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian Nynorsk <vdr@linuxtv.org>\n"
+@@ -903,6 +903,12 @@
+ msgid "DVB"
+ msgstr "DVB-enheter"
+ 
++msgid "Button$Audio"
++msgstr ""
++
++msgid "Button$Subtitles"
++msgstr ""
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Hoved DVB-enhet"
+ 
+@@ -1130,9 +1136,6 @@
+ msgid " Stop replaying"
+ msgstr " Stopp avspilling"
+ 
+-msgid "Button$Audio"
+-msgstr ""
+-
+ msgid "Button$Pause"
+ msgstr ""
+ 
+@@ -1158,9 +1161,6 @@
+ msgid "No subtitles"
+ msgstr ""
+ 
+-msgid "Button$Subtitles"
+-msgstr ""
+-
+ msgid "No subtitles available!"
+ msgstr ""
+ 
+diff -ruN vdr-1.7.20/po/pl_PL.po vdr-1.7.21/po/pl_PL.po
+--- vdr-1.7.20/po/pl_PL.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/pl_PL.po	2011-08-27 11:55:33.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2008-03-09 12:59+0100\n"
+ "Last-Translator: Michael Rakowski <mrak@gmx.de>\n"
+ "Language-Team: Polish <vdr@linuxtv.org>\n"
+@@ -903,6 +903,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "DºwiÍk"
++
++msgid "Button$Subtitles"
++msgstr "Napisy"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Pierwszy interfejs DVB"
+ 
+@@ -1130,9 +1136,6 @@
+ msgid " Stop replaying"
+ msgstr " Zatrzymaj odtwarzanie"
+ 
+-msgid "Button$Audio"
+-msgstr "DºwiÍk"
+-
+ msgid "Button$Pause"
+ msgstr "Pauza"
+ 
+@@ -1158,9 +1161,6 @@
+ msgid "No subtitles"
+ msgstr "Brak napisÛw"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Napisy"
+-
+ msgid "No subtitles available!"
+ msgstr "Napisy nie s± dostÍpne"
+ 
+diff -ruN vdr-1.7.20/po/pt_PT.po vdr-1.7.21/po/pt_PT.po
+--- vdr-1.7.20/po/pt_PT.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/pt_PT.po	2011-08-27 11:55:17.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.15\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2010-03-28 22:49+0100\n"
+ "Last-Translator: Cris Silva <hudokkow@gmail.com>\n"
+ "Language-Team: Portuguese <vdr@linuxtv.org>\n"
+@@ -903,6 +903,12 @@
+ msgid "DVB"
+ msgstr "Placa DVB"
+ 
++msgid "Button$Audio"
++msgstr "¡udio"
++
++msgid "Button$Subtitles"
++msgstr "Legendas"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Placa DVB prim·ria"
+ 
+@@ -1130,9 +1136,6 @@
+ msgid " Stop replaying"
+ msgstr " Parar reproduÁ„o"
+ 
+-msgid "Button$Audio"
+-msgstr "¡udio"
+-
+ msgid "Button$Pause"
+ msgstr "Pausa"
+ 
+@@ -1158,9 +1161,6 @@
+ msgid "No subtitles"
+ msgstr "Sem legendas"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Legendas"
+-
+ msgid "No subtitles available!"
+ msgstr "Legendas indisponÌveis!"
+ 
+diff -ruN vdr-1.7.20/po/ro_RO.po vdr-1.7.21/po/ro_RO.po
+--- vdr-1.7.20/po/ro_RO.po	2011-05-21 14:29:39.000000000 +0200
++++ vdr-1.7.21/po/ro_RO.po	2011-08-27 11:55:35.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.12\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2011-03-10 23:52+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+ "Language-Team: Romanian <vdr@linuxtv.org>\n"
+@@ -905,6 +905,12 @@
+ msgid "DVB"
+ msgstr "Dispozitiv DVB"
+ 
++msgid "Button$Audio"
++msgstr "Sunet"
++
++msgid "Button$Subtitles"
++msgstr "Subtitrare"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Dispozitiv DVB primar"
+ 
+@@ -1132,9 +1138,6 @@
+ msgid " Stop replaying"
+ msgstr " Opre∫te redarea"
+ 
+-msgid "Button$Audio"
+-msgstr "Sunet"
+-
+ msgid "Button$Pause"
+ msgstr "Pauz„"
+ 
+@@ -1160,9 +1163,6 @@
+ msgid "No subtitles"
+ msgstr "Nu afi∫eaz„ subtirare"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Subtitrare"
+-
+ msgid "No subtitles available!"
+ msgstr "Subtitrare indisponibil„!"
+ 
+diff -ruN vdr-1.7.20/po/ru_RU.po vdr-1.7.21/po/ru_RU.po
+--- vdr-1.7.20/po/ru_RU.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/ru_RU.po	2011-08-27 11:55:33.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2008-12-15 14:37+0100\n"
+ "Last-Translator: Oleg Roitburd <oleg@roitburd.de>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
+@@ -903,6 +903,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "œ◊Î⁄"
++
++msgid "Button$Subtitles"
++msgstr "¡„—‚ÿ‚‡Î"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "æ·›ﬁ“›ﬁ’ DVB-„·‚‡ﬁŸ·‚“ﬁ"
+ 
+@@ -1130,9 +1136,6 @@
+ msgid " Stop replaying"
+ msgstr " ø‡’⁄‡–‚ÿ‚Ï “ﬁ·ﬂ‡ﬁÿ◊“’‘’›ÿ’"
+ 
+-msgid "Button$Audio"
+-msgstr "œ◊Î⁄"
+-
+ msgid "Button$Pause"
+ msgstr "ø–„◊–"
+ 
+@@ -1158,9 +1161,6 @@
+ msgid "No subtitles"
+ msgstr "Ω’‚ ·„—‚ÿ‚‡ﬁ“"
+ 
+-msgid "Button$Subtitles"
+-msgstr "¡„—‚ÿ‚‡Î"
+-
+ msgid "No subtitles available!"
+ msgstr "¡„—‚ÿ‚‡Î ›’‘ﬁ·‚„ﬂ›Î!"
+ 
+diff -ruN vdr-1.7.20/po/sk_SK.po vdr-1.7.21/po/sk_SK.po
+--- vdr-1.7.20/po/sk_SK.po	2011-05-21 14:29:39.000000000 +0200
++++ vdr-1.7.21/po/sk_SK.po	2011-08-27 11:55:35.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.16\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2011-02-15 16:29+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak <vdr@linuxtv.org>\n"
+@@ -902,6 +902,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "Zvuk"
++
++msgid "Button$Subtitles"
++msgstr "Titulky"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "HlavnÈ DVB rozhranie"
+ 
+@@ -1129,9 +1135,6 @@
+ msgid " Stop replaying"
+ msgstr " Zastaviª prehr·vanie"
+ 
+-msgid "Button$Audio"
+-msgstr "Zvuk"
+-
+ msgid "Button$Pause"
+ msgstr "Pozastaviª"
+ 
+@@ -1157,9 +1160,6 @@
+ msgid "No subtitles"
+ msgstr "Bez titulkov"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Titulky"
+-
+ msgid "No subtitles available!"
+ msgstr "æiadne dostupnÈ titulky!"
+ 
+diff -ruN vdr-1.7.20/po/sl_SI.po vdr-1.7.21/po/sl_SI.po
+--- vdr-1.7.20/po/sl_SI.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/sl_SI.po	2011-08-27 11:55:34.000000000 +0200
+@@ -8,7 +8,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2008-02-28 19:44+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian <vdr@linuxtv.org>\n"
+@@ -903,6 +903,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "Zvok"
++
++msgid "Button$Subtitles"
++msgstr "Podnapisi"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Primarna naprava"
+ 
+@@ -1130,9 +1136,6 @@
+ msgid " Stop replaying"
+ msgstr " Prekini predvajanje"
+ 
+-msgid "Button$Audio"
+-msgstr "Zvok"
+-
+ msgid "Button$Pause"
+ msgstr "Pavza"
+ 
+@@ -1158,9 +1161,6 @@
+ msgid "No subtitles"
+ msgstr "Ni podnapisov"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Podnapisi"
+-
+ msgid "No subtitles available!"
+ msgstr "Podnapisi niso dosegljivi!"
+ 
+diff -ruN vdr-1.7.20/po/sr_SR.po vdr-1.7.21/po/sr_SR.po
+--- vdr-1.7.20/po/sr_SR.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/sr_SR.po	2011-08-27 11:55:34.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.1\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2011-01-09 15:57+0100\n"
+ "Last-Translator: Milan CvijanoviÊ <elcom_cvijo@hotmail.com>\n"
+ "Language-Team: Serbian <vdr@linuxtv.org>\n"
+@@ -921,6 +921,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "Audio"
++
++msgid "Button$Subtitles"
++msgstr "Titlovi"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Primarni DVB ureaj"
+ 
+@@ -1153,9 +1159,6 @@
+ msgid " Stop replaying"
+ msgstr " Zaustavi reprodukciju"
+ 
+-msgid "Button$Audio"
+-msgstr "Audio"
+-
+ msgid "Button$Pause"
+ msgstr "Pauza"
+ 
+@@ -1181,9 +1184,6 @@
+ msgid "No subtitles"
+ msgstr "Bez titlova"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Titlovi"
+-
+ msgid "No subtitles available!"
+ msgstr "Titlovi nisu dostupni!"
+ 
+diff -ruN vdr-1.7.20/po/sv_SE.po vdr-1.7.21/po/sv_SE.po
+--- vdr-1.7.20/po/sv_SE.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/sv_SE.po	2011-08-27 11:55:34.000000000 +0200
+@@ -10,7 +10,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2008-03-12 18:25+0100\n"
+ "Last-Translator: Magnus Andersson <svankan@bahnhof.se>\n"
+ "Language-Team: Swedish <vdr@linuxtv.org>\n"
+@@ -905,6 +905,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "Ljud"
++
++msgid "Button$Subtitles"
++msgstr "Knapp$Textning"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Prim‰r DVB enhet"
+ 
+@@ -1132,9 +1138,6 @@
+ msgid " Stop replaying"
+ msgstr " Avsluta uppspelning"
+ 
+-msgid "Button$Audio"
+-msgstr "Ljud"
+-
+ msgid "Button$Pause"
+ msgstr "Pausa"
+ 
+@@ -1160,9 +1163,6 @@
+ msgid "No subtitles"
+ msgstr "Ingen textning"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Knapp$Textning"
+-
+ msgid "No subtitles available!"
+ msgstr "Ingen textning tillg‰nglig!"
+ 
+diff -ruN vdr-1.7.20/po/tr_TR.po vdr-1.7.21/po/tr_TR.po
+--- vdr-1.7.20/po/tr_TR.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/tr_TR.po	2011-08-27 11:55:34.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay YolgeÁen <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish <vdr@linuxtv.org>\n"
+@@ -902,6 +902,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "Audio"
++
++msgid "Button$Subtitles"
++msgstr "Altyaz˝"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "Primer DVB aray¸z¸"
+ 
+@@ -1129,9 +1135,6 @@
+ msgid " Stop replaying"
+ msgstr " Gˆsteri˛i bitir"
+ 
+-msgid "Button$Audio"
+-msgstr "Audio"
+-
+ msgid "Button$Pause"
+ msgstr "Durakla"
+ 
+@@ -1157,9 +1160,6 @@
+ msgid "No subtitles"
+ msgstr "Altyaz˝ yok"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Altyaz˝"
+-
+ msgid "No subtitles available!"
+ msgstr "Altyaz˝ bulunamad˝"
+ 
+diff -ruN vdr-1.7.20/po/uk_UA.po vdr-1.7.21/po/uk_UA.po
+--- vdr-1.7.20/po/uk_UA.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/uk_UA.po	2011-08-27 11:55:35.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2010-04-25 16:35+0200\n"
+ "Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian <vdr@linuxtv.org>\n"
+@@ -902,6 +902,12 @@
+ msgid "DVB"
+ msgstr "DVB"
+ 
++msgid "Button$Audio"
++msgstr "–ú–æ–≤–∞ –∞—É–¥—ñ–æ"
++
++msgid "Button$Subtitles"
++msgstr "–°—É–±—Ç–∏—Ç—Ä–∏"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "–û—Å–Ω–æ–≤–Ω–∏–π DVB-–ø—Ä–∏—Å—Ç—Ä—ñ–π"
+ 
+@@ -1129,9 +1135,6 @@
+ msgid " Stop replaying"
+ msgstr " –ó—É–ø–∏–Ω–∏—Ç–∏ –ø—Ä–æ–≥—Ä–∞–≤–∞–Ω–Ω—è"
+ 
+-msgid "Button$Audio"
+-msgstr "–ú–æ–≤–∞ –∞—É–¥—ñ–æ"
+-
+ msgid "Button$Pause"
+ msgstr "–ü–∞—É–∑–∞"
+ 
+@@ -1157,9 +1160,6 @@
+ msgid "No subtitles"
+ msgstr "–ù–µ–º–∞—î —Å—É–±—Ç–∏—Ç—Ä—ñ–≤"
+ 
+-msgid "Button$Subtitles"
+-msgstr "–°—É–±—Ç–∏—Ç—Ä–∏"
+-
+ msgid "No subtitles available!"
+ msgstr "–°—É–±—Ç–∏—Ç—Ä—ñ–≤ –Ω–µ–º–∞—î!"
+ 
+diff -ruN vdr-1.7.20/po/zh_CN.po vdr-1.7.21/po/zh_CN.po
+--- vdr-1.7.20/po/zh_CN.po	2011-05-21 14:29:38.000000000 +0200
++++ vdr-1.7.21/po/zh_CN.po	2011-08-27 11:55:33.000000000 +0200
+@@ -7,7 +7,7 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-05-21 14:26+0200\n"
++"POT-Creation-Date: 2011-08-27 11:54+0200\n"
+ "PO-Revision-Date: 2009-09-23 23:50+0800\n"
+ "Last-Translator: Nan Feng <nfgx@21cn.com>\n"
+ "Language-Team: Chinese (simplified) <vdr@linuxtv.org>\n"
+@@ -905,6 +905,12 @@
+ msgid "DVB"
+ msgstr "Âç´ÊòüÂç°ËÆæÁΩÆ"
+ 
++msgid "Button$Audio"
++msgstr "Â£∞ÈÅì"
++
++msgid "Button$Subtitles"
++msgstr "Â≠óÂπï"
++
+ msgid "Setup.DVB$Primary DVB interface"
+ msgstr "‰ΩøÁî®‰∏≠Âç´ÊòüÂç°Êé•Âè£"
+ 
+@@ -1132,9 +1138,6 @@
+ msgid " Stop replaying"
+ msgstr "ÂÅúÊ≠¢ÂõûÊîæ"
+ 
+-msgid "Button$Audio"
+-msgstr "Â£∞ÈÅì"
+-
+ msgid "Button$Pause"
+ msgstr "ÊöÇÂÅú"
+ 
+@@ -1160,9 +1163,6 @@
+ msgid "No subtitles"
+ msgstr "Ê≤°ÊúâÂ≠óÂπï"
+ 
+-msgid "Button$Subtitles"
+-msgstr "Â≠óÂπï"
+-
+ msgid "No subtitles available!"
+ msgstr "Â≠óÂπï‰∏çÂèØÁî®"
+ 
+diff -ruN vdr-1.7.20/recorder.c vdr-1.7.21/recorder.c
+--- vdr-1.7.20/recorder.c	2011-08-13 16:56:36.000000000 +0200
++++ vdr-1.7.21/recorder.c	2011-09-04 11:26:44.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.c 2.14 2011/08/13 14:56:36 kls Exp $
++ * $Id: recorder.c 2.15 2011/09/04 09:26:44 kls Exp $
+  */
+ 
+ #include "recorder.h"
+@@ -31,7 +31,7 @@
+ 
+   SpinUpDisk(FileName);
+ 
+-  ringBuffer = new cRingBufferLinear(RECORDERBUFSIZE, TS_SIZE, true, "Recorder");
++  ringBuffer = new cRingBufferLinear(RECORDERBUFSIZE, MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE, true, "Recorder");
+   ringBuffer->SetTimeouts(0, 100);
+ 
+   int Pid = Channel->Vpid();
+@@ -88,7 +88,7 @@
+ 
+ bool cRecorder::NextFile(void)
+ {
+-  if (recordFile) {
++  if (recordFile && frameDetector->IndependentFrame()) { // every file shall start with an independent frame
+      if (fileSize > MEGABYTE(off_t(Setup.MaxVideoFileSize)) || RunningLowOnDiskSpace()) {
+         recordFile = fileName->NextFile();
+         fileSize = 0;
+@@ -119,11 +119,6 @@
+   time_t t = time(NULL);
+   bool InfoWritten = false;
+   bool FirstIframeSeen = false;
+-#define BUFFERSIZE (5 * TS_SIZE)
+-  bool Buffering = false;
+-  int BufferIndex = 0;
+-  int MaxBufferIndex = 0;
+-  uchar *Buffer = NULL;
+   while (Running()) {
+         int r;
+         uchar *b = ringBuffer->Get(r);
+@@ -144,34 +139,9 @@
+                        }
+                     InfoWritten = true;
+                     }
+-                 if (frameDetector->NewPayload()) { // We're at the first TS packet of a new payload...
+-                    if (Buffering)
+-                       esyslog("ERROR: encountered new payload while buffering - dropping some data!");
+-                    if (!frameDetector->NewFrame()) { // ...but the frame type is yet unknown, so we need to buffer packets until we see the frame type
+-                       if (!Buffer) {
+-                          dsyslog("frame type not in first packet of payload - buffering");
+-                          if (!(Buffer = MALLOC(uchar, BUFFERSIZE))) {
+-                             esyslog("ERROR: can't allocate frame type buffer");
+-                             break;
+-                             }
+-                          }
+-                       BufferIndex = 0;
+-                       Buffering = true;
+-                       }
+-                    }
+-                 else if (frameDetector->NewFrame()) // now we know the frame type, so stop buffering
+-                    Buffering = false;
+-                 if (Buffering) {
+-                    if (BufferIndex + Count <= BUFFERSIZE) {
+-                       memcpy(Buffer + BufferIndex, b, Count);
+-                       BufferIndex += Count;
+-                       }
+-                    else
+-                       esyslog("ERROR: too many bytes for frame type buffer (%d > %d) - dropped %d bytes", BufferIndex + Count, int(BUFFERSIZE), Count);
+-                    }
+-                 else if (FirstIframeSeen || frameDetector->IndependentFrame()) {
++                 if (FirstIframeSeen || frameDetector->IndependentFrame()) {
+                     FirstIframeSeen = true; // start recording with the first I-frame
+-                    if (frameDetector->IndependentFrame() && !NextFile()) // every file shall start with an independent frame
++                    if (!NextFile())
+                        break;
+                     if (index && frameDetector->NewFrame())
+                        index->Write(frameDetector->IndependentFrame(), fileName->Number(), fileSize);
+@@ -184,12 +154,6 @@
+                              fileSize += TS_SIZE;
+                              }
+                        }
+-                    if (BufferIndex) {
+-                       recordFile->Write(Buffer, BufferIndex); // if an error occurs here, the next write below will catch and report it
+-                       if (BufferIndex > MaxBufferIndex)
+-                          MaxBufferIndex = BufferIndex;
+-                       BufferIndex = 0;
+-                       }
+                     if (recordFile->Write(b, Count) < 0) {
+                        LOG_ERROR_STR(fileName->Name());
+                        break;
+@@ -207,8 +171,4 @@
+            t = time(NULL);
+            }
+         }
+-  if (Buffer) {
+-     free(Buffer);
+-     dsyslog("frame type buffer used %d bytes", MaxBufferIndex);
+-     }
+ }
+diff -ruN vdr-1.7.20/recording.c vdr-1.7.21/recording.c
+--- vdr-1.7.20/recording.c	2011-08-13 14:37:25.000000000 +0200
++++ vdr-1.7.21/recording.c	2011-09-04 11:32:25.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.33 2011/08/13 12:37:25 kls Exp $
++ * $Id: recording.c 2.38 2011/09/04 09:32:25 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -60,6 +60,7 @@
+ #define DISKCHECKDELTA    100 // seconds between checks for free disk space
+ #define REMOVELATENCY      10 // seconds to wait until next check after removing a file
+ #define MARKSUPDATEDELTA   10 // seconds between checks for updating editing marks
++#define MININDEXAGE      3600 // seconds before an index file is considered no longer to be written
+ 
+ #define MAX_SUBTITLE_LENGTH  40
+ 
+@@ -94,7 +95,7 @@
+      bool deleted = false;
+      cThreadLock DeletedRecordingsLock(&DeletedRecordings);
+      for (cRecording *r = DeletedRecordings.First(); r; ) {
+-         if (r->deleted && time(NULL) - r->deleted > DELETEDLIFETIME) {
++         if (r->Deleted() && time(NULL) - r->Deleted() > DELETEDLIFETIME) {
+             cRecording *next = DeletedRecordings.Next(r);
+             r->Remove();
+             DeletedRecordings.Del(r);
+@@ -120,7 +121,7 @@
+      if (!RemoveDeletedRecordingsThread.Active()) {
+         cThreadLock DeletedRecordingsLock(&DeletedRecordings);
+         for (cRecording *r = DeletedRecordings.First(); r; r = DeletedRecordings.Next(r)) {
+-            if (r->deleted && time(NULL) - r->deleted > DELETEDLIFETIME) {
++            if (r->Deleted() && time(NULL) - r->Deleted() > DELETEDLIFETIME) {
+                RemoveDeletedRecordingsThread.Start();
+                break;
+                }
+@@ -153,7 +154,7 @@
+            cRecording *r0 = NULL;
+            while (r) {
+                  if (IsOnVideoDirectoryFileSystem(r->FileName())) { // only remove recordings that will actually increase the free video disk space
+-                    if (!r0 || r->start < r0->start)
++                    if (!r0 || r->Start() < r0->Start())
+                        r0 = r;
+                     }
+                  r = DeletedRecordings.Next(r);
+@@ -180,11 +181,11 @@
+            cRecording *r0 = NULL;
+            while (r) {
+                  if (IsOnVideoDirectoryFileSystem(r->FileName())) { // only delete recordings that will actually increase the free video disk space
+-                    if (!r->IsEdited() && r->lifetime < MAXLIFETIME) { // edited recordings and recordings with MAXLIFETIME live forever
+-                       if ((r->lifetime == 0 && Priority > r->priority) || // the recording has no guaranteed lifetime and the new recording has higher priority
+-                           (r->lifetime > 0 && (time(NULL) - r->start) / SECSINDAY >= r->lifetime)) { // the recording's guaranteed lifetime has expired
++                    if (!r->IsEdited() && r->Lifetime() < MAXLIFETIME) { // edited recordings and recordings with MAXLIFETIME live forever
++                       if ((r->Lifetime() == 0 && Priority > r->Priority()) || // the recording has no guaranteed lifetime and the new recording has higher priority
++                           (r->Lifetime() > 0 && (time(NULL) - r->Start()) / SECSINDAY >= r->Lifetime())) { // the recording's guaranteed lifetime has expired
+                           if (r0) {
+-                             if (r->priority < r0->priority || (r->priority == r0->priority && r->start < r0->start))
++                             if (r->Priority() < r0->Priority() || (r->Priority() == r0->Priority() && r->Start() < r0->Start()))
+                                 r0 = r; // in any case we delete the one with the lowest priority (or the older one in case of equal priorities)
+                              }
+                           else
+@@ -617,6 +618,7 @@
+   instanceId = InstanceId;
+   isPesRecording = false;
+   framesPerSecond = DEFAULTFRAMESPERSECOND;
++  numFrames = -1;
+   deleted = 0;
+   // set up the actual name:
+   const char *Title = Event ? Event->Title() : NULL;
+@@ -676,6 +678,7 @@
+   lifetime = MAXLIFETIME;
+   isPesRecording = false;
+   framesPerSecond = DEFAULTFRAMESPERSECOND;
++  numFrames = -1;
+   deleted = 0;
+   titleBuffer = NULL;
+   sortBuffer = NULL;
+@@ -870,13 +873,16 @@
+         s++;
+      else
+         s = name;
+-     titleBuffer = strdup(cString::sprintf("%02d.%02d.%02d%c%02d:%02d%c%c%s",
++     titleBuffer = strdup(cString::sprintf("%02d.%02d.%02d%c%02d:%02d%c%d:%02d%c%c%s",
+                             t->tm_mday,
+                             t->tm_mon + 1,
+                             t->tm_year % 100,
+                             Delimiter,
+                             t->tm_hour,
+                             t->tm_min,
++                            Delimiter,
++                            (LengthInSeconds() >= 0) ? LengthInSeconds() / 3600 : 0,
++                            (LengthInSeconds() >= 0) ? LengthInSeconds() / 60 % 60 : 0,
+                             New,
+                             Delimiter,
+                             s));
+@@ -958,6 +964,13 @@
+   return true;
+ }
+ 
++void cRecording::SetStartTime(time_t Start) 
++{
++  start = Start;
++  free(fileName);
++  fileName = NULL;
++}
++
+ bool cRecording::Delete(void)
+ {
+   bool result = true;
+@@ -1024,6 +1037,25 @@
+   resume = RESUME_NOT_INITIALIZED;
+ }
+ 
++int cRecording::NumFrames(void) const
++{
++  if (numFrames < 0) {
++     int nf = cIndexFile::GetLength(FileName(), IsPesRecording());
++     if (time(NULL) - LastModifiedTime(FileName()) < MININDEXAGE)
++        return nf; // check again later for ongoing recordings
++     numFrames = nf;
++     }
++  return numFrames;
++}
++
++int cRecording::LengthInSeconds(void) const
++{
++  int nf = NumFrames();
++  if (nf >= 0)
++     return int((nf / FramesPerSecond() + 30) / 60) * 60;
++  return -1;
++}
++
+ // --- cRecordings -----------------------------------------------------------
+ 
+ cRecordings Recordings;
+@@ -1095,6 +1127,7 @@
+                  if (endswith(buffer, deleted ? DELEXT : RECEXT)) {
+                     cRecording *r = new cRecording(buffer);
+                     if (r->Name()) {
++                       r->NumFrames(); // initializes the numFrames member
+                        Lock();
+                        Add(r);
+                        ChangeState();
+@@ -1233,23 +1266,21 @@
+ cMark::cMark(int Position, const char *Comment, double FramesPerSecond)
+ {
+   position = Position;
+-  comment = Comment ? strdup(Comment) : NULL;
++  comment = Comment;
+   framesPerSecond = FramesPerSecond;
+ }
+ 
+ cMark::~cMark()
+ {
+-  free(comment);
+ }
+ 
+ cString cMark::ToText(void)
+ {
+-  return cString::sprintf("%s%s%s\n", *IndexToHMSF(position, true, framesPerSecond), comment ? " " : "", comment ? comment : "");
++  return cString::sprintf("%s%s%s\n", *IndexToHMSF(position, true, framesPerSecond), Comment() ? " " : "", Comment() ? Comment() : "");
+ }
+ 
+ bool cMark::Parse(const char *s)
+ {
+-  free(comment);
+   comment = NULL;
+   framesPerSecond = MarkFramesPerSecond;
+   position = HMSFToIndex(s, framesPerSecond);
+@@ -1313,7 +1344,7 @@
+ {
+   for (cMark *m1 = First(); m1; m1 = Next(m1)) {
+       for (cMark *m2 = Next(m1); m2; m2 = Next(m2)) {
+-          if (m2->position < m1->position) {
++          if (m2->Position() < m1->Position()) {
+              swap(m1->position, m2->position);
+              swap(m1->comment, m2->comment);
+              }
+@@ -1334,7 +1365,7 @@
+ cMark *cMarks::Get(int Position)
+ {
+   for (cMark *mi = First(); mi; mi = Next(mi)) {
+-      if (mi->position == Position)
++      if (mi->Position() == Position)
+          return mi;
+       }
+   return NULL;
+@@ -1343,7 +1374,7 @@
+ cMark *cMarks::GetPrev(int Position)
+ {
+   for (cMark *mi = Last(); mi; mi = Prev(mi)) {
+-      if (mi->position < Position)
++      if (mi->Position() < Position)
+          return mi;
+       }
+   return NULL;
+@@ -1352,7 +1383,7 @@
+ cMark *cMarks::GetNext(int Position)
+ {
+   for (cMark *mi = First(); mi; mi = Next(mi)) {
+-      if (mi->position > Position)
++      if (mi->Position() > Position)
+          return mi;
+       }
+   return NULL;
+@@ -1403,12 +1434,11 @@
+   bool Rewind = false;
+   cFileName FileName(recordingName, false);
+   cUnbufferedFile *ReplayFile = FileName.Open();
+-  cRingBufferLinear Buffer(IFG_BUFFER_SIZE, TS_SIZE);
++  cRingBufferLinear Buffer(IFG_BUFFER_SIZE, MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE);
+   cPatPmtParser PatPmtParser;
+   cFrameDetector FrameDetector;
+   cIndexFile IndexFile(recordingName, true);
+   int BufferChunks = KILOBYTE(1); // no need to read a lot at the beginning when parsing PAT/PMT
+-  int FileNumber = 0;
+   off_t FileSize = 0;
+   off_t FrameOffset = -1;
+   Skins.QueueMessage(mtInfo, tr("Regenerating index file"));
+@@ -1425,18 +1455,12 @@
+         if (Data) {
+            if (FrameDetector.Synced()) {
+               // Step 3 - generate the index:
+-              if (FrameOffset < 0 && TsPid(Data) == PATPID) {
+-                 FileNumber = FileName.Number();
++              if (TsPid(Data) == PATPID)
+                  FrameOffset = FileSize; // the PAT/PMT is at the beginning of an I-frame
+-                 }
+               int Processed = FrameDetector.Analyze(Data, Length);
+               if (Processed > 0) {
+-                 if (FrameDetector.NewPayload() && FrameOffset < 0) {
+-                    FileNumber = FileName.Number();
+-                    FrameOffset = FileSize;
+-                    }
+                  if (FrameDetector.NewFrame()) {
+-                    IndexFile.Write(FrameDetector.IndependentFrame(), FileNumber, FrameOffset);
++                    IndexFile.Write(FrameDetector.IndependentFrame(), FileName.Number(), FrameOffset >= 0 ? FrameOffset : FileSize);
+                     FrameOffset = -1;
+                     }
+                  FileSize += Processed;
+@@ -1509,9 +1533,6 @@
+ // The maximum time to wait before giving up while catching up on an index file:
+ #define MAXINDEXCATCHUP   8 // seconds
+ 
+-// The minimum age of an index file for considering it no longer to be written:
+-#define MININDEXAGE    3600 // seconds
+-
+ struct tIndexPes {
+   uint32_t offset;
+   uchar type;
+diff -ruN vdr-1.7.20/recording.h vdr-1.7.21/recording.h
+--- vdr-1.7.20/recording.h	2011-08-13 14:51:23.000000000 +0200
++++ vdr-1.7.21/recording.h	2011-08-21 15:10:39.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 2.22 2011/08/13 12:51:23 kls Exp $
++ * $Id: recording.h 2.25 2011/08/21 13:10:39 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -22,6 +22,8 @@
+ #define TIMERMACRO_TITLE    "TITLE"
+ #define TIMERMACRO_EPISODE  "EPISODE"
+ 
++#define __RECORDING_H_DEPRECATED_DIRECT_MEMBER_ACCESS // Code enclosed with this macro is deprecated and may be removed in a future version
++
+ extern bool VfatFileSystem;
+ extern int InstanceId;
+ 
+@@ -87,6 +89,7 @@
+   mutable char *fileName;
+   mutable char *name;
+   mutable int fileSizeMB;
++  mutable int numFrames;
+   int channel;
+   int instanceId;
+   bool isPesRecording;
+@@ -97,14 +100,21 @@
+   static char *StripEpisodeName(char *s);
+   char *SortName(void) const;
+   int GetResume(void) const;
++#ifdef __RECORDING_H_DEPRECATED_DIRECT_MEMBER_ACCESS
+ public:
++#endif
+   time_t start;
+   int priority;
+   int lifetime;
+   time_t deleted;
++public:
+   cRecording(cTimer *Timer, const cEvent *Event);
+   cRecording(const char *FileName);
+   virtual ~cRecording();
++  time_t Start(void) const { return start; }
++  int Priority(void) const { return priority; }
++  int Lifetime(void) const { return lifetime; }
++  time_t Deleted(void) const { return deleted; }
+   virtual int Compare(const cListObject &ListObject) const;
+   const char *Name(void) const { return name; }
+   const char *FileName(void) const;
+@@ -114,11 +124,24 @@
+   int HierarchyLevels(void) const;
+   void ResetResume(void) const;
+   double FramesPerSecond(void) const { return framesPerSecond; }
++  int NumFrames(void) const;
++       ///< Returns the number of frames in this recording.
++       ///< If the number of frames is unknown, -1 will be returned.
++  int LengthInSeconds(void) const;
++       ///< Returns the length (in seconds) of this recording, or -1 in case of error.
+   bool IsNew(void) const { return GetResume() <= 0; }
+   bool IsEdited(void) const;
+   bool IsPesRecording(void) const { return isPesRecording; }
+   void ReadInfo(void);
+   bool WriteInfo(void);
++  void SetStartTime(time_t Start);
++       ///< Sets the start time of this recording to the given value.
++       ///< If a filename has already been set for this recording, it will be
++       ///< deleted and a new one will be generated (using the new start time)
++       ///< at the next call to FileName().
++       ///< Use this function with care - it does not check whether a recording with
++       ///< this new name already exists, and if there is one, results may be
++       ///< unexpected!
+   bool Delete(void);
+        ///< Changes the file name so that it will no longer be visible in the "Recordings" menu
+        ///< Returns false in case of error
+@@ -176,13 +199,21 @@
+ #define DEFAULTFRAMESPERSECOND 25.0
+ 
+ class cMark : public cListObject {
++  friend class cMarks; // for sorting
+ private:
+   double framesPerSecond;
++#ifdef __RECORDING_H_DEPRECATED_DIRECT_MEMBER_ACCESS
+ public:
++#endif
+   int position;
+-  char *comment;
++  cString comment;
++public:
+   cMark(int Position = 0, const char *Comment = NULL, double FramesPerSecond = DEFAULTFRAMESPERSECOND);
+   virtual ~cMark();
++  int Position(void) const { return position; }
++  const char *Comment(void) const { return comment; }
++  void SetPosition(int Position) { position = Position; }
++  void SetComment(const char *Comment) { comment = Comment; }
+   cString ToText(void);
+   bool Parse(const char *s);
+   bool Save(FILE *f);
+diff -ruN vdr-1.7.20/remux.c vdr-1.7.21/remux.c
+--- vdr-1.7.20/remux.c	2011-08-15 11:50:14.000000000 +0200
++++ vdr-1.7.21/remux.c	2011-09-04 15:09:06.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 2.58 2011/08/15 09:50:14 kls Exp $
++ * $Id: remux.c 2.62 2011/09/04 13:09:06 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -785,8 +785,7 @@
+ {
+   SetPid(Pid, Type);
+   synced = false;
+-  newPayload = newFrame = independentFrame = false;
+-  frameTypeOffset = -1;
++  newFrame = independentFrame = false;
+   numPtsValues = 0;
+   numFrames = 0;
+   numIFrames = 0;
+@@ -813,17 +812,36 @@
+ 
+ void cFrameDetector::Reset(void)
+ {
+-  newPayload = newFrame = independentFrame = false;
+-  frameTypeOffset = -1;
++  newFrame = independentFrame = false;
+   payloadUnitOfFrame = 0;
+   scanning = false;
+   scanner = EMPTY_SCANNER;
+ }
+ 
++int cFrameDetector::SkipPackets(const uchar *&Data, int &Length, int &Processed, int &FrameTypeOffset)
++{
++  if (!synced)
++     dbgframes("%d>", FrameTypeOffset);
++  while (Length >= TS_SIZE) {
++        // switch to the next TS packet, but skip those that have a different PID:
++        Data += TS_SIZE;
++        Length -= TS_SIZE;
++        Processed += TS_SIZE;
++        if (TsPid(Data) == pid)
++           break;
++        else if (Length < TS_SIZE)
++           esyslog("ERROR: out of data while skipping TS packets in cFrameDetector");
++        }
++  FrameTypeOffset -= TS_SIZE;
++  FrameTypeOffset += TsPayloadOffset(Data);
++  return FrameTypeOffset;
++}
++
+ int cFrameDetector::Analyze(const uchar *Data, int Length)
+ {
++  int SeenPayloadStart = false;
+   int Processed = 0;
+-  newPayload = newFrame = independentFrame = false;
++  newFrame = independentFrame = false;
+   while (Length >= TS_SIZE) {
+         if (Data[0] != TS_SYNC_BYTE) {
+            int Skipped = 1;
+@@ -836,11 +854,14 @@
+            int Pid = TsPid(Data);
+            if (Pid == pid) {
+               if (TsPayloadStart(Data)) {
++                 SeenPayloadStart = true;
+                  if (synced && Processed)
+-                    return Processed; // flush everything before this new payload
++                    return Processed;
++                 if (Length < MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE)
++                    return Processed; // need more data, in case the frame type is not stored in the first TS packet
+                  if (framesPerSecond <= 0.0) {
+                     // frame rate unknown, so collect a sequence of PTS values:
+-                    if (numPtsValues < MaxPtsValues && numIFrames < 2) { // collect a sequence containing at least two I-frames
++                    if (numPtsValues < 2 || numPtsValues < MaxPtsValues && numIFrames < 2) { // collect a sequence containing at least two I-frames
+                        const uchar *Pes = Data + TsPayloadOffset(Data);
+                        if (numIFrames && PesHasPts(Pes)) {
+                           ptsValues[numPtsValues] = PesGetPts(Pes);
+@@ -902,10 +923,6 @@
+               if (scanning) {
+                  int PayloadOffset = TsPayloadOffset(Data);
+                  if (TsPayloadStart(Data)) {
+-                    if (synced && Processed)
+-                       return Processed; // flush everything before this new payload
+-                    newPayload = true;
+-                    scanner = EMPTY_SCANNER;
+                     PayloadOffset += PesPayloadOffset(Data + PayloadOffset);
+                     if (!framesPerPayloadUnit)
+                        framesPerPayloadUnit = framesInPayloadUnit;
+@@ -913,29 +930,20 @@
+                        dbgframes("/");
+                     }
+                  for (int i = PayloadOffset; scanning && i < TS_SIZE; i++) {
+-                     if (frameTypeOffset < 0) {
+-                        scanner <<= 8;
+-                        scanner |= Data[i];
+-                        }
+-                     else
+-                        frameTypeOffset += PayloadOffset;
++                     scanner <<= 8;
++                     scanner |= Data[i];
+                      switch (type) {
+                        case 0x01: // MPEG 1 video
+                        case 0x02: // MPEG 2 video
+                             if (scanner == 0x00000100) { // Picture Start Code
+-                               if (frameTypeOffset < 0) {
+-                                  frameTypeOffset = i + 2;
+-                                  if (frameTypeOffset >= TS_SIZE) { // the byte to check is in the next TS packet
+-                                     frameTypeOffset -= TS_SIZE;
+-                                     if (!synced)
+-                                        dbgframes("%d>", frameTypeOffset);
+-                                     break;
+-                                     }
+-                                  }
+                                scanner = EMPTY_SCANNER;
++                               if (synced && !SeenPayloadStart && Processed)
++                                  return Processed; // flush everything before this new frame
++                               int FrameTypeOffset = i + 2;
++                               if (FrameTypeOffset >= TS_SIZE) // the byte to check is in the next TS packet
++                                  i = SkipPackets(Data, Length, Processed, FrameTypeOffset);
+                                newFrame = true;
+-                               uchar FrameType = (Data[frameTypeOffset] >> 3) & 0x07;
+-                               frameTypeOffset = -1;
++                               uchar FrameType = (Data[FrameTypeOffset] >> 3) & 0x07;
+                                independentFrame = FrameType == 1; // I-Frame
+                                if (synced) {
+                                   if (framesPerPayloadUnit <= 1)
+@@ -955,19 +963,14 @@
+                             break;
+                        case 0x1B: // MPEG 4 video
+                             if (scanner == 0x00000109) { // Access Unit Delimiter
+-                               if (frameTypeOffset < 0) {
+-                                  frameTypeOffset = i + 1;
+-                                  if (frameTypeOffset >= TS_SIZE) { // the byte to check is in the next TS packet
+-                                     frameTypeOffset -= TS_SIZE;
+-                                     if (!synced)
+-                                        dbgframes("%d>", frameTypeOffset);
+-                                     break;
+-                                     }
+-                                  }
+                                scanner = EMPTY_SCANNER;
++                               if (synced && !SeenPayloadStart && Processed)
++                                  return Processed; // flush everything before this new frame
++                               int FrameTypeOffset = i + 1;
++                               if (FrameTypeOffset >= TS_SIZE) // the byte to check is in the next TS packet
++                                  i = SkipPackets(Data, Length, Processed, FrameTypeOffset);
+                                newFrame = true;
+-                               uchar FrameType = Data[frameTypeOffset];
+-                               frameTypeOffset = -1;
++                               uchar FrameType = Data[FrameTypeOffset];
+                                independentFrame = FrameType == 0x10;
+                                if (synced) {
+                                   if (framesPerPayloadUnit < 0) {
+diff -ruN vdr-1.7.20/remux.h vdr-1.7.21/remux.h
+--- vdr-1.7.20/remux.h	2011-06-12 14:49:17.000000000 +0200
++++ vdr-1.7.21/remux.h	2011-09-04 14:48:26.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 2.30 2011/06/12 12:49:17 kls Exp $
++ * $Id: remux.h 2.32 2011/09/04 12:48:26 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+@@ -336,16 +336,16 @@
+ 
+ // Frame detector:
+ 
++#define MIN_TS_PACKETS_FOR_FRAME_DETECTOR 5
++
+ class cFrameDetector {
+ private:
+   enum { MaxPtsValues = 150 };
+   int pid;
+   int type;
+   bool synced;
+-  bool newPayload;
+   bool newFrame;
+   bool independentFrame;
+-  int frameTypeOffset;
+   uint32_t ptsValues[MaxPtsValues]; // 32 bit is enough - we only need the delta
+   int numPtsValues;
+   int numFrames;
+@@ -359,6 +359,7 @@
+   int payloadUnitOfFrame;
+   bool scanning;
+   uint32_t scanner;
++  int SkipPackets(const uchar *&Data, int &Length, int &Processed, int &FrameTypeOffset);
+ public:
+   cFrameDetector(int Pid = 0, int Type = 0);
+       ///< Sets up a frame detector for the given Pid and stream Type.
+@@ -377,11 +378,6 @@
+       ///< Analyze() needs to be called again with more actual data.
+   bool Synced(void) { return synced; }
+       ///< Returns true if the frame detector has synced on the data stream.
+-  bool NewPayload(void) { return newPayload; }
+-      ///< Returns true if the data given to the last call to Analyze() started a
+-      ///< new payload. The caller should remember the current file offset in
+-      ///< order to be able to generate an index entry later, when NewFrame()
+-      ///< returns true.
+   bool NewFrame(void) { return newFrame; }
+       ///< Returns true if the data given to the last call to Analyze() started a
+       ///< new frame.
+diff -ruN vdr-1.7.20/skinclassic.c vdr-1.7.21/skinclassic.c
+--- vdr-1.7.20/skinclassic.c	2010-11-07 16:10:23.000000000 +0100
++++ vdr-1.7.21/skinclassic.c	2011-08-21 13:02:06.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinclassic.c 2.5 2010/11/07 15:10:23 kls Exp $
++ * $Id: skinclassic.c 2.6 2011/08/21 11:02:06 kls Exp $
+  */
+ 
+ #include "skinclassic.h"
+@@ -377,7 +377,7 @@
+   int y = y2;
+   cTextScroller ts;
+   char t[32];
+-  snprintf(t, sizeof(t), "%s  %s", *DateString(Recording->start), *TimeString(Recording->start));
++  snprintf(t, sizeof(t), "%s  %s", *DateString(Recording->Start()), *TimeString(Recording->Start()));
+   ts.Set(osd, x1, y, x2 - x1, y3 - y, t, font, Theme.Color(clrMenuEventTime), Theme.Color(clrBackground));
+   y += ts.Height();
+   if (Info->GetEvent()->ParentalRating()) {
+diff -ruN vdr-1.7.20/skins.c vdr-1.7.21/skins.c
+--- vdr-1.7.20/skins.c	2011-08-06 11:41:57.000000000 +0200
++++ vdr-1.7.21/skins.c	2011-08-21 13:21:19.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skins.c 2.2 2011/08/06 09:41:57 kls Exp $
++ * $Id: skins.c 2.3 2011/08/21 11:21:19 kls Exp $
+  */
+ 
+ #include "skins.h"
+@@ -136,14 +136,14 @@
+      if (Marks) {
+         bool Start = true;
+         for (const cMark *m = Marks->First(); m; m = Marks->Next(m)) {
+-            int p1 = Pos(m->position);
++            int p1 = Pos(m->Position());
+             if (Start) {
+                const cMark *m2 = Marks->Next(m);
+-               int p2 = Pos(m2 ? m2->position : total);
++               int p2 = Pos(m2 ? m2->Position() : total);
+                int h = Height / 3;
+                DrawRectangle(p1, h, p2, Height - h, ColorSelected);
+                }
+-            Mark(p1, Start, m->position == Current, ColorMark, ColorCurrent);
++            Mark(p1, Start, m->Position() == Current, ColorMark, ColorCurrent);
+             Start = !Start;
+             }
+         }
+diff -ruN vdr-1.7.20/skinsttng.c vdr-1.7.21/skinsttng.c
+--- vdr-1.7.20/skinsttng.c	2011-06-12 17:20:59.000000000 +0200
++++ vdr-1.7.21/skinsttng.c	2011-08-21 13:02:26.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinsttng.c 2.10 2011/06/12 15:20:59 kls Exp $
++ * $Id: skinsttng.c 2.11 2011/08/21 11:02:26 kls Exp $
+  */
+ 
+ // Star Trek: The Next GenerationÆ is a registered trademark of Paramount Pictures
+@@ -693,7 +693,7 @@
+   int y = y3;
+   cTextScroller ts;
+   char t[32];
+-  snprintf(t, sizeof(t), "%s  %s", *DateString(Recording->start), *TimeString(Recording->start));
++  snprintf(t, sizeof(t), "%s  %s", *DateString(Recording->Start()), *TimeString(Recording->Start()));
+   ts.Set(osd, xl, y, x4 - xl, y4 - y, t, font, Theme.Color(clrMenuEventTime), Theme.Color(clrBackground));
+   y += ts.Height();
+   if (Info->GetEvent()->ParentalRating()) {
+diff -ruN vdr-1.7.20/svdrp.c vdr-1.7.21/svdrp.c
+--- vdr-1.7.20/svdrp.c	2011-02-25 15:38:45.000000000 +0100
++++ vdr-1.7.21/svdrp.c	2011-08-27 12:43:18.000000000 +0200
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 2.9 2011/02/25 14:38:45 kls Exp $
++ * $Id: svdrp.c 2.10 2011/08/27 10:43:18 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -219,9 +219,11 @@
+   "    image format defaults to JPEG.",
+   "HELP [ <topic> ]\n"
+   "    The HELP command gives help info.",
+-  "HITK [ <key> ]\n"
++  "HITK [ <key> ... ]\n"
+   "    Hit the given remote control key. Without option a list of all\n"
+-  "    valid key names is given.",
++  "    valid key names is given. If more than one key is given, they are\n"
++  "    entered into the remote control queue in the given sequence. There\n"
++  "    can be up to 31 keys.",
+   "LSTC [ :groups | <number> | <name> ]\n"
+   "    List channels. Without option, all channels are listed. Otherwise\n"
+   "    only the given channel is listed. If a name is given, all channels\n"
+@@ -902,13 +904,28 @@
+ void cSVDRP::CmdHITK(const char *Option)
+ {
+   if (*Option) {
+-     eKeys k = cKey::FromString(Option);
+-     if (k != kNone) {
+-        cRemote::Put(k);
+-        Reply(250, "Key \"%s\" accepted", Option);
+-        }
+-     else
+-        Reply(504, "Unknown key: \"%s\"", Option);
++     char buf[strlen(Option) + 1];
++     strcpy(buf, Option);
++     const char *delim = " \t";
++     char *strtok_next;
++     char *p = strtok_r(buf, delim, &strtok_next);
++     int NumKeys = 0;
++     while (p) {
++           eKeys k = cKey::FromString(p);
++           if (k != kNone) {
++              if (!cRemote::Put(k)) {
++                 Reply(451, "Too many keys in \"%s\" (only %d accepted)", Option, NumKeys);
++                 return;
++                 }
++              }
++           else {
++              Reply(504, "Unknown key: \"%s\"", p);
++              return;
++              }
++           NumKeys++;
++           p = strtok_r(NULL, delim, &strtok_next);
++           }
++     Reply(250, "Key%s \"%s\" accepted", NumKeys > 1 ? "s" : "", Option);
+      }
+   else {
+      Reply(-214, "Valid <key> names for the HITK command:");
+diff -ruN vdr-1.7.20/vdr.5 vdr-1.7.21/vdr.5
+--- vdr-1.7.20/vdr.5	2011-04-03 12:21:36.000000000 +0200
++++ vdr-1.7.21/vdr.5	2011-08-21 16:06:50.000000000 +0200
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 2.22 2011/04/03 10:21:36 kls Exp $
++.\" $Id: vdr.5 2.23 2011/08/21 14:06:50 kls Exp $
+ .\"
+ .TH vdr 5 "10 Feb 2008" "1.6" "Video Disk Recorder Files"
+ .SH NAME
+@@ -214,6 +214,17 @@
+ .TP
+ .B TPID
+ The teletext PID.
++If this channel also carries DVB subtitles, the DVB subtitling PIDs follow the
++teletext PID, separated by a semicolon, as in
++
++.B ...:201;2001,2002:...
++
++If certain subtitling PIDs broadcast in specific languages, the language
++codes for these can be appended to the individual subtitling PID, separated
++by an '=' sign, as in
++
++.B ...:201;2001=deu,2002=eng:...
++
+ .TP
+ .B Conditional access
+ A hexadecimal integer defining how this channel can be accessed:

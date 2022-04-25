@@ -1,0 +1,730 @@
+diff -ruN vdr-1.4.0/CONTRIBUTORS vdr-1.4.0-1/CONTRIBUTORS
+--- vdr-1.4.0/CONTRIBUTORS	2006-04-29 15:23:15.000000000 +0200
++++ vdr-1.4.0-1/CONTRIBUTORS	2006-05-12 14:42:57.000000000 +0200
+@@ -563,6 +563,8 @@
+  there are too many levels of symbolic links
+  for reporting that an attempt to call a plugin's main menu function while a
+  message is being displayed didn't work
++ for reporting a problem with the "Press any key on the RC unit" step when learning
++ LIRC remote control codes
+ 
+ Jeremy Hall <jhall@UU.NET>
+  for fixing an incomplete initialization of the filter parameters in eit.c
+@@ -1422,6 +1424,9 @@
+  for providing a shorter version of the 'sed' expression for extracting APIVERSION
+  for fixing a bug in handling the "Power" key in case a recording is going on and
+  no plugin is active
++ for suggesting to add 'eval' to the $VDRCMD call in 'runvdr' to avoid problems with
++ quoting
++ for fixing handling the "Power" key in case a timer is about to start recording
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -1677,6 +1682,7 @@
+  for reporting that a menu was automatically closed when a replay ends
+  for suggesting to ignore k_Repeat when deciding whether the same key has been
+  pressed in string input fields
++ for fixing missing ',' in the Italian and Polish OSD texts
+ 
+ Patrick Rother <krd-vdr@gulu.net>
+  for reporting a bug in defining timers that only differ in the day of week
+@@ -1828,8 +1834,10 @@
+  font if set to '3' - even if it would have been a fixed font
+  for reporting a bug in initializing 'noapiv' in the Makefile
+ 
+-Bárta Vladimír <vladimir.barta@k2atmitec.cz>
++Vladimír Bárta <vladimir.barta@k2atmitec.cz>
+  for translating OSD texts to the Czech language
++ for fixing the character 'r' in fontosd and fontsml for iso8859-2
++ for fixing the character #207 in fontosd for iso8859-2
+ 
+ Christoph Haubrich <christoph1.haubrich@arcor.de>
+  for making the "Ok" key in the "Jump" mode of the replay progress display confirm
+@@ -1894,3 +1902,6 @@
+ Dominique Simon <d.simon@gmx.net>
+  for reporting a bug in handling the "Power" key in case a recording is going on and
+  no plugin is active
++
++M. Kiesel <vdr@continuity.cjb.net>
++ for reporting that the 'runvdr' script still used DVBDIR
+diff -ruN vdr-1.4.0/HISTORY vdr-1.4.0-1/HISTORY
+--- vdr-1.4.0/HISTORY	2006-04-30 10:51:32.000000000 +0200
++++ vdr-1.4.0-1/HISTORY	2006-05-14 13:22:13.000000000 +0200
+@@ -4283,7 +4283,7 @@
+ - Speeded up cVideoRepacker (thanks to Reinhard Nissl).
+ - Added an 'Id' parameter to cDevice::PlayAudio() to allow plugins to easier
+   process the audio data (thanks to Marco Schlüßler).
+-- Added Czech language texts (thanks to Bárta Vladimír).
++- Added Czech language texts (thanks to Vladimír Bárta).
+   Plugin authors may want to add the new entries to their I18N texts and contact
+   the translators to have their texts translated. Note that there are now 21
+   different OSD languages, so please make sure you have 21 versions for each of
+@@ -4687,3 +4687,31 @@
+ - Fixed a memory leak in closing the video file during replay (thanks to Tobias Grimm).
+ - Updated the Italian OSD texts (thanks to Nino Gerbino and Antonio Ospite).
+ - Updated the Estonian OSD texts (thanks to Arthur Konovalov).
++
++2006-05-14: Version 1.4.0-1
++
++- Updated 'S110W' in 'sources.conf'.
++- Adjusted the 'runvdr' script so that the user can fill in the functions to
++  detect, load and unload the necessary driver modules (thanks to M. Kiesel for
++  reporting that it still used DVBDIR).
++- Added 'eval' to the $VDRCMD call in 'runvdr' to avoid problems with quoting
++  (suggested by Udo Richter).
++- Fixed missing ',' in the Italian and Polish OSD texts (thanks to Marko Mäkelä).
++- Updated the Czech OSD texts (thanks to Vladimír Bárta).
++- Fixed handling the "Power" key in case a timer is about to start recording
++  (thanks to Udo Richter).
++- Fixed the character 'r' in fontosd and fontsml for iso8859-2 (thanks to Vladimír
++  Bárta).
++- When checking whether a VPS timer has entered the "VPS margin", the event's start
++  time is now used instead of the timer's start time, because otherwise events that
++  start way off of their VPS time wouldn't be recorded correctly.
++- If VPS timers are active, their events are now being kept up to date if there
++  are any free devices available.
++- Fixed the character #207 in fontosd for iso8859-2 (thanks to Vladimír Bárta).
++- Fixed handling unknown codes when learning LIRC remote control codes (reported
++  by Helmut Auer).
++- Since some channels (especially the Austrian ORF) randomly change the ids of their
++  EPG events, VDR now gives the start time precedence when searching for existing
++  events.
++- Fixed automatically updating the CAM menu in case the whole operation (for
++  instance a firmware update) takes longer than the menu timeout.
+diff -ruN vdr-1.4.0/INSTALL vdr-1.4.0-1/INSTALL
+--- vdr-1.4.0/INSTALL	2006-04-28 15:07:14.000000000 +0200
++++ vdr-1.4.0-1/INSTALL	2006-05-01 15:35:40.000000000 +0200
+@@ -133,6 +133,9 @@
+ VDR will go into 'daemon' mode and the initial program call will return
+ immediately! 'runvdr' needs to be started as user 'root'. Use the '-u'
+ option to run the actual 'vdr' program under a different user id.
++Note that the 'runvdr' script needs to be adjusted to your particular
++requirements before you can actually use it. See the comments inside
++the script for more information.
+ 
+ Setting the system time:
+ ------------------------
+diff -ruN vdr-1.4.0/config.h vdr-1.4.0-1/config.h
+--- vdr-1.4.0/config.h	2006-04-29 11:24:07.000000000 +0200
++++ vdr-1.4.0-1/config.h	2006-05-07 11:01:49.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.255 2006/04/29 09:24:07 kls Exp $
++ * $Id: config.h 1.256 2006/05/07 09:01:49 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -21,7 +21,7 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.4.0"
++#define VDRVERSION  "1.4.0-1"
+ #define VDRVERSNUM   10400  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+diff -ruN vdr-1.4.0/epg.c vdr-1.4.0-1/epg.c
+--- vdr-1.4.0/epg.c	2006-04-22 14:02:47.000000000 +0200
++++ vdr-1.4.0-1/epg.c	2006-05-12 15:25:44.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 1.72 2006/04/22 12:02:47 kls Exp $
++ * $Id: epg.c 1.74 2006/05/12 13:25:44 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -327,8 +327,10 @@
+                              cEvent *newEvent = NULL;
+                              if (Event)
+                                 DELETENULL(Event->components);
+-                             if (!Event)
++                             if (!Event) {
+                                 Event = newEvent = new cEvent(EventID);
++                                Event->seen = 0;
++                                }
+                              if (Event) {
+                                 Event->SetTableID(TableID);
+                                 Event->SetStartTime(StartTime);
+@@ -710,12 +712,12 @@
+ 
+ const cEvent *cSchedule::GetEvent(tEventID EventID, time_t StartTime) const
+ {
+-  // Returns either the event info with the given EventID or, if that one can't
+-  // be found, the one with the given StartTime (or NULL if neither can be found)
+-  cEvent *pt = eventsHashID.Get(EventID);
+-  if (!pt && StartTime > 0) // 'StartTime < 0' is apparently used with NVOD channels
+-     pt = eventsHashStartTime.Get(StartTime);
+-  return pt;
++  // Returns the event info with the given StartTime or, if no actual StartTime
++  // is given, the one with the given EventID.
++  if (StartTime > 0) // 'StartTime < 0' is apparently used with NVOD channels
++     return eventsHashStartTime.Get(StartTime);
++  else
++     return eventsHashID.Get(EventID);
+ }
+ 
+ const cEvent *cSchedule::GetEventAround(time_t Time) const
+diff -ruN vdr-1.4.0/fontosd-iso8859-2.c vdr-1.4.0-1/fontosd-iso8859-2.c
+--- vdr-1.4.0/fontosd-iso8859-2.c	2006-02-05 14:50:05.000000000 +0100
++++ vdr-1.4.0-1/fontosd-iso8859-2.c	2006-05-07 13:36:15.000000000 +0200
+@@ -2471,34 +2471,34 @@
+      0x0000000C,  // .........**..
+   },
+   {             // 114
+-     10, 27,
+-     0x00000000,  // ..........
+-     0x00000000,  // ..........
+-     0x00000000,  // ..........
+-     0x00000000,  // ..........
+-     0x00000000,  // ..........
+-     0x00000000,  // ..........
+-     0x00000000,  // ..........
+-     0x00000000,  // ..........
+-     0x00000000,  // ..........
+-     0x00000000,  // ..........
+-     0x000000CE,  // ..**..***.
+-     0x000000FE,  // ..*******.
+-     0x000000E0,  // ..***.....
+-     0x000000C0,  // ..**......
+-     0x000000C0,  // ..**......
+-     0x000000C0,  // ..**......
+-     0x000000C0,  // ..**......
+-     0x000000C0,  // ..**......
+-     0x000000C0,  // ..**......
+-     0x000000C0,  // ..**......
+-     0x000000C0,  // ..**......
+-     0x000000C0,  // ..**......
+-     0x00000000,  // ..........
+-     0x00000000,  // ..........
+-     0x00000000,  // ..........
+-     0x00000000,  // ..........
+-     0x00000000,  // ..........
++     8, 27,
++     0x00000000,  // ........
++     0x00000000,  // ........
++     0x00000000,  // ........
++     0x00000000,  // ........
++     0x00000000,  // ........
++     0x00000000,  // ........
++     0x00000000,  // ........
++     0x00000000,  // ........
++     0x00000000,  // ........
++     0x00000000,  // ........
++     0x0000000E,  // ....***.
++     0x0000003E,  // ..*****.
++     0x00000038,  // ..***...
++     0x00000030,  // ..**....
++     0x00000030,  // ..**....
++     0x00000030,  // ..**....
++     0x00000030,  // ..**....
++     0x00000030,  // ..**....
++     0x00000030,  // ..**....
++     0x00000030,  // ..**....
++     0x00000030,  // ..**....
++     0x00000030,  // ..**....
++     0x00000000,  // ........
++     0x00000000,  // ........
++     0x00000000,  // ........
++     0x00000000,  // ........
++     0x00000000,  // ........
+   },
+   {             // 115
+      12, 27,
+@@ -5261,34 +5261,34 @@
+      0x00000000,  // ........
+   },
+   {             // 207
+-     6, 27,
+-     0x00000000,  // ......
+-     0x00000033,  // **..**
+-     0x00000033,  // **..**
+-     0x00000033,  // **..**
+-     0x00000000,  // ......
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x0000000C,  // ..**..
+-     0x00000000,  // ......
+-     0x00000000,  // ......
+-     0x00000000,  // ......
+-     0x00000000,  // ......
+-     0x00000000,  // ......
++     17, 27,
++     0x00001860,  // ....**....**.....
++     0x00000CC0,  // .....**..**......
++     0x00000780,  // ......****.......
++     0x00000300,  // .......**........
++     0x00000000,  // .................
++     0x00007FC0,  // ..*********......
++     0x00007FF0,  // ..***********....
++     0x00006078,  // ..**......****...
++     0x00006018,  // ..**........**...
++     0x00006018,  // ..**........**...
++     0x0000600C,  // ..**.........**..
++     0x0000600C,  // ..**.........**..
++     0x0000600C,  // ..**.........**..
++     0x0000600C,  // ..**.........**..
++     0x0000600C,  // ..**.........**..
++     0x0000600C,  // ..**.........**..
++     0x0000600C,  // ..**.........**..
++     0x00006018,  // ..**........**...
++     0x00006018,  // ..**........**...
++     0x00006070,  // ..**......***....
++     0x00007FF0,  // ..***********....
++     0x00007FC0,  // ..*********......
++     0x00000000,  // .................
++     0x00000000,  // .................
++     0x00000000,  // .................
++     0x00000000,  // .................
++     0x00000000,  // .................
+   },
+   {             // 208 iso8859-2
+      17, 27,
+diff -ruN vdr-1.4.0/fontsml-iso8859-2.c vdr-1.4.0-1/fontsml-iso8859-2.c
+--- vdr-1.4.0/fontsml-iso8859-2.c	2006-02-05 14:50:14.000000000 +0100
++++ vdr-1.4.0-1/fontsml-iso8859-2.c	2006-05-04 19:57:09.000000000 +0200
+@@ -2132,30 +2132,30 @@
+      0x00000006,  // ........**.
+   },
+   {             // 114
+-     9, 23,
+-     0x00000000,  // .........
+-     0x00000000,  // .........
+-     0x00000000,  // .........
+-     0x00000000,  // .........
+-     0x00000000,  // .........
+-     0x00000000,  // .........
+-     0x00000000,  // .........
+-     0x00000000,  // .........
+-     0x00000000,  // .........
+-     0x000000CC,  // .**..**..
+-     0x000000F8,  // .*****...
+-     0x000000E0,  // .***.....
+-     0x000000C0,  // .**......
+-     0x000000C0,  // .**......
+-     0x000000C0,  // .**......
+-     0x000000C0,  // .**......
+-     0x000000C0,  // .**......
+-     0x000000C0,  // .**......
+-     0x000000C0,  // .**......
+-     0x00000000,  // .........
+-     0x00000000,  // .........
+-     0x00000000,  // .........
+-     0x00000000,  // .........
++     6, 23,
++     0x00000000,  // ......
++     0x00000000,  // ......
++     0x00000000,  // ......
++     0x00000000,  // ......
++     0x00000000,  // ......
++     0x00000000,  // ......
++     0x00000000,  // ......
++     0x00000000,  // ......
++     0x00000000,  // ......
++     0x0000001B,  // .**.**
++     0x0000001B,  // .**.**
++     0x0000001C,  // .***..
++     0x00000018,  // .**...
++     0x00000018,  // .**...
++     0x00000018,  // .**...
++     0x00000018,  // .**...
++     0x00000018,  // .**...
++     0x00000018,  // .**...
++     0x00000018,  // .**...
++     0x00000000,  // ......
++     0x00000000,  // ......
++     0x00000000,  // ......
++     0x00000000,  // ......
+   },
+   {             // 115
+      9, 23,
+diff -ruN vdr-1.4.0/i18n.c vdr-1.4.0-1/i18n.c
+--- vdr-1.4.0/i18n.c	2006-04-30 10:51:10.000000000 +0200
++++ vdr-1.4.0-1/i18n.c	2006-05-05 15:26:09.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.279 2006/04/30 08:51:10 kls Exp $
++ * $Id: i18n.c 1.281 2006/05/05 13:26:09 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -484,7 +484,7 @@
+   { "This event - all channels",
+     "Diese Sendung - alle Kanäle",
+     "Ta oddaja - vsi kanali",
+-    "Questo evento - tutti i canali"
++    "Questo evento - tutti i canali",
+     "",//TODO
+     "",//TODO
+     "Cet événement - toutes les chaînes",
+@@ -1703,7 +1703,7 @@
+     "Aucun cryptage",
+     "",//TODO
+     "vapaa",
+-    "nieszyfrowany"
++    "nieszyfrowany",
+     "en abierto",
+     "",//TODO
+     "Okodad",
+@@ -2310,7 +2310,7 @@
+     "",//TODO
+     "VPS salvestamine tulekul!",
+     "VPS optagelse starter snart!",
+-    "",//TODO
++    "Brzo zaène nahrávání VPS!",
+   },
+   { "No free DVB device to record!",
+     "Keine freie DVB-Karte zum Aufnehmen!",
+@@ -3764,7 +3764,7 @@
+     "",// TODO
+     "ainult PID-id",
+     "kun PIDs",
+-    "",// TODO
++    "jen PIDs",
+   },
+   { "names and PIDs",
+     "Namen und PIDs",
+@@ -4490,7 +4490,7 @@
+     "",// TODO
+     "Kanal käivitamisel",
+     "Kanal ved opstart",
+-    "",// TODO
++    "Kanál po spu¹tìní",
+   },
+   { "Setup.Miscellaneous$Initial volume",
+     "Lautstärke beim Einschalten",
+@@ -4512,7 +4512,7 @@
+     "",// TODO
+     "Helitugevus käivitamisel",
+     "Lydstyrke ved opstart",
+-    "",// TODO
++    "Hlasitost po spu¹tìní",
+   },
+   { "Setup.Miscellaneous$as before",
+     "wie vorher",
+@@ -4534,7 +4534,7 @@
+     "",// TODO
+     "nagu enne",
+     "som før",
+-    "",// TODO
++    "jako naposledy",
+   },
+   // The days of the week:
+   { "MTWTFSS",
+@@ -5353,7 +5353,7 @@
+     "",// TODO
+     "Järgmine",
+     "Fremad",
+-    "",// TODO
++    "Dále",
+   },
+   { "Key$Prev",
+     "Zurück",
+@@ -5375,7 +5375,7 @@
+     "",// TODO
+     "Eelmine",
+     "Tilbage",
+-    "",// TODO
++    "Zpìt",
+   },
+   { "Key$Power",
+     "Ausschalten",
+@@ -5463,7 +5463,7 @@
+     "",// TODO
+     "Eelmine kanal",
+     "Foregående kanal",
+-    "",// TODO
++    "Pøedcházející kanál",
+   },
+   { "Key$Volume+",
+     "Lautstärke+",
+diff -ruN vdr-1.4.0/remote.c vdr-1.4.0-1/remote.c
+--- vdr-1.4.0/remote.c	2006-04-17 10:58:28.000000000 +0200
++++ vdr-1.4.0-1/remote.c	2006-05-12 14:40:15.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.c 1.50 2006/04/17 08:58:28 kls Exp $
++ * $Id: remote.c 1.51 2006/05/12 12:40:15 kls Exp $
+  */
+ 
+ #include "remote.h"
+@@ -182,11 +182,11 @@
+             repeatTimeout.Set(REPEATTIMEOUT);
+          return k;
+          }
+-      else if (!WaitMs || !keyPressed.TimedWait(mutex, WaitMs) && repeatTimeout.TimedOut()) {
+-         if (learning && UnknownCode) {
+-            *UnknownCode = unknownCode;
+-            unknownCode = NULL;
+-            }
++      else if (!WaitMs || !keyPressed.TimedWait(mutex, WaitMs) && repeatTimeout.TimedOut())
++         return kNone;
++      else if (learning && UnknownCode && unknownCode) {
++         *UnknownCode = unknownCode;
++         unknownCode = NULL;
+          return kNone;
+          }
+       }
+diff -ruN vdr-1.4.0/runvdr vdr-1.4.0-1/runvdr
+--- vdr-1.4.0/runvdr	2006-02-04 16:20:48.000000000 +0100
++++ vdr-1.4.0-1/runvdr	2006-05-01 16:51:00.000000000 +0200
+@@ -5,6 +5,11 @@
+ # If VDR exits abnormally, the driver will be reloaded
+ # and VDR restarted.
+ #
++# In order to actually use this script you need to implement
++# the functions DriverLoaded(), LoadDriver() and UnloadDriver()
++# and maybe adjust the VDRPRG and VDRCMD to your particular
++# requirements.
++#
+ # Since this script loads the DVB driver, it must be started
+ # as user 'root'. Add the option "-u username" to run VDR
+ # under the given user name.
+@@ -15,27 +20,43 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: runvdr 1.16 2006/02/04 15:20:48 kls Exp $
++# $Id: runvdr 1.18 2006/05/01 14:51:00 kls Exp $
+ 
+-DVBDIR="../DVB/driver"
+ VDRPRG="./vdr"
+ VDRCMD="$VDRPRG -w 60 $*"
+ 
+ LSMOD="`/sbin/lsmod | grep -w '^dvb' | wc -l`"
+ KILL="/usr/bin/killall -q -TERM"
+ 
++# Detect whether the DVB driver is already loaded
++# and return 0 if it *is* loaded, 1 if not:
++function DriverLoaded()
++{
++  return 1
++}
++
++# Load all DVB driver modules needed for your hardware:
++function LoadDriver()
++{
++}
++
++# Unload all DVB driver modules loaded in LoadDriver():
++function UnloadDriver()
++{
++}
++
+ # Load driver if it hasn't been loaded already:
+-if [ $LSMOD -eq 0 ] ; then
+-   (cd $DVBDIR; make insmod)
++if ! DriverLoaded; then
++   LoadDriver
+    fi
+ 
+ while (true) do
+-      $VDRCMD
++      eval "$VDRCMD"
+       if test $? -eq 0 -o $? -eq 2; then exit; fi
+-      date
+-      echo "restarting VDR"
++      echo "`date` reloading DVB driver"
+       $KILL $VDRPRG
+       sleep 10
+-      (cd $DVBDIR; make rmmod; make insmod)
+-      date
++      UnloadDriver
++      LoadDriver
++      echo "`date` restarting VDR"
+       done
+diff -ruN vdr-1.4.0/sources.conf vdr-1.4.0-1/sources.conf
+--- vdr-1.4.0/sources.conf	2006-04-17 14:19:21.000000000 +0200
++++ vdr-1.4.0-1/sources.conf	2006-05-01 11:34:18.000000000 +0200
+@@ -164,7 +164,7 @@
+ S103W   AMC1
+ S105W   AMC15
+ S107.3W Anik F1/F1R
+-S110W   DirecTV 5 & Echostar 6/8
++S110W   DirecTV 5 & Echostar 6/8/10
+ S111.1W Anik F2
+ S113W   Solidaridad 2
+ S119W   Echostar 7 & DirecTV 7S
+diff -ruN vdr-1.4.0/timers.c vdr-1.4.0-1/timers.c
+--- vdr-1.4.0/timers.c	2006-04-21 17:12:49.000000000 +0200
++++ vdr-1.4.0-1/timers.c	2006-05-13 11:03:59.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 1.58 2006/04/21 15:12:49 kls Exp $
++ * $Id: timers.c 1.59 2006/05/13 09:03:59 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -365,10 +365,13 @@
+      }
+ 
+   if (HasFlags(tfActive)) {
+-     if (HasFlags(tfVps) && !Directly && event && event->Vps() && event->Schedule() && event->Schedule()->PresentSeenWithin(30)) {
+-        startTime = event->StartTime();
+-        stopTime = event->EndTime();
+-        return event->IsRunning(true);
++     if (HasFlags(tfVps) && event && event->Vps()) {
++        if (Margin || !Directly) {
++           startTime = event->StartTime();
++           stopTime = event->EndTime();
++           if (!Margin)
++              return event->IsRunning(true);
++           }
+         }
+      return startTime <= t + Margin && t < stopTime; // must stop *before* stopTime to allow adjacent timers
+      }
+diff -ruN vdr-1.4.0/vdr.c vdr-1.4.0-1/vdr.c
+--- vdr-1.4.0/vdr.c	2006-04-29 11:14:06.000000000 +0200
++++ vdr-1.4.0-1/vdr.c	2006-05-14 11:23:46.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.267 2006/04/29 09:14:06 kls Exp $
++ * $Id: vdr.c 1.272 2006/05/14 09:23:46 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -74,6 +74,8 @@
+ #define SHUTDOWNRETRY     300 // seconds before trying again to shut down
+ #define VPSCHECKDELTA      10 // seconds between checks for timers that have entered the VPS margin
+ #define VPSDEVICETIMEOUT    8 // seconds before a device used for VPS may be reused
++#define VPSLOOKAHEADTIME   24 // hours within which VPS timers will make sure their events are up to date
++#define VPSUPTODATETIME  3600 // seconds before the event or schedule of a VPS timer needs to be refreshed
+ 
+ #define EXIT(v) { ExitCode = (v); goto Exit; }
+ 
+@@ -762,8 +764,25 @@
+               TimerInVpsMargin = false;
+               static time_t DeviceUsed[MAXDEVICES] = { 0 };
+               for (cTimer *Timer = Timers.First(); Timer; Timer = Timers.Next(Timer)) {
+-                  if (Timer->HasFlags(tfActive | tfVps) && !Timer->Recording() && Timer->Matches(Now, true, Setup.VpsMargin)) {
+-                     Timer->SetInVpsMargin(true);
++                  bool InVpsMargin = false;
++                  bool NeedsTransponder = false;
++                  if (Timer->HasFlags(tfActive | tfVps) && !Timer->Recording()) {
++                     if (Timer->Matches(Now, true, Setup.VpsMargin))
++                        InVpsMargin = true;
++                     else if (Timer->Event())
++                        NeedsTransponder = Timer->Event()->StartTime() - Now < VPSLOOKAHEADTIME * 3600 && !Timer->Event()->SeenWithin(VPSUPTODATETIME);
++                     else {
++                        cSchedulesLock SchedulesLock;
++                        const cSchedules *Schedules = cSchedules::Schedules(SchedulesLock);
++                        if (Schedules) {
++                           const cSchedule *Schedule = Schedules->GetSchedule(Timer->Channel());
++                           NeedsTransponder = Schedule && !Schedule->PresentSeenWithin(VPSUPTODATETIME);
++                           }
++                        }
++                     TimerInVpsMargin |= InVpsMargin | NeedsTransponder;
++                     }
++                  Timer->SetInVpsMargin(InVpsMargin);
++                  if (NeedsTransponder || InVpsMargin) {
+                      // Find a device that provides the required transponder:
+                      cDevice *Device = NULL;
+                      for (int i = 0; i < cDevice::NumDevices(); i++) {
+@@ -779,13 +798,13 @@
+                                if (d->MaySwitchTransponder())
+                                   // this one can be switched without disturbing anything else
+                                   Device = d;
+-                               else if (!Device && !d->Receiving() && d->ProvidesTransponderExclusively(Timer->Channel()))
++                               else if (!Device && InVpsMargin && !d->Receiving() && d->ProvidesTransponderExclusively(Timer->Channel()))
+                                   // use this one only if no other with less impact can be found
+                                   Device = d;
+                                }
+                             }
+                          }
+-                     if (!Device) {
++                     if (!Device && InVpsMargin) {
+                         cDevice *d = cDevice::ActualDevice();
+                         if (!d->Receiving() && d->ProvidesTransponder(Timer->Channel()) && Now - DeviceUsed[d->DeviceNumber()] > VPSDEVICETIMEOUT)
+                            Device = d; // use the actual device as a last resort
+@@ -805,10 +824,7 @@
+                            Skins.Message(mtInfo, tr("Upcoming VPS recording!"));
+                            }
+                         }
+-                     TimerInVpsMargin = true;
+                      }
+-                  else
+-                     Timer->SetInVpsMargin(false);
+                   }
+               LastVpsCheck = time(NULL);
+               }
+@@ -970,7 +986,7 @@
+                   }
+                break;
+           // Power off:
+-          case kPower:
++          case kPower: {
+                isyslog("Power button pressed");
+                DELETE_MENU;
+                if (!Shutdown) {
+@@ -985,8 +1001,20 @@
+                   }
+                if (cPluginManager::Active(tr("shut down anyway?")))
+                   break;
++               cTimer *timer = Timers.GetNextActiveTimer();
++               time_t Next  = timer ? timer->StartTime() : 0;
++               time_t Delta = timer ? Next - time(NULL) : 0;
++               if (Next && Delta <= Setup.MinEventTimeout * 60) {
++                  char *buf;
++                  asprintf(&buf, tr("Recording in %ld minutes, shut down anyway?"), Delta / 60);
++                  bool confirm = Interface->Confirm(buf);
++                  free(buf);
++                  if (!confirm)
++                     break;
++                  }
+                ForceShutdown = true;
+                break;
++               }
+           default: break;
+           }
+         Interact = Menu ? Menu : cControl::Control(); // might have been closed in the mean time
+@@ -1004,6 +1032,9 @@
+               else if (time(NULL) - LastActivity > MENUTIMEOUT)
+                  state = osEnd;
+               }
++           // TODO make the CAM menu stay open in case of automatic updates and have it return osContinue; then the following two lines can be removed again
++           else if (state == osEnd && LastActivity > 1)
++              LastActivity = time(NULL);
+            switch (state) {
+              case osPause:  DELETE_MENU;
+                             cControl::Shutdown(); // just in case
+@@ -1121,15 +1152,6 @@
+                     else
+                        LastActivity = 1;
+                     }
+-                 if (UserShutdown && Next && Delta <= Setup.MinEventTimeout * 60 && !ForceShutdown) {
+-                    char *buf;
+-                    asprintf(&buf, tr("Recording in %ld minutes, shut down anyway?"), Delta / 60);
+-                    if (Interface->Confirm(buf))
+-                       ForceShutdown = true;
+-                    else
+-                       UserShutdown = false;
+-                    free(buf);
+-                    }
+                  if (!Next || Delta > Setup.MinEventTimeout * 60 || ForceShutdown) {
+                     ForceShutdown = false;
+                     if (timer)

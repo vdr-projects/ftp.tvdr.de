@@ -1,0 +1,315 @@
+diff -ruN vdr-2.0.3/CONTRIBUTORS vdr-2.0.4/CONTRIBUTORS
+--- vdr-2.0.3/CONTRIBUTORS	2013-09-01 11:20:07.000000000 +0200
++++ vdr-2.0.4/CONTRIBUTORS	2013-10-21 11:01:53.000000000 +0200
+@@ -618,6 +618,8 @@
+  for suggesting to read the epg.data file in a separate thread
+  for some improvements to allowing the parameters PATH and NAME to the --dirnames
+  command line option to be left empty to use the default values if only ENC shall be set
++ for reporting an inconsistent behavior between opening the Recordings menu manually
++ via the main menu and by pressing the Recordings key
+ 
+ Jeremy Hall <jhall@UU.NET>
+  for fixing an incomplete initialization of the filter parameters in eit.c
+@@ -2544,6 +2546,8 @@
+  for suggesting to add user defined key kUser0
+  for suggesting to perform absolute jumps when replaying a recording (via the Red key)
+  only if an actual value has been entered
++ for suggesting to make the Yellow button in the main menu not act as "Pause" if
++ "Pause key handling" is set to "do not pause live video"
+ 
+ Jörg Wendel <vdr-ml@jwendel.de>
+  for reporting that cPlugin::Active() was called too often
+@@ -3006,6 +3010,11 @@
+  for suggesting to increase the size of the TS buffer to 5MB and that of the Recorder
+  buffer to 20MB to better handle HD recordings
+  for fixing setting the video format in the dvbhdffdevice
++ for reporting a problem with setting the system time from the TDT in case devices
++ are tuned to the same transponder on different sources, and these broadcast different
++ time data
++ for reporting a problem with unjustified "video data stream broken" errors in case
++ the system time is changed while a recording is active
+ 
+ Christian Ruppert <idl0r@gentoo.org>
+  for some improvements to the Makefiles
+@@ -3163,3 +3172,10 @@
+ Manfred Völkel <mvoelkel@digitaldevices.de>
+  for suggesting to make all bonded devices (except for the master) turn off their LNB
+  power completely to avoid problems when receiving vertically polarized transponders
++
++Thomas Maass <mase@setho.org>
++ for reporting a difference in the internal sequence of actions when pressing the Blue
++ and the Back key, respectively, during replay
++
++Eike Edener <eike@edener.de>
++ for reporting a bug in writing group separators to channels.conf that contain a comma
+diff -ruN vdr-2.0.3/HISTORY vdr-2.0.4/HISTORY
+--- vdr-2.0.3/HISTORY	2013-09-01 11:19:27.000000000 +0200
++++ vdr-2.0.4/HISTORY	2013-10-23 10:59:34.000000000 +0200
+@@ -7831,3 +7831,25 @@
+   Manfred Völkel and Oliver Endriss).
+ - Fixed cleaning up old EPG events in case no epg data file is given (reported by
+   Dave Pickles).
++
++2013-10-23: Version 2.0.4
++
++- Unified the internal sequence of actions when pressing the Blue and the Back key,
++  respectively, during replay (reported by Thomas Maass).
++- The Yellow button in the main menu no longer acts as "Pause" if "Pause key handling"
++  is set to "do not pause live video" (suggested by Ulf Kiener).
++- Fixed writing group separators to channels.conf that contain a comma (reported by
++  Eike Edener).
++- Now also checking the source (in addition to the transponder) when setting the
++  system time from the TDT, which avoids problems in case devices are tuned to the
++  same transponder on different sources, and these broadcast different time data
++  (reported by Torsten Lang).
++- Changed cRecorder::Action() to use cTimeMs instead of time() to avoid problems with
++  unjustified "video data stream broken" errors in case the system time is changed
++  while a recording is active (reported by Torsten Lang).
++- Fixed an inconsistent behavior between opening the Recordings menu manually via the
++  main menu and by pressing the Recordings key. In the latter case it automatically
++  opened all sub folders to position the cursor to the last replayed recording, which
++  is unexpected at this point (reported by Helmut Auer). You can still navigate to
++  the last replayed recording (if any) by pressing Ok repeatedly in the Recordings
++  menu.
+diff -ruN vdr-2.0.3/channels.c vdr-2.0.4/channels.c
+--- vdr-2.0.3/channels.c	2012-07-14 14:34:47.000000000 +0200
++++ vdr-2.0.4/channels.c	2013-10-11 13:40:02.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 2.24 2012/07/14 12:34:47 kls Exp $
++ * $Id: channels.c 2.24.1.1 2013/10/11 11:40:02 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -503,12 +503,14 @@
+   char FullName[strlen(Channel->name) + 1 + strlen(Channel->shortName) + 1 + strlen(Channel->provider) + 1 + 10]; // +10: paranoia
+   char *q = FullName;
+   q += sprintf(q, "%s", Channel->name);
+-  if (!isempty(Channel->shortName))
+-     q += sprintf(q, ",%s", Channel->shortName);
+-  else if (strchr(Channel->name, ','))
+-     q += sprintf(q, ",");
+-  if (!isempty(Channel->provider))
+-     q += sprintf(q, ";%s", Channel->provider);
++  if (!Channel->groupSep) {
++     if (!isempty(Channel->shortName))
++        q += sprintf(q, ",%s", Channel->shortName);
++     else if (strchr(Channel->name, ','))
++        q += sprintf(q, ",");
++     if (!isempty(Channel->provider))
++        q += sprintf(q, ";%s", Channel->provider);
++     }
+   *q = 0;
+   strreplace(FullName, ':', '|');
+   cString buffer;
+diff -ruN vdr-2.0.3/config.h vdr-2.0.4/config.h
+--- vdr-2.0.3/config.h	2013-08-21 15:44:59.000000000 +0200
++++ vdr-2.0.4/config.h	2013-09-07 12:25:10.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.76.1.3 2013/08/21 13:44:59 kls Exp $
++ * $Id: config.h 2.76.1.4 2013/09/07 10:25:10 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,8 +22,8 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.0.3"
+-#define VDRVERSNUM   20003  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.0.4"
++#define VDRVERSNUM   20004  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+diff -ruN vdr-2.0.3/dvbdevice.c vdr-2.0.4/dvbdevice.c
+--- vdr-2.0.3/dvbdevice.c	2013-08-23 11:52:14.000000000 +0200
++++ vdr-2.0.4/dvbdevice.c	2013-10-21 11:01:21.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.88.1.2 2013/08/23 09:52:14 kls Exp $
++ * $Id: dvbdevice.c 2.88.1.4 2013/10/21 09:01:21 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+diff -ruN vdr-2.0.3/eit.c vdr-2.0.4/eit.c
+--- vdr-2.0.3/eit.c	2012-12-04 12:10:10.000000000 +0100
++++ vdr-2.0.4/eit.c	2013-10-12 13:24:51.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 2.23 2012/12/04 11:10:10 kls Exp $
++ * $Id: eit.c 2.23.1.1 2013/10/12 11:24:51 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -404,7 +404,7 @@
+          }
+          break;
+     case 0x14: {
+-         if (Setup.SetSystemTime && Setup.TimeTransponder && ISTRANSPONDER(Transponder(), Setup.TimeTransponder))
++         if (Setup.SetSystemTime && Setup.TimeSource == Source() && Setup.TimeTransponder && ISTRANSPONDER(Transponder(), Setup.TimeTransponder))
+             cTDT TDT(Data);
+          }
+          break;
+diff -ruN vdr-2.0.3/menu.c vdr-2.0.4/menu.c
+--- vdr-2.0.3/menu.c	2013-04-27 12:32:28.000000000 +0200
++++ vdr-2.0.4/menu.c	2013-10-16 11:46:24.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 2.82.1.2 2013/04/27 10:32:28 kls Exp $
++ * $Id: menu.c 2.82.1.5 2013/10/16 09:46:24 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -3364,7 +3364,7 @@
+ 
+ cOsdObject *cMenuMain::pluginOsdObject = NULL;
+ 
+-cMenuMain::cMenuMain(eOSState State)
++cMenuMain::cMenuMain(eOSState State, bool OpenSubMenus)
+ :cOsdMenu("")
+ {
+   SetMenuCategory(mcMain);
+@@ -3381,7 +3381,7 @@
+     case osSchedule:   AddSubMenu(new cMenuSchedule); break;
+     case osChannels:   AddSubMenu(new cMenuChannels); break;
+     case osTimers:     AddSubMenu(new cMenuTimers); break;
+-    case osRecordings: AddSubMenu(new cMenuRecordings(NULL, 0, true)); break;
++    case osRecordings: AddSubMenu(new cMenuRecordings(NULL, 0, OpenSubMenus)); break;
+     case osSetup:      AddSubMenu(new cMenuSetup); break;
+     case osCommands:   AddSubMenu(new cMenuCommands(tr("Commands"), &Commands)); break;
+     default: break;
+@@ -3448,7 +3448,7 @@
+         stopReplayItem = NULL;
+         }
+      // Color buttons:
+-     SetHelp(!replaying ? tr("Button$Record") : NULL, tr("Button$Audio"), replaying ? NULL : tr("Button$Pause"), replaying ? tr("Button$Stop") : cReplayControl::LastReplayed() ? tr("Button$Resume") : tr("Button$Play"));
++     SetHelp(!replaying ? tr("Button$Record") : NULL, tr("Button$Audio"), replaying || !Setup.PauseKeyHandling ? NULL : tr("Button$Pause"), replaying ? tr("Button$Stop") : cReplayControl::LastReplayed() ? tr("Button$Resume") : tr("Button$Play"));
+      result = true;
+      }
+ 
+@@ -3543,7 +3543,7 @@
+                                 }
+                              break;
+                case kYellow: if (!HadSubMenu)
+-                                state = replaying ? osContinue : osPause;
++                                state = replaying || !Setup.PauseKeyHandling ? osContinue : osPause;
+                              break;
+                case kBlue:   if (!HadSubMenu)
+                                 state = replaying ? osStopReplay : cReplayControl::LastReplayed() ? osReplay : osRecordings;
+@@ -4968,10 +4968,8 @@
+                            else
+                               Show();
+                            break;
+-            case kBack:    if (Setup.DelTimeshiftRec) {
+-                              cRecordControl* rc = cRecordControls::GetRecordControl(fileName);
+-                              return rc && rc->InstantId() ? osEnd : osRecordings;
+-                              }
++            case kBack:    Hide();
++                           Stop();
+                            return osRecordings;
+             default:       return osUnknown;
+             }
+diff -ruN vdr-2.0.3/menu.h vdr-2.0.4/menu.h
+--- vdr-2.0.3/menu.h	2012-12-07 14:44:13.000000000 +0100
++++ vdr-2.0.4/menu.h	2013-10-16 11:46:15.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 2.13 2012/12/07 13:44:13 kls Exp $
++ * $Id: menu.h 2.13.1.1 2013/10/16 09:46:15 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -107,7 +107,7 @@
+   void Set(void);
+   bool Update(bool Force = false);
+ public:
+-  cMenuMain(eOSState State = osUnknown);
++  cMenuMain(eOSState State = osUnknown, bool OpenSubMenus = false);
+   virtual eOSState ProcessKey(eKeys Key);
+   static cOsdObject *PluginOsdObject(void);
+   };
+diff -ruN vdr-2.0.3/recorder.c vdr-2.0.4/recorder.c
+--- vdr-2.0.3/recorder.c	2012-09-22 13:53:57.000000000 +0200
++++ vdr-2.0.4/recorder.c	2013-10-12 14:10:05.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.c 2.17 2012/09/22 11:53:57 kls Exp $
++ * $Id: recorder.c 2.17.1.1 2013/10/12 12:10:05 kls Exp $
+  */
+ 
+ #include "recorder.h"
+@@ -14,7 +14,7 @@
+ 
+ // The maximum time we wait before assuming that a recorded video data stream
+ // is broken:
+-#define MAXBROKENTIMEOUT 30 // seconds
++#define MAXBROKENTIMEOUT 30000 // milliseconds
+ 
+ #define MINFREEDISKSPACE    (512) // MB
+ #define DISKCHECKINTERVAL   100 // seconds
+@@ -117,7 +117,7 @@
+ 
+ void cRecorder::Action(void)
+ {
+-  time_t t = time(NULL);
++  cTimeMs t(MAXBROKENTIMEOUT);
+   bool InfoWritten = false;
+   bool FirstIframeSeen = false;
+   while (Running()) {
+@@ -160,16 +160,16 @@
+                        break;
+                        }
+                     fileSize += Count;
+-                    t = time(NULL);
++                    t.Set(MAXBROKENTIMEOUT);
+                     }
+                  }
+               ringBuffer->Del(Count);
+               }
+            }
+-        if (time(NULL) - t > MAXBROKENTIMEOUT) {
++        if (t.TimedOut()) {
+            esyslog("ERROR: video data stream broken");
+            ShutdownHandler.RequestEmergencyExit();
+-           t = time(NULL);
++           t.Set(MAXBROKENTIMEOUT);
+            }
+         }
+ }
+diff -ruN vdr-2.0.3/vdr.c vdr-2.0.4/vdr.c
+--- vdr-2.0.3/vdr.c	2013-03-15 11:44:54.000000000 +0100
++++ vdr-2.0.4/vdr.c	2013-10-16 11:46:36.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 2.57 2013/03/15 10:44:54 kls Exp $
++ * $Id: vdr.c 2.57.1.1 2013/10/16 09:46:36 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -1234,7 +1234,7 @@
+              case osRecordings:
+                             DELETE_MENU;
+                             cControl::Shutdown();
+-                            Menu = new cMenuMain(osRecordings);
++                            Menu = new cMenuMain(osRecordings, true);
+                             break;
+              case osReplay: DELETE_MENU;
+                             cControl::Shutdown();

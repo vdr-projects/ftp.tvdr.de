@@ -1,0 +1,743 @@
+diff -ruN vdr-1.5.5/CONTRIBUTORS vdr-1.5.6/CONTRIBUTORS
+--- vdr-1.5.5/CONTRIBUTORS	2007-06-23 12:54:31.000000000 +0200
++++ vdr-1.5.6/CONTRIBUTORS	2007-07-22 13:34:19.000000000 +0200
+@@ -1015,6 +1015,8 @@
+  the plugins
+  for increasing the maximum number of DVB devices to 8
+  for suggesting to change the parameter "OSD font" to "Default font" in "Setup/OSD"
++ for improving cControl::Launch() to keep 'control' from pointing to uninitialized
++ memory
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1401,6 +1403,8 @@
+  for removing 'assert(0)' from cDvbSpuDecoder::setTime()
+  for adapting 'libsi' to DVB-S2
+  for fixing handling ChannelUp/Down keys if there is currently a replay running
++ for fixing a buffer overflow in initializing the system character table
++ for reporting a missing 'P' in vdr.c's SHUTDOWNCANCELROMPT macro
+ 
+ Jќrgen Schmitz <j.schmitz@web.de>
+  for reporting a bug in displaying the current channel when switching via the SVDRP
+@@ -1419,6 +1423,8 @@
+ Martin Dauskardt <md001@gmx.de>
+  for reporting a problem with switching channels while an encrypted channel is being
+  recorded
++ for suggesting to add a table of the used trick speed values to the description of
++ cDevice::TrickSpeed()
+ 
+ Maynard Cedric <maynard.cedric@wanadoo.fr>
+  for reporting a problem in handling the color button texts in cMenuEditStrItem
+@@ -1499,6 +1505,8 @@
+  for making the HUP signal force a restart of VDR
+  for fixing a race condition with signal handlers at program exit
+  for fixing handling detached processes in SystemExec()
++ for fixing handling single byte characters >0x7F in Utf8ToArray()
++ for fixing clearing color buttons in the 'curses' skin
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -1955,6 +1963,8 @@
+  calling "vdr --help"
+  for fixing cDevice::ToggleMute()
+  for suggestions that led to implementing cOsd::SetOsdPosition() etc.
++ for fixing a typo in the function name of cOsd::SetOsdPosition() and adding a range
++ check to it
+ 
+ Pekka Mauno <pekka.mauno@iki.fi>
+  for fixing cSchedule::GetFollowingEvent() in case there is currently no present
+@@ -2104,3 +2114,7 @@
+ 
+ Patrice Staudt <staudt@engsystem.net>
+  for adding full weekday names to i18n.c for plugins to use
++
++Tobias Bratfisch <tobias@reel-multimedia.com>
++ for improving numdigits(), isnumber() and strreplace()
++ for suggesting to make skipspace() an inline function
+diff -ruN vdr-1.5.5/HISTORY vdr-1.5.6/HISTORY
+--- vdr-1.5.5/HISTORY	2007-06-23 15:40:04.000000000 +0200
++++ vdr-1.5.6/HISTORY	2007-07-22 13:34:35.000000000 +0200
+@@ -5275,3 +5275,26 @@
+ - Fixed stripping i18n stuff from font names (reported by Anssi Hannula).
+ - Improved performance of the SVDRP commands LSTC and CHAN when used with a
+   channel name.
++
++2007-07-22: Version 1.5.6
++
++- Fixed a buffer overflow in initializing the system character table (thanks
++  to Marco Schlќпler).
++- Updated the Russian OSD texts (thanks to Oleg Roitburd).
++- Fixed handling single byte characters >0x7F in Utf8ToArray() (thanks to Udo
++  Richter).
++- Improved numdigits(), isnumber() and strreplace() (thanks to Tobias Bratfisch).
++- Fixed clearing color buttons in the 'curses' skin (thanks to Udo Richter).
++- Fixed a typo in the function name of cOsd::SetOsdPosition() and added a range
++  check to it (thanks to Christoph Haubrich).
++- Updated the Finnish OSD texts (thanks to Rolf Ahrenberg).
++- Improved cControl::Launch() to keep 'control' from pointing to uninitialized
++  memory (thanks to Rolf Ahrenberg).
++- Made skipspace() an inline function (suggested by Tobias Bratfisch) and changed
++  it to handle the most common case of 'no leading space' very fast, and avoid
++  calling isspace(), which made the whole function a lot faster.
++- Fixed detection of Premiere NVOD channel links (thanks to anonymous).
++- Added a table of the used trick speed values to the description of
++  cDevice::TrickSpeed() (suggested by Martin Dauskardt).
++- Added a missing 'P' to vdr.c's SHUTDOWNCANCELROMPT macro (reported by Marco
++  Schlќпler).
+diff -ruN vdr-1.5.5/PLUGINS/src/skincurses/HISTORY vdr-1.5.6/PLUGINS/src/skincurses/HISTORY
+--- vdr-1.5.5/PLUGINS/src/skincurses/HISTORY	2007-06-23 11:08:21.000000000 +0200
++++ vdr-1.5.6/PLUGINS/src/skincurses/HISTORY	2007-07-20 16:45:44.000000000 +0200
+@@ -47,3 +47,7 @@
+ 2007-06-23: Version 0.1.1
+ 
+ - Fixed a name clash with the new cOsd position functions.
++
++2007-07-20: Version 0.1.2
++
++- Fixed clearing color buttons.
+diff -ruN vdr-1.5.5/PLUGINS/src/skincurses/skincurses.c vdr-1.5.6/PLUGINS/src/skincurses/skincurses.c
+--- vdr-1.5.5/PLUGINS/src/skincurses/skincurses.c	2007-06-23 11:08:01.000000000 +0200
++++ vdr-1.5.6/PLUGINS/src/skincurses/skincurses.c	2007-07-20 16:45:07.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: skincurses.c 1.14 2007/06/23 09:08:01 kls Exp $
++ * $Id: skincurses.c 1.15 2007/07/20 14:45:07 kls Exp $
+  */
+ 
+ #include <ncurses.h>
+@@ -11,7 +11,7 @@
+ #include <vdr/plugin.h>
+ #include <vdr/skins.h>
+ 
+-static const char *VERSION        = "0.1.1";
++static const char *VERSION        = "0.1.2";
+ static const char *DESCRIPTION    = "A text only skin";
+ static const char *MAINMENUENTRY  = NULL;
+ 
+@@ -133,8 +133,6 @@
+ 
+ void cCursesOsd::DrawText(int x, int y, const char *s, tColor ColorFg, tColor ColorBg, const cFont *Font, int Width, int Height, int Alignment)
+ {
+-  if (!s)
+-     return;
+   int w = Font->Width(s);
+   int h = Font->Height();
+   if (Width || Height) {
+diff -ruN vdr-1.5.5/channels.c vdr-1.5.6/channels.c
+--- vdr-1.5.5/channels.c	2006-05-28 17:03:40.000000000 +0200
++++ vdr-1.5.6/channels.c	2007-07-21 16:55:01.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 1.53 2006/05/28 15:03:40 kls Exp $
++ * $Id: channels.c 1.54 2007/07/21 14:55:01 kls Exp $
+  */
+ 
+ #include "channels.h"
+@@ -1007,6 +1007,17 @@
+      }
+   return NULL;
+ }
++cChannel *cChannels::GetByTransponderID(tChannelID ChannelID)
++{
++  int source = ChannelID.Source();
++  int nid = ChannelID.Nid();
++  int tid = ChannelID.Tid();
++  for (cChannel *channel = First(); channel; channel = Next(channel)) {
++      if (channel->Tid() == tid && channel->Nid() == nid && channel->Source() == source)
++         return channel;
++      }
++  return NULL;
++}
+ 
+ bool cChannels::HasUniqueChannelID(cChannel *NewChannel, cChannel *OldChannel)
+ {
+diff -ruN vdr-1.5.5/channels.h vdr-1.5.6/channels.h
+--- vdr-1.5.5/channels.h	2007-01-05 11:37:35.000000000 +0100
++++ vdr-1.5.6/channels.h	2007-07-21 16:58:36.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.h 1.43 2007/01/05 10:37:35 kls Exp $
++ * $Id: channels.h 1.44 2007/07/21 14:58:36 kls Exp $
+  */
+ 
+ #ifndef __CHANNELS_H
+@@ -239,6 +239,7 @@
+   cChannel *GetByNumber(int Number, int SkipGap = 0);
+   cChannel *GetByServiceID(int Source, int Transponder, unsigned short ServiceID);
+   cChannel *GetByChannelID(tChannelID ChannelID, bool TryWithoutRid = false, bool TryWithoutPolarization = false);
++  cChannel *GetByTransponderID(tChannelID ChannelID);
+   int BeingEdited(void) { return beingEdited; }
+   void IncBeingEdited(void) { beingEdited++; }
+   void DecBeingEdited(void) { beingEdited--; }
+diff -ruN vdr-1.5.5/config.h vdr-1.5.6/config.h
+--- vdr-1.5.5/config.h	2007-06-23 11:06:24.000000000 +0200
++++ vdr-1.5.6/config.h	2007-07-20 16:52:05.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.292 2007/06/23 09:06:24 kls Exp $
++ * $Id: config.h 1.294 2007/07/20 14:52:05 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.5.5"
+-#define VDRVERSNUM   10505  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.5.6"
++#define VDRVERSNUM   10506  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.5.5"
+-#define APIVERSNUM   10505  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.5.6"
++#define APIVERSNUM   10506  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-1.5.5/device.h vdr-1.5.6/device.h
+--- vdr-1.5.5/device.h	2007-01-13 12:33:57.000000000 +0100
++++ vdr-1.5.6/device.h	2007-07-22 13:20:13.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 1.81 2007/01/13 11:33:57 kls Exp $
++ * $Id: device.h 1.82 2007/07/22 11:20:13 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -468,6 +468,12 @@
+        ///< Sets the device into a mode where replay is done slower.
+        ///< Every single frame shall then be displayed the given number of
+        ///< times.
++       ///< The cDvbPlayer uses the following values for the various speeds:
++       ///<                   1x   2x   3x
++       ///< Fast Forward       6    3    1
++       ///< Fast Reverse       6    3    1
++       ///< Slow Forward       8    4    2
++       ///< Slow Reverse      63   48   24
+   virtual void Clear(void);
+        ///< Clears all video and audio data from the device.
+        ///< A derived class must call the base class function to make sure
+diff -ruN vdr-1.5.5/eit.c vdr-1.5.6/eit.c
+--- vdr-1.5.5/eit.c	2007-06-10 14:51:05.000000000 +0200
++++ vdr-1.5.6/eit.c	2007-07-21 16:58:04.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 1.123 2007/06/10 12:51:05 kls Exp $
++ * $Id: eit.c 1.124 2007/07/21 14:58:04 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -197,7 +197,10 @@
+                                 link->SetName(linkName, "", "");
+                              }
+                           else if (Setup.UpdateChannels >= 4) {
+-                             link = Channels.NewChannel(channel, linkName, "", "", ld->getOriginalNetworkId(), ld->getTransportStreamId(), ld->getServiceId());
++                             cChannel *transponder = channel;
++                             if (channel->Tid() != ld->getTransportStreamId())
++                                channel = Channels.GetByTransponderID(linkID);
++                             link = Channels.NewChannel(transponder, linkName, "", "", ld->getOriginalNetworkId(), ld->getTransportStreamId(), ld->getServiceId());
+                              //XXX patFilter->Trigger();
+                              }
+                           if (link) {
+diff -ruN vdr-1.5.5/i18n.c vdr-1.5.6/i18n.c
+--- vdr-1.5.5/i18n.c	2007-06-23 15:28:32.000000000 +0200
++++ vdr-1.5.6/i18n.c	2007-07-20 17:04:37.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.300 2007/06/23 13:28:32 kls Exp $
++ * $Id: i18n.c 1.302 2007/07/20 15:04:37 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -1415,7 +1415,7 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "Процесс монтажа - действительно перезапустить?",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -1506,7 +1506,7 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "Нажмите любую кнопку для отмены перезагрузки",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -1528,7 +1528,7 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "VDR выключится позже - нажмите Power для ускорения",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -1550,7 +1550,7 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "VDR выключится через %s минут",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -1572,7 +1572,7 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "Идет монтаж - действительно выключить?",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -1594,7 +1594,7 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "Plugin %s проснется через %ld минут - продолжить?",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -2861,7 +2861,7 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "CAM используется - действительно перегрузить?",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -2906,7 +2906,7 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "CAM перегружен",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -2928,7 +2928,7 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "CAM присутствует",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -2950,7 +2950,7 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "CAM готов",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -2972,7 +2972,7 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "CAM не отвечает",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -3341,7 +3341,7 @@
+     "Temу",
+     "Tщma",
+     "",// TODO
+-    "Палитра",
++    "Тема",
+     "Tema",
+     "Teema",
+     "Tema",
+@@ -3525,7 +3525,7 @@
+     "dep. de skin",
+     "Menќ nщzetщtѕl fќggѕen",
+     "",// TODO
+-    "согласно теме",
++    "согласно стиля",
+     "ovisno o povrЙini",
+     "kestast sѕltuv",
+     "skin afhцngig",
+@@ -3571,7 +3571,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Сглаживание шрифтов",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -3594,7 +3594,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Стандартный фонт",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -3617,7 +3617,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Мелкий фонт",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -3640,7 +3640,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Фиксированный фонт",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -3663,7 +3663,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Размер фонта для меню (pixel)",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -3686,7 +3686,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Размер мелкого фонта (pixel)",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -3709,7 +3709,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Размер фиксированного фонта (pixel)",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -5020,7 +5020,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Предел времени для ввода канала (ms)",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -5150,7 +5150,7 @@
+     "Segunda",
+     "Lundi",
+     "Manday",
+-    "maanantai",
++    "Maanantai",
+     "poniedziaГek",
+     "Lunes",
+     "Фхѕєнёс",
+diff -ruN vdr-1.5.5/libsi/si.c vdr-1.5.6/libsi/si.c
+--- vdr-1.5.5/libsi/si.c	2007-06-15 15:08:31.000000000 +0200
++++ vdr-1.5.6/libsi/si.c	2007-07-21 15:49:48.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.c 1.21 2007/06/15 13:08:31 kls Exp $
++ *   $Id: si.c 1.22 2007/07/21 13:49:48 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -287,7 +287,7 @@
+ #define SingleByteLimit 0x0B
+ 
+ static const char *CharacterTables2[] = {
+-  NULL,         // 0x00
++  NULL,          // 0x00
+   "ISO-8859-1",  // 0x01
+   "ISO-8859-2",  // 0x02
+   "ISO-8859-3",  // 0x03
+@@ -299,7 +299,7 @@
+   "ISO-8859-9",  // 0x09
+   "ISO-8859-10", // 0x0A
+   "ISO-8859-11", // 0x0B
+-  NULL,         // 0x0C
++  NULL,          // 0x0C
+   "ISO-8859-13", // 0x0D
+   "ISO-8859-14", // 0x0E
+   "ISO-8859-15", // 0x0F
+diff -ruN vdr-1.5.5/osd.c vdr-1.5.6/osd.c
+--- vdr-1.5.5/osd.c	2007-06-17 15:54:34.000000000 +0200
++++ vdr-1.5.6/osd.c	2007-07-20 16:51:36.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 1.70 2007/06/17 13:54:34 kls Exp $
++ * $Id: osd.c 1.71 2007/07/20 14:51:36 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -668,12 +668,12 @@
+   isOpen--;
+ }
+ 
+-void cOsd::SetOsdPostion(int Left, int Top, int Width, int Height)
++void cOsd::SetOsdPosition(int Left, int Top, int Width, int Height)
+ {
+   osdLeft = Left;
+   osdTop = Top;
+-  osdWidth = Width;
+-  osdHeight = Height;
++  osdWidth = min(max(Width, MINOSDWIDTH), MAXOSDWIDTH);
++  osdHeight = min(max(Height, MINOSDHEIGHT), MAXOSDHEIGHT);
+ }
+ 
+ void cOsd::SetAntiAliasGranularity(uint FixedColors, uint BlendColors)
+diff -ruN vdr-1.5.5/osd.h vdr-1.5.6/osd.h
+--- vdr-1.5.5/osd.h	2007-06-17 15:59:22.000000000 +0200
++++ vdr-1.5.6/osd.h	2007-07-20 16:50:17.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.h 1.55 2007/06/17 13:59:22 kls Exp $
++ * $Id: osd.h 1.56 2007/07/20 14:50:17 kls Exp $
+  */
+ 
+ #ifndef __OSD_H
+@@ -276,7 +276,7 @@
+   static int OsdTop(void) { return osdTop ? osdTop : Setup.OSDTop; }
+   static int OsdWidth(void) { return osdWidth ? osdWidth : Setup.OSDWidth; }
+   static int OsdHeight(void) { return osdHeight ? osdHeight : Setup.OSDHeight; }
+-  static void SetOsdPostion(int Left, int Top, int Width, int Height);
++  static void SetOsdPosition(int Left, int Top, int Width, int Height);
+        ///< Sets the position and size of the OSD to the given values.
+        ///< This may be useful for plugins that determine the scaling of the
+        ///< video image and need to scale the OSD accordingly to fit on the
+diff -ruN vdr-1.5.5/player.c vdr-1.5.6/player.c
+--- vdr-1.5.5/player.c	2006-01-06 12:30:07.000000000 +0100
++++ vdr-1.5.6/player.c	2007-07-20 17:25:24.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: player.c 1.11 2006/01/06 11:30:07 kls Exp $
++ * $Id: player.c 1.12 2007/07/20 15:25:24 kls Exp $
+  */
+ 
+ #include "player.h"
+@@ -69,8 +69,9 @@
+ void cControl::Launch(cControl *Control)
+ {
+   cMutexLock MutexLock(&mutex);
+-  delete control;
++  cControl *c = control; // keeps control from pointing to uninitialized memory
+   control = Control;
++  delete c;
+ }
+ 
+ void cControl::Attach(void)
+diff -ruN vdr-1.5.5/tools.c vdr-1.5.6/tools.c
+--- vdr-1.5.5/tools.c	2007-06-23 15:38:30.000000000 +0200
++++ vdr-1.5.6/tools.c	2007-07-21 15:02:45.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 1.130 2007/06/23 13:38:30 kls Exp $
++ * $Id: tools.c 1.134 2007/07/21 13:02:45 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -158,21 +158,15 @@
+      int l1 = strlen(s1);
+      int l2 = strlen(s2);
+      if (l2 > l1)
+-        s = (char *)realloc(s, strlen(s) + l2 - l1 + 1);
++        s = (char *)realloc(s, l + l2 - l1 + 1);
++     char *sof = s + of;
+      if (l2 != l1)
+-        memmove(s + of + l2, s + of + l1, l - of - l1 + 1);
+-     strncpy(s + of, s2, l2);
++        memmove(sof + l2, sof + l1, l - of - l1 + 1);
++     strncpy(sof, s2, l2);
+      }
+   return s;
+ }
+ 
+-char *skipspace(const char *s)
+-{
+-  while (*s && isspace(*s))
+-        s++;
+-  return (char *)s;
+-}
+-
+ char *stripspace(char *s)
+ {
+   if (s && *s) {
+@@ -252,20 +246,22 @@
+ 
+ int numdigits(int n)
+ {
+-  char buf[16];
+-  snprintf(buf, sizeof(buf), "%d", n);
+-  return strlen(buf);
++  int res = 1;
++  while (n >= 10) {
++        n /= 10;
++        res++;
++        }
++  return res;
+ }
+ 
+ bool isnumber(const char *s)
+ {
+   if (!*s)
+      return false;
+-  while (*s) {
+-        if (!isdigit(*s))
+-           return false;
+-        s++;
+-        }
++  do {
++     if (!isdigit(*s))
++        return false;
++     } while (*++s);
+   return true;
+ }
+ 
+@@ -685,7 +681,7 @@
+   int n = 0;
+   while (*s && --Size > 0) {
+         if (cCharSetConv::SystemCharacterTable())
+-           *a++ = *s++;
++           *a++ = (uchar)(*s++);
+         else {
+            int sl = Utf8CharLen(s);
+            *a++ = Utf8CharGet(s, sl);
+@@ -756,7 +752,7 @@
+      char buf[129];
+      for (int i = 0; i < 128; i++)
+          buf[i] = i + 128;
+-     buf[129] = 0;
++     buf[128] = 0;
+      cCharSetConv csc(CharacterTable);
+      const char *s = csc.Convert(buf);
+      int i = 0;
+diff -ruN vdr-1.5.5/tools.h vdr-1.5.6/tools.h
+--- vdr-1.5.5/tools.h	2007-06-23 15:34:28.000000000 +0200
++++ vdr-1.5.6/tools.h	2007-07-21 15:35:45.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 1.103 2007/06/23 13:34:28 kls Exp $
++ * $Id: tools.h 1.104 2007/07/21 13:35:45 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -173,7 +173,14 @@
+ char *strn0cpy(char *dest, const char *src, size_t n);
+ char *strreplace(char *s, char c1, char c2);
+ char *strreplace(char *s, const char *s1, const char *s2); ///< re-allocates 's' and deletes the original string if necessary!
+-char *skipspace(const char *s);
++inline char *skipspace(const char *s)
++{
++  if (*s > ' ') // most strings don't have any leading space, so handle this case as fast as possible
++     return (char *)s;
++  while (*s && *s <= ' ') // avoiding isspace() here, because it is much slower
++        s++;
++  return (char *)s;
++}
+ char *stripspace(char *s);
+ char *compactspace(char *s);
+ cString strescape(const char *s, const char *chars);
+diff -ruN vdr-1.5.5/vdr.c vdr-1.5.6/vdr.c
+--- vdr-1.5.5/vdr.c	2007-06-17 13:23:08.000000000 +0200
++++ vdr-1.5.6/vdr.c	2007-07-22 13:40:01.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.293 2007/06/17 11:23:08 kls Exp $
++ * $Id: vdr.c 1.294 2007/07/22 11:40:01 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -65,22 +65,22 @@
+ #include "transfer.h"
+ #include "videodir.h"
+ 
+-#define MINCHANNELWAIT     10 // seconds to wait between failed channel switchings
+-#define ACTIVITYTIMEOUT    60 // seconds before starting housekeeping
+-#define SHUTDOWNWAIT      300 // seconds to wait in user prompt before automatic shutdown
+-#define SHUTDOWNRETRY     360 // seconds before trying again to shut down
+-#define SHUTDOWNFORCEPROMPT 5 // seconds to wait in user prompt to allow forcing shutdown
+-#define SHUTDOWNCANCELROMPT 5 // seconds to wait in user prompt to allow canceling shutdown
+-#define RESTARTCANCELPROMPT 5 // seconds to wait in user prompt before restarting on SIGHUP
+-#define MANUALSTART       600 // seconds the next timer must be in the future to assume manual start
+-#define CHANNELSAVEDELTA  600 // seconds before saving channels.conf after automatic modifications
+-#define DEVICEREADYTIMEOUT 30 // seconds to wait until all devices are ready
+-#define MENUTIMEOUT       120 // seconds of user inactivity after which an OSD display is closed
+-#define TIMERCHECKDELTA    10 // seconds between checks for timers that need to see their channel
+-#define TIMERDEVICETIMEOUT  8 // seconds before a device used for timer check may be reused
+-#define TIMERLOOKAHEADTIME 60 // seconds before a non-VPS timer starts and the channel is switched if possible
+-#define VPSLOOKAHEADTIME   24 // hours within which VPS timers will make sure their events are up to date
+-#define VPSUPTODATETIME  3600 // seconds before the event or schedule of a VPS timer needs to be refreshed
++#define MINCHANNELWAIT        10 // seconds to wait between failed channel switchings
++#define ACTIVITYTIMEOUT       60 // seconds before starting housekeeping
++#define SHUTDOWNWAIT         300 // seconds to wait in user prompt before automatic shutdown
++#define SHUTDOWNRETRY        360 // seconds before trying again to shut down
++#define SHUTDOWNFORCEPROMPT    5 // seconds to wait in user prompt to allow forcing shutdown
++#define SHUTDOWNCANCELPROMPT   5 // seconds to wait in user prompt to allow canceling shutdown
++#define RESTARTCANCELPROMPT    5 // seconds to wait in user prompt before restarting on SIGHUP
++#define MANUALSTART          600 // seconds the next timer must be in the future to assume manual start
++#define CHANNELSAVEDELTA     600 // seconds before saving channels.conf after automatic modifications
++#define DEVICEREADYTIMEOUT    30 // seconds to wait until all devices are ready
++#define MENUTIMEOUT          120 // seconds of user inactivity after which an OSD display is closed
++#define TIMERCHECKDELTA       10 // seconds between checks for timers that need to see their channel
++#define TIMERDEVICETIMEOUT     8 // seconds before a device used for timer check may be reused
++#define TIMERLOOKAHEADTIME    60 // seconds before a non-VPS timer starts and the channel is switched if possible
++#define VPSLOOKAHEADTIME      24 // hours within which VPS timers will make sure their events are up to date
++#define VPSUPTODATETIME     3600 // seconds before the event or schedule of a VPS timer needs to be refreshed
+ 
+ #define EXIT(v) { ShutdownHandler.Exit(v); goto Exit; }
+ 
+@@ -1037,7 +1037,7 @@
+                   break;
+                   }
+                // Ask the final question:
+-               if (!Interface->Confirm(tr("Press any key to cancel shutdown"), SHUTDOWNCANCELROMPT, true))
++               if (!Interface->Confirm(tr("Press any key to cancel shutdown"), SHUTDOWNCANCELPROMPT, true))
+                   // If final question was canceled, continue to be active:
+                   break;
+                // Ok, now call the shutdown script:

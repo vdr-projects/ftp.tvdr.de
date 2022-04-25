@@ -1,0 +1,3298 @@
+diff -ruN vdr-2.3.1/CONTRIBUTORS vdr-2.3.2/CONTRIBUTORS
+--- vdr-2.3.1/CONTRIBUTORS	2015-09-11 12:00:22.000000000 +0200
++++ vdr-2.3.2/CONTRIBUTORS	2016-12-23 15:49:06.000000000 +0100
+@@ -715,6 +715,7 @@
+  for suggesting to ignore channels with an RID that is not 0 when checking for obsolete
+  channels
+  for fixing a possible stack overflow in cListBase::Sort()
++ for reporting a crash when deleting a recording
+ 
+ Reinhard Walter Buchner <rw.buchner@freenet.de>
+  for adding some satellites to 'sources.conf'
+@@ -1844,6 +1845,7 @@
+  for exporting some libsi functions
+  for suggesting to add functions to cDevice that allow derived output devices to
+  implement scaling the video to a given size and location
++ fpr sorting sources.conf by continous azimuth
+ 
+ Mattias Gr�nlund <Mattias@Gronlund.net>
+  for pointing out a missing cleanup at program exit in case there is a problem
+@@ -2062,6 +2064,8 @@
+  for reporting a possible NULL pointer dereference in cCiSession::SendData()
+  for reporting a superfluous assignment in cPipe::Open()
+  for avoiding unnecessary pkg-config warnings in plugin Makefiles
++ for fixing building VDR with systemd >= 230
++ for avoiding some duplicate code and unnecessary work in nit.c
+ 
+ Steffen Beyer <cpunk@reactor.de>
+  for fixing setting the colored button help after deleting a recording in case the next
+@@ -2924,6 +2928,10 @@
+  for making VDR read command line options from *.conf files in /etc/vdr/conf.d
+  for adding a missing backslash to the help text of the SVDRP command MOVR
+  for fixing a memory leak in case of broken Extended Event Descriptors
++ for adding a 'const' version of cTimers::GetTimer()
++ for fixing a typo in the description of cTimers::GetTimersRead()
++ for suggesting to use dynamic buffering in handling CA descriptors to avoid a
++ possible buffer overflow
+ 
+ Alex Lasnier <alex@fepg.org>
+  for adding tuning support for ATSC devices
+@@ -3225,6 +3233,7 @@
+ 
+ Marc Perrudin <vdr@ekass.net>
+  for translating OSD texts to the French language
++ for adding support for the systemd watchdog
+ 
+ Bernard Jaulin <bernard.jaulin@gmail.com>
+  for translating OSD texts to the French language
+@@ -3322,6 +3331,18 @@
+  ViewPort and DrawPort
+  for suggesting to reduce the priority of the "video directory scanner" thread
+  for making the 'newplugin' script create the 'po' subdirectory for translations
++ for suggesting to add a note to the description of cFont::Size(), regarding possible
++ differences between it and cFont::Height()
++ for making the cPlayer member functions FramesPerSecond, GetIndex and GetReplayMode
++ 'const'
++ for fixing resuming replay at a given position, which was off by one frame
++ for improving handling frame numbers to have a smoother progress display during
++ replay of recordings with B-frames
++ for fixing replaying recordings to their very end, if they don't end with an I-frame
++ for implementing a frame parser for H.265 (HEVC) recordings
++ for adding cFont::Width(void) to get the default character width and allow stretched
++ font drawing in high level OSDs
++ for fixing regenerating the index of audio recordings
+ 
+ Eike Sauer <EikeSauer@t-online.de>
+  for reporting a problem with channels that need more than 5 TS packets for detecting
+@@ -3428,3 +3449,13 @@
+ Stefan P�schel <basic.master@gmx.de>
+  for coding the AFFcleaner, parts of which were used to make the recorder skip empty
+  adaptation field TS packets
++
++Robert Hannebauer <vdr@hannebauer.org>
++ for fixing an overflow of PIDs in a receiver
++
++Aitugan Sarbassov <isarbassov@gmail.com>
++ for adding 'S58.5E Kazsat 3' to sources.conf
++
++Sergey Chernyavskiy <glenvt18@gmail.com>
++ for reporting truncated date/time strings in the skins on multi-byte UTF-8
++ for adding a short sleep to cTSBuffer::Action() to avoid high CPU usage
+diff -ruN vdr-2.3.1/HISTORY vdr-2.3.2/HISTORY
+--- vdr-2.3.1/HISTORY	2015-09-14 16:11:00.000000000 +0200
++++ vdr-2.3.2/HISTORY	2016-12-24 09:48:22.000000000 +0100
+@@ -8827,3 +8827,57 @@
+   live tv (suggested by Dietmar Spingler).
+ - Empty adaptation field TS packets are now skipped when recording (thanks to
+   Christopher Reimer, based on the "AFFcleaner" by Stefan P�schel).
++
++2016-12-24: Version 2.3.2
++
++- Fixed a crash when deleting a recording (reported by Oliver Endriss).
++- Fixed an overflow of PIDs in a receiver (thanks to Robert Hannebauer).
++- Updated the Italian OSD texts (thanks to Diego Pierotto).
++- Fixed initializing device specific parameters in cDvbTransponderParameters.
++- The function SetCurrentChannel(const cChannel *Channel) is now deprecated and
++  may be removed in a future version. Use SetCurrentChannel(int ChannelNumber)
++  instead.
++- The SVDRP command DELC now refuses to delete the very last channel in the list,
++  to avoid ending up with an empty channel list.
++- The cRwLock class now allows nested read locks within a write lock from the
++  same thread. This fixes possible crashes when moving or deleting channels in
++  the menu or through SVDRP (as well as other operations that try to acquire a
++  read lock within a write lock).
++- Fixed a crash when trying to delete a channel that is being used by a timer.
++- Fixed setting the current item and counter values in the Recordings menu after
++  deleting the last recording in a subfolder.
++- Fixed a crash when deleting a recording that is currently being replayed.
++- Fixed a crash when moving a recording to a folder on a different volume.
++  The cRecordingsHandler now performs its actual operations in a separate thread,
++  thus avoiding locking problems and reducing the time between subsequent
++  operations.
++- Added a note to the description of cFont::Size(), regarding possible differences
++  between it and cFont::Height() (suggested to Thomas Reufer).
++- Made the cPlayer member functions FramesPerSecond, GetIndex and GetReplayMode
++  'const' (thanks to Thomas Reufer).
++- Fixed resuming replay at a given position, which was off by one frame (thanks
++  to Thomas Reufer).
++- Improved handling frame numbers to have a smoother progress display during
++  replay of recordings with B-frames (thanks to Thomas Reufer).
++- Fixed replaying recordings to their very end, if they don't end with an I-frame
++  (thanks to Thomas Reufer).
++- Implemented a frame parser for H.265 (HEVC) recordings (thanks to Thomas Reufer).
++- Added cFont::Width(void) to get the default character width and allow stretched
++  font drawing in high level OSDs (thanks to Thomas Reufer).
++- Fixed regenerating the index of audio recordings (thanks to Thomas Reufer).
++- Fixed building VDR with systemd >= 230 (thanks to Ville Skytt�).
++- Sorted sources.conf by continous azimuth (thanks to Lucian Muresan).
++- Added 'S58.5E Kazsat 3' to sources.conf (thanks to Aitugan Sarbassov).
++- Fixed truncated date/time strings in the skins on multi-byte UTF-8 systems
++  (reported by Sergey Chernyavskiy).
++- Updated the Estonian OSD texts (thanks to Arthur Konovalov).
++- Added a 'const' version of cTimers::GetTimer() (thanks to Lars Hanisch).
++- Fixed a typo in the description of cTimers::GetTimersRead() (thanks to Lars
++  Hanisch).
++- Fixed a possible buffer overflow in handling CA descriptors (suggested by
++  Lars Hanisch).
++- Avoiding some duplicate code and unnecessary work in nit.c (thanks to Ville
++  Skytt�).
++- Added support for the systemd watchdog (thanks to Marc Perrudin),
++- Added a short sleep to cTSBuffer::Action() to avoid high CPU usage (thanks to
++  Sergey Chernyavskiy).
+diff -ruN vdr-2.3.1/Makefile vdr-2.3.2/Makefile
+--- vdr-2.3.1/Makefile	2015-02-09 13:28:24.000000000 +0100
++++ vdr-2.3.2/Makefile	2016-12-22 14:18:32.000000000 +0100
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 4.0 2015/02/09 12:28:24 kls Exp $
++# $Id: Makefile 4.1 2016/12/22 13:18:32 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -95,9 +95,9 @@
+ LIBS += $(shell pkg-config --libs fribidi)
+ endif
+ ifdef SDNOTIFY
+-INCLUDES += $(shell pkg-config --cflags libsystemd-daemon)
++INCLUDES += $(shell pkg-config --silence-errors --cflags libsystemd-daemon || pkg-config --cflags libsystemd)
+ DEFINES += -DSDNOTIFY
+-LIBS += $(shell pkg-config --libs libsystemd-daemon)
++LIBS += $(shell pkg-config --silence-errors --libs libsystemd-daemon || pkg-config --libs libsystemd)
+ endif
+ 
+ LIRC_DEVICE ?= /var/run/lirc/lircd
+diff -ruN vdr-2.3.1/PLUGINS/src/skincurses/HISTORY vdr-2.3.2/PLUGINS/src/skincurses/HISTORY
+--- vdr-2.3.1/PLUGINS/src/skincurses/HISTORY	2015-02-17 14:47:24.000000000 +0100
++++ vdr-2.3.2/PLUGINS/src/skincurses/HISTORY	2016-12-22 15:13:42.000000000 +0100
+@@ -130,3 +130,10 @@
+ 2015-02-19: Version 2.2.0
+ 
+ - Official release.
++
++2016-12-22: Version 2.3.2
++
++- Added cFont::Width(void) to get the default character width and allow stretched
++  font drawing in high level OSDs (dummy for skincurses).
++- Fixed truncated date/time strings in the skins on multi-byte UTF-8 systems
++  (reported by Sergey Chernyavskiy).
+diff -ruN vdr-2.3.1/PLUGINS/src/skincurses/skincurses.c vdr-2.3.2/PLUGINS/src/skincurses/skincurses.c
+--- vdr-2.3.1/PLUGINS/src/skincurses/skincurses.c	2015-02-17 14:13:17.000000000 +0100
++++ vdr-2.3.2/PLUGINS/src/skincurses/skincurses.c	2016-12-22 15:09:09.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: skincurses.c 4.0 2015/02/17 13:13:17 kls Exp $
++ * $Id: skincurses.c 4.2 2016/12/22 14:09:09 kls Exp $
+  */
+ 
+ #include <ncurses.h>
+@@ -12,7 +12,7 @@
+ #include <vdr/skins.h>
+ #include <vdr/videodir.h>
+ 
+-static const char *VERSION        = "2.2.0";
++static const char *VERSION        = "2.3.2";
+ static const char *DESCRIPTION    = trNOOP("A text only skin");
+ static const char *MAINMENUENTRY  = NULL;
+ 
+@@ -20,6 +20,7 @@
+ 
+ class cCursesFont : public cFont {
+ public:
++  virtual int Width(void) const { return 1; }
+   virtual int Width(uint c) const { return 1; }
+   virtual int Width(const char *s) const { return s ? Utf8StrLen(s) : 0; }
+   virtual int Height(void) const { return 1; }
+@@ -407,8 +408,7 @@
+      return;
+   int y = 2;
+   cTextScroller ts;
+-  char t[32];
+-  snprintf(t, sizeof(t), "%s  %s - %s", *Event->GetDateString(), *Event->GetTimeString(), *Event->GetEndTimeString());
++  cString t = cString::sprintf("%s  %s - %s", *Event->GetDateString(), *Event->GetTimeString(), *Event->GetEndTimeString());
+   ts.Set(osd, 0, y, ScOsdWidth, ScOsdHeight - y - 2, t, &Font, clrYellow, clrBackground);
+   if (Event->Vps() && Event->Vps() != Event->StartTime()) {
+      cString buffer = cString::sprintf(" VPS: %s", *Event->GetVpsString());
+diff -ruN vdr-2.3.1/ci.c vdr-2.3.2/ci.c
+--- vdr-2.3.1/ci.c	2015-09-05 13:45:19.000000000 +0200
++++ vdr-2.3.2/ci.c	2016-12-23 15:00:45.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 4.2 2015/09/05 11:45:19 kls Exp $
++ * $Id: ci.c 4.3 2016/12/23 14:00:45 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -756,9 +756,9 @@
+   friend class cCiConditionalAccessSupport;
+ private:
+   uint8_t cmdId;
+-  int length;
+   int esInfoLengthPos;
+-  uint8_t capmt[2048]; ///< XXX is there a specified maximum?
++  cDynamicBuffer caDescriptors;
++  cDynamicBuffer capmt;
+   int source;
+   int transponder;
+   int programNumber;
+@@ -768,7 +768,7 @@
+   cCiCaPmt(uint8_t CmdId, int Source, int Transponder, int ProgramNumber, const int *CaSystemIds);
+   uint8_t CmdId(void) { return cmdId; }
+   void SetListManagement(uint8_t ListManagement);
+-  uint8_t ListManagement(void) { return capmt[0]; }
++  uint8_t ListManagement(void) { return capmt.Get(0); }
+   void AddPid(int Pid, uint8_t StreamType);
+   };
+ 
+@@ -784,55 +784,46 @@
+          caSystemIds[i] = CaSystemIds[i];
+      }
+   caSystemIds[i] = 0;
+-  uint8_t caDescriptors[512];
+-  int caDescriptorsLength = GetCaDescriptors(source, transponder, programNumber, caSystemIds, sizeof(caDescriptors), caDescriptors, 0);
+-  length = 0;
+-  capmt[length++] = CPLM_ONLY;
+-  capmt[length++] = (ProgramNumber >> 8) & 0xFF;
+-  capmt[length++] =  ProgramNumber       & 0xFF;
+-  capmt[length++] = 0x01; // version_number, current_next_indicator - apparently vn doesn't matter, but cni must be 1
+-  esInfoLengthPos = length;
+-  capmt[length++] = 0x00; // program_info_length H (at program level)
+-  capmt[length++] = 0x00; // program_info_length L
+-  AddCaDescriptors(caDescriptorsLength, caDescriptors);
++  GetCaDescriptors(source, transponder, programNumber, caSystemIds, caDescriptors, 0);
++  capmt.Append(CPLM_ONLY);
++  capmt.Append((ProgramNumber >> 8) & 0xFF);
++  capmt.Append( ProgramNumber       & 0xFF);
++  capmt.Append(0x01); // version_number, current_next_indicator - apparently vn doesn't matter, but cni must be 1
++  esInfoLengthPos = capmt.Length();
++  capmt.Append(0x00); // program_info_length H (at program level)
++  capmt.Append(0x00); // program_info_length L
++  AddCaDescriptors(caDescriptors.Length(), caDescriptors.Data());
+ }
+ 
+ void cCiCaPmt::SetListManagement(uint8_t ListManagement)
+ {
+-  capmt[0] = ListManagement;
++  capmt.Set(0, ListManagement);
+ }
+ 
+ void cCiCaPmt::AddPid(int Pid, uint8_t StreamType)
+ {
+   if (Pid) {
+-     uint8_t caDescriptors[512];
+-     int caDescriptorsLength = GetCaDescriptors(source, transponder, programNumber, caSystemIds, sizeof(caDescriptors), caDescriptors, Pid);
+-     //XXX buffer overflow check???
+-     capmt[length++] = StreamType;
+-     capmt[length++] = (Pid >> 8) & 0xFF;
+-     capmt[length++] =  Pid       & 0xFF;
+-     esInfoLengthPos = length;
+-     capmt[length++] = 0x00; // ES_info_length H (at ES level)
+-     capmt[length++] = 0x00; // ES_info_length L
+-     AddCaDescriptors(caDescriptorsLength, caDescriptors);
++     GetCaDescriptors(source, transponder, programNumber, caSystemIds, caDescriptors, Pid);
++     capmt.Append(StreamType);
++     capmt.Append((Pid >> 8) & 0xFF);
++     capmt.Append( Pid       & 0xFF);
++     esInfoLengthPos = capmt.Length();
++     capmt.Append(0x00); // ES_info_length H (at ES level)
++     capmt.Append(0x00); // ES_info_length L
++     AddCaDescriptors(caDescriptors.Length(), caDescriptors.Data());
+      }
+ }
+ 
+ void cCiCaPmt::AddCaDescriptors(int Length, const uint8_t *Data)
+ {
+   if (esInfoLengthPos) {
+-     if (length + Length < int(sizeof(capmt))) {
+-        if (Length || cmdId == CPCI_QUERY) {
+-           capmt[length++] = cmdId;
+-           memcpy(capmt + length, Data, Length);
+-           length += Length;
+-           int l = length - esInfoLengthPos - 2;
+-           capmt[esInfoLengthPos]     = (l >> 8) & 0xFF;
+-           capmt[esInfoLengthPos + 1] =  l       & 0xFF;
+-           }
++     if (Length || cmdId == CPCI_QUERY) {
++        capmt.Append(cmdId);
++        capmt.Append(Data, Length);
++        int l = capmt.Length() - esInfoLengthPos - 2;
++        capmt.Set(esInfoLengthPos,     (l >> 8) & 0xFF);
++        capmt.Set(esInfoLengthPos + 1,  l       & 0xFF);
+         }
+-     else
+-        esyslog("ERROR: buffer overflow in CA descriptor");
+      esInfoLengthPos = 0;
+      }
+   else
+@@ -995,7 +986,7 @@
+ {
+   if (CaPmt && state >= 2) {
+      dbgprotocol("Slot %d: ==> Ca Pmt (%d) %d %d\n", Tc()->CamSlot()->SlotNumber(), SessionId(), CaPmt->ListManagement(), CaPmt->CmdId());
+-     SendData(AOT_CA_PMT, CaPmt->length, CaPmt->capmt);
++     SendData(AOT_CA_PMT, CaPmt->capmt.Length(), CaPmt->capmt.Data());
+      state = 4; // sent ca pmt
+      }
+ }
+diff -ruN vdr-2.3.1/config.h vdr-2.3.2/config.h
+--- vdr-2.3.1/config.h	2015-09-11 10:07:34.000000000 +0200
++++ vdr-2.3.2/config.h	2015-09-16 13:11:42.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 4.5 2015/09/11 08:07:34 kls Exp $
++ * $Id: config.h 4.6 2015/09/16 11:11:42 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.3.1"
+-#define VDRVERSNUM   20301  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.3.2"
++#define VDRVERSNUM   20302  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "2.3.1"
+-#define APIVERSNUM   20301  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "2.3.2"
++#define APIVERSNUM   20302  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-2.3.1/device.c vdr-2.3.2/device.c
+--- vdr-2.3.1/device.c	2015-09-05 13:42:17.000000000 +0200
++++ vdr-2.3.2/device.c	2016-12-23 15:43:44.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 4.2 2015/09/05 11:42:17 kls Exp $
++ * $Id: device.c 4.3 2016/12/23 14:43:44 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -1768,6 +1768,7 @@
+                     break;
+                     }
+                  }
++              cCondWait::SleepMs(10); // avoids small chunks of data, which cause high CPU usage, esp. on ARM CPUs
+               }
+            }
+      }
+diff -ruN vdr-2.3.1/device.h vdr-2.3.2/device.h
+--- vdr-2.3.1/device.h	2015-04-19 14:12:43.000000000 +0200
++++ vdr-2.3.2/device.h	2016-12-06 15:12:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 4.1 2015/04/19 12:12:43 kls Exp $
++ * $Id: device.h 4.2 2016/12/06 14:12:39 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -322,7 +322,11 @@
+ public:
+   static int CurrentChannel(void) { return primaryDevice ? currentChannel : 0; }
+          ///< Returns the number of the current channel on the primary device.
++#define DEPRECATED_SETCURRENTCHANNEL
++#ifdef DEPRECATED_SETCURRENTCHANNEL
+   static void SetCurrentChannel(const cChannel *Channel) { currentChannel = Channel ? Channel->Number() : 0; }
++#endif
++  static void SetCurrentChannel(int ChannelNumber) { currentChannel = ChannelNumber; }
+          ///< Sets the number of the current channel on the primary device, without
+          ///< actually switching to it. This can be used to correct the current
+          ///< channel number while replaying.
+diff -ruN vdr-2.3.1/dvbdevice.c vdr-2.3.2/dvbdevice.c
+--- vdr-2.3.1/dvbdevice.c	2015-04-18 18:19:28.000000000 +0200
++++ vdr-2.3.2/dvbdevice.c	2016-11-07 14:55:58.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 4.2 2015/04/18 16:19:28 kls Exp $
++ * $Id: dvbdevice.c 4.3 2016/11/07 13:55:58 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -201,21 +201,6 @@
+ 
+ cDvbTransponderParameters::cDvbTransponderParameters(const char *Parameters)
+ {
+-  polarization = 0;
+-  inversion    = INVERSION_AUTO;
+-  bandwidth    = 8000000;
+-  coderateH    = FEC_AUTO;
+-  coderateL    = FEC_AUTO;
+-  modulation   = QPSK;
+-  system       = DVB_SYSTEM_1;
+-  transmission = TRANSMISSION_MODE_AUTO;
+-  guard        = GUARD_INTERVAL_AUTO;
+-  hierarchy    = HIERARCHY_AUTO;
+-  rollOff      = ROLLOFF_AUTO;
+-  streamId     = 0;
+-  t2systemId   = 0;
+-  sisoMiso     = 0;
+-  pilot        = PILOT_AUTO;
+   Parse(Parameters);
+ }
+ 
+@@ -266,6 +251,21 @@
+ 
+ bool cDvbTransponderParameters::Parse(const char *s)
+ {
++  polarization = 0;
++  inversion    = INVERSION_AUTO;
++  bandwidth    = 8000000;
++  coderateH    = FEC_AUTO;
++  coderateL    = FEC_AUTO;
++  modulation   = QPSK;
++  system       = DVB_SYSTEM_1;
++  transmission = TRANSMISSION_MODE_AUTO;
++  guard        = GUARD_INTERVAL_AUTO;
++  hierarchy    = HIERARCHY_AUTO;
++  rollOff      = ROLLOFF_AUTO;
++  streamId     = 0;
++  t2systemId   = 0;
++  sisoMiso     = 0;
++  pilot        = PILOT_AUTO;
+   while (s && *s) {
+         switch (toupper(*s)) {
+           case 'B': s = ParseParameter(s, bandwidth, BandwidthValues); break;
+diff -ruN vdr-2.3.1/dvbplayer.c vdr-2.3.2/dvbplayer.c
+--- vdr-2.3.1/dvbplayer.c	2015-08-06 15:09:19.000000000 +0200
++++ vdr-2.3.2/dvbplayer.c	2016-12-22 12:34:31.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.c 4.1 2015/08/06 13:09:19 kls Exp $
++ * $Id: dvbplayer.c 4.4 2016/12/22 11:34:31 kls Exp $
+  */
+ 
+ #include "dvbplayer.h"
+@@ -17,13 +17,14 @@
+ 
+ // --- cPtsIndex -------------------------------------------------------------
+ 
+-#define PTSINDEX_ENTRIES 500
++#define PTSINDEX_ENTRIES 1024
+ 
+ class cPtsIndex {
+ private:
+   struct tPtsIndex {
+     uint32_t pts; // no need for 33 bit - some devices don't even supply the msb
+     int index;
++    bool independent;
+     };
+   tPtsIndex pi[PTSINDEX_ENTRIES];
+   int w, r;
+@@ -33,8 +34,9 @@
+   cPtsIndex(void);
+   void Clear(void);
+   bool IsEmpty(void);
+-  void Put(uint32_t Pts, int Index);
++  void Put(uint32_t Pts, int Index, bool Independent);
+   int FindIndex(uint32_t Pts);
++  int FindFrameNumber(uint32_t Pts);
+   };
+ 
+ cPtsIndex::cPtsIndex(void)
+@@ -55,10 +57,11 @@
+   return w == r;
+ }
+ 
+-void cPtsIndex::Put(uint32_t Pts, int Index)
++void cPtsIndex::Put(uint32_t Pts, int Index, bool Independent)
+ {
+   cMutexLock MutexLock(&mutex);
+   pi[w].pts = Pts;
++  pi[w].independent = Independent;
+   pi[w].index = Index;
+   w = (w + 1) % PTSINDEX_ENTRIES;
+   if (w == r)
+@@ -87,6 +90,36 @@
+   return Index;
+ }
+ 
++int cPtsIndex::FindFrameNumber(uint32_t Pts)
++{
++  cMutexLock MutexLock(&mutex);
++  if (w == r)
++     return lastFound; // replay always starts at an I frame
++  bool Valid = false;
++  int d;
++  int FrameNumber = 0;
++  int UnplayedIFrame = 2; // GOPs may intersect, so we're looping until we found two unplayed I frames
++  for (int i = r; i != w && UnplayedIFrame; ) {
++      d = Pts - pi[i].pts;
++      if (d > 0x7FFFFFFF)
++         d = 0xFFFFFFFF - d; // handle rollover
++      if (d > 0) {
++         if (pi[i].independent) {
++            FrameNumber = pi[i].index; // an I frame's index represents its frame number
++            Valid = true;
++            }
++         else
++            FrameNumber++; // for every played non-I frame, increase frame number
++         }
++      else
++        if (pi[i].independent)
++           --UnplayedIFrame;
++      if (++i >= PTSINDEX_ENTRIES)
++         i = 0;
++      }
++  return Valid ? FrameNumber : FindIndex(Pts); // fall back during trick speeds
++}
++
+ // --- cNonBlockingFileReader ------------------------------------------------
+ 
+ class cNonBlockingFileReader : public cThread {
+@@ -251,6 +284,7 @@
+   virtual double FramesPerSecond(void) { return framesPerSecond; }
+   virtual void SetAudioTrack(eTrackType Type, const tTrackId *TrackId);
+   virtual bool GetIndex(int &Current, int &Total, bool SnapToIFrame = false);
++  virtual bool GetFrameNumber(int &Current, int &Total);
+   virtual bool GetReplayMode(bool &Play, bool &Forward, int &Speed);
+   };
+ 
+@@ -433,6 +467,8 @@
+         }
+      StateKey.Remove();
+      }
++  if (readIndex > 0) // will first be incremented in the loop!
++     --readIndex;
+ 
+   nonBlockingFileReader = new cNonBlockingFileReader;
+   int Length = 0;
+@@ -440,7 +476,7 @@
+   bool WaitingForData = false;
+   time_t StuckAtEof = 0;
+   uint32_t LastStc = 0;
+-  int LastReadIFrame = -1;
++  int LastReadFrame = -1;
+   int SwitchToPlayFrame = 0;
+   bool CutIn = false;
+   bool AtLastMark = false;
+@@ -544,12 +580,9 @@
+                    int r = nonBlockingFileReader->Result(&b);
+                    if (r > 0) {
+                       WaitingForData = false;
+-                      uint32_t Pts = 0;
+-                      if (readIndependent) {
+-                         Pts = isPesRecording ? PesGetPts(b) : TsGetPts(b, r);
+-                         LastReadIFrame = readIndex;
+-                         }
+-                      readFrame = new cFrame(b, -r, ftUnknown, readIndex, Pts); // hands over b to the ringBuffer
++                      LastReadFrame = readIndex;
++                      uint32_t Pts = isPesRecording ? (PesHasPts(b) ? PesGetPts(b) : -1) : TsGetPts(b, r);
++                      readFrame = new cFrame(b, -r, ftUnknown, readIndex, Pts, readIndependent); // hands over b to the ringBuffer
+                       }
+                    else if (r < 0) {
+                       if (errno == EAGAIN)
+@@ -604,7 +637,7 @@
+                 pc = playFrame->Count();
+                 if (p) {
+                    if (playFrame->Index() >= 0 && playFrame->Pts() != 0)
+-                      ptsIndex.Put(playFrame->Pts(), playFrame->Index());
++                      ptsIndex.Put(playFrame->Pts(), playFrame->Index(), playFrame->Independent());
+                    if (firstPacket) {
+                       if (isPesRecording) {
+                          PlayPes(NULL, 0);
+@@ -667,7 +700,7 @@
+              LastStc = Stc;
+              int Index = ptsIndex.FindIndex(Stc);
+              if (playDir == pdForward && !SwitchToPlayFrame) {
+-                if (Index >= LastReadIFrame)
++                if (Index >= LastReadFrame)
+                    break; // automatically stop at end of recording
+                 }
+              else if (Index <= 0 || SwitchToPlayFrame && Index >= SwitchToPlayFrame)
+@@ -878,7 +911,7 @@
+                  if (playMode == pmPause)
+                     DevicePlay();
+                  DeviceStillPicture(b, r);
+-                 ptsIndex.Put(isPesRecording ? PesGetPts(b) : TsGetPts(b, r), Index);
++                 ptsIndex.Put(isPesRecording ? PesGetPts(b) : TsGetPts(b, r), Index, true);
+                  }
+               playMode = pmStill;
+               readIndex = Index;
+@@ -923,6 +956,17 @@
+   return false;
+ }
+ 
++bool cDvbPlayer::GetFrameNumber(int &Current, int &Total)
++{
++  if (index) {
++     Current = ptsIndex.FindFrameNumber(DeviceGetSTC());
++     Total = index->Last();
++     return true;
++     }
++  Current = Total = -1;
++  return false;
++}
++
+ bool cDvbPlayer::GetReplayMode(bool &Play, bool &Forward, int &Speed)
+ {
+   Play = (playMode == pmPlay || playMode == pmFast);
+@@ -1007,6 +1051,15 @@
+      return true;
+      }
+   return false;
++}
++
++bool cDvbPlayerControl::GetFrameNumber(int &Current, int &Total)
++{
++  if (player) {
++     player->GetFrameNumber(Current, Total);
++     return true;
++     }
++  return false;
+ }
+ 
+ bool cDvbPlayerControl::GetReplayMode(bool &Play, bool &Forward, int &Speed)
+diff -ruN vdr-2.3.1/dvbplayer.h vdr-2.3.2/dvbplayer.h
+--- vdr-2.3.1/dvbplayer.h	2015-08-02 15:01:44.000000000 +0200
++++ vdr-2.3.2/dvbplayer.h	2016-12-22 11:36:50.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.h 4.1 2015/08/02 13:01:44 kls Exp $
++ * $Id: dvbplayer.h 4.2 2016/12/22 10:36:50 kls Exp $
+  */
+ 
+ #ifndef __DVBPLAYER_H
+@@ -50,6 +50,10 @@
+   bool GetIndex(int &Current, int &Total, bool SnapToIFrame = false);
+        // Returns the current and total frame index, optionally snapped to the
+        // nearest I-frame.
++  bool GetFrameNumber(int &Current, int &Total);
++       // Returns the current and total frame number. In contrast to GetIndex(),
++       // this function respects the chronological order of frames, which is
++       // different from its index for streams containing B frames (e.g. H264)
+   bool GetReplayMode(bool &Play, bool &Forward, int &Speed);
+        // Returns the current replay mode (if applicable).
+        // 'Play' tells whether we are playing or pausing, 'Forward' tells whether
+diff -ruN vdr-2.3.1/font.c vdr-2.3.2/font.c
+--- vdr-2.3.1/font.c	2015-04-19 13:13:45.000000000 +0200
++++ vdr-2.3.2/font.c	2016-12-22 13:31:23.000000000 +0100
+@@ -6,7 +6,7 @@
+  *
+  * BiDi support by Osama Alrawab <alrawab@hotmail.com> @2008 Tripoli-Libya.
+  *
+- * $Id: font.c 4.1 2015/04/19 11:13:45 kls Exp $
++ * $Id: font.c 4.2 2016/12/22 12:31:23 kls Exp $
+  */
+ 
+ #include "font.h"
+@@ -100,6 +100,7 @@
+ private:
+   cString fontName;
+   int size;
++  int width;
+   int height;
+   int bottom;
+   FT_Library library; ///< Handle to library
+@@ -114,6 +115,7 @@
+   virtual ~cFreetypeFont();
+   virtual const char *FontName(void) const { return fontName; }
+   virtual int Size(void) const { return size; }
++  virtual int Width(void) const { return width; }
+   virtual int Width(uint c) const;
+   virtual int Width(const char *s) const;
+   virtual int Height(void) const { return height; }
+@@ -125,6 +127,7 @@
+ {
+   fontName = Name;
+   size = CharHeight;
++  width = CharWidth;
+   height = 0;
+   bottom = 0;
+   int error = FT_Init_FreeType(&library);
+@@ -384,10 +387,12 @@
+ class cDummyFont : public cFont {
+ private:
+   int height;
++  int width;
+ public:
+-  cDummyFont(int CharHeight) { height = CharHeight; }
+-  virtual int Width(uint c) const { return height; }
+-  virtual int Width(const char *s) const { return height; }
++  cDummyFont(int CharHeight, int CharWidth) { height = CharHeight; width = CharWidth; }
++  virtual int Width(void) const { return width ? width : height; }
++  virtual int Width(uint c) const { return width ? width : height; }
++  virtual int Width(const char *s) const { return width ? width : height; }
+   virtual int Height(void) const { return height; }
+   virtual void DrawText(cBitmap *Bitmap, int x, int y, const char *s, tColor ColorFg, tColor ColorBg, int Width) const {}
+   virtual void DrawText(cPixmap *Pixmap, int x, int y, const char *s, tColor ColorFg, tColor ColorBg, int Width) const {};
+@@ -425,7 +430,7 @@
+   cString fn = GetFontFileName(Name);
+   cFont *f = *fn ? new cFreetypeFont(fn, CharHeight, CharWidth) : NULL;
+   if (!f || !f->Height())
+-     f = new cDummyFont(CharHeight);
++     f = new cDummyFont(CharHeight, CharWidth);
+   return f;
+ }
+ 
+diff -ruN vdr-2.3.1/font.h vdr-2.3.2/font.h
+--- vdr-2.3.1/font.h	2014-01-07 13:11:55.000000000 +0100
++++ vdr-2.3.2/font.h	2016-12-22 13:43:24.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: font.h 4.0 2014/01/07 12:11:55 kls Exp $
++ * $Id: font.h 4.2 2016/12/22 12:43:24 kls Exp $
+  */
+ 
+ #ifndef __FONT_H
+@@ -43,7 +43,11 @@
+           ///< Returns the font name.
+   virtual int Size(void) const { return Height(); }
+           ///< Returns the original size as requested when the font was created.
+-          ///< This may be different than the actual height.
++          ///< This may be smaller than the actual height, for instance if the
++          ///< font contains descenders.
++  virtual int Width(void) const = 0;
++          ///< Returns the original character width as requested when the font was
++          ///< created, or 0 if the default width is used.
+   virtual int Width(uint c) const = 0;
+           ///< Returns the width of the given character in pixel.
+   virtual int Width(const char *s) const = 0;
+diff -ruN vdr-2.3.1/menu.c vdr-2.3.2/menu.c
+--- vdr-2.3.1/menu.c	2015-09-14 15:22:49.000000000 +0200
++++ vdr-2.3.2/menu.c	2016-12-22 12:00:13.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 4.12 2015/09/14 13:22:49 kls Exp $
++ * $Id: menu.c 4.19 2016/12/22 11:00:13 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -498,6 +498,7 @@
+      int DeletedChannel = Channel->Number();
+      // Check if there is a timer using this channel:
+      if (Timers->UsesChannel(Channel)) {
++        channelsStateKey.Remove(false);
+         Skins.Message(mtError, tr("Channel is being used by a timer!"));
+         return osContinue;
+         }
+@@ -519,7 +520,7 @@
+            if (!cDevice::PrimaryDevice()->Replaying() || cDevice::PrimaryDevice()->Transferring())
+               Channels->SwitchTo(CurrentChannel->Number());
+            else
+-              cDevice::SetCurrentChannel(CurrentChannel);
++              cDevice::SetCurrentChannel(CurrentChannel->Number());
+            }
+         }
+      channelsStateKey.Remove(Deleted);
+@@ -546,7 +547,7 @@
+            if (!cDevice::PrimaryDevice()->Replaying() || cDevice::PrimaryDevice()->Transferring())
+               Channels->SwitchTo(CurrentChannel->Number());
+            else
+-              cDevice::SetCurrentChannel(CurrentChannel);
++              cDevice::SetCurrentChannel(CurrentChannel->Number());
+            }
+         }
+      channelsStateKey.Remove();
+@@ -2686,14 +2687,15 @@
+   cRecordings *Recordings = cRecordings::GetRecordingsWrite(StateKey);
+   cRecording *Recording = Recordings->GetByName(recording->FileName());
+   if (!Recording) {
++     StateKey.Remove(false);
+      Skins.Message(mtWarning, tr("Recording vanished!"));
+      return osBack;
+      }
+   bool Modified = false;
+   if (priority != recording->Priority() || lifetime != recording->Lifetime()) {
+      if (!Recording->ChangePriorityLifetime(priority, lifetime)) {
+-        Skins.Message(mtError, tr("Error while changing priority/lifetime!"));
+         StateKey.Remove(Modified);
++        Skins.Message(mtError, tr("Error while changing priority/lifetime!"));
+         return osContinue;
+         }
+      Modified = true;
+@@ -2706,8 +2708,8 @@
+   NewName.CompactChars(FOLDERDELIMCHAR);
+   if (strcmp(NewName, Recording->Name())) {
+      if (!Recording->ChangeName(NewName)) {
+-        Skins.Message(mtError, tr("Error while changing folder/name!"));
+         StateKey.Remove(Modified);
++        Skins.Message(mtError, tr("Error while changing folder/name!"));
+         return osContinue;
+         }
+      Modified = true;
+@@ -2953,10 +2955,9 @@
+      const char *CurrentRecording = *fileName ? *fileName : cReplayControl::LastReplayed();
+      cRecordings *Recordings = cRecordings::GetRecordingsWrite(recordingsStateKey); // write access is necessary for sorting!
+      cMenuRecordingItem *LastItem = NULL;
+-     if (Refresh) {
+-        if (cMenuRecordingItem *ri = (cMenuRecordingItem *)Get(Current()))
+-           CurrentRecording = ri->Recording()->FileName();
+-        }
++     if (cMenuRecordingItem *ri = (cMenuRecordingItem *)Get(Current()))
++        CurrentRecording = ri->Recording()->FileName();
++     int current = Current();
+      Clear();
+      GetRecordingsSortMode(DirectoryName());
+      Recordings->Sort();
+@@ -2993,11 +2994,13 @@
+                LastDir->IncrementCounter(Recording->IsNew());
+             }
+          }
++     if (Current() < 0)
++        SetCurrent(Get(current)); // last resort, in case the recording was deleted
+      SetMenuSortMode(RecordingsSortMode == rsmName ? msmName : msmTime);
+      recordingsStateKey.Remove(false); // sorting doesn't count as a real modification
++     if (Refresh)
++        Display();
+      }
+-  if (Refresh)
+-     Display();
+ }
+ 
+ void cMenuRecordings::SetPath(const char *Path)
+@@ -3087,38 +3090,32 @@
+            else
+               return osContinue;
+            }
+-        cRecordings *Recordings = cRecordings::GetRecordingsWrite(recordingsStateKey);
+-        Recordings->SetExplicitModify();
+-        cRecording *Recording = Recordings->GetByName(ri->Recording()->FileName());
+-        if (!Recording) {
+-           Skins.Message(mtWarning, tr("Recording vanished!"));
+-           recordingsStateKey.Remove();
+-           return osContinue;
+-           }
+-        cString FileName = Recording->FileName();
+-        if (RecordingsHandler.GetUsage(FileName)) {
+-           if (Interface->Confirm(tr("Recording is being edited - really delete?"))) {
+-              RecordingsHandler.Del(FileName);
+-              Recording = Recordings->GetByName(FileName); // RecordingsHandler.Del() might have deleted it if it was the edited version
+-              // we continue with the code below even if Recording is NULL,
+-              // in order to have the menu updated etc.
+-              }
+-           else {
+-              recordingsStateKey.Remove();
+-              return osContinue;
+-              }
+-           }
++        cString FileName;
++        {
++          LOCK_RECORDINGS_READ;
++          if (const cRecording *Recording = Recordings->GetByName(ri->Recording()->FileName())) {
++             FileName = Recording->FileName();
++             if (RecordingsHandler.GetUsage(FileName)) {
++                if (!Interface->Confirm(tr("Recording is being edited - really delete?")))
++                   return osContinue;
++                }
++             }
++        }
++        RecordingsHandler.Del(FileName); // must do this w/o holding a lock, because the cleanup section in cDirCopier::Action() might request one!
+         if (cReplayControl::NowReplaying() && strcmp(cReplayControl::NowReplaying(), FileName) == 0)
+            cControl::Shutdown();
++        cRecordings *Recordings = cRecordings::GetRecordingsWrite(recordingsStateKey);
++        Recordings->SetExplicitModify();
++        cRecording *Recording = Recordings->GetByName(FileName);
+         if (!Recording || Recording->Delete()) {
+            cReplayControl::ClearLastReplayed(FileName);
+            Recordings->DelByName(FileName);
+            cOsdMenu::Del(Current());
+            SetHelpKeys();
+            cVideoDiskUsage::ForceCheck();
+-           Display();
+            Recordings->SetModified();
+            recordingsStateKey.Remove();
++           Display();
+            if (!Count())
+               return osBack;
+            return osUser2;
+@@ -3171,8 +3168,6 @@
+ 
+ eOSState cMenuRecordings::ProcessKey(eKeys Key)
+ {
+-  if (!HasSubMenu())
+-     Set(); // react on any changes to the recordings list
+   bool HadSubMenu = HasSubMenu();
+   eOSState state = cOsdMenu::ProcessKey(Key);
+ 
+@@ -3198,7 +3193,8 @@
+         return state; // closes all recording menus except for the top one
+      Set(); // this is the top level menu, so we refresh it...
+      Open(true); // ...and open any necessary submenus to show the new name
+-     Display();
++     if (!HasSubMenu())
++        Display();
+      path = NULL;
+      fileName = NULL;
+      }
+@@ -3210,14 +3206,16 @@
+            ri->SetRecording(riSub->Recording());
+         }
+      }
+-  if (Key == kYellow && HadSubMenu && !HasSubMenu()) {
+-     // the last recording in a subdirectory was deleted, so let's go back up
+-     cOsdMenu::Del(Current());
+-     if (!Count())
+-        return osBack;
+-     Display();
+-     }
+   if (!HasSubMenu()) {
++     if (HadSubMenu) {
++        if (Key == kYellow) {
++           // the last recording in a subdirectory was deleted, so let's go back up
++           cOsdMenu::Del(Current());
++           if (!Count())
++              return osBack;
++           }
++        }
++     Set(true);
+      if (Key != kNone)
+         SetHelpKeys();
+      }
+@@ -5437,6 +5435,7 @@
+   lastPlay = lastForward = false;
+   lastSpeed = -2; // an invalid value
+   timeoutShow = 0;
++  lastProgressUpdate = 0;
+   timeSearchActive = false;
+   cRecording Recording(fileName);
+   cStatus::MsgReplaying(this, Recording.Name(), Recording.FileName(), true);
+@@ -5585,41 +5584,43 @@
+ bool cReplayControl::ShowProgress(bool Initial)
+ {
+   int Current, Total;
+-
+-  if (GetIndex(Current, Total) && Total > 0) {
+-     if (!visible) {
+-        displayReplay = Skins.Current()->DisplayReplay(modeOnly);
+-        displayReplay->SetMarks(&marks);
+-        SetNeedsFastResponse(true);
+-        visible = true;
+-        }
+-     if (Initial) {
+-        if (*fileName) {
+-           LOCK_RECORDINGS_READ;
+-           if (const cRecording *Recording = Recordings->GetByName(fileName))
+-              displayReplay->SetRecording(Recording);
+-           }
+-        lastCurrent = lastTotal = -1;
+-        }
+-     if (Current != lastCurrent || Total != lastTotal) {
+-        if (Setup.ShowRemainingTime || Total != lastTotal) {
+-           int Index = Total;
+-           if (Setup.ShowRemainingTime)
+-              Index = Current - Index;
+-           displayReplay->SetTotal(IndexToHMSF(Index, false, FramesPerSecond()));
++  if (Initial || time(NULL) - lastProgressUpdate >= 1) {
++     if (GetFrameNumber(Current, Total) && Total > 0) {
++        if (!visible) {
++           displayReplay = Skins.Current()->DisplayReplay(modeOnly);
++           displayReplay->SetMarks(&marks);
++           SetNeedsFastResponse(true);
++           visible = true;
++           }
++        if (Initial) {
++           if (*fileName) {
++              LOCK_RECORDINGS_READ;
++              if (const cRecording *Recording = Recordings->GetByName(fileName))
++                 displayReplay->SetRecording(Recording);
++              }
++           lastCurrent = lastTotal = -1;
++           }
++        if (Current != lastCurrent || Total != lastTotal) {
++           time(&lastProgressUpdate);
++           if (Setup.ShowRemainingTime || Total != lastTotal) {
++              int Index = Total;
++              if (Setup.ShowRemainingTime)
++                 Index = Current - Index;
++              displayReplay->SetTotal(IndexToHMSF(Index, false, FramesPerSecond()));
++              if (!Initial)
++                 displayReplay->Flush();
++              }
++           displayReplay->SetProgress(Current, Total);
+            if (!Initial)
+               displayReplay->Flush();
+-           }
+-        displayReplay->SetProgress(Current, Total);
+-        if (!Initial)
++           displayReplay->SetCurrent(IndexToHMSF(Current, displayFrames, FramesPerSecond()));
+            displayReplay->Flush();
+-        displayReplay->SetCurrent(IndexToHMSF(Current, displayFrames, FramesPerSecond()));
+-        displayReplay->Flush();
+-        lastCurrent = Current;
++           lastCurrent = Current;
++           }
++        lastTotal = Total;
++        ShowMode();
++        return true;
+         }
+-     lastTotal = Total;
+-     ShowMode();
+-     return true;
+      }
+   return false;
+ }
+@@ -5860,6 +5861,8 @@
+      return osEnd;
+   if (Key == kNone && !marksModified)
+      marks.Update();
++  if (Key != kNone)
++     lastProgressUpdate = 0;
+   if (visible) {
+      if (timeoutShow && time(NULL) > timeoutShow) {
+         Hide();
+diff -ruN vdr-2.3.1/menu.h vdr-2.3.2/menu.h
+--- vdr-2.3.1/menu.h	2015-09-13 16:17:56.000000000 +0200
++++ vdr-2.3.2/menu.h	2016-12-22 11:55:36.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 4.4 2015/09/13 14:17:56 kls Exp $
++ * $Id: menu.h 4.5 2016/12/22 10:55:36 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -300,6 +300,7 @@
+   bool lastPlay, lastForward;
+   int lastSpeed;
+   time_t timeoutShow;
++  time_t lastProgressUpdate;
+   bool timeSearchActive, timeSearchHide;
+   int timeSearchTime, timeSearchPos;
+   void TimeSearchDisplay(void);
+diff -ruN vdr-2.3.1/nit.c vdr-2.3.2/nit.c
+--- vdr-2.3.1/nit.c	2015-07-26 11:24:36.000000000 +0200
++++ vdr-2.3.2/nit.c	2016-12-23 15:16:59.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: nit.c 4.3 2015/07/26 09:24:36 kls Exp $
++ * $Id: nit.c 4.4 2016/12/23 14:16:59 kls Exp $
+  */
+ 
+ #include "nit.h"
+@@ -114,7 +114,7 @@
+                  static int RollOffs[] = { ROLLOFF_35, ROLLOFF_25, ROLLOFF_20, ROLLOFF_AUTO };
+                  dtp.SetRollOff(sd->getModulationSystem() ? RollOffs[sd->getRollOff()] : ROLLOFF_AUTO);
+                  int SymbolRate = BCD2INT(sd->getSymbolRate()) / 10;
+-                 dbgnit("    %s %d %c %d %d\n", *cSource::ToString(Source), Frequency, Polarizations[sd->getPolarization()], SymbolRate, cChannel::Transponder(Frequency, Polarizations[sd->getPolarization()]));
++                 dbgnit("    %s %d %c %d %d\n", *cSource::ToString(Source), Frequency, dtp.Polarization(), SymbolRate, cChannel::Transponder(Frequency, dtp.Polarization()));
+                  if (Setup.UpdateChannels >= 5) {
+                     bool found = false;
+                     bool forceTransponderUpdate = false;
+@@ -177,7 +177,7 @@
+                  static int Modulations[] = { QPSK, QAM_16, QAM_32, QAM_64, QAM_128, QAM_256, QAM_AUTO };
+                  dtp.SetModulation(Modulations[min(sd->getModulation(), 6)]);
+                  int SymbolRate = BCD2INT(sd->getSymbolRate()) / 10;
+-                 dbgnit("    %s %d %d %d %d\n", *cSource::ToString(Source), Frequency, CodeRates[sd->getFecInner()], Modulations[min(sd->getModulation(), 6)], SymbolRate);
++                 dbgnit("    %s %d %d %d %d\n", *cSource::ToString(Source), Frequency, dtp.CoderateH(), dtp.Modulation(), SymbolRate);
+                  if (Setup.UpdateChannels >= 5) {
+                     bool found = false;
+                     bool forceTransponderUpdate = false;
+@@ -233,7 +233,7 @@
+                  dtp.SetGuard(GuardIntervals[sd->getGuardInterval()]);
+                  static int TransmissionModes[] = { TRANSMISSION_MODE_2K, TRANSMISSION_MODE_8K, TRANSMISSION_MODE_4K, TRANSMISSION_MODE_AUTO };
+                  dtp.SetTransmission(TransmissionModes[sd->getTransmissionMode()]);
+-                 dbgnit("    %s %d %d %d %d %d %d %d %d\n", *cSource::ToString(Source), Frequency, Bandwidths[sd->getBandwidth()], Constellations[sd->getConstellation()], Hierarchies[sd->getHierarchy()], CodeRates[sd->getCodeRateHP()], CodeRates[sd->getCodeRateLP()], GuardIntervals[sd->getGuardInterval()], TransmissionModes[sd->getTransmissionMode()]);
++                 dbgnit("    %s %d %d %d %d %d %d %d %d\n", *cSource::ToString(Source), Frequency, dtp.Bandwidth(), dtp.Modulation(), dtp.Hierarchy(), dtp.CoderateH(), dtp.CoderateL(), dtp.Guard(), dtp.Transmission());
+                  if (Setup.UpdateChannels >= 5) {
+                     bool found = false;
+                     bool forceTransponderUpdate = false;
+@@ -310,9 +310,9 @@
+                     SI::LogicalChannelDescriptor *lcd = (SI::LogicalChannelDescriptor *)d;
+                     SI::LogicalChannelDescriptor::LogicalChannel LogicalChannel;
+                     for (SI::Loop::Iterator it4; lcd->logicalChannelLoop.getNext(LogicalChannel, it4); ) {
+-                        int lcn = LogicalChannel.getLogicalChannelNumber();
+-                        int sid = LogicalChannel.getServiceId();
+                         if (LogicalChannel.getVisibleServiceFlag()) {
++                           int lcn = LogicalChannel.getLogicalChannelNumber();
++                           int sid = LogicalChannel.getServiceId();
+                            for (cChannel *Channel = Channels->First(); Channel; Channel = Channels->Next(Channel)) {
+                                if (!Channel->GroupSep() && Channel->Sid() == sid && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+                                   ChannelsModified |= Channel->SetLcn(lcn);
+@@ -328,9 +328,9 @@
+                     SI::HdSimulcastLogicalChannelDescriptor *lcd = (SI::HdSimulcastLogicalChannelDescriptor *)d;
+                     SI::HdSimulcastLogicalChannelDescriptor::HdSimulcastLogicalChannel HdSimulcastLogicalChannel;
+                     for (SI::Loop::Iterator it4; lcd->hdSimulcastLogicalChannelLoop.getNext(HdSimulcastLogicalChannel, it4); ) {
+-                        int lcn = HdSimulcastLogicalChannel.getLogicalChannelNumber();
+-                        int sid = HdSimulcastLogicalChannel.getServiceId();
+                         if (HdSimulcastLogicalChannel.getVisibleServiceFlag()) {
++                           int lcn = HdSimulcastLogicalChannel.getLogicalChannelNumber();
++                           int sid = HdSimulcastLogicalChannel.getServiceId();
+                            for (cChannel *Channel = Channels->First(); Channel; Channel = Channels->Next(Channel)) {
+                                if (!Channel->GroupSep() && Channel->Sid() == sid && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+                                   ChannelsModified |= Channel->SetLcn(lcn);
+diff -ruN vdr-2.3.1/pat.c vdr-2.3.2/pat.c
+--- vdr-2.3.1/pat.c	2015-08-17 10:46:55.000000000 +0200
++++ vdr-2.3.2/pat.c	2016-12-23 15:02:07.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.c 4.1 2015/08/17 08:46:55 kls Exp $
++ * $Id: pat.c 4.3 2016/12/23 14:02:07 kls Exp $
+  */
+ 
+ #include "pat.h"
+@@ -81,7 +81,7 @@
+   bool Is(cCaDescriptors * CaDescriptors);
+   bool Empty(void) { return caDescriptors.Count() == 0; }
+   void AddCaDescriptor(SI::CaDescriptor *d, int EsPid);
+-  int GetCaDescriptors(const int *CaSystemIds, int BufSize, uchar *Data, int EsPid);
++  void GetCaDescriptors(const int *CaSystemIds, cDynamicBuffer &Buffer, int EsPid);
+   int GetCaPids(const int *CaSystemIds, int BufSize, int *Pids);
+   const int GetPmtPid(void) { return pmtPid; };
+   const int *CaIds(void) { return caIds; }
+@@ -159,30 +159,20 @@
+ // =0 - common CaDescriptor
+ // <0 - all CaDescriptors regardless of type (old default)
+ 
+-int cCaDescriptors::GetCaDescriptors(const int *CaSystemIds, int BufSize, uchar *Data, int EsPid)
++void cCaDescriptors::GetCaDescriptors(const int *CaSystemIds, cDynamicBuffer &Buffer, int EsPid)
+ {
++  Buffer.Clear();
+   if (!CaSystemIds || !*CaSystemIds)
+-     return 0;
+-  if (BufSize > 0 && Data) {
+-     int length = 0;
+-     for (cCaDescriptor *d = caDescriptors.First(); d; d = caDescriptors.Next(d)) {
+-         if (EsPid < 0 || d->EsPid() == EsPid) {
+-            const int *caids = CaSystemIds;
+-            do {
+-               if (*caids == 0xFFFF || d->CaSystem() == *caids) {
+-                  if (length + d->Length() <= BufSize) {
+-                     memcpy(Data + length, d->Data(), d->Length());
+-                     length += d->Length();
+-                     }
+-                  else
+-                     return -1;
+-                  }
+-               } while (*++caids);
+-            }
++     return;
++  for (cCaDescriptor *d = caDescriptors.First(); d; d = caDescriptors.Next(d)) {
++      if (EsPid < 0 || d->EsPid() == EsPid) {
++         const int *caids = CaSystemIds;
++         do {
++            if (*caids == 0xFFFF || d->CaSystem() == *caids)
++               Buffer.Append(d->Data(), d->Length());
++            } while (*++caids);
+          }
+-     return length;
+-     }
+-  return -1;
++      }
+ }
+ 
+ int cCaDescriptors::GetCaPids(const int *CaSystemIds, int BufSize, int *Pids)
+@@ -219,7 +209,7 @@
+       // Returns 0 if this is an already known descriptor,
+       // 1 if it is an all new descriptor with actual contents,
+       // and 2 if an existing descriptor was changed.
+-  int GetCaDescriptors(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, uchar *Data, int EsPid);
++  void GetCaDescriptors(int Source, int Transponder, int ServiceId, const int *CaSystemIds, cDynamicBuffer &Buffer, int EsPid);
+   int GetCaPids(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, int *Pids);
+   int GetPmtPid(int Source, int Transponder, int ServiceId);
+   };
+@@ -242,14 +232,15 @@
+   return CaDescriptors->Empty() ? 0 : 1;
+ }
+ 
+-int cCaDescriptorHandler::GetCaDescriptors(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, uchar *Data, int EsPid)
++void cCaDescriptorHandler::GetCaDescriptors(int Source, int Transponder, int ServiceId, const int *CaSystemIds, cDynamicBuffer &Buffer, int EsPid)
+ {
+   cMutexLock MutexLock(&mutex);
+   for (cCaDescriptors *ca = First(); ca; ca = Next(ca)) {
+-      if (ca->Is(Source, Transponder, ServiceId))
+-         return ca->GetCaDescriptors(CaSystemIds, BufSize, Data, EsPid);
++      if (ca->Is(Source, Transponder, ServiceId)) {
++         ca->GetCaDescriptors(CaSystemIds, Buffer, EsPid);
++         break;
++         }
+       }
+-  return 0;
+ }
+ 
+ int cCaDescriptorHandler::GetCaPids(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, int *Pids)
+@@ -274,9 +265,9 @@
+ 
+ cCaDescriptorHandler CaDescriptorHandler;
+ 
+-int GetCaDescriptors(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, uchar *Data, int EsPid)
++void GetCaDescriptors(int Source, int Transponder, int ServiceId, const int *CaSystemIds, cDynamicBuffer &Buffer, int EsPid)
+ {
+-  return CaDescriptorHandler.GetCaDescriptors(Source, Transponder, ServiceId, CaSystemIds, BufSize, Data, EsPid);
++  CaDescriptorHandler.GetCaDescriptors(Source, Transponder, ServiceId, CaSystemIds, Buffer, EsPid);
+ }
+ 
+ int GetCaPids(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, int *Pids)
+@@ -439,6 +430,7 @@
+               case 1: // STREAMTYPE_11172_VIDEO
+               case 2: // STREAMTYPE_13818_VIDEO
+               case 0x1B: // H.264
++              case 0x24: // H.265
+                       Vpid = esPid;
+                       Ppid = pmt.getPCRPid();
+                       Vtype = stream.getStreamType();
+diff -ruN vdr-2.3.1/pat.h vdr-2.3.2/pat.h
+--- vdr-2.3.1/pat.h	2015-01-04 14:17:22.000000000 +0100
++++ vdr-2.3.2/pat.h	2016-12-23 15:03:24.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.h 4.0 2015/01/04 13:17:22 kls Exp $
++ * $Id: pat.h 4.1 2016/12/23 14:03:24 kls Exp $
+  */
+ 
+ #ifndef __PAT_H
+@@ -38,14 +38,12 @@
+   void Trigger(int Sid = -1);
+   };
+ 
+-int GetCaDescriptors(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, uchar *Data, int EsPid);
++void GetCaDescriptors(int Source, int Transponder, int ServiceId, const int *CaSystemIds, cDynamicBuffer &Buffer, int EsPid);
+          ///< Gets all CA descriptors for a given channel.
+          ///< Copies all available CA descriptors for the given Source, Transponder and ServiceId
+-         ///< into the provided buffer at Data (at most BufSize bytes). Only those CA descriptors
++         ///< into the provided buffer. Only those CA descriptors
+          ///< are copied that match one of the given CA system IDs (or all of them, if CaSystemIds
+          ///< is 0xFFFF).
+-         ///< Returns the number of bytes copied into Data (0 if no CA descriptors are
+-         ///< available), or -1 if BufSize was too small to hold all CA descriptors.
+ 
+ int GetCaPids(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, int *Pids);
+          ///< Gets all CA pids for a given channel.
+diff -ruN vdr-2.3.1/player.h vdr-2.3.2/player.h
+--- vdr-2.3.1/player.h	2013-12-25 14:25:02.000000000 +0100
++++ vdr-2.3.2/player.h	2016-12-22 11:38:11.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: player.h 4.0 2013/12/25 13:25:02 kls Exp $
++ * $Id: player.h 4.2 2016/12/22 10:38:11 kls Exp $
+  */
+ 
+ #ifndef __PLAYER_H
+@@ -57,6 +57,10 @@
+   virtual bool GetIndex(int &Current, int &Total, bool SnapToIFrame = false) { return false; }
+        // Returns the current and total frame index, optionally snapped to the
+        // nearest I-frame.
++  virtual bool GetFrameNumber(int &Current, int &Total) { return false; }
++       // Returns the current and total frame number. In contrast to GetIndex(),
++       // this function respects the chronological order of frames, which is
++       // different from its index for streams containing B frames (e.g. H264)
+   virtual bool GetReplayMode(bool &Play, bool &Forward, int &Speed) { return false; }
+        // Returns the current replay mode (if applicable).
+        // 'Play' tells whether we are playing or pausing, 'Forward' tells whether
+@@ -98,9 +102,10 @@
+          ///< skins as a last resort, in case they want to display the state of the
+          ///< current player. The return value is expected to be a short, single line
+          ///< string. The default implementation returns an empty string.
+-  double FramesPerSecond(void) { return player->FramesPerSecond(); }
+-  bool GetIndex(int &Current, int &Total, bool SnapToIFrame = false) { return player->GetIndex(Current, Total, SnapToIFrame); }
+-  bool GetReplayMode(bool &Play, bool &Forward, int &Speed) { return player->GetReplayMode(Play, Forward, Speed); }
++  double FramesPerSecond(void) const { return player->FramesPerSecond(); }
++  bool GetIndex(int &Current, int &Total, bool SnapToIFrame = false) const { return player->GetIndex(Current, Total, SnapToIFrame); }
++  bool GetFrameNumber(int &Current, int &Total) const { return player->GetFrameNumber(Current, Total); }
++  bool GetReplayMode(bool &Play, bool &Forward, int &Speed) const { return player->GetReplayMode(Play, Forward, Speed); }
+   static void Launch(cControl *Control);
+   static void Attach(void);
+   static void Shutdown(void);
+diff -ruN vdr-2.3.1/po/et_EE.po vdr-2.3.2/po/et_EE.po
+--- vdr-2.3.1/po/et_EE.po	2015-09-13 12:41:12.242026525 +0200
++++ vdr-2.3.2/po/et_EE.po	2016-12-23 15:58:03.296437032 +0100
+@@ -68,7 +68,7 @@
+ msgstr "Transmissioon"
+ 
+ msgid "Guard"
+-msgstr "Kaitseintervall"
++msgstr "Kaitsevahemik"
+ 
+ msgid "Hierarchy"
+ msgstr "Hierarhia"
+@@ -326,7 +326,7 @@
+ msgstr "Avaldamata"
+ 
+ msgid "Content$Live Broadcast"
+-msgstr "Otseülekanne"
++msgstr "Telepilt"
+ 
+ #, c-format
+ msgid "ParentalRating$from %d"
+@@ -477,7 +477,7 @@
+ msgstr "Subtiitrid"
+ 
+ msgid "Key$Schedule"
+-msgstr "Kava"
++msgstr "Ajakava"
+ 
+ msgid "Key$Channels"
+ msgstr "Kanalid"
+@@ -486,10 +486,10 @@
+ msgstr "Taimerid"
+ 
+ msgid "Key$Recordings"
+-msgstr "Salvestused"
++msgstr "Salvestised"
+ 
+ msgid "Key$Setup"
+-msgstr "Sätted"
++msgstr "Seadistamine"
+ 
+ msgid "Key$Commands"
+ msgstr "Käsud"
+@@ -528,7 +528,7 @@
+ msgstr "FTA"
+ 
+ msgid "encrypted"
+-msgstr "krüptitud"
++msgstr "kodeeritud"
+ 
+ msgid "Edit channel"
+ msgstr "Kanali muutmine"
+@@ -588,16 +588,16 @@
+ msgstr "Kanalid"
+ 
+ msgid "Button$Edit"
+-msgstr "Muutmine"
++msgstr "Muuda"
+ 
+ msgid "Button$New"
+ msgstr "Uus"
+ 
+ msgid "Button$Delete"
+-msgstr "Kustutada"
++msgstr "Kustuta"
+ 
+ msgid "Button$Mark"
+-msgstr "Märkimine"
++msgstr "Märgi"
+ 
+ msgid "Channel is being used by a timer!"
+ msgstr "Kanal on taimeris kasutusel!"
+@@ -606,7 +606,7 @@
+ msgstr "Kustutada kanal?"
+ 
+ msgid "Edit folder"
+-msgstr "Kausta muutmine"
++msgstr "Muuda kausta"
+ 
+ msgid "New folder"
+ msgstr "Uus kaust"
+@@ -622,7 +622,7 @@
+ msgstr "Kausta nimi ei saa sisaldada '%c' sümbolit!"
+ 
+ msgid "Button$Open"
+-msgstr "Avada"
++msgstr "Ava"
+ 
+ msgid "Delete folder and all sub folders?"
+ msgstr "Kustutada kaust ja kõik alamkaustad?"
+@@ -631,7 +631,7 @@
+ msgstr "Kustutada kaust?"
+ 
+ msgid "Edit timer"
+-msgstr "Taimeri redigeerimine"
++msgstr "Muuda taimer"
+ 
+ msgid "Active"
+ msgstr "Aktiivne"
+@@ -661,13 +661,13 @@
+ msgstr "Fail"
+ 
+ msgid "Record on"
+-msgstr ""
++msgstr "Salvestamine"
+ 
+ msgid "Button$Folder"
+ msgstr "Kaust"
+ 
+ msgid "Button$Single"
+-msgstr "Üks kord"
++msgstr "Üksik"
+ 
+ msgid "Button$Repeating"
+ msgstr "Korduv"
+@@ -676,13 +676,13 @@
+ msgstr "1. päev"
+ 
+ msgid "Error while accessing remote timer"
+-msgstr ""
++msgstr "Kaugtaimeri viga"
+ 
+ msgid "Timer has been deleted!"
+-msgstr ""
++msgstr "Taimer kustutatud"
+ 
+ msgid "Select folder"
+-msgstr "Kausta valik"
++msgstr "Vali kaust"
+ 
+ msgid "Timers"
+ msgstr "Taimerid"
+@@ -700,38 +700,38 @@
+ msgstr "Salvestus aktiivne - kas kustutada?"
+ 
+ msgid "Event"
+-msgstr "Saade"
++msgstr "Saateinfo"
+ 
+ msgid "Button$Timer"
+ msgstr "Taimer"
+ 
+ msgid "Button$Record"
+-msgstr "Salvestada"
++msgstr "Salvesta"
+ 
+ msgid "Button$Switch"
+ msgstr "Vali"
+ 
+ msgid "What's on now?"
+-msgstr "Hetkel eetris"
++msgstr "Hetkel"
+ 
+ msgid "What's on next?"
+-msgstr "Järgmisena eetris"
++msgstr "Järgmine"
+ 
+ msgid "Button$Next"
+-msgstr "Tulekul"
++msgstr "Järgmine"
+ 
+ msgid "Button$Now"
+ msgstr "Hetkel"
+ 
+ msgid "Button$Schedule"
+-msgstr "Kava"
++msgstr "Ajakava"
+ 
+ msgid "Can't switch channel!"
+ msgstr "Kanali vahetus ei ole võimalik!"
+ 
+ #, c-format
+ msgid "Schedule - %s"
+-msgstr "Kava - %s"
++msgstr "Ajakava - %s"
+ 
+ #, c-format
+ msgid "This event - %s"
+@@ -761,55 +761,55 @@
+ 
+ #, c-format
+ msgid "Move entire folder containing %d recordings?"
+-msgstr "Teisaldada kaust mis sisaldab %d salvestust?"
++msgstr "Liigutada kaust mis sisaldab %d salvestist?"
+ 
+ msgid "Error while moving folder!"
+-msgstr "Kausta teisaldamise viga!"
++msgstr "Kausta liigutamise viga!"
+ 
+ msgid "Edit recording"
+-msgstr "Salvestuse redigeerimine"
++msgstr "Muuda salvestist"
+ 
+ msgid "This recording is currently in use - no changes are possible!"
+-msgstr "Salvestus hetkel kasutusel - muutmine ei ole võimalik!"
++msgstr "Salvestis hetkel kasutusel - muutmine ei ole võimalik!"
+ 
+ msgid "Button$Cancel cutting"
+-msgstr "Lõikamise tühistamine"
++msgstr "Tühista lõikamine"
+ 
+ msgid "Button$Stop cutting"
+-msgstr "Lõikamise peatamine"
++msgstr "Peata lõikamine"
+ 
+ msgid "Button$Cancel moving"
+-msgstr "Teisaldamise tühistamine"
++msgstr "Tühista liigutamine"
+ 
+ msgid "Button$Stop moving"
+-msgstr "Teisaldamise peatamine"
++msgstr "Peata liigutamine"
+ 
+ msgid "Button$Cancel copying"
+-msgstr "Kopeerimise tühistamine"
++msgstr "Tühista kopeerimine"
+ 
+ msgid "Button$Stop copying"
+-msgstr "Kopeerimise peatamine"
++msgstr "Peata kopeerimine"
+ 
+ msgid "Button$Cut"
+ msgstr "Lõika"
+ 
+ msgid "Button$Delete marks"
+-msgstr "Markerite kustutamine"
++msgstr "Kustuta markerid"
+ 
+ msgid "Recording vanished!"
+-msgstr "Salvestus kadunud!"
++msgstr "Salvestis puudub!"
+ 
+ msgid "Edited version already exists - overwrite?"
+-msgstr "Redigeeritud versioon juba olemas - kirjutada üle?"
++msgstr "Muudetud versioon juba olemas - kirjutada üle?"
+ 
+ msgid "Error while queueing recording for cutting!"
+-msgstr "Salvestuse lisamine lõikamiseks ebaõnnestus!"
++msgstr "Salvestise lisamine lõikamiseks ebaõnnestus!"
+ 
+ msgid "Rename recording to folder name?"
+-msgstr "Nimetada salvestuse nimi kaustaks?"
++msgstr "Ümbernimetada kaust salvestise nimega?"
+ 
+ msgid "Delete editing marks for this recording?"
+-msgstr "Kustutada selle salvestuse markerid?"
++msgstr "Kustutada selle salvestise markerid?"
+ 
+ msgid "Error while deleting editing marks!"
+ msgstr "Markerite kustutamine ebaõnnestus!"
+@@ -821,55 +821,55 @@
+ msgstr "Kausta/nime muutmine ebaõnnestus!"
+ 
+ msgid "Recording info"
+-msgstr "Salvestuse info"
++msgstr "Salvestise info"
+ 
+ msgid "Button$Play"
+ msgstr "Start"
+ 
+ msgid "Button$Rewind"
+-msgstr "Algusesse"
++msgstr "Tagasikerimine"
+ 
+ msgid "Recordings"
+-msgstr "Salvestused"
++msgstr "Salvestised"
+ 
+ msgid "Commands"
+ msgstr "Käsud"
+ 
+ msgid "Delete recording?"
+-msgstr "Kustutada salvestus?"
++msgstr "Kustutada salvestis?"
+ 
+ msgid "Recording is being edited - really delete?"
+-msgstr "Salvestust on muudetud - kas kustutada?"
++msgstr "Salvestist on muudetud - kas kustutada?"
+ 
+ msgid "Error while deleting recording!"
+-msgstr "Salvestuse kustutamine ebaõnnestus!"
++msgstr "Salvestise kustutamine ebaõnnestus!"
+ 
+ msgid "Recording commands"
+ msgstr "Salvestuse käsud"
+ 
+ msgid "never"
+-msgstr "ealeski"
++msgstr "mitte kunagi"
+ 
+ msgid "skin dependent"
+-msgstr "kestast sõltuv"
++msgstr "kujundusest sõltuv"
+ 
+ msgid "always"
+ msgstr "alati"
+ 
+ msgid "by name"
+-msgstr ""
++msgstr "nime järgi"
+ 
+ msgid "by time"
+-msgstr ""
++msgstr "aja järgi"
+ 
+ msgid "OSD"
+-msgstr "Ekraanikuva"
++msgstr "OSD"
+ 
+ msgid "Setup.OSD$Language"
+ msgstr "Keel"
+ 
+ msgid "Setup.OSD$Skin"
+-msgstr "Kest"
++msgstr "Kujundus"
+ 
+ msgid "Setup.OSD$Theme"
+ msgstr "Teema"
+@@ -893,7 +893,7 @@
+ msgstr "Väikese fondi kasutus"
+ 
+ msgid "Setup.OSD$Anti-alias"
+-msgstr "Fondi sakitõrje"
++msgstr "Fondi silumine"
+ 
+ msgid "Setup.OSD$Default font"
+ msgstr "Vaikefont"
+@@ -902,7 +902,7 @@
+ msgstr "Väike font"
+ 
+ msgid "Setup.OSD$Fixed font"
+-msgstr "Fikseeritud font"
++msgstr "Püsisammuga font"
+ 
+ msgid "Setup.OSD$Default font size (%)"
+ msgstr "Vaikefondi suurus (%)"
+@@ -911,7 +911,7 @@
+ msgstr "Väikese fondi suurus (%)"
+ 
+ msgid "Setup.OSD$Fixed font size (%)"
+-msgstr "Fiks. fondi suurus (%)"
++msgstr "Püsisammuga fondi suurus (%)"
+ 
+ msgid "Setup.OSD$Channel info position"
+ msgstr "Kanaliinfo asukoht"
+@@ -929,7 +929,7 @@
+ msgstr "Kanaliinfo kuvamine"
+ 
+ msgid "Setup.OSD$Timeout requested channel info"
+-msgstr "Kanaliinfo ajapiirang"
++msgstr "Kanaliinfo aegumine"
+ 
+ msgid "Setup.OSD$Scroll pages"
+ msgstr "Lehekülje kerimine"
+@@ -941,16 +941,16 @@
+ msgstr "Sulgemine Menüü klahviga"
+ 
+ msgid "Setup.OSD$Recording directories"
+-msgstr "Kausta nime salvestamine"
++msgstr "Salvestise kaustade kuvamine"
+ 
+ msgid "Setup.OSD$Folders in timer menu"
+-msgstr "Kaustad taimeri menüüs"
++msgstr "Kaustade kuvamine taimeri menüüs"
+ 
+ msgid "Setup.OSD$Always sort folders first"
+-msgstr "Sorteerida kaustad alati ette"
++msgstr "Järjesta kaustad alati ette"
+ 
+ msgid "Setup.OSD$Default sort mode for recordings"
+-msgstr ""
++msgstr "Salvestiste vaikimisi järjestus"
+ 
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Teksti sisestamine numbriklahvidega"
+@@ -971,7 +971,7 @@
+ msgstr "EPG"
+ 
+ msgid "Button$Scan"
+-msgstr "Uuendada"
++msgstr "Uuenda"
+ 
+ msgid "Setup.EPG$EPG scan timeout (h)"
+ msgstr "EPG skaneerimise viide (h)"
+@@ -983,10 +983,10 @@
+ msgstr "Vana EPG viide (min)"
+ 
+ msgid "Setup.EPG$Set system time"
+-msgstr "Kella sünkroniseerimine"
++msgstr "Süsteemi aja sünkimine"
+ 
+ msgid "Setup.EPG$Use time from transponder"
+-msgstr "Sünkroniseerimise transponder"
++msgstr "Sünkimise transponder"
+ 
+ #. TRANSLATORS: note the plural!
+ msgid "Setup.EPG$Preferred languages"
+@@ -1009,7 +1009,7 @@
+ msgstr "ei"
+ 
+ msgid "names only"
+-msgstr "nimed"
++msgstr "ainult nimed"
+ 
+ msgid "PIDs only"
+ msgstr "PID-id"
+@@ -1097,7 +1097,7 @@
+ msgstr "oma"
+ 
+ msgid "Setup.LNB$Use dish positioner"
+-msgstr "Antenni positsioneerija kasutamine"
++msgstr "Ajami kasutamine"
+ 
+ msgid "Setup.LNB$Site latitude (degrees)"
+ msgstr "Asukoha laiuskraad (°)"
+@@ -1118,32 +1118,32 @@
+ msgstr "itta (E)"
+ 
+ msgid "Setup.LNB$Max. positioner swing (degrees)"
+-msgstr "Positsioneerija pöördeulatus (°)"
++msgstr "Ajami pöördeulatus (°)"
+ 
+ msgid "Setup.LNB$Positioner speed (degrees/s)"
+-msgstr "Positsioneerija kiirus (°/s)"
++msgstr "Ajami kiirus (°/s)"
+ 
+ msgid "CAM reset"
+ msgstr "CAM taaskäivitamine"
+ 
+ msgid "CAM present"
+-msgstr "CAM esitletud"
++msgstr "CAM saadaval"
+ 
+ msgid "CAM ready"
+-msgstr "CAM töövalmis"
++msgstr "CAM valmis"
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " (activating)"
+ msgstr " (aktiveerimine)"
+ 
+ msgid "@ device"
+-msgstr ""
++msgstr "@ seade"
+ 
+ msgid "CAM"
+ msgstr "CAM"
+ 
+ msgid "Button$Cancel activation"
+-msgstr "Aktiveerimise tühistamine"
++msgstr "Tühista aktiveerimine"
+ 
+ msgid "Button$Activate"
+ msgstr "Aktiveeri"
+@@ -1152,7 +1152,7 @@
+ msgstr "Menüü"
+ 
+ msgid "Button$Reset"
+-msgstr "Reset"
++msgstr "Lähtesta"
+ 
+ msgid "Opening CAM menu..."
+ msgstr "CAM-menüü avamine..."
+@@ -1164,61 +1164,61 @@
+ msgstr "Ei saa CAM'i aktiveerida!"
+ 
+ msgid "CAM is in use - really reset?"
+-msgstr "CAM on kasutuses - taaskäivitada?"
++msgstr "CAM on kasutuses - lähtestada?"
+ 
+ msgid "Can't reset CAM!"
+-msgstr "CAM mooduli taaskäivitus ebaõnnestus!"
++msgstr "CAM mooduli lähtestamine ebaõnnestus!"
+ 
+ msgid "no instant recording"
+-msgstr ""
++msgstr "kohene salvestus puudub"
+ 
+ msgid "confirm instant recording"
+-msgstr ""
++msgstr "kinnita kohene salvestus"
+ 
+ msgid "record instantly"
+-msgstr ""
++msgstr "kohene salvestus"
+ 
+ msgid "do not pause live video"
+ msgstr "mitte peatada"
+ 
+ msgid "confirm pause live video"
+-msgstr "peatam. kinnitus"
++msgstr "peatamise kinnitus"
+ 
+ msgid "pause live video"
+-msgstr "peatada"
++msgstr "peata"
+ 
+ msgid "confirm"
+-msgstr "kinnitada"
++msgstr "kinnita"
+ 
+ msgid "yes"
+ msgstr "jah"
+ 
+ msgid "Recording"
+-msgstr "Salvestamine"
++msgstr "Salvestus"
+ 
+ msgid "Setup.Recording$Margin at start (min)"
+-msgstr "Salvestamise algusvaru (min)"
++msgstr "Salvestuse algusvaru (min)"
+ 
+ msgid "Setup.Recording$Margin at stop (min)"
+-msgstr "Salvestamise lõpuvaru (min)"
++msgstr "Salvestuse lõpuvaru (min)"
+ 
+ msgid "Setup.Recording$Default priority"
+ msgstr "Vaikimisi prioriteet"
+ 
+ msgid "Setup.Recording$Default lifetime (d)"
+-msgstr "Salvestuse eluiga (päevi)"
++msgstr "Salvestuse eluiga (päevad)"
+ 
+ msgid "Setup.Recording$Record key handling"
+-msgstr ""
++msgstr "Salvestuse klahvi käsitlus"
+ 
+ msgid "Setup.Recording$Pause key handling"
+-msgstr "Pausi klahvi käsitlemine"
++msgstr "Pausi klahvi käsitlus"
+ 
+ msgid "Setup.Recording$Pause priority"
+ msgstr "Pausi prioriteet"
+ 
+ msgid "Setup.Recording$Pause lifetime (d)"
+-msgstr "Pausi eluiga (päevi)"
++msgstr "Pausi eluiga (päevad)"
+ 
+ msgid "Setup.Recording$Use episode name"
+ msgstr "Episoodinime kasutamine"
+@@ -1230,37 +1230,37 @@
+ msgstr "VPS-i algusvaru (s)"
+ 
+ msgid "Setup.Recording$Mark instant recording"
+-msgstr "Kiirsalvestuse märgistamine"
++msgstr "Kohese salvestuse märgistamine"
+ 
+ msgid "Setup.Recording$Name instant recording"
+-msgstr "Kiirsalvestuse nimi"
++msgstr "Kohese salvestuse nimi"
+ 
+ msgid "Setup.Recording$Instant rec. time (min)"
+-msgstr "Kiirsalvestuse kestus (min)"
++msgstr "Kohese salvestuse kestus (min)"
+ 
+ msgid "Setup.Recording$present event"
+-msgstr "hetkesündmus"
++msgstr "käesolev saade"
+ 
+ msgid "Setup.Recording$Max. video file size (MB)"
+ msgstr "Maks. failisuurus (MB)"
+ 
+ msgid "Setup.Recording$Split edited files"
+-msgstr "Redigeeritud failide tükeldamine"
++msgstr "Tükelda muudetud faile"
+ 
+ msgid "Setup.Recording$Delete timeshift recording"
+-msgstr "Ajanihke salvestuse kustutamine"
++msgstr "Kustuta ajanihke salvestisi"
+ 
+ msgid "Replay"
+ msgstr "Taasesitus"
+ 
+ msgid "Setup.Replay$Multi speed mode"
+-msgstr "Mitmikkiiruse režiim"
++msgstr "Mitme kiiruse režiim"
+ 
+ msgid "Setup.Replay$Show replay mode"
+ msgstr "Korduse režiimi kuvamine"
+ 
+ msgid "Setup.Replay$Show remaining time"
+-msgstr "Järelejäänud aja kuvamine"
++msgstr "Kuva jäänud aega"
+ 
+ msgid "Setup.Replay$Progress display time (s)"
+ msgstr "Edenemiseriba kuvamise aeg (s)"
+@@ -1272,7 +1272,7 @@
+ msgstr "Paus markerile siirdamisel"
+ 
+ msgid "Setup.Replay$Skip edited parts"
+-msgstr "Redigeeritud osade vahelejätmine"
++msgstr "Markeeritud osade vahelejätmine"
+ 
+ msgid "Setup.Replay$Pause replay at last mark"
+ msgstr "Paus viimasel markeril"
+@@ -1281,7 +1281,7 @@
+ msgstr "Adaptiivse hüppe pikkuse algväärtus (s)"
+ 
+ msgid "Setup.Replay$Reset timeout for adaptive skipping (s)"
+-msgstr "Adaptiivse hüppe lähtestamise viide (s)"
++msgstr "Adaptiivse hüppe lähtestamise aegumine (s)"
+ 
+ msgid "Setup.Replay$Alternate behavior for adaptive skipping"
+ msgstr "Adaptiivse hüppe vaheldumise omadus"
+@@ -1299,31 +1299,31 @@
+ msgstr "Taasesituse tunnus"
+ 
+ msgid "Miscellaneous"
+-msgstr "Muud sätted"
++msgstr "Muud seaded"
+ 
+ msgid "Setup.Miscellaneous$Min. event timeout (min)"
+-msgstr "Min. aeg saateni (min)"
++msgstr "Minimaalne aeg saateni (min)"
+ 
+ msgid "Setup.Miscellaneous$Min. user inactivity (min)"
+-msgstr "Min. kasutaja tegevusetus (min)"
++msgstr "Minimaalne kasutaja jõudeolek (min)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP timeout (s)"
+-msgstr "SVDRP ooteaeg (s)"
++msgstr "SVDRP aegumine (s)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP peering"
+-msgstr ""
++msgstr "SVDRP partnerlus"
+ 
+ msgid "Setup.Miscellaneous$SVDRP host name"
+-msgstr ""
++msgstr "SVDRP hostinimi"
+ 
+ msgid "Setup.Miscellaneous$SVDRP default host"
+-msgstr ""
++msgstr "SVDRP vaikehost"
+ 
+ msgid "Setup.Miscellaneous$Zap timeout (s)"
+-msgstr "Kanalivahetuse ooteaeg (s)"
++msgstr "Kanalivahetuse aegumine (s)"
+ 
+ msgid "Setup.Miscellaneous$Channel entry timeout (ms)"
+-msgstr "Kanali sisestamise ajalimiit (ms)"
++msgstr "Kanali sisestamise aegumine (ms)"
+ 
+ msgid "Setup.Miscellaneous$Remote control repeat delay (ms)"
+ msgstr "Kaugjuhtimispuldi kordamise viide (ms)"
+@@ -1356,30 +1356,30 @@
+ msgstr "Hädaväljumine"
+ 
+ msgid "Plugins"
+-msgstr "Laiendusmoodulid"
++msgstr "Pluginad"
+ 
+ msgid "This plugin has no setup parameters!"
+-msgstr "Sellel laienudusmoodulil ei ole seadeid!"
++msgstr "Sellel pluginal seaded puuduvad!"
+ 
+ msgid "Setup"
+-msgstr "Sätted"
++msgstr "Seaded"
+ 
+ msgid "Restart"
+-msgstr "Restart"
++msgstr "Taaskäivita"
+ 
+ msgid "Really restart?"
+-msgstr "Restart?"
++msgstr "Taaskäivitada?"
+ 
+ #. TRANSLATORS: note the leading and trailing blanks!
+ msgid " Stop recording "
+-msgstr " Lõpetada salvestamine "
++msgstr " Lõpeta salvestamine "
+ 
+ msgid "Schedule"
+-msgstr "Kava"
++msgstr "Ajakava"
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " Stop replaying"
+-msgstr " Lõpetada taasesitus"
++msgstr " Lõpeta taasesitus"
+ 
+ msgid "Button$Pause"
+ msgstr "Paus"
+@@ -1392,7 +1392,7 @@
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " Cancel editing"
+-msgstr " Tühistada töötlemine"
++msgstr " Tühista töötlemine"
+ 
+ msgid "Stop recording?"
+ msgstr "Lõpetada salvestamine?"
+@@ -1416,7 +1416,7 @@
+ msgstr "Puudub vaba DVB seade salvestamiseks!"
+ 
+ msgid "Pausing live video..."
+-msgstr "Otseedastuse peatamine..."
++msgstr "Telepildi peatamine..."
+ 
+ msgid "Delete timeshift recording?"
+ msgstr "Kustutada ajanihke salvestust?"
+@@ -1426,19 +1426,19 @@
+ msgstr "Hüpe: "
+ 
+ msgid "No editing marks defined!"
+-msgstr "Redigeerimise markerid puuduvad!"
++msgstr "Muutmise markerid puuduvad!"
+ 
+ msgid "No editing sequences defined!"
+-msgstr "Redigeerimise järjestus määramata!"
++msgstr "Muutmise järjestus määramata!"
+ 
+ msgid "Can't start editing process!"
+-msgstr "Redigeerimise start ebaõnnestus!"
++msgstr "Muutmise start ebaõnnestus!"
+ 
+ msgid "Editing process started"
+-msgstr "Redigeerimine käivitatud"
++msgstr "Töötlemine käivitatud"
+ 
+ msgid "Editing process already active!"
+-msgstr "Redigeerimine juba aktiivne!"
++msgstr "Töötlemine juba aktiivne!"
+ 
+ msgid "FileNameChars$ abcdefghijklmnopqrstuvwxyz0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+ msgstr " abcdefghijklmnopqrsšzžtuvwõäöüxy0123456789-.,#~\\^$[]|()*+?{}/:%@&"
+@@ -1456,7 +1456,7 @@
+ msgstr "Lisa (INS)"
+ 
+ msgid "Plugin"
+-msgstr "Laiendusmoodul"
++msgstr "Plugin"
+ 
+ msgid "Up/Dn for new location - OK to move"
+ msgstr "'Üles/Alla' uus asukoht - 'OK' kinnitus"
+@@ -1494,16 +1494,16 @@
+ 
+ #, c-format
+ msgid "Plugin %s wakes up in %ld min, continue?"
+-msgstr "Laiendusmoodul %s ärkab %ld minuti pärast, jätkata?"
++msgstr "Plugin %s ärkab %ld minuti pärast, jätkata?"
+ 
+ msgid "Editing - restart anyway?"
+-msgstr "Töötlemine aktiivne - restart?"
++msgstr "Töötlemine aktiivne - taaskäivitada?"
+ 
+ msgid "Recording - restart anyway?"
+-msgstr "Salvestamine aktiivne - restart?"
++msgstr "Salvestamine aktiivne - taaskäivitada ikkagi?"
+ 
+ msgid "restart anyway?"
+-msgstr "restart?"
++msgstr "taaskäivitada ikkagi?"
+ 
+ #. TRANSLATORS: note the trailing blank!
+ msgid "Volume "
+@@ -1525,7 +1525,7 @@
+ msgstr "SEADMED"
+ 
+ msgid "LIVE"
+-msgstr "LIVE"
++msgstr "TELEPILT"
+ 
+ msgid "PLAY"
+ msgstr "ESITUS"
+@@ -1570,10 +1570,10 @@
+ msgstr "Salvestamine tulekul!"
+ 
+ msgid "Pause live video?"
+-msgstr "Peatada otseülekanne?"
++msgstr "Peatada telepilt?"
+ 
+ msgid "Start recording?"
+-msgstr ""
++msgstr "Käivitada salvestamine?"
+ 
+ msgid "Recording started"
+ msgstr "Salvestamine käivitatud"
+@@ -1594,7 +1594,7 @@
+ msgstr "Töötlemine lõpetatud"
+ 
+ msgid "Press any key to cancel restart"
+-msgstr "Restardi katkestamiseks vajuta suvalist klahvi"
++msgstr "Taaskäivitamise katkestamiseks vajuta suvalist klahvi"
+ 
+ #, c-format
+ msgid "VDR will shut down in %s minutes"
+diff -ruN vdr-2.3.1/po/it_IT.po vdr-2.3.2/po/it_IT.po
+--- vdr-2.3.1/po/it_IT.po	2015-09-13 12:41:12.397039515 +0200
++++ vdr-2.3.2/po/it_IT.po	2016-12-23 15:58:03.498454642 +0100
+@@ -12,7 +12,7 @@
+ "Project-Id-Version: VDR 2.2.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+ "POT-Creation-Date: 2015-09-11 10:38+0200\n"
+-"PO-Revision-Date: 2015-02-12 19:31+0100\n"
++"PO-Revision-Date: 2015-09-14 19:28+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
+ "Language: it\n"
+@@ -667,7 +667,7 @@
+ msgstr "Nome"
+ 
+ msgid "Record on"
+-msgstr ""
++msgstr "Registrazione avviata"
+ 
+ msgid "Button$Folder"
+ msgstr "Cartella"
+@@ -682,10 +682,10 @@
+ msgstr "1° giorno"
+ 
+ msgid "Error while accessing remote timer"
+-msgstr ""
++msgstr "Errore durante l'accesso al timer remoto"
+ 
+ msgid "Timer has been deleted!"
+-msgstr ""
++msgstr "Il timer è stata eliminato!"
+ 
+ msgid "Select folder"
+ msgstr "Seleziona cartella"
+@@ -863,10 +863,10 @@
+ msgstr "sempre"
+ 
+ msgid "by name"
+-msgstr ""
++msgstr "per nome"
+ 
+ msgid "by time"
+-msgstr ""
++msgstr "per ora"
+ 
+ msgid "OSD"
+ msgstr "OSD"
+@@ -956,7 +956,7 @@
+ msgstr "Ordina sempre per prima le cartelle"
+ 
+ msgid "Setup.OSD$Default sort mode for recordings"
+-msgstr ""
++msgstr "Modalità ordinamento predefinito per registrazioni"
+ 
+ msgid "Setup.OSD$Number keys for characters"
+ msgstr "Tasti numerici per i caratteri"
+@@ -1143,7 +1143,7 @@
+ msgstr " (attivazione)"
+ 
+ msgid "@ device"
+-msgstr ""
++msgstr "@ dispositivo"
+ 
+ msgid "CAM"
+ msgstr "Accesso condizionato CAM"
+@@ -1176,13 +1176,13 @@
+ msgstr "Impossibile reimpostare il modulo CAM!"
+ 
+ msgid "no instant recording"
+-msgstr ""
++msgstr "nessuna registrazione istantanea"
+ 
+ msgid "confirm instant recording"
+-msgstr ""
++msgstr "conferma registrazione istantanea"
+ 
+ msgid "record instantly"
+-msgstr ""
++msgstr "registra istantaneamente"
+ 
+ msgid "do not pause live video"
+ msgstr "non mettere in pausa il video dal vivo"
+@@ -1215,7 +1215,7 @@
+ msgstr "Scadenza predefinita (gg)"
+ 
+ msgid "Setup.Recording$Record key handling"
+-msgstr ""
++msgstr "Gestione chiave registrazione"
+ 
+ msgid "Setup.Recording$Pause key handling"
+ msgstr "Gestione tasto Pausa"
+@@ -1317,13 +1317,13 @@
+ msgstr "Scadenza SVDRP (s)"
+ 
+ msgid "Setup.Miscellaneous$SVDRP peering"
+-msgstr ""
++msgstr "Punto SVDRP"
+ 
+ msgid "Setup.Miscellaneous$SVDRP host name"
+-msgstr ""
++msgstr "Nome sistema SVDRP"
+ 
+ msgid "Setup.Miscellaneous$SVDRP default host"
+-msgstr ""
++msgstr "Sistema predefinito SVDRP"
+ 
+ msgid "Setup.Miscellaneous$Zap timeout (s)"
+ msgstr "Scadenza Zapping (s)"
+@@ -1579,7 +1579,7 @@
+ msgstr "Pausare video dal vivo?"
+ 
+ msgid "Start recording?"
+-msgstr ""
++msgstr "Avviare registrazione?"
+ 
+ msgid "Recording started"
+ msgstr "Registrazione avviata"
+diff -ruN vdr-2.3.1/receiver.c vdr-2.3.2/receiver.c
+--- vdr-2.3.1/receiver.c	2015-01-12 15:04:31.000000000 +0100
++++ vdr-2.3.2/receiver.c	2015-09-16 13:19:47.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: receiver.c 4.0 2015/01/12 14:04:31 kls Exp $
++ * $Id: receiver.c 4.1 2015/09/16 11:19:47 kls Exp $
+  */
+ 
+ #include "receiver.h"
+@@ -37,8 +37,10 @@
+ bool cReceiver::AddPid(int Pid)
+ {
+   if (Pid) {
+-     if (numPids < MAXRECEIVEPIDS)
+-        pids[numPids++] = Pid;
++     if (numPids < MAXRECEIVEPIDS) {
++        if (!WantsPid(Pid))
++           pids[numPids++] = Pid;
++        }
+      else {
+         dsyslog("too many PIDs in cReceiver (Pid = %d)", Pid);
+         return false;
+diff -ruN vdr-2.3.1/recording.c vdr-2.3.2/recording.c
+--- vdr-2.3.1/recording.c	2015-09-09 12:21:58.000000000 +0200
++++ vdr-2.3.2/recording.c	2016-12-22 13:58:20.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 4.4 2015/09/09 10:21:58 kls Exp $
++ * $Id: recording.c 4.6 2016/12/22 12:58:20 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -1701,7 +1701,7 @@
+         int To = -1;
+         size_t BufferSize = BUFSIZ;
+         while (Running()) {
+-              // Suspend cutting if we have severe throughput problems:
++              // Suspend copying if we have severe throughput problems:
+               if (Throttled()) {
+                  cCondWait::SleepMs(100);
+                  continue;
+@@ -1900,6 +1900,7 @@
+ cRecordingsHandler RecordingsHandler;
+ 
+ cRecordingsHandler::cRecordingsHandler(void)
++:cThread("recordings handler")
+ {
+   finished = true;
+   error = false;
+@@ -1907,6 +1908,23 @@
+ 
+ cRecordingsHandler::~cRecordingsHandler()
+ {
++  Cancel(3);
++}
++
++void cRecordingsHandler::Action(void)
++{
++  while (Running()) {
++        {
++          cMutexLock MutexLock(&mutex);
++          while (cRecordingsHandlerEntry *r = operations.First()) {
++                if (!r->Active(error))
++                   operations.Del(r);
++                }
++          if (!operations.Count())
++             break;
++        }
++        cCondWait::SleepMs(100);
++        }
+ }
+ 
+ cRecordingsHandlerEntry *cRecordingsHandler::Get(const char *FileName)
+@@ -1934,8 +1952,7 @@
+               Usage |= ruPending;
+               operations.Add(new cRecordingsHandlerEntry(Usage, FileNameSrc, FileNameDst));
+               finished = false;
+-              Active(); // start it right away if possible
+-              LOCK_RECORDINGS_WRITE; // to trigger a state change
++              Start();
+               return true;
+               }
+            else
+@@ -1955,17 +1972,17 @@
+ void cRecordingsHandler::Del(const char *FileName)
+ {
+   cMutexLock MutexLock(&mutex);
+-  if (cRecordingsHandlerEntry *r = Get(FileName)) {
++  if (cRecordingsHandlerEntry *r = Get(FileName))
+      operations.Del(r);
+-     LOCK_RECORDINGS_WRITE; // to trigger a state change
+-     }
+ }
+ 
+ void cRecordingsHandler::DelAll(void)
+ {
+-  cMutexLock MutexLock(&mutex);
+-  operations.Clear();
+-  LOCK_RECORDINGS_WRITE; // to trigger a state change
++  {
++    cMutexLock MutexLock(&mutex);
++    operations.Clear();
++  }
++  Cancel(3);
+ }
+ 
+ int cRecordingsHandler::GetUsage(const char *FileName)
+@@ -1976,18 +1993,6 @@
+   return ruNone;
+ }
+ 
+-bool cRecordingsHandler::Active(void)
+-{
+-  cMutexLock MutexLock(&mutex);
+-  while (cRecordingsHandlerEntry *r = operations.First()) {
+-        if (r->Active(error))
+-           return true;
+-        else
+-           operations.Del(r);
+-        }
+-  return false;
+-}
+-
+ bool cRecordingsHandler::Finished(bool &Error)
+ {
+   cMutexLock MutexLock(&mutex);
+@@ -2324,7 +2329,7 @@
+                  Buffer.Del(Processed);
+                  }
+               }
+-           else if (PatPmtParser.Vpid()) {
++           else if (PatPmtParser.Completed()) {
+               // Step 2 - sync FrameDetector:
+               int Processed = FrameDetector.Analyze(Data, Length);
+               if (Processed > 0) {
+@@ -2346,9 +2351,9 @@
+                        PatPmtParser.ParsePmt(p, TS_SIZE);
+                     Length -= TS_SIZE;
+                     p += TS_SIZE;
+-                    if (PatPmtParser.Vpid()) {
+-                       // Found Vpid, so rewind to sync FrameDetector:
+-                       FrameDetector.SetPid(PatPmtParser.Vpid(), PatPmtParser.Vtype());
++                    if (PatPmtParser.Completed()) {
++                       // Found pid, so rewind to sync FrameDetector:
++                       FrameDetector.SetPid(PatPmtParser.Vpid() ? PatPmtParser.Vpid() : PatPmtParser.Apid(0), PatPmtParser.Vpid() ? PatPmtParser.Vtype() : PatPmtParser.Atype(0));
+                        BufferChunks = IFG_BUFFER_SIZE;
+                        Rewind = true;
+                        break;
+diff -ruN vdr-2.3.1/recording.h vdr-2.3.2/recording.h
+--- vdr-2.3.1/recording.h	2015-08-29 16:12:14.000000000 +0200
++++ vdr-2.3.2/recording.h	2016-12-13 14:12:12.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 4.3 2015/08/29 14:12:14 kls Exp $
++ * $Id: recording.h 4.4 2016/12/13 13:12:12 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -302,16 +302,18 @@
+ 
+ class cRecordingsHandlerEntry;
+ 
+-class cRecordingsHandler {
++class cRecordingsHandler : public cThread {
+ private:
+   cMutex mutex;
+   cList<cRecordingsHandlerEntry> operations;
+   bool finished;
+   bool error;
+   cRecordingsHandlerEntry *Get(const char *FileName);
++protected:
++  virtual void Action(void);
+ public:
+   cRecordingsHandler(void);
+-  ~cRecordingsHandler();
++  virtual ~cRecordingsHandler();
+   bool Add(int Usage, const char *FileNameSrc, const char *FileNameDst = NULL);
+        ///< Adds the given FileNameSrc to the recordings handler for (later)
+        ///< processing. Usage can be either ruCut, ruMove or ruCopy. FileNameDst
+@@ -329,12 +331,6 @@
+        ///< Deletes/terminates all operations.
+   int GetUsage(const char *FileName);
+        ///< Returns the usage type for the given FileName.
+-  bool Active(void);
+-       ///< Checks whether there is currently any operation running and starts
+-       ///> the next one form the list if the previous one has finished.
+-       ///< This function must be called regularly to trigger switching to the
+-       ///< next operation in the list.
+-       ///< Returns true if there are any operations in the list.
+   bool Finished(bool &Error);
+        ///< Returns true if all operations in the list have been finished.
+        ///< If there have been any errors, Errors will be set to true.
+diff -ruN vdr-2.3.1/remux.c vdr-2.3.2/remux.c
+--- vdr-2.3.1/remux.c	2015-03-11 10:49:38.000000000 +0100
++++ vdr-2.3.2/remux.c	2016-12-22 13:58:20.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 4.1 2015/03/11 09:49:38 kls Exp $
++ * $Id: remux.c 4.3 2016/12/22 12:58:20 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -603,6 +603,7 @@
+ 
+ void cPatPmtParser::Reset(void)
+ {
++  completed = false;
+   pmtSize = 0;
+   patVersion = pmtVersion = -1;
+   pmtPids[0] = 0;
+@@ -708,6 +709,7 @@
+            case 0x01: // STREAMTYPE_11172_VIDEO
+            case 0x02: // STREAMTYPE_13818_VIDEO
+            case 0x1B: // H.264
++           case 0x24: // H.265
+                       vpid = stream.getPid();
+                       vtype = stream.getStreamType();
+                       ppid = Pmt.getPCRPid();
+@@ -892,6 +894,7 @@
+             }
+          }
+      pmtVersion = Pmt.getVersionNumber();
++     completed = true;
+      }
+   else
+      esyslog("ERROR: can't parse PMT");
+@@ -1204,16 +1207,16 @@
+     nutSequenceParameterSet = 7,
+     nutAccessUnitDelimiter  = 9,
+     };
+-  cTsPayload tsPayload;
+   uchar byte; // holds the current byte value in case of bitwise access
+   int bit; // the bit index into the current byte (-1 if we're not in bit reading mode)
+   int zeroBytes; // the number of consecutive zero bytes (to detect 0x000003)
+-  uint32_t scanner;
+   // Identifiers written in '_' notation as in "ITU-T H.264":
+   bool separate_colour_plane_flag;
+   int log2_max_frame_num;
+   bool frame_mbs_only_flag;
+-  //
++protected:
++  cTsPayload tsPayload;
++  uint32_t scanner;
+   bool gotAccessUnitDelimiter;
+   bool gotSequenceParameterSet;
+   uchar GetByte(bool Raw = false);
+@@ -1430,6 +1433,81 @@
+      }
+ }
+ 
++// --- cH265Parser -----------------------------------------------------------
++
++class cH265Parser : public cH264Parser {
++private:
++  enum eNalUnitType {
++    nutSliceSegmentTrailingN =  0,
++    nutSliceSegmentTrailingR =  1,
++    nutSliceSegmentTSAN      =  2,
++    nutSliceSegmentTSAR      =  3,
++    nutSliceSegmentSTSAN     =  4,
++    nutSliceSegmentSTSAR     =  5,
++    nutSliceSegmentRADLN     =  6,
++    nutSliceSegmentRADLR     =  7,
++    nutSliceSegmentRASLN     =  8,
++    nutSliceSegmentRASLR     =  9,
++    nutSliceSegmentBLAWLP    = 16,
++    nutSliceSegmentBLAWRADL  = 17,
++    nutSliceSegmentBLANLP    = 18,
++    nutSliceSegmentIDRWRADL  = 19,
++    nutSliceSegmentIDRNLP    = 20,
++    nutSliceSegmentCRANUT    = 21,
++    nutVideoParameterSet     = 32,
++    nutSequenceParameterSet  = 33,
++    nutPictureParameterSet   = 34,
++    nutAccessUnitDelimiter   = 35,
++    nutEndOfSequence         = 36,
++    nutEndOfBitstream        = 37,
++    nutFillerData            = 38,
++    nutPrefixSEI             = 39,
++    nutSuffixSEI             = 40,
++    nutNonVCLRes0            = 41,
++    nutNonVCLRes3            = 44,
++    nutUnspecified0          = 48,
++    nutUnspecified7          = 55,
++    };
++public:
++  cH265Parser(void);
++  virtual int Parse(const uchar *Data, int Length, int Pid);
++  };
++
++cH265Parser::cH265Parser(void)
++:cH264Parser()
++{
++}
++
++int cH265Parser::Parse(const uchar *Data, int Length, int Pid)
++{
++  newFrame = independentFrame = false;
++  tsPayload.Setup(const_cast<uchar *>(Data), Length, Pid);
++  if (TsPayloadStart(Data)) {
++     tsPayload.SkipPesHeader();
++     scanner = EMPTY_SCANNER;
++     }
++  for (;;) {
++      scanner = (scanner << 8) | GetByte(true);
++      if ((scanner & 0xFFFFFF00) == 0x00000100) { // NAL unit start
++         uchar NalUnitType = (scanner >> 1) & 0x3F;
++         GetByte(); // nuh_layer_id + nuh_temporal_id_plus1
++         if (NalUnitType <= nutSliceSegmentRASLR || (NalUnitType >= nutSliceSegmentBLAWLP && NalUnitType <= nutSliceSegmentCRANUT)) {
++            if (NalUnitType == nutSliceSegmentIDRWRADL || NalUnitType == nutSliceSegmentIDRNLP || NalUnitType == nutSliceSegmentCRANUT)
++               independentFrame = true;
++            if (GetBit()) { // first_slice_segment_in_pic_flag
++               newFrame = true;
++               tsPayload.Statistics();
++               }
++            break;
++            }
++         }
++      if (tsPayload.AtPayloadStart() // stop at any new payload start to have the buffer refilled if necessary
++         || tsPayload.Eof()) // or if we're out of data
++         break;
++      }
++  return tsPayload.Used();
++}
++
+ // --- cFrameDetector --------------------------------------------------------
+ 
+ cFrameDetector::cFrameDetector(int Pid, int Type)
+@@ -1456,14 +1534,16 @@
+ {
+   pid = Pid;
+   type = Type;
+-  isVideo = type == 0x01 || type == 0x02 || type == 0x1B; // MPEG 1, 2 or H.264
++  isVideo = type == 0x01 || type == 0x02 || type == 0x1B || type == 0x24; // MPEG 1, 2, H.264 or H.265
+   delete parser;
+   parser = NULL;
+   if (type == 0x01 || type == 0x02)
+      parser = new cMpeg2Parser;
+   else if (type == 0x1B)
+      parser = new cH264Parser;
+-  else if (type == 0x04 || type == 0x06) // MPEG audio or AC3 audio
++  else if (type == 0x24)
++     parser = new cH265Parser;
++  else if (type == 0x03 || type == 0x04 || type == 0x06) // MPEG audio or AC3 audio
+      parser = new cAudioParser;
+   else if (type != 0)
+      esyslog("ERROR: unknown stream type %d (PID %d) in frame detector", type, pid);
+diff -ruN vdr-2.3.1/remux.h vdr-2.3.2/remux.h
+--- vdr-2.3.1/remux.h	2014-03-22 15:58:24.000000000 +0100
++++ vdr-2.3.2/remux.h	2016-12-22 14:09:54.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 4.0 2014/03/22 14:58:24 kls Exp $
++ * $Id: remux.h 4.1 2016/12/22 13:09:54 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+@@ -361,6 +361,7 @@
+   uint16_t compositionPageIds[MAXSPIDS];
+   uint16_t ancillaryPageIds[MAXSPIDS];
+   bool updatePrimaryDevice;
++  bool completed;
+ protected:
+   int SectionLength(const uchar *Data, int Length) { return (Length >= 3) ? ((int(Data[1]) & 0x0F) << 8)| Data[2] : 0; }
+ public:
+@@ -397,6 +398,8 @@
+   int Vtype(void) const { return vtype; }
+        ///< Returns the video stream type as defined by the current PMT, or 0 if no video
+        ///< stream type has been detected, yet.
++  bool Completed(void) { return completed; }
++       ///< Returns true if the PMT has been completely parsed.
+   const int *Apids(void) const { return apids; }
+   const int *Dpids(void) const { return dpids; }
+   const int *Spids(void) const { return spids; }
+diff -ruN vdr-2.3.1/ringbuffer.c vdr-2.3.2/ringbuffer.c
+--- vdr-2.3.1/ringbuffer.c	2012-09-22 13:26:49.000000000 +0200
++++ vdr-2.3.2/ringbuffer.c	2016-12-22 11:26:13.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Parts of this file were inspired by the 'ringbuffy.c' from the
+  * LinuxDVB driver (see linuxtv.org).
+  *
+- * $Id: ringbuffer.c 4.0 2012/09/22 11:26:49 kls Exp $
++ * $Id: ringbuffer.c 4.1 2016/12/22 10:26:13 kls Exp $
+  */
+ 
+ #include "ringbuffer.h"
+@@ -390,12 +390,13 @@
+ 
+ // --- cFrame ----------------------------------------------------------------
+ 
+-cFrame::cFrame(const uchar *Data, int Count, eFrameType Type, int Index, uint32_t Pts)
++cFrame::cFrame(const uchar *Data, int Count, eFrameType Type, int Index, uint32_t Pts, bool Independent)
+ {
+   count = abs(Count);
+   type = Type;
+   index = Index;
+   pts = Pts;
++  independent = Type == ftAudio ? true : Independent;
+   if (Count < 0)
+      data = (uchar *)Data;
+   else {
+diff -ruN vdr-2.3.1/ringbuffer.h vdr-2.3.2/ringbuffer.h
+--- vdr-2.3.1/ringbuffer.h	2013-02-16 16:20:37.000000000 +0100
++++ vdr-2.3.2/ringbuffer.h	2016-12-22 11:26:13.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ringbuffer.h 4.0 2013/02/16 15:20:37 kls Exp $
++ * $Id: ringbuffer.h 4.1 2016/12/22 10:26:13 kls Exp $
+  */
+ 
+ #ifndef __RINGBUFFER_H
+@@ -113,8 +113,9 @@
+   eFrameType type;
+   int index;
+   uint32_t pts;
++  bool independent;
+ public:
+-  cFrame(const uchar *Data, int Count, eFrameType = ftUnknown, int Index = -1, uint32_t Pts = 0);
++  cFrame(const uchar *Data, int Count, eFrameType = ftUnknown, int Index = -1, uint32_t Pts = 0, bool independent = false);
+     ///< Creates a new cFrame object.
+     ///< If Count is negative, the cFrame object will take ownership of the given
+     ///< Data. Otherwise it will allocate Count bytes of memory and copy Data.
+@@ -124,6 +125,7 @@
+   eFrameType Type(void) const { return type; }
+   int Index(void) const { return index; }
+   uint32_t Pts(void) const { return pts; }
++  bool Independent(void) const { return independent; }
+   };
+ 
+ class cRingBufferFrame : public cRingBuffer {
+diff -ruN vdr-2.3.1/skinclassic.c vdr-2.3.2/skinclassic.c
+--- vdr-2.3.1/skinclassic.c	2013-03-03 16:26:09.000000000 +0100
++++ vdr-2.3.2/skinclassic.c	2016-12-22 15:07:04.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinclassic.c 4.0 2013/03/03 15:26:09 kls Exp $
++ * $Id: skinclassic.c 4.1 2016/12/22 14:07:04 kls Exp $
+  */
+ 
+ #include "skinclassic.h"
+@@ -352,8 +352,7 @@
+   const cFont *font = cFont::GetFont(fontOsd);
+   int y = y2;
+   cTextScroller ts;
+-  char t[32];
+-  snprintf(t, sizeof(t), "%s  %s - %s", *Event->GetDateString(), *Event->GetTimeString(), *Event->GetEndTimeString());
++  cString t = cString::sprintf("%s  %s - %s", *Event->GetDateString(), *Event->GetTimeString(), *Event->GetEndTimeString());
+   ts.Set(osd, x1, y, x2 - x1, y3 - y, t, font, Theme.Color(clrMenuEventTime), Theme.Color(clrBackground));
+   if (Event->Vps() && Event->Vps() != Event->StartTime()) {
+      cString buffer = cString::sprintf(" VPS: %s ", *Event->GetVpsString());
+diff -ruN vdr-2.3.1/skinlcars.c vdr-2.3.2/skinlcars.c
+--- vdr-2.3.1/skinlcars.c	2015-09-01 12:07:07.000000000 +0200
++++ vdr-2.3.2/skinlcars.c	2016-12-22 15:05:56.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinlcars.c 4.1 2015/09/01 10:07:07 kls Exp $
++ * $Id: skinlcars.c 4.2 2016/12/22 14:05:56 kls Exp $
+  */
+ 
+ // "Star Trek: The Next Generation"(R) is a registered trademark of Paramount Pictures,
+@@ -1636,8 +1636,7 @@
+   int xl = xi00;
+   int y = yi00;
+   cTextScroller ts;
+-  char t[32];
+-  snprintf(t, sizeof(t), "%s  %s - %s", *Event->GetDateString(), *Event->GetTimeString(), *Event->GetEndTimeString());
++  cString t = cString::sprintf("%s  %s - %s", *Event->GetDateString(), *Event->GetTimeString(), *Event->GetEndTimeString());
+   ts.Set(osd, xl, y, xi01 - xl, yi01 - y, t, font, Theme.Color(clrEventTime), Theme.Color(clrBackground));
+   if (Event->Vps() && Event->Vps() != Event->StartTime()) {
+      cString buffer = cString::sprintf(" VPS: %s ", *Event->GetVpsString());
+diff -ruN vdr-2.3.1/skinsttng.c vdr-2.3.2/skinsttng.c
+--- vdr-2.3.1/skinsttng.c	2013-11-15 16:33:14.000000000 +0100
++++ vdr-2.3.2/skinsttng.c	2016-12-22 15:07:22.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinsttng.c 4.0 2013/11/15 15:33:14 kls Exp $
++ * $Id: skinsttng.c 4.1 2016/12/22 14:07:22 kls Exp $
+  */
+ 
+ // "Star Trek: The Next Generation"(R) is a registered trademark of Paramount Pictures
+@@ -655,8 +655,7 @@
+   int xl = x3 + TextSpacing;
+   int y = y3;
+   cTextScroller ts;
+-  char t[32];
+-  snprintf(t, sizeof(t), "%s  %s - %s", *Event->GetDateString(), *Event->GetTimeString(), *Event->GetEndTimeString());
++  cString t = cString::sprintf("%s  %s - %s", *Event->GetDateString(), *Event->GetTimeString(), *Event->GetEndTimeString());
+   ts.Set(osd, xl, y, x4 - xl, y4 - y, t, font, Theme.Color(clrMenuEventTime), Theme.Color(clrBackground));
+   if (Event->Vps() && Event->Vps() != Event->StartTime()) {
+      cString buffer = cString::sprintf(" VPS: %s ", *Event->GetVpsString());
+diff -ruN vdr-2.3.1/sources.conf vdr-2.3.2/sources.conf
+--- vdr-2.3.1/sources.conf	2015-02-18 10:33:19.000000000 +0100
++++ vdr-2.3.2/sources.conf	2016-12-22 14:31:45.000000000 +0100
+@@ -51,6 +51,7 @@
+ S53E    Express AM22
+ S56E    DirecTV 1R
+ S57E    NSS 12
++S58.5E  Kazsat 3
+ S60E    Intelsat 904
+ S62E    Intelsat 902
+ S64E    Intelsat 906
+@@ -109,80 +110,80 @@
+ S180E   Intelsat 18
+ S177W   NSS 9
+ 
+-# Atlantic
+-
+-S0.8W   Intelsat 10-02
+-S1W     Thor 5/6
+-S4W     Amos 2/3
+-S5W     Eutelsat 5 West A
+-S7W     Nilesat 101/201 & Eutelsat 7 West A
+-S8W     Eutelsat 8 West A/C
+-S11W    Express AM44
+-S12.5W  Eutelsat 12 West A
+-S14W    Express A4
+-S15W    Telstar 12
+-S18W    Intelsat 901
+-S20W    NSS 7
+-S22W    SES 4
+-S24.5W  Intelsat 905
+-S27.5W  Intelsat 907
+-S30W    Hispasat 1D/1E
+-S31.5W  Intelsat 25
+-S34.5W  Intelsat 903
+-S37.5W  NSS 10 & Telstar 11N
+-S40.5W  SES 6
+-S43W    Intelsat 11
+-S45W    Intelsat 14
+-S50W    Intelsat 1R
+-S53W    Intelsat 23
+-S55.5W  Intelsat 805
+-S58W    Intelsat 21
+-S61W    Amazonas 2/3
+-
+ # America
+ 
+-S61.5W  Echostar 16
+-S63W    Telstar 14R
+-S65W    Star One C1
+-S67W    AMC 4
+-S70W    Star One C2
+-S72W    AMC 6
+-S72.7W  Nimiq 5
+-S75W    Star One C3
+-S77W    QuetzSat 1
+-S82W    Nimiq 4
+-S83W    AMC 9
+-S84W    Brasilsat B4
++S139W   AMC 8
++S137W   AMC 7
++S135W   AMC 10
++S133W   Galaxy 15
++S131W   AMC 11
++S129W   Ciel 2
++S127W   Galaxy 13/Horizons 1
++S125W   Galaxy 14 & AMC 21
++S123W   Galaxy 18
++S121W   Echostar 9/Galaxy 23
++S119W   Echostar 14 & DirecTV 7S
++S118.8W Anik F3
++S116.8W SatMex 8
++S114.9W SatMex 5
++S113W   SatMex 6
++S111.1W Anik F2
++S110W   DirecTV 5 & Echostar 10/11
++S107.3W Anik F1R/G1
++S105W   AMC 15/18
++S103W   AMC 1
++S101W   DirecTV 4S/8 & SES 1
++S99.2W  Galaxy 16
++S97W    Galaxy 19
++S95W    Galaxy 3C
++S93.1W  Galaxy 25
++S91W    Galaxy 17 & Nimiq 6
++S89W    Galaxy 28
++S87W    SES 2
+ S85W    AMC 16
+ S85.1W  XM 3
+-S87W    SES 2
+-S89W    Galaxy 28
+-S91W    Galaxy 17 & Nimiq 6
+-S93.1W  Galaxy 25
+-S95W    Galaxy 3C
+-S97W    Galaxy 19
+-S99.2W  Galaxy 16
+-S101W   DirecTV 4S/8 & SES 1
+-S103W   AMC 1
+-S105W   AMC 15/18
+-S107.3W Anik F1R/G1
+-S110W   DirecTV 5 & Echostar 10/11
+-S111.1W Anik F2
+-S113W   SatMex 6
+-S114.9W SatMex 5
+-S116.8W SatMex 8
+-S118.8W Anik F3
+-S119W   Echostar 14 & DirecTV 7S
+-S121W   Echostar 9/Galaxy 23
+-S123W   Galaxy 18
+-S125W   Galaxy 14 & AMC 21
+-S127W   Galaxy 13/Horizons 1
+-S129W   Ciel 2
+-S131W   AMC 11
+-S133W   Galaxy 15
+-S135W   AMC 10
+-S137W   AMC 7
+-S139W   AMC 8
++S84W    Brasilsat B4
++S83W    AMC 9
++S82W    Nimiq 4
++S77W    QuetzSat 1
++S75W    Star One C3
++S72W    AMC 6
++S72.7W  Nimiq 5
++S70W    Star One C2
++S67W    AMC 4
++S65W    Star One C1
++S63W    Telstar 14R
++S61.5W  Echostar 16
++
++# Atlantic
++
++S61W    Amazonas 2/3
++S58W    Intelsat 21
++S55.5W  Intelsat 805
++S53W    Intelsat 23
++S50W    Intelsat 1R
++S45W    Intelsat 14
++S43W    Intelsat 11
++S40.5W  SES 6
++S37.5W  NSS 10 & Telstar 11N
++S34.5W  Intelsat 903
++S31.5W  Intelsat 25
++S30W    Hispasat 1D/1E
++S27.5W  Intelsat 907
++S24.5W  Intelsat 905
++S22W    SES 4
++S20W    NSS 7
++S18W    Intelsat 901
++S15W    Telstar 12
++S14W    Express A4
++S12.5W  Eutelsat 12 West A
++S11W    Express AM44
++S8W     Eutelsat 8 West A/C
++S7W     Nilesat 101/201 & Eutelsat 7 West A
++S5W     Eutelsat 5 West A
++S4W     Amos 2/3
++S1W     Thor 5/6
++S0.8W   Intelsat 10-02
+ 
+ S360E   Any satellite
+ 
+diff -ruN vdr-2.3.1/svdrp.c vdr-2.3.2/svdrp.c
+--- vdr-2.3.1/svdrp.c	2015-09-14 15:23:06.000000000 +0200
++++ vdr-2.3.2/svdrp.c	2016-12-08 11:48:53.000000000 +0100
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 4.9 2015/09/14 13:23:06 kls Exp $
++ * $Id: svdrp.c 4.11 2016/12/08 10:48:53 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -1228,6 +1228,10 @@
+               int n = Channels->GetNextNormal(CurrentChannel->Index());
+               if (n < 0)
+                  n = Channels->GetPrevNormal(CurrentChannel->Index());
++              if (n < 0) {
++                 Reply(501, "Can't delete channel \"%s\" - list would be empty", Option);
++                 return;
++                 }
+               CurrentChannel = Channels->Get(n);
+               CurrentChannelNr = 0; // triggers channel switch below
+               }
+@@ -1240,7 +1244,7 @@
+               if (!cDevice::PrimaryDevice()->Replaying() || cDevice::PrimaryDevice()->Transferring())
+                  Channels->SwitchTo(CurrentChannel->Number());
+               else
+-                 cDevice::SetCurrentChannel(CurrentChannel);
++                 cDevice::SetCurrentChannel(CurrentChannel->Number());
+               }
+            Reply(250, "Channel \"%s\" deleted", Option);
+            }
+@@ -1899,7 +1903,7 @@
+                        if (!cDevice::PrimaryDevice()->Replaying() || cDevice::PrimaryDevice()->Transferring())
+                           Channels->SwitchTo(CurrentChannel->Number());
+                        else
+-                          cDevice::SetCurrentChannel(CurrentChannel);
++                          cDevice::SetCurrentChannel(CurrentChannel->Number());
+                        }
+                     isyslog("SVDRP < %s channel %d moved to %d", *connection, FromNumber, ToNumber);
+                     Reply(250,"Channel \"%d\" moved to \"%d\"", From, To);
+diff -ruN vdr-2.3.1/thread.c vdr-2.3.2/thread.c
+--- vdr-2.3.1/thread.c	2015-08-29 16:43:03.000000000 +0200
++++ vdr-2.3.2/thread.c	2016-12-08 10:45:25.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.c 4.1 2015/08/29 14:43:03 kls Exp $
++ * $Id: thread.c 4.2 2016/12/08 09:45:25 kls Exp $
+  */
+ 
+ #include "thread.h"
+@@ -151,6 +151,8 @@
+ 
+ cRwLock::cRwLock(bool PreferWriter)
+ {
++  locked = 0;
++  writeLockThreadId = 0;
+   pthread_rwlockattr_t attr;
+   pthread_rwlockattr_init(&attr);
+   pthread_rwlockattr_setkind_np(&attr, PreferWriter ? PTHREAD_RWLOCK_PREFER_WRITER_NP : PTHREAD_RWLOCK_PREFER_READER_NP);
+@@ -170,8 +172,15 @@
+      if (!GetAbsTime(&abstime, TimeoutMs))
+         TimeoutMs = 0;
+      }
+-  if (Write)
++  if (Write) {
+      Result = TimeoutMs ? pthread_rwlock_timedwrlock(&rwlock, &abstime) : pthread_rwlock_wrlock(&rwlock);
++     if (Result == 0)
++        writeLockThreadId = cThread::ThreadId();
++     }
++  else if (writeLockThreadId == cThread::ThreadId()) {
++     locked++; // there can be any number of stacked read locks, so we keep track here
++     Result = 0; // aquiring a read lock while holding a write lock within the same thread is OK
++     }
+   else
+      Result = TimeoutMs ? pthread_rwlock_timedrdlock(&rwlock, &abstime) : pthread_rwlock_rdlock(&rwlock);
+   return Result == 0;
+@@ -179,6 +188,13 @@
+ 
+ void cRwLock::Unlock(void)
+ {
++  if (writeLockThreadId == cThread::ThreadId()) { // this is the thread that obtained the initial write lock
++     if (locked) { // this is the unlock of a read lock within the write lock
++        locked--;
++        return;
++        }
++     }
++  writeLockThreadId = 0;
+   pthread_rwlock_unlock(&rwlock);
+ }
+ 
+@@ -206,8 +222,8 @@
+ 
+ void cMutex::Unlock(void)
+ {
+- if (!--locked)
+-    pthread_mutex_unlock(&mutex);
++  if (!--locked)
++     pthread_mutex_unlock(&mutex);
+ }
+ 
+ // --- cThread ---------------------------------------------------------------
+@@ -474,9 +490,11 @@
+   if (StateKey.write && IncState && !explicitModify)
+      state++;
+   StateKey.state = state;
+-  StateKey.write = false;
+-  threadId = 0;
+-  explicitModify = false;
++  if (StateKey.write) {
++     StateKey.write = false;
++     threadId = 0;
++     explicitModify = false;
++     }
+   rwLock.Unlock();
+ }
+ 
+diff -ruN vdr-2.3.1/thread.h vdr-2.3.2/thread.h
+--- vdr-2.3.1/thread.h	2015-08-17 15:06:24.000000000 +0200
++++ vdr-2.3.2/thread.h	2016-12-08 10:11:24.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.h 4.1 2015/08/17 13:06:24 kls Exp $
++ * $Id: thread.h 4.2 2016/12/08 09:11:24 kls Exp $
+  */
+ 
+ #ifndef __THREAD_H
+@@ -14,6 +14,8 @@
+ #include <stdio.h>
+ #include <sys/types.h>
+ 
++typedef pid_t tThreadId;
++
+ class cCondWait {
+ private:
+   pthread_mutex_t mutex;
+@@ -53,6 +55,8 @@
+ class cRwLock {
+ private:
+   pthread_rwlock_t rwlock;
++  int locked;
++  tThreadId writeLockThreadId;
+ public:
+   cRwLock(bool PreferWriter = false);
+   ~cRwLock();
+@@ -72,8 +76,6 @@
+   void Unlock(void);
+   };
+ 
+-typedef pid_t tThreadId;
+-
+ class cThread {
+   friend class cThreadLock;
+ private:
+diff -ruN vdr-2.3.1/timers.c vdr-2.3.2/timers.c
+--- vdr-2.3.1/timers.c	2015-09-13 15:10:24.000000000 +0200
++++ vdr-2.3.2/timers.c	2016-12-23 10:48:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 4.5 2015/09/13 13:10:24 kls Exp $
++ * $Id: timers.c 4.7 2016/12/23 09:48:39 kls Exp $
+  */
+ 
+ #include "timers.h"
+@@ -748,9 +748,9 @@
+   return NULL;
+ }
+ 
+-cTimer *cTimers::GetTimer(cTimer *Timer)
++const cTimer *cTimers::GetTimer(const cTimer *Timer) const
+ {
+-  for (cTimer *ti = First(); ti; ti = Next(ti)) {
++  for (const cTimer *ti = First(); ti; ti = Next(ti)) {
+       if (!ti->Remote() &&
+           ti->Channel() == Timer->Channel() &&
+           (ti->WeekDays() && ti->WeekDays() == Timer->WeekDays() || !ti->WeekDays() && ti->Day() == Timer->Day()) &&
+diff -ruN vdr-2.3.1/timers.h vdr-2.3.2/timers.h
+--- vdr-2.3.1/timers.h	2015-09-09 12:40:24.000000000 +0200
++++ vdr-2.3.2/timers.h	2016-12-23 10:49:31.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.h 4.3 2015/09/09 10:40:24 kls Exp $
++ * $Id: timers.h 4.6 2016/12/23 09:49:31 kls Exp $
+  */
+ 
+ #ifndef __TIMERS_H
+@@ -122,7 +122,7 @@
+   cTimers(void);
+   static const cTimers *GetTimersRead(cStateKey &StateKey, int TimeoutMs = 0);
+       ///< Gets the list of timers for read access. If TimeoutMs is given,
+-      ///< it will wait that long to get a write lock before giving up.
++      ///< it will wait that long to get a read lock before giving up.
+       ///< Otherwise it will wait indefinitely. If no read lock can be
+       ///< obtained within the given timeout, NULL will be returned.
+       ///< The list is locked and a pointer to it is returned if the state
+@@ -170,7 +170,8 @@
+   static int NewTimerId(void);
+   const cTimer *GetById(int Id) const;
+   cTimer *GetById(int Id) { return const_cast<cTimer *>(static_cast<const cTimers *>(this)->GetById(Id)); };
+-  cTimer *GetTimer(cTimer *Timer);
++  const cTimer *GetTimer(const cTimer *Timer) const;
++  cTimer *GetTimer(const cTimer *Timer) { return const_cast<cTimer *>(static_cast<const cTimers *>(this)->GetTimer(Timer)); };
+   const cTimer *GetMatch(time_t t) const;
+   cTimer *GetMatch(time_t t) { return const_cast<cTimer *>(static_cast<const cTimers *>(this)->GetMatch(t)); };
+   const cTimer *GetMatch(const cEvent *Event, eTimerMatch *Match = NULL) const;
+diff -ruN vdr-2.3.1/tools.c vdr-2.3.2/tools.c
+--- vdr-2.3.1/tools.c	2015-09-10 15:17:55.000000000 +0200
++++ vdr-2.3.2/tools.c	2016-12-23 15:03:40.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 4.4 2015/09/10 13:17:55 kls Exp $
++ * $Id: tools.c 4.5 2016/12/23 14:03:40 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -2272,6 +2272,44 @@
+   free(a);
+ }
+ 
++// --- cDynamicBuffer --------------------------------------------------------
++
++cDynamicBuffer::cDynamicBuffer(int InitialSize)
++{
++  initialSize = InitialSize;
++  buffer = NULL;
++  size = used = 0;
++}
++
++cDynamicBuffer::~cDynamicBuffer()
++{
++  free(buffer);
++}
++
++bool cDynamicBuffer::Realloc(int NewSize)
++{
++  if (size < NewSize) {
++     NewSize = max(NewSize, size ? size * 3 / 2 : initialSize); // increase size by at least 50%
++     if (uchar *NewBuffer = (uchar *)realloc(buffer, NewSize)) {
++        buffer = NewBuffer;
++        size = NewSize;
++        }
++     else {
++        esyslog("ERROR: out of memory");
++        return false;
++        }
++     }
++  return true;
++}
++
++void cDynamicBuffer::Append(const uchar *Data, int Length)
++{
++  if (Assert(used + Length)) {
++     memcpy(buffer + used, Data, Length);
++     used += Length;
++     }
++}
++
+ // --- cHashBase -------------------------------------------------------------
+ 
+ cHashBase::cHashBase(int Size)
+diff -ruN vdr-2.3.1/tools.h vdr-2.3.2/tools.h
+--- vdr-2.3.1/tools.h	2015-09-06 12:45:54.000000000 +0200
++++ vdr-2.3.2/tools.h	2016-12-23 14:56:35.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 4.3 2015/09/06 10:45:54 kls Exp $
++ * $Id: tools.h 4.5 2016/12/23 13:56:35 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -609,7 +609,7 @@
+     else \
+        list = c##Class::Get##Name##Read(stateKey); \
+   } \
+-  ~c##Name##Lock() { stateKey.Remove(); } \
++  ~c##Name##Lock() { if (list) stateKey.Remove(); } \
+   const c##Class *Name(void) const { return list; } \
+   c##Class *Name(void) { return const_cast<c##Class *>(list); } \
+   }
+@@ -775,6 +775,26 @@
+   bool Load(const char *Directory, bool DirsOnly = false);
+   };
+ 
++class cDynamicBuffer {
++private:
++  uchar *buffer;
++  int initialSize;
++  int size; // the total size of the buffer (bytes in memory)
++  int used; // the number of used bytes, starting at the beginning of the buffer
++  bool Realloc(int NewSize);
++  bool Assert(int NewSize) { return size < NewSize ? Realloc(NewSize) : true; } // inline for performance!
++public:
++  cDynamicBuffer(int InitialSize = 1024);
++  ~cDynamicBuffer();
++  void Append(const uchar *Data, int Length);
++  void Append(uchar Data) { if (Assert(used + 1)) buffer[used++] = Data; }
++  void Set(int Index, uchar Data) { if (Assert(Index + 1)) buffer[Index] = Data; }
++  uchar Get(int Index) { return Index < used ? buffer[Index] : 0; }
++  void Clear(void) { used = 0; }
++  uchar *Data(void) { return buffer; }
++  int Length(void) { return used; }
++  };
++
+ class cHashObject : public cListObject {
+   friend class cHashBase;
+ private:
+diff -ruN vdr-2.3.1/vdr.c vdr-2.3.2/vdr.c
+--- vdr-2.3.1/vdr.c	2015-09-11 10:02:50.000000000 +0200
++++ vdr-2.3.2/vdr.c	2016-12-23 15:34:37.000000000 +0100
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 4.7 2015/09/11 08:02:50 kls Exp $
++ * $Id: vdr.c 4.9 2016/12/23 14:34:37 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -171,6 +171,9 @@
+   // Something terrible must have happened that prevented the 'alarm()' from
+   // being called in time, so let's get out of here:
+   esyslog("PANIC: watchdog timer expired - exiting!");
++#ifdef SDNOTIFY
++  sd_notify(0, "STOPPING=1\nSTATUS=PANIC");
++#endif
+   exit(1);
+ }
+ 
+@@ -235,6 +238,10 @@
+ #if defined(VDR_USER)
+   VdrUser = VDR_USER;
+ #endif
++#ifdef SDNOTIFY
++  time_t SdWatchdog;
++  int SdWatchdogTimeout = 0;
++#endif
+ 
+   cArgs *Args = NULL;
+   if (argc == 1) {
+@@ -914,6 +921,16 @@
+      }
+ 
+ #ifdef SDNOTIFY
++  if (sd_watchdog_enabled(0, NULL) > 0) {
++     uint64_t timeout;
++     SdWatchdog = time(NULL);
++     sd_watchdog_enabled(0, &timeout);
++     SdWatchdogTimeout = (int)timeout/1000000;
++     dsyslog("SD_WATCHDOG enabled with timeout set to %d seconds", SdWatchdogTimeout);
++     }
++
++  // Startup notification:
++
+   sd_notify(0, "READY=1\nSTATUS=Ready");
+ #endif
+ 
+@@ -976,6 +993,14 @@
+               dsyslog("max. latency time %d seconds", MaxLatencyTime);
+               }
+            }
++#ifdef SDNOTIFY
++        // Ping systemd watchdog when half the timeout is elapsed:
++        if (SdWatchdogTimeout && (Now - SdWatchdog) * 2 > SdWatchdogTimeout) {
++           sd_notify(0, "WATCHDOG=1");
++           SdWatchdog = Now;
++           dsyslog("SD_WATCHDOG ping");
++           }
++#endif
+         // Handle channel and timer modifications:
+         {
+           // Channels and timers need to be stored in a consistent manner,
+@@ -1480,9 +1505,6 @@
+               ShutdownHandler.countdown.Cancel();
+            }
+ 
+-        // Keep the recordings handler alive:
+-        RecordingsHandler.Active();
+-
+         if ((Now - LastInteract) > ACTIVITYTIMEOUT && !cRecordControls::Active() && !RecordingsHandler.Active() && (Now - cRemote::LastActivity()) > ACTIVITYTIMEOUT) {
+            // Handle housekeeping tasks
+ 
+@@ -1568,5 +1590,11 @@
+      closelog();
+   if (HasStdin)
+      tcsetattr(STDIN_FILENO, TCSANOW, &savedTm);
++#ifdef SDNOTIFY
++  if (ShutdownHandler.GetExitCode() == 2)
++     sd_notify(0, "STOPPING=1\nSTATUS=Startup failed, exiting");
++  else
++     sd_notify(0, "STOPPING=1\nSTATUS=Exiting");
++#endif
+   return ShutdownHandler.GetExitCode();
+ }

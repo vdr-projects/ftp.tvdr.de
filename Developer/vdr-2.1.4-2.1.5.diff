@@ -1,0 +1,1317 @@
+diff -ruN vdr-2.1.4/CONTRIBUTORS vdr-2.1.5/CONTRIBUTORS
+--- vdr-2.1.4/CONTRIBUTORS	2014-01-25 13:44:32.000000000 +0100
++++ vdr-2.1.5/CONTRIBUTORS	2014-02-21 16:14:14.000000000 +0100
+@@ -707,6 +707,8 @@
+  for suggesting to make all bonded devices (except for the master) turn off their LNB
+  power completely to avoid problems when receiving vertically polarized transponders
+  for suggesting to eliminate MAXDVBDEVICES
++ for reporting that there are channels that need even more than 10 TS packets in order
++ to detect the frame type
+ 
+ Reinhard Walter Buchner <rw.buchner@freenet.de>
+  for adding some satellites to 'sources.conf'
+@@ -1180,6 +1182,7 @@
+  for suggesting to prompt the user for confirmation before overwriting an already
+  existing edited version of a recording
+  for adding code for parsing LCN and AVC descriptors to libsi
++ for fixing clearing non-editable members in the channel editor
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -2885,6 +2888,7 @@
+  for making the Recordings menu able to be called with a cRecordingFilter, which allows
+  the caller to have it display only a certain subset of the recordings
+  for adding handling UTF-8 'umlaut' characters to cKbdRemote
++ for fixing learning keyboard remote control codes
+ 
+ Alex Lasnier <alex@fepg.org>
+  for adding tuning support for ATSC devices
+@@ -2904,6 +2908,7 @@
+  for reporting a possible memory leak in the "pictures" plugin
+  for removing an obsolete local variable in dvbsdffosd.c
+  for reporting a possible NULL pointer dereference in osddemo.c
++ for reporting some compiler warnings with Clang 3.4.1
+ 
+ Radek Stastny <dedkus@gmail.com>
+  for translating OSD texts to the Czech language
+@@ -2923,6 +2928,7 @@
+  for suggesting to make sure that plugins include the VDR header files from the actual
+  VDR source directory when doing "make plugins"
+  for reverting the change from version 1.5.7 that made all logging go to LOG_ERR
++ for reporting a possible crash in the OSD demo
+ 
+ Stefan Huskamp <coca_cola1@gmx.de>
+  for suggesting to make entering characters via the number keys
+@@ -3248,6 +3254,7 @@
+ Eike Sauer <EikeSauer@t-online.de>
+  for reporting a problem with channels that need more than 5 TS packets for detecting
+  frame borders
++ for reporting a problem in handling the frame detection buffer length
+ 
+ Christian Paulick <cpaulick@xeatre.tv>
+  for reporting a problem with frame detection in MPEG-2 streams that have "bottom fields"
+@@ -3256,3 +3263,11 @@
+ Mariusz Bialonczyk <manio@skyboo.net>
+  for reporting a problem with live streaming of encrypted channels, when there are no
+  CA descriptors, yet, on initial tuning
++ for reporting that acquiring the CA descriptors takes way too long on transponders
++ with many PAT entries, and his help in debugging this
++
++Tony Houghton <h@realh.co.uk>
++ for suggesting to add LinkageTypePremiere to libsi/si.h and eit.c to avoid a compiler
++ warning with Clang 3.4.1
++ for suggesting to replace the NULL pointer assignment in ~cReceiver() to force a
++ segfault with a call to abort()
+diff -ruN vdr-2.1.4/HISTORY vdr-2.1.5/HISTORY
+--- vdr-2.1.4/HISTORY	2014-01-26 11:40:23.000000000 +0100
++++ vdr-2.1.5/HISTORY	2014-02-23 14:05:38.000000000 +0100
+@@ -8169,3 +8169,36 @@
+   by Mariusz Bialonczyk).
+ - Fixed a superfluous call to the skin's SetRecording() function after renaming a
+   recording (reported by Christoph Haubrich).
++
++2014-02-23: Version 2.1.5
++
++- Now checking whether the primary device actually has a decoder before retuning the
++  current channel after a change in its parameters. This fixes broken recordings on
++  the primary device on "headless" systems.
++- Increased MIN_TS_PACKETS_FOR_FRAME_DETECTOR to 100 and introduced counting the number
++  of actual video TS packets in cTsPayload in order to be able to record channels that
++  sometimes need even more than 10 TS packets for detecting frame borders (reported by
++  Oliver Endriss).
++- Fixed sorting recordings by time in the Recordings menu if "Setup/OSD/Recording
++  directories" is set to "no".
++- Fixed clearing non-editable members in the channel editor (thanks to Rolf Ahrenberg).
++- Updated the Estonian OSD texts (thanks to Arthur Konovalov).
++- Further clarified the semantics of cCamSlot::Decrypt().
++- Fixed flickering if subtitles are active while the OSD demo is running.
++- Fixed numbering frames. Previously they were numbered starting from 1, while it
++  is apparently standard to number them from 0. Any existing recordings with editing
++  marks (which will now be off by one) can still be cut with all VDR versions from
++  1.7.32, because these will automatically adjust editing marks to I-frames.
++  Users of stable releases shouldn't notice any problems.
++- Fixed a possible crash in the OSD demo (reported by Christopher Reimer).
++- Fixed some compiler warnings with Clang 3.4.1 (reported by Paul Menzel).
++- Added LinkageTypePremiere to libsi/si.h and eit.c to avoid a compiler warning with
++  Clang 3.4.1 (suggested by Tony Houghten).
++- Replaced the NULL pointer assignment in ~cReceiver() to force a segfault with
++  a call to abort() (suggested by Tony Houghten).
++- Fixed learning keyboard remote control codes (thanks to Lars Hanisch).
++- Improved PAT/PMT scanning to speed up initial tuning to encrypted channels on
++  transponders with many PAT entries (reported by Mariusz Bialonczyk).
++- Fixed the replay progress display for very long recordings.
++- Fixed detecting broken video data streams when recording.
++- Fixed handling frame detection buffer length (reported by Eike Sauer).
+diff -ruN vdr-2.1.4/PLUGINS/src/dvbhddevice/dvbhddevice.c vdr-2.1.5/PLUGINS/src/dvbhddevice/dvbhddevice.c
+--- vdr-2.1.4/PLUGINS/src/dvbhddevice/dvbhddevice.c	2014-01-17 10:20:13.000000000 +0100
++++ vdr-2.1.5/PLUGINS/src/dvbhddevice/dvbhddevice.c	2014-02-08 13:52:07.000000000 +0100
+@@ -10,7 +10,7 @@
+ #include "menu.h"
+ #include "setup.h"
+ 
+-static const char *VERSION        = "2.1.4";
++static const char *VERSION        = "2.1.5";
+ static const char *DESCRIPTION    = trNOOP("HD Full Featured DVB device");
+ static const char *MAINMENUENTRY  = "dvbhddevice";
+ 
+diff -ruN vdr-2.1.4/PLUGINS/src/dvbhddevice/hdffosd.c vdr-2.1.5/PLUGINS/src/dvbhddevice/hdffosd.c
+--- vdr-2.1.4/PLUGINS/src/dvbhddevice/hdffosd.c	2013-03-02 18:58:21.000000000 +0100
++++ vdr-2.1.5/PLUGINS/src/dvbhddevice/hdffosd.c	2014-02-08 13:46:14.000000000 +0100
+@@ -42,7 +42,6 @@
+     tFont mFonts[MAX_NUM_FONTS];
+     uint32_t mBitmapPalette;
+     uint32_t mBitmapColors[256];
+-    uint32_t mBitmapNumColors;
+ 
+     bool mSupportsUtf8Text;
+ 
+@@ -555,7 +554,6 @@
+     uint32_t mDisplay;
+     uint32_t mBitmapPalette;
+     uint32_t mBitmapColors[256];
+-    uint32_t mBitmapNumColors;
+ 
+ protected:
+     virtual void SetActive(bool On);
+diff -ruN vdr-2.1.4/PLUGINS/src/osddemo/HISTORY vdr-2.1.5/PLUGINS/src/osddemo/HISTORY
+--- vdr-2.1.4/PLUGINS/src/osddemo/HISTORY	2014-01-05 11:54:39.000000000 +0100
++++ vdr-2.1.5/PLUGINS/src/osddemo/HISTORY	2014-02-06 12:57:20.000000000 +0100
+@@ -63,3 +63,8 @@
+ 2014-01-01: Version 2.1.1
+ 
+ - Avoiding unnecessary pkg-config warnings in plugin Makefiles.
++
++2014-02-06: Version 2.1.2
++
++- Fixed flickering if subtitles are active while the OSD demo is running.
++- Fixed a possible crash in the OSD demo (reported by Christopher Reimer).
+diff -ruN vdr-2.1.4/PLUGINS/src/osddemo/osddemo.c vdr-2.1.5/PLUGINS/src/osddemo/osddemo.c
+--- vdr-2.1.4/PLUGINS/src/osddemo/osddemo.c	2014-01-05 11:56:18.000000000 +0100
++++ vdr-2.1.5/PLUGINS/src/osddemo/osddemo.c	2014-02-06 12:51:53.000000000 +0100
+@@ -3,13 +3,13 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: osddemo.c 3.1 2014/01/05 10:56:18 kls Exp $
++ * $Id: osddemo.c 3.3 2014/02/06 11:51:53 kls Exp $
+  */
+ 
+ #include <vdr/osd.h>
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "2.1.1";
++static const char *VERSION        = "2.1.2";
+ static const char *DESCRIPTION    = "Demo of arbitrary OSD setup";
+ static const char *MAINMENUENTRY  = "Osd Demo";
+ 
+@@ -119,7 +119,7 @@
+ 
+ void cLineGame::Show(void)
+ {
+-  osd = cOsdProvider::NewOsd(cOsd::OsdLeft(), cOsd::OsdTop(), 50);
++  osd = cOsdProvider::NewOsd(cOsd::OsdLeft(), cOsd::OsdTop());
+   if (osd) {
+      int x1 = cOsd::OsdWidth() - 1;
+      int y1 = cOsd::OsdHeight() - 1;
+@@ -480,6 +480,8 @@
+         if (Delta < FrameTime)
+            cCondWait::SleepMs(FrameTime - Delta);
+         }
++  destroyablePixmap = NULL;
++  toggleablePixmap = NULL;
+   delete OsdFont;
+   delete SmlFont;
+   delete LrgFont;
+@@ -496,7 +498,7 @@
+ 
+ void cTrueColorDemo::Show(void)
+ {
+-  osd = cOsdProvider::NewOsd(cOsd::OsdLeft(), cOsd::OsdTop(), 50);
++  osd = cOsdProvider::NewOsd(cOsd::OsdLeft(), cOsd::OsdTop());
+   if (osd) {
+      if (SetArea()) {
+         osd->DrawRectangle(0, 0, osd->Width() - 1, osd->Height() - 1, clrGray50);
+diff -ruN vdr-2.1.4/PLUGINS/src/pictures/player.c vdr-2.1.5/PLUGINS/src/pictures/player.c
+--- vdr-2.1.4/PLUGINS/src/pictures/player.c	2012-04-28 13:58:15.000000000 +0200
++++ vdr-2.1.5/PLUGINS/src/pictures/player.c	2014-02-08 13:48:12.000000000 +0100
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: player.c 3.0 2012/04/28 11:58:15 kls Exp $
++ * $Id: player.c 3.1 2014/02/08 12:48:12 kls Exp $
+  */
+ 
+ #include "player.h"
+@@ -211,7 +211,7 @@
+ 
+ eOSState cPictureControl::ProcessKey(eKeys Key)
+ {
+-  switch (Key) {
++  switch (int(Key)) {
+     case kUp:
+     case kPlay:   slideShowDelay.Set();
+                   slideShow = true;
+diff -ruN vdr-2.1.4/ci.c vdr-2.1.5/ci.c
+--- vdr-2.1.4/ci.c	2014-01-22 10:46:38.000000000 +0100
++++ vdr-2.1.5/ci.c	2014-02-08 13:25:55.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 3.10 2014/01/22 09:46:38 kls Exp $
++ * $Id: ci.c 3.11 2014/02/08 12:25:55 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -864,7 +864,7 @@
+ #pragma pack(1)
+      struct tTime { uint16_t mjd; uint8_t h, m, s; short offset; };
+ #pragma pack()
+-     tTime T = { mjd : htons(MJD), h : DEC2BCD(tm_gmt.tm_hour), m : DEC2BCD(tm_gmt.tm_min), s : DEC2BCD(tm_gmt.tm_sec), offset : short(htons(tm_loc.tm_gmtoff / 60)) };
++     tTime T = { .mjd = htons(MJD), .h = DEC2BCD(tm_gmt.tm_hour), .m = DEC2BCD(tm_gmt.tm_min), .s = DEC2BCD(tm_gmt.tm_sec), .offset = short(htons(tm_loc.tm_gmtoff / 60)) };
+      bool OldDumpTPDUDataTransfer = DumpTPDUDataTransfer;
+      DumpTPDUDataTransfer &= DumpDateTime;
+      if (DumpDateTime)
+@@ -1004,7 +1004,7 @@
+                  case DCC_SET_MMI_MODE:
+                       if (l == 2 && *++d == MM_HIGH_LEVEL) {
+                          struct tDisplayReply { uint8_t id; uint8_t mode; };
+-                         tDisplayReply dr = { id : DRI_MMI_MODE_ACK, mode : MM_HIGH_LEVEL };
++                         tDisplayReply dr = { .id = DRI_MMI_MODE_ACK, .mode = MM_HIGH_LEVEL };
+                          dbgprotocol("Slot %d: ==> Display Reply (%d)\n", Tc()->CamSlot()->SlotNumber(), SessionId());
+                          SendData(AOT_DISPLAY_REPLY, 2, (uint8_t *)&dr);
+                          }
+diff -ruN vdr-2.1.4/ci.h vdr-2.1.5/ci.h
+--- vdr-2.1.4/ci.h	2014-01-20 13:01:01.000000000 +0100
++++ vdr-2.1.5/ci.h	2014-01-31 10:21:21.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.h 3.6 2014/01/20 12:01:01 kls Exp $
++ * $Id: ci.h 3.7 2014/01/31 09:21:21 kls Exp $
+  */
+ 
+ #ifndef __CI_H
+@@ -250,10 +250,12 @@
+        ///< 2. If the CAM works directly on Data and decrypts the TS "in place" it
+        ///< shall decrypt at least the very first TS packet in Data, set Count to
+        ///< TS_SIZE and return Data. It may decrypt as many TS packets in Data as it
+-       ///< wants, but it must decrypt at least the very first TS packet. Only this
+-       ///< very first TS packet will be further processed after the call to this
+-       ///< function. The next call will be done with Data pointing to the TS packet
+-       ///< immediately following the previous one.
++       ///< wants, but it must decrypt at least the very first TS packet (if at all
++       ///< possible - if, for whatever reasons, it can't decrypt the very first
++       ///< packet, it must return it regardless). Only this very first TS packet will
++       ///< be further processed after the call to this function. The next call will
++       ///< be done with Data pointing to the TS packet immediately following the
++       ///< previous one.
+        ///< 3. If the CAM needs to copy the data into a buffer of its own, and/or send
+        ///< the data to some file handle for processing and later retrieval, it shall
+        ///< set Count to the number of bytes it has read from Data and return a pointer
+diff -ruN vdr-2.1.4/config.h vdr-2.1.5/config.h
+--- vdr-2.1.4/config.h	2014-01-07 10:03:29.000000000 +0100
++++ vdr-2.1.5/config.h	2014-01-26 13:31:58.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 3.6 2014/01/07 09:03:29 kls Exp $
++ * $Id: config.h 3.7 2014/01/26 12:31:58 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.1.4"
+-#define VDRVERSNUM   20104  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.1.5"
++#define VDRVERSNUM   20105  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "2.1.4"
+-#define APIVERSNUM   20104  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "2.1.5"
++#define APIVERSNUM   20105  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+diff -ruN vdr-2.1.4/device.c vdr-2.1.5/device.c
+--- vdr-2.1.4/device.c	2014-01-21 12:12:01.000000000 +0100
++++ vdr-2.1.5/device.c	2014-02-18 14:12:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 3.11 2014/01/21 11:12:01 kls Exp $
++ * $Id: device.c 3.12 2014/02/18 13:12:39 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -794,6 +794,7 @@
+      if (SetChannelDevice(Channel, LiveView)) {
+         // Start section handling:
+         if (sectionHandler) {
++           patFilter->Trigger(Channel->Sid());
+            sectionHandler->SetChannel(Channel);
+            sectionHandler->SetStatus(true);
+            }
+diff -ruN vdr-2.1.4/dvbspu.h vdr-2.1.5/dvbspu.h
+--- vdr-2.1.4/dvbspu.h	2013-01-20 11:15:47.000000000 +0100
++++ vdr-2.1.5/dvbspu.h	2014-02-08 13:27:34.000000000 +0100
+@@ -8,7 +8,7 @@
+  *
+  * parts of this file are derived from the OMS program.
+  *
+- * $Id: dvbspu.h 3.0 2013/01/20 10:15:47 kls Exp $
++ * $Id: dvbspu.h 3.1 2014/02/08 12:27:34 kls Exp $
+  */
+ 
+ #ifndef __DVBSPU_H
+@@ -101,7 +101,6 @@
+     uint8_t *spu;
+     uint32_t spupts;
+     bool clean;
+-    bool ready;
+     bool restricted_osd;
+ 
+     enum spFlag { spNONE, spHIDE, spSHOW, spMENU };
+diff -ruN vdr-2.1.4/dvbsubtitle.c vdr-2.1.5/dvbsubtitle.c
+--- vdr-2.1.4/dvbsubtitle.c	2013-09-07 12:39:46.000000000 +0200
++++ vdr-2.1.5/dvbsubtitle.c	2014-02-08 13:29:13.000000000 +0100
+@@ -7,7 +7,7 @@
+  * Original author: Marco Schluessler <marco@lordzodiac.de>
+  * With some input from the "subtitles plugin" by Pekka Virtanen <pekka.virtanen@sci.fi>
+  *
+- * $Id: dvbsubtitle.c 3.4 2013/09/07 10:39:46 kls Exp $
++ * $Id: dvbsubtitle.c 3.5 2014/02/08 12:29:13 kls Exp $
+  */
+ 
+ #include "dvbsubtitle.h"
+@@ -34,7 +34,6 @@
+ static bool DebugPages     = DebugVerbose || DebugNormal;
+ static bool DebugRegions   = DebugVerbose || DebugNormal;
+ static bool DebugObjects   = DebugVerbose || DebugNormal;
+-static bool DebugBitmaps   = DebugVerbose || DebugNormal;
+ static bool DebugConverter = DebugVerbose;
+ static bool DebugSegments  = DebugVerbose;
+ static bool DebugPixel     = DebugVerbose;
+@@ -45,7 +44,6 @@
+ #define dbgpages(a...)     if (DebugPages)     SD.WriteHtml(a)
+ #define dbgregions(a...)   if (DebugRegions)   SD.WriteHtml(a)
+ #define dbgobjects(a...)   if (DebugObjects)   SD.WriteHtml(a)
+-#define dbgbitmaps(a...)   if (DebugBitmaps)   SD.WriteHtml(a)
+ #define dbgconverter(a...) if (DebugConverter) SD.WriteHtml(a)
+ #define dbgsegments(a...)  if (DebugSegments)  SD.WriteHtml(a)
+ #define dbgpixel(a...)     if (DebugPixel)     SD.WriteHtml(a)
+diff -ruN vdr-2.1.4/eit.c vdr-2.1.5/eit.c
+--- vdr-2.1.4/eit.c	2013-11-03 14:55:00.000000000 +0100
++++ vdr-2.1.5/eit.c	2014-02-08 15:20:27.000000000 +0100
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 3.3 2013/11/03 13:55:00 kls Exp $
++ * $Id: eit.c 3.5 2014/02/08 14:20:27 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -220,7 +220,7 @@
+             case SI::LinkageDescriptorTag: {
+                  SI::LinkageDescriptor *ld = (SI::LinkageDescriptor *)d;
+                  tChannelID linkID(Source, ld->getOriginalNetworkId(), ld->getTransportStreamId(), ld->getServiceId());
+-                 if (ld->getLinkageType() == 0xB0) { // Premiere World
++                 if (ld->getLinkageType() == SI::LinkageTypePremiere) { // Premiere World
+                     bool hit = StartTime <= Now && Now < StartTime + Duration;
+                     if (hit) {
+                        char linkName[ld->privateData.getLength() + 1];
+diff -ruN vdr-2.1.4/libsi/descriptor.h vdr-2.1.5/libsi/descriptor.h
+--- vdr-2.1.4/libsi/descriptor.h	2013-10-30 11:16:18.000000000 +0100
++++ vdr-2.1.5/libsi/descriptor.h	2014-02-08 13:44:17.000000000 +0100
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: descriptor.h 3.1 2013/10/30 10:16:18 kls Exp $
++ *   $Id: descriptor.h 3.2 2014/02/08 12:44:17 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -489,8 +489,6 @@
+    StructureLoop<Language> languageLoop;
+ protected:
+    virtual void Parse();
+-private:
+-   const descr_iso_639_language *s;
+ };
+ 
+ class PDCDescriptor : public Descriptor {
+diff -ruN vdr-2.1.4/libsi/si.h vdr-2.1.5/libsi/si.h
+--- vdr-2.1.4/libsi/si.h	2013-10-30 11:16:18.000000000 +0100
++++ vdr-2.1.5/libsi/si.h	2014-02-08 15:11:32.000000000 +0100
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.h 3.1 2013/10/30 10:16:18 kls Exp $
++ *   $Id: si.h 3.2 2014/02/08 14:11:32 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -210,7 +210,8 @@
+                    LinkageTypeRCSMap = 0x07,
+                    LinkageTypeMobileHandover = 0x08,
+                    LinkageTypeSystemSoftwareUpdateService = 0x09,
+-                   LinkageTypeTSContainingSsuBatOrNit = 0x0A
++                   LinkageTypeTSContainingSsuBatOrNit = 0x0A,
++                   LinkageTypePremiere = 0xB0
+                  };
+ 
+ enum AudioType { AudioTypeUndefined = 0x00,
+diff -ruN vdr-2.1.4/menu.c vdr-2.1.5/menu.c
+--- vdr-2.1.4/menu.c	2014-01-25 13:40:28.000000000 +0100
++++ vdr-2.1.5/menu.c	2014-02-08 13:36:12.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 3.16 2014/01/25 12:40:28 kls Exp $
++ * $Id: menu.c 3.19 2014/02/08 12:36:12 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -181,9 +181,13 @@
+      strn0cpy(name, data.name, sizeof(name));
+      if (New) {
+         channel = NULL;
++        // clear non-editable members:
+         data.nid = 0;
+         data.tid = 0;
+         data.rid = 0;
++        *data.shortName  = 0;
++        *data.provider   = 0;
++        *data.portalName = 0;
+         }
+      }
+   Setup();
+@@ -979,7 +983,7 @@
+                        if (!*data.file)
+                           strcpy(data.file, data.Channel()->ShortName(true));
+                        if (timer) {
+-                          if (memcmp(timer, &data, sizeof(data)) != 0)
++                          if (memcmp((void *)timer, &data, sizeof(data)) != 0)
+                              *timer = data;
+                           if (addIfConfirmed)
+                              Timers.Add(timer);
+@@ -3024,7 +3028,7 @@
+         ModifiedAppearance = true;
+      if (strcmp(data.FontFix, Setup.FontFix) || !DoubleEqual(data.FontFixSizeP, Setup.FontFixSizeP))
+         ModifiedAppearance = true;
+-     if (data.AlwaysSortFoldersFirst != Setup.AlwaysSortFoldersFirst)
++     if (data.AlwaysSortFoldersFirst != Setup.AlwaysSortFoldersFirst || data.RecordingDirs != Setup.RecordingDirs)
+         Recordings.ClearSortNames();
+      }
+ 
+diff -ruN vdr-2.1.4/pat.c vdr-2.1.5/pat.c
+--- vdr-2.1.4/pat.c	2014-01-04 12:17:24.000000000 +0100
++++ vdr-2.1.5/pat.c	2014-02-19 09:57:43.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.c 3.2 2014/01/04 11:17:24 kls Exp $
++ * $Id: pat.c 3.4 2014/02/19 08:57:43 kls Exp $
+  */
+ 
+ #include "pat.h"
+@@ -12,9 +12,8 @@
+ #include "channels.h"
+ #include "libsi/section.h"
+ #include "libsi/descriptor.h"
+-#include "thread.h"
+ 
+-#define PMT_SCAN_TIMEOUT  10 // seconds
++#define PMT_SCAN_TIMEOUT  1000 // ms
+ 
+ // --- cCaDescriptor ---------------------------------------------------------
+ 
+@@ -273,94 +272,115 @@
+ 
+ // --- cPatFilter ------------------------------------------------------------
+ 
++//#define DEBUG_PAT_PMT
++#ifdef DEBUG_PAT_PMT
++#define DBGLOG(a...) { cString s = cString::sprintf(a); fprintf(stderr, "%s\n", *s); dsyslog("%s", *s); }
++#else
++#define DBGLOG(a...)
++#endif
++
+ cPatFilter::cPatFilter(void)
+ {
+-  pmtIndex = 0;
+-  pmtPid = 0;
+-  pmtSid = 0;
+-  lastPmtScan = 0;
+-  numPmtEntries = 0;
++  Trigger(0);
+   Set(0x00, 0x00);  // PAT
+ }
+ 
+ void cPatFilter::SetStatus(bool On)
+ {
++  cMutexLock MutexLock(&mutex);
++  DBGLOG("PAT filter set status %d", On);
+   cFilter::SetStatus(On);
+-  pmtIndex = 0;
+-  pmtPid = 0;
+-  pmtSid = 0;
+-  lastPmtScan = 0;
+-  numPmtEntries = 0;
++  Trigger();
+ }
+ 
+-void cPatFilter::Trigger(void)
++void cPatFilter::Trigger(int Sid)
+ {
++  cMutexLock MutexLock(&mutex);
++  patVersion = -1;
++  pmtIndex = -1;
+   numPmtEntries = 0;
++  if (Sid >= 0) {
++     sid = Sid;
++     DBGLOG("PAT filter trigger SID %d", Sid);
++     }
+ }
+ 
+-bool cPatFilter::PmtVersionChanged(int PmtPid, int Sid, int Version)
++bool cPatFilter::PmtVersionChanged(int PmtPid, int Sid, int Version, bool SetNewVersion)
+ {
+-  uint64_t v = Version;
+-  v <<= 32;
+-  uint64_t id = (PmtPid | (Sid << 16)) & 0x00000000FFFFFFFFLL;
++  int Id = MakePmtId(PmtPid, Sid);
+   for (int i = 0; i < numPmtEntries; i++) {
+-      if ((pmtVersion[i] & 0x00000000FFFFFFFFLL) == id) {
+-         bool Changed = (pmtVersion[i] & 0x000000FF00000000LL) != v;
+-         if (Changed)
+-            pmtVersion[i] = id | v;
+-         return Changed;
++      if (pmtId[i] == Id) {
++         if (pmtVersion[i] != Version) {
++            if (SetNewVersion)
++               pmtVersion[i] = Version;
++            else
++               DBGLOG("PMT %d  %2d %5d %2d -> %2d", Transponder(), i, PmtPid, pmtVersion[i], Version);
++            return true;
++            }
++         break;
+          }
+       }
+-  if (numPmtEntries < MAXPMTENTRIES)
+-     pmtVersion[numPmtEntries++] = id | v;
+-  return true;
++  return false;
++}
++
++void cPatFilter::SwitchToNextPmtPid(void)
++{
++  if (pmtIndex >= 0) {
++     Del(GetPmtPid(pmtIndex), SI::TableIdPMT);
++     pmtIndex = (pmtIndex + 1) % numPmtEntries;
++     Add(GetPmtPid(pmtIndex), SI::TableIdPMT);
++     }
+ }
+ 
+ void cPatFilter::Process(u_short Pid, u_char Tid, const u_char *Data, int Length)
+ {
++  cMutexLock MutexLock(&mutex);
+   if (Pid == 0x00) {
+-     if (Tid == 0x00) {
+-        if (pmtPid && time(NULL) - lastPmtScan > PMT_SCAN_TIMEOUT) {
+-           Del(pmtPid, 0x02);
+-           pmtPid = 0;
+-           pmtIndex++;
+-           lastPmtScan = time(NULL);
+-           }
+-        if (!pmtPid) {
+-           SI::PAT pat(Data, false);
+-           if (!pat.CheckCRCAndParse())
+-              return;
++     if (Tid == SI::TableIdPAT) {
++        SI::PAT pat(Data, false);
++        if (!pat.CheckCRCAndParse())
++           return;
++        if (pat.getVersionNumber() != patVersion) {
++           DBGLOG("PAT %d %d -> %d", Transponder(), patVersion, pat.getVersionNumber());
++           if (pmtIndex >= 0) {
++              Del(GetPmtPid(pmtIndex), SI::TableIdPMT);
++              pmtIndex = -1;
++              }
++           numPmtEntries = 0;
+            SI::PAT::Association assoc;
+-           int Index = 0;
+            for (SI::Loop::Iterator it; pat.associationLoop.getNext(assoc, it); ) {
+-               if (!assoc.isNITPid()) {
+-                  if (Index++ >= pmtIndex && Channels.GetByServiceID(Source(), Transponder(), assoc.getServiceId())) {
+-                     pmtPid = assoc.getPid();
+-                     pmtSid = assoc.getServiceId();
+-                     Add(pmtPid, 0x02);
+-                     break;
++               if (!assoc.isNITPid() && numPmtEntries < MAXPMTENTRIES) {
++                  DBGLOG("    PMT pid %2d %5d  SID %5d", numPmtEntries, assoc.getPid(), assoc.getServiceId());
++                  pmtId[numPmtEntries] = MakePmtId(assoc.getPid(), assoc.getServiceId());
++                  pmtVersion[numPmtEntries] = -1;
++                  if (sid == assoc.getServiceId()) {
++                     pmtIndex = numPmtEntries;
++                     DBGLOG("sid = %d pmtIndex = %d", sid, pmtIndex);
+                      }
++                  numPmtEntries++;
+                   }
+                }
+-           if (!pmtPid)
++           if (numPmtEntries > 0 && pmtIndex < 0)
+               pmtIndex = 0;
++           Add(GetPmtPid(pmtIndex), SI::TableIdPMT);
++           patVersion = pat.getVersionNumber();
++           timer.Set(PMT_SCAN_TIMEOUT);
+            }
+         }
+      }
+-  else if (Pid == pmtPid && Tid == SI::TableIdPMT && Source() && Transponder()) {
++  else if (Tid == SI::TableIdPMT && Source() && Transponder()) {
++     timer.Set(PMT_SCAN_TIMEOUT);
+      SI::PMT pmt(Data, false);
+      if (!pmt.CheckCRCAndParse())
+         return;
+-     if (pmt.getServiceId() != pmtSid)
+-        return; // skip broken PMT records
+-     if (!PmtVersionChanged(pmtPid, pmt.getTableIdExtension(), pmt.getVersionNumber())) {
+-        lastPmtScan = 0; // this triggers the next scan
++     if (!PmtVersionChanged(Pid, pmt.getTableIdExtension(), pmt.getVersionNumber())) {
++        SwitchToNextPmtPid();
+         return;
+         }
+-     if (!Channels.Lock(true, 10)) {
+-        numPmtEntries = 0; // to make sure we try again
++     if (!Channels.Lock(true, 10))
+         return;
+-        }
++     PmtVersionChanged(Pid, pmt.getTableIdExtension(), pmt.getVersionNumber(), true);
++     SwitchToNextPmtPid();
+      cChannel *Channel = Channels.GetByServiceID(Source(), Transponder(), pmt.getServiceId());
+      if (Channel) {
+         SI::CaDescriptor *d;
+@@ -596,7 +616,12 @@
+            }
+         Channel->SetCaDescriptors(CaDescriptorHandler.AddCaDescriptors(CaDescriptors));
+         }
+-     lastPmtScan = 0; // this triggers the next scan
+      Channels.Unlock();
+      }
++  if (timer.TimedOut()) {
++     if (pmtIndex >= 0)
++        DBGLOG("PMT timeout %d", pmtIndex);
++     SwitchToNextPmtPid();
++     timer.Set(PMT_SCAN_TIMEOUT);
++     }
+ }
+diff -ruN vdr-2.1.4/pat.h vdr-2.1.5/pat.h
+--- vdr-2.1.4/pat.h	2014-01-04 12:16:48.000000000 +0100
++++ vdr-2.1.5/pat.h	2014-02-18 12:22:34.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.h 3.2 2014/01/04 11:16:48 kls Exp $
++ * $Id: pat.h 3.3 2014/02/18 11:22:34 kls Exp $
+  */
+ 
+ #ifndef __PAT_H
+@@ -12,24 +12,30 @@
+ 
+ #include <stdint.h>
+ #include "filter.h"
++#include "thread.h"
+ 
+ #define MAXPMTENTRIES 64
+ 
+ class cPatFilter : public cFilter {
+ private:
+-  time_t lastPmtScan;
++  cMutex mutex;
++  cTimeMs timer;
++  int patVersion;
+   int pmtIndex;
+-  int pmtPid;
+-  int pmtSid;
+-  uint64_t pmtVersion[MAXPMTENTRIES];
++  int pmtId[MAXPMTENTRIES];
++  int pmtVersion[MAXPMTENTRIES];
+   int numPmtEntries;
+-  bool PmtVersionChanged(int PmtPid, int Sid, int Version);
++  int sid;
++  int GetPmtPid(int Index) { return pmtId[Index] & 0x0000FFFF; }
++  int MakePmtId(int PmtPid, int Sid) { return PmtPid | (Sid << 16); }
++  bool PmtVersionChanged(int PmtPid, int Sid, int Version, bool SetNewVersion = false);
++  void SwitchToNextPmtPid(void);
+ protected:
+   virtual void Process(u_short Pid, u_char Tid, const u_char *Data, int Length);
+ public:
+   cPatFilter(void);
+   virtual void SetStatus(bool On);
+-  void Trigger(void);
++  void Trigger(int Sid = -1);
+   };
+ 
+ int GetCaDescriptors(int Source, int Transponder, int ServiceId, const int *CaSystemIds, int BufSize, uchar *Data, int EsPid);
+diff -ruN vdr-2.1.4/po/et_EE.po vdr-2.1.5/po/et_EE.po
+--- vdr-2.1.4/po/et_EE.po	2013-11-03 16:05:37.000000000 +0100
++++ vdr-2.1.5/po/et_EE.po	2014-02-22 14:16:00.804428974 +0100
+@@ -697,14 +697,14 @@
+ msgstr "Hetkel"
+ 
+ msgid "Button$Schedule"
+-msgstr "Ajakava"
++msgstr "Kava"
+ 
+ msgid "Can't switch channel!"
+ msgstr "Kanali vahetus ei ole võimalik!"
+ 
+ #, c-format
+ msgid "Schedule - %s"
+-msgstr "Ajakava - %s"
++msgstr "Kava - %s"
+ 
+ #, c-format
+ msgid "This event - %s"
+@@ -724,71 +724,71 @@
+ msgstr "CAM ei vasta"
+ 
+ msgid "Edit path"
+-msgstr ""
++msgstr "Muuda teed"
+ 
+ msgid "Folder"
+-msgstr ""
++msgstr "Kaust"
+ 
+ msgid "This folder is currently in use - no changes are possible!"
+-msgstr ""
++msgstr "Kaust on juba kasutusel - muutmine ei ole võimalik!"
+ 
+ #, c-format
+ msgid "Move entire folder containing %d recordings?"
+-msgstr ""
++msgstr "Teisaldada kaust mis sisaldab %d salvestust?"
+ 
+ msgid "Error while moving folder!"
+-msgstr ""
++msgstr "Kausta teisaldamise viga!"
+ 
+ msgid "Edit recording"
+-msgstr ""
++msgstr "Salvestuse redigeerimine"
+ 
+ msgid "This recording is currently in use - no changes are possible!"
+-msgstr ""
++msgstr "Salvestus hetkel kasutusel - muutmine ei ole võimalik!"
+ 
+ msgid "Button$Cancel cutting"
+-msgstr ""
++msgstr "Lõikamise tühistamine"
+ 
+ msgid "Button$Stop cutting"
+-msgstr ""
++msgstr "Lõikamise peatamine"
+ 
+ msgid "Button$Cancel moving"
+-msgstr ""
++msgstr "Teisaldamise tühistamine"
+ 
+ msgid "Button$Stop moving"
+-msgstr ""
++msgstr "Teisaldamise peatamine"
+ 
+ msgid "Button$Cancel copying"
+-msgstr ""
++msgstr "Kopeerimise tühistamine"
+ 
+ msgid "Button$Stop copying"
+-msgstr ""
++msgstr "Kopeerimise peatamine"
+ 
+ msgid "Button$Cut"
+-msgstr ""
++msgstr "Lõika"
+ 
+ msgid "Button$Delete marks"
+-msgstr ""
++msgstr "Markerite kustutamine"
+ 
+ msgid "Recording vanished!"
+-msgstr ""
++msgstr "Salvestus kadunud!"
+ 
+ msgid "Edited version already exists - overwrite?"
+-msgstr ""
++msgstr "Redigeeritud versioon juba olemas - kirjutada üle?"
+ 
+ msgid "Error while queueing recording for cutting!"
+-msgstr ""
++msgstr "Salvestuse lõikamiseks lisamine ebaõnnestus!"
+ 
+ msgid "Delete editing marks for this recording?"
+-msgstr ""
++msgstr "Kustutada selle salvestuse markerid?"
+ 
+ msgid "Error while deleting editing marks!"
+-msgstr ""
++msgstr "Markerite kustutamine ebaõnnestus!"
+ 
+ msgid "Error while changing priority/lifetime!"
+-msgstr ""
++msgstr "Prioriteedi/eluea muutmine ebaõnnestus!"
+ 
+ msgid "Error while changing folder/name!"
+-msgstr ""
++msgstr "Kausta/nime muutmine ebaõnnestus!"
+ 
+ msgid "Recording info"
+ msgstr "Salvestuse info"
+@@ -1283,13 +1283,13 @@
+ 
+ #. TRANSLATORS: note the leading blank!
+ msgid " Cancel editing"
+-msgstr " Katkestada redigeerimine"
++msgstr " Tühistada töötlemine"
+ 
+ msgid "Stop recording?"
+ msgstr "Lõpetada salvestamine?"
+ 
+ msgid "Cancel editing?"
+-msgstr "Tühistada redigeermine?"
++msgstr "Tühistada töötlemine?"
+ 
+ msgid "No audio available!"
+ msgstr "Audio kättesaamatu!"
+@@ -1371,7 +1371,7 @@
+ msgstr "Väljalülitamine ebaõnnestus - '-s' parameeter puudub!"
+ 
+ msgid "Editing - shut down anyway?"
+-msgstr "Redigeerimine aktiive - lülitada välja?"
++msgstr "Töötlemine aktiive - lülitada välja?"
+ 
+ msgid "Recording - shut down anyway?"
+ msgstr "Salvestamine aktiivne - lülitada välja?"
+@@ -1388,7 +1388,7 @@
+ msgstr "Laiendusmoodul %s ärkab %ld minuti pärast, jätkata?"
+ 
+ msgid "Editing - restart anyway?"
+-msgstr "Redigeerimine aktiivne - restart?"
++msgstr "Töötlemine aktiivne - restart?"
+ 
+ msgid "Recording - restart anyway?"
+ msgstr "Salvestamine aktiivne - restart?"
+@@ -1423,7 +1423,7 @@
+ 
+ #, c-format
+ msgid "Moving dish to %.1f..."
+-msgstr "Antenni pööramine positsioonile %.1f..."
++msgstr "Liikumine positsioonile %.1f..."
+ 
+ msgid "ST:TNG Panels"
+ msgstr "ST:TNG Panels"
+@@ -1476,10 +1476,10 @@
+ msgstr "Esmase DVB seadme ümberlülitus..."
+ 
+ msgid "Editing process failed!"
+-msgstr "Redigeerimine ebaõnnestus!"
++msgstr "Töötlemine ebaõnnestus!"
+ 
+ msgid "Editing process finished"
+-msgstr "Redigeerimine lõpetatud"
++msgstr "Töötlemine lõpetatud"
+ 
+ msgid "Press any key to cancel restart"
+ msgstr "Restardi katkestamiseks vajuta suvalist klahvi"
+diff -ruN vdr-2.1.4/receiver.c vdr-2.1.5/receiver.c
+--- vdr-2.1.4/receiver.c	2014-01-01 13:03:00.000000000 +0100
++++ vdr-2.1.5/receiver.c	2014-02-08 16:57:30.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: receiver.c 3.1 2014/01/01 12:03:00 kls Exp $
++ * $Id: receiver.c 3.2 2014/02/08 15:57:30 kls Exp $
+  */
+ 
+ #include "receiver.h"
+@@ -22,10 +22,10 @@
+ cReceiver::~cReceiver()
+ {
+   if (device) {
+-     const char *msg = "ERROR: cReceiver has not been detached yet! This is a design fault and VDR will segfault now!";
++     const char *msg = "ERROR: cReceiver has not been detached yet! This is a design fault and VDR will abort now!";
+      esyslog("%s", msg);
+      fprintf(stderr, "%s\n", msg);
+-     *(char *)0 = 0; // cause a segfault
++     abort();
+      }
+ }
+ 
+diff -ruN vdr-2.1.4/recorder.c vdr-2.1.5/recorder.c
+--- vdr-2.1.4/recorder.c	2014-01-01 13:46:37.000000000 +0100
++++ vdr-2.1.5/recorder.c	2014-02-21 10:19:52.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.c 3.2 2014/01/01 12:46:37 kls Exp $
++ * $Id: recorder.c 3.3 2014/02/21 09:19:52 kls Exp $
+  */
+ 
+ #include "recorder.h"
+@@ -155,13 +155,13 @@
+                              recordFile->Write(pmt, TS_SIZE);
+                              fileSize += TS_SIZE;
+                              }
++                       t.Set(MAXBROKENTIMEOUT);
+                        }
+                     if (recordFile->Write(b, Count) < 0) {
+                        LOG_ERROR_STR(fileName->Name());
+                        break;
+                        }
+                     fileSize += Count;
+-                    t.Set(MAXBROKENTIMEOUT);
+                     }
+                  }
+               ringBuffer->Del(Count);
+diff -ruN vdr-2.1.4/recording.c vdr-2.1.5/recording.c
+--- vdr-2.1.4/recording.c	2014-01-18 13:54:56.000000000 +0100
++++ vdr-2.1.5/recording.c	2014-02-08 12:16:02.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 3.13 2014/01/18 12:54:56 kls Exp $
++ * $Id: recording.c 3.16 2014/02/08 11:16:02 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -969,14 +969,22 @@
+ {
+   char **sb = (RecordingsSortMode == rsmName) ? &sortBufferName : &sortBufferTime;
+   if (!*sb) {
+-     char *s = strdup(FileName() + strlen(cVideoDirectory::Name()));
+-     if (RecordingsSortMode != rsmName || Setup.AlwaysSortFoldersFirst)
+-        s = StripEpisodeName(s, RecordingsSortMode != rsmName);
+-     strreplace(s, '/', '0'); // some locales ignore '/' when sorting
+-     int l = strxfrm(NULL, s, 0) + 1;
+-     *sb = MALLOC(char, l);
+-     strxfrm(*sb, s, l);
+-     free(s);
++     if (RecordingsSortMode == rsmTime && !Setup.RecordingDirs) {
++        char buf[32];
++        struct tm tm_r;
++        strftime(buf, sizeof(buf), "%Y%m%d%H%I", localtime_r(&start, &tm_r));
++        *sb = strdup(buf);
++        }
++     else {
++        char *s = strdup(FileName() + strlen(cVideoDirectory::Name()));
++        if (RecordingsSortMode != rsmName || Setup.AlwaysSortFoldersFirst)
++           s = StripEpisodeName(s, RecordingsSortMode != rsmName);
++        strreplace(s, '/', '0'); // some locales ignore '/' when sorting
++        int l = strxfrm(NULL, s, 0) + 1;
++        *sb = MALLOC(char, l);
++        strxfrm(*sb, s, l);
++        free(s);
++        }
+      }
+   return *sb;
+ }
+@@ -2915,7 +2923,7 @@
+      Sign = "-";
+      }
+   double Seconds;
+-  int f = int(modf((Index + 0.5) / FramesPerSecond, &Seconds) * FramesPerSecond + 1);
++  int f = int(modf((Index + 0.5) / FramesPerSecond, &Seconds) * FramesPerSecond);
+   int s = int(Seconds);
+   int m = s / 60 % 60;
+   int h = s / 3600;
+@@ -2925,12 +2933,12 @@
+ 
+ int HMSFToIndex(const char *HMSF, double FramesPerSecond)
+ {
+-  int h, m, s, f = 1;
++  int h, m, s, f = 0;
+   int n = sscanf(HMSF, "%d:%d:%d.%d", &h, &m, &s, &f);
+   if (n == 1)
+-     return h - 1; // plain frame number
++     return h; // plain frame number
+   if (n >= 3)
+-     return int(round((h * 3600 + m * 60 + s) * FramesPerSecond)) + f - 1;
++     return int(round((h * 3600 + m * 60 + s) * FramesPerSecond)) + f;
+   return 0;
+ }
+ 
+diff -ruN vdr-2.1.4/remote.c vdr-2.1.5/remote.c
+--- vdr-2.1.4/remote.c	2013-12-25 13:45:43.000000000 +0100
++++ vdr-2.1.5/remote.c	2014-02-15 13:40:39.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.c 3.1 2013/12/25 12:45:43 kls Exp $
++ * $Id: remote.c 3.2 2014/02/15 12:40:39 kls Exp $
+  */
+ 
+ #include "remote.h"
+@@ -298,7 +298,7 @@
+ 
+ void cKbdRemote::PutKey(uint64_t Code, bool Repeat, bool Release)
+ {
+-  if (rawMode || !Put(Code, Repeat, Release)) {
++  if (rawMode || (!Put(Code, Repeat, Release) && !IsLearning())) {
+      if (int func = MapCodeToFunc(Code))
+         Put(KBDKEY(func), Repeat, Release);
+      }
+diff -ruN vdr-2.1.4/remux.c vdr-2.1.5/remux.c
+--- vdr-2.1.4/remux.c	2014-01-18 12:27:30.000000000 +0100
++++ vdr-2.1.5/remux.c	2014-02-21 12:51:55.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 3.1 2014/01/18 11:27:30 kls Exp $
++ * $Id: remux.c 3.3 2014/02/21 11:51:55 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -23,6 +23,10 @@
+ #define dbgpatpmt(a...) if (DebugPatPmt) fprintf(stderr, a)
+ #define dbgframes(a...) if (DebugFrames) fprintf(stderr, a)
+ 
++#define MAX_TS_PACKETS_FOR_VIDEO_FRAME_DETECTION 6
++#define WRN_TS_PACKETS_FOR_VIDEO_FRAME_DETECTION (MAX_TS_PACKETS_FOR_VIDEO_FRAME_DETECTION / 2)
++#define WRN_TS_PACKETS_FOR_FRAME_DETECTOR (MIN_TS_PACKETS_FOR_FRAME_DETECTOR / 2)
++
+ #define EMPTY_SCANNER (0xFFFFFFFF)
+ 
+ ePesHeader AnalyzePesHeader(const uchar *Data, int Count, int &PesPayloadOffset, bool *ContinuationHeader)
+@@ -231,7 +235,7 @@
+   data = NULL;
+   length = 0;
+   pid = -1;
+-  index = 0;
++  Reset();
+ }
+ 
+ cTsPayload::cTsPayload(uchar *Data, int Length, int Pid)
+@@ -239,12 +243,25 @@
+   Setup(Data, Length, Pid);
+ }
+ 
++uchar cTsPayload::SetEof(void)
++{
++  length = index; // triggers EOF
++  return 0x00;
++}
++
++void cTsPayload::Reset(void)
++{
++  index = 0;
++  numPacketsPid = 0;
++  numPacketsOther = 0;
++}
++
+ void cTsPayload::Setup(uchar *Data, int Length, int Pid)
+ {
+   data = Data;
+   length = Length;
+   pid = Pid >= 0 ? Pid : TsPid(Data);
+-  index = 0;
++  Reset();
+ }
+ 
+ uchar cTsPayload::GetByte(void)
+@@ -255,20 +272,20 @@
+             if (data[index] == TS_SYNC_BYTE && index + TS_SIZE <= length) { // to make sure we are at a TS header start and drop incomplete TS packets at the end
+                uchar *p = data + index;
+                if (TsPid(p) == pid) { // only handle TS packets for the initial PID
++                  if (numPacketsPid++ > MAX_TS_PACKETS_FOR_VIDEO_FRAME_DETECTION)
++                     return SetEof();
+                   if (TsHasPayload(p)) {
+-                     if (index > 0 && TsPayloadStart(p)) { // checking index to not skip the very first TS packet
+-                        length = index; // triggers EOF
+-                        return 0x00;
+-                        }
++                     if (index > 0 && TsPayloadStart(p)) // checking index to not skip the very first TS packet
++                        return SetEof();
+                      index += TsPayloadOffset(p);
+                      break;
+                      }
+                   }
++               else
++                  numPacketsOther++;
+                }
+-            else {
+-               length = index; // triggers EOF
+-               return 0x00;
+-               }
++            else
++               return SetEof();
+            }
+         }
+      return data[index++];
+@@ -302,6 +319,8 @@
+ bool cTsPayload::Find(uint32_t Code)
+ {
+   int OldIndex = index;
++  int OldNumPacketsPid = numPacketsPid;
++  int OldNumPacketsOther = numPacketsOther;
+   uint32_t Scanner = EMPTY_SCANNER;
+   while (!Eof()) {
+         Scanner = (Scanner << 8) | GetByte();
+@@ -309,9 +328,19 @@
+            return true;
+         }
+   index = OldIndex;
++  numPacketsPid = OldNumPacketsPid;
++  numPacketsOther = OldNumPacketsOther;
+   return false;
+ }
+ 
++void cTsPayload::Statistics(void) const
++{
++  if (numPacketsPid + numPacketsOther > WRN_TS_PACKETS_FOR_FRAME_DETECTOR)
++     dsyslog("WARNING: required (%d+%d) TS packets to determine frame type", numPacketsOther, numPacketsPid);
++  if (numPacketsPid > WRN_TS_PACKETS_FOR_VIDEO_FRAME_DETECTION)
++     dsyslog("WARNING: required %d video TS packets to determine frame type", numPacketsPid);
++}
++
+ // --- cPatPmtGenerator ------------------------------------------------------
+ 
+ cPatPmtGenerator::cPatPmtGenerator(const cChannel *Channel)
+@@ -1120,11 +1149,11 @@
+                dbgframes("%c", FrameTypes[FrameType]);
+                }
+             }
++         tsPayload.Statistics();
+          break;
+          }
+       if (tsPayload.AtPayloadStart() // stop at any new payload start to have the buffer refilled if necessary
+-         || (tsPayload.Available() < MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE // stop if the available data is below the limit...
+-            && (tsPayload.Available() <= 0 || tsPayload.AtTsStart()))) // ...but only if there is no more data at all, or if we are at a TS boundary
++         || tsPayload.Eof()) // or if we're out of data
+          break;
+       }
+   return tsPayload.Used();
+@@ -1266,6 +1295,8 @@
+            case nutCodedSliceIdr:        if (gotAccessUnitDelimiter && gotSequenceParameterSet) {
+                                             ParseSliceHeader();
+                                             gotAccessUnitDelimiter = false;
++                                            if (newFrame)
++                                               tsPayload.Statistics();
+                                             return tsPayload.Used();
+                                             }
+                                          break;
+@@ -1273,8 +1304,7 @@
+            }
+          }
+       if (tsPayload.AtPayloadStart() // stop at any new payload start to have the buffer refilled if necessary
+-         || (tsPayload.Available() < MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE // stop if the available data is below the limit...
+-            && (tsPayload.Available() <= 0 || tsPayload.AtTsStart()))) // ...but only if there is no more data at all, or if we are at a TS boundary
++         || tsPayload.Eof()) // or if we're out of data
+          break;
+       }
+   return tsPayload.Used();
+diff -ruN vdr-2.1.4/remux.h vdr-2.1.5/remux.h
+--- vdr-2.1.4/remux.h	2014-01-16 11:15:50.000000000 +0100
++++ vdr-2.1.5/remux.h	2014-02-08 13:41:50.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 3.1 2014/01/16 10:15:50 kls Exp $
++ * $Id: remux.h 3.3 2014/02/08 12:41:50 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+@@ -217,8 +217,11 @@
+   int length;
+   int pid;
+   int index; // points to the next byte to process
++  int numPacketsPid; // the number of TS packets with the given PID (for statistical purposes)
++  int numPacketsOther; // the number of TS packets with other PIDs (for statistical purposes)
++  uchar SetEof(void);
+ protected:
+-  void Reset(void) { index = 0; }
++  void Reset(void);
+ public:
+   cTsPayload(void);
+   cTsPayload(uchar *Data, int Length, int Pid = -1);
+@@ -246,6 +249,10 @@
+        ///< is counted with its full size.
+   bool Eof(void) const { return index >= length; }
+        ///< Returns true if all available bytes of the TS payload have been processed.
++  void Statistics(void) const;
++       ///< May be called after a new frame has been detected, and will log a warning
++       ///< if the number of TS packets required to determine the frame type exceeded
++       ///< some safety limits.
+   uchar GetByte(void);
+        ///< Gets the next byte of the TS payload, skipping any intermediate TS header data.
+   bool SkipBytes(int Bytes);
+@@ -462,7 +469,7 @@
+ 
+ // Frame detector:
+ 
+-#define MIN_TS_PACKETS_FOR_FRAME_DETECTOR 10
++#define MIN_TS_PACKETS_FOR_FRAME_DETECTOR 100
+ 
+ class cFrameParser;
+ 
+@@ -476,7 +483,6 @@
+   bool independentFrame;
+   uint32_t ptsValues[MaxPtsValues]; // 32 bit is enough - we only need the delta
+   int numPtsValues;
+-  int numFrames;
+   int numIFrames;
+   bool isVideo;
+   double framesPerSecond;
+diff -ruN vdr-2.1.4/sdt.c vdr-2.1.5/sdt.c
+--- vdr-2.1.4/sdt.c	2014-01-04 16:02:31.000000000 +0100
++++ vdr-2.1.5/sdt.c	2014-02-18 11:37:50.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: sdt.c 3.1 2014/01/04 15:02:31 kls Exp $
++ * $Id: sdt.c 3.2 2014/02/18 10:37:50 kls Exp $
+  */
+ 
+ #include "sdt.h"
+@@ -94,7 +94,7 @@
+                            }
+                         else if (*pn && Setup.UpdateChannels >= 4) {
+                            channel = Channels.NewChannel(Channel(), pn, ps, pp, sdt.getOriginalNetworkId(), sdt.getTransportStreamId(), SiSdtService.getServiceId());
+-                           patFilter->Trigger();
++                           patFilter->Trigger(SiSdtService.getServiceId());
+                            }
+                         }
+                    default: ;
+@@ -120,7 +120,7 @@
+                      cChannel *link = Channels.GetByChannelID(tChannelID(Source(), Service.getOriginalNetworkId(), Service.getTransportStream(), Service.getServiceId()));
+                      if (!link && Setup.UpdateChannels >= 4) {
+                         link = Channels.NewChannel(Channel(), "NVOD", "", "", Service.getOriginalNetworkId(), Service.getTransportStream(), Service.getServiceId());
+-                        patFilter->Trigger();
++                        patFilter->Trigger(Service.getServiceId());
+                         }
+                      if (link) {
+                         if (!LinkChannels)
+diff -ruN vdr-2.1.4/skins.h vdr-2.1.5/skins.h
+--- vdr-2.1.4/skins.h	2013-11-03 15:07:34.000000000 +0100
++++ vdr-2.1.5/skins.h	2014-02-17 12:05:29.000000000 +0100
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skins.h 3.2 2013/11/03 14:07:34 kls Exp $
++ * $Id: skins.h 3.3 2014/02/17 11:05:29 kls Exp $
+  */
+ 
+ #ifndef __SKINS_H
+@@ -280,7 +280,7 @@
+   class cProgressBar : public cBitmap {
+   protected:
+     int total;
+-    int Pos(int p) { return p * Width() / total; }
++    int Pos(int p) { return int(int64_t(p) * Width() / total); }
+     void Mark(int x, bool Start, bool Current, tColor ColorMark, tColor ColorCurrent);
+   public:
+     cProgressBar(int Width, int Height, int Current, int Total, const cMarks *Marks, tColor ColorSeen, tColor ColorRest, tColor ColorSelected, tColor ColorMark, tColor ColorCurrent);
+diff -ruN vdr-2.1.4/vdr.c vdr-2.1.5/vdr.c
+--- vdr-2.1.4/vdr.c	2014-01-25 11:47:39.000000000 +0100
++++ vdr-2.1.5/vdr.c	2014-01-26 13:27:51.000000000 +0100
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 3.9 2014/01/25 10:47:39 kls Exp $
++ * $Id: vdr.c 3.10 2014/01/26 12:27:51 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -917,7 +917,7 @@
+               for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+                   if (Channel->Modification(CHANNELMOD_RETUNE)) {
+                      cRecordControls::ChannelDataModified(Channel);
+-                     if (Channel->Number() == cDevice::CurrentChannel()) {
++                     if (Channel->Number() == cDevice::CurrentChannel() && cDevice::PrimaryDevice()->HasDecoder()) {
+                         if (!cDevice::PrimaryDevice()->Replaying() || cDevice::PrimaryDevice()->Transferring()) {
+                            if (cDevice::ActualDevice()->ProvidesTransponder(Channel)) { // avoids retune on devices that don't really access the transponder
+                               isyslog("retuning due to modification of channel %d", Channel->Number());

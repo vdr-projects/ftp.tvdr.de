@@ -1,0 +1,163 @@
+diff -ruN vdr-1.4.3-3/HISTORY vdr-1.4.3-4/HISTORY
+--- vdr-1.4.3-3/HISTORY	2006-10-22 11:11:29.000000000 +0200
++++ vdr-1.4.3-4/HISTORY	2006-10-29 11:09:53.000000000 +0100
+@@ -4974,3 +4974,9 @@
+ 
+ - Fixed setting audio track descriptions after a replay has been stopped (reported
+   by Ulf Kiener, thanks to Marco Schlüßler for pointing out what caused the problem).
++
++2006-10-29: Version 1.4.3-4
++
++- Fixed deleting EPG events that have a running status of "pausing" or higher.
++- Fixed handling NITs with more than one delivery system descriptor tag for the
++  same transponder.
+diff -ruN vdr-1.4.3-3/config.h vdr-1.4.3-4/config.h
+--- vdr-1.4.3-3/config.h	2006-10-20 15:37:37.000000000 +0200
++++ vdr-1.4.3-4/config.h	2006-10-28 11:15:00.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.275 2006/10/20 13:37:37 kls Exp $
++ * $Id: config.h 1.276 2006/10/28 09:15:00 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -21,7 +21,7 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.4.3-3"
++#define VDRVERSION  "1.4.3-4"
+ #define VDRVERSNUM   10403  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+diff -ruN vdr-1.4.3-3/epg.c vdr-1.4.3-4/epg.c
+--- vdr-1.4.3-3/epg.c	2006-10-07 15:47:28.000000000 +0200
++++ vdr-1.4.3-4/epg.c	2006-10-28 11:12:42.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 1.80 2006/10/07 13:47:28 kls Exp $
++ * $Id: epg.c 1.81 2006/10/28 09:12:42 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -664,6 +664,8 @@
+ void cSchedule::DelEvent(cEvent *Event)
+ {
+   if (Event->schedule == this) {
++     if (hasRunning && Event->IsRunning())
++        ClrRunningStatus();
+      UnhashEvent(Event);
+      events.Del(Event);
+      }
+@@ -742,8 +744,10 @@
+   hasRunning = false;
+   for (cEvent *p = events.First(); p; p = events.Next(p)) {
+       if (p == Event) {
+-         if (p->RunningStatus() > SI::RunningStatusNotRunning || RunningStatus > SI::RunningStatusNotRunning)
++         if (p->RunningStatus() > SI::RunningStatusNotRunning || RunningStatus > SI::RunningStatusNotRunning) {
+             p->SetRunningStatus(RunningStatus, Channel);
++            break;
++            }
+          }
+       else if (RunningStatus >= SI::RunningStatusPausing && p->StartTime() < Event->StartTime())
+          p->SetRunningStatus(SI::RunningStatusNotRunning);
+@@ -797,6 +801,8 @@
+                   // We can't delete the event right here because a timer might have
+                   // a pointer to it, so let's set its id and start time to 0 to have it
+                   // "phased out":
++                  if (hasRunning && p->IsRunning())
++                     ClrRunningStatus();
+                   UnhashEvent(p);
+                   p->eventID = 0;
+                   p->startTime = 0;
+diff -ruN vdr-1.4.3-3/nit.c vdr-1.4.3-4/nit.c
+--- vdr-1.4.3-3/nit.c	2006-05-27 17:35:16.000000000 +0200
++++ vdr-1.4.3-4/nit.c	2006-10-28 14:31:04.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: nit.c 1.12 2006/05/27 15:35:16 kls Exp $
++ * $Id: nit.c 1.13 2006/10/28 12:31:04 kls Exp $
+  */
+ 
+ #include "nit.h"
+@@ -144,15 +144,17 @@
+                  for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+                      if (!Channel->GroupSep() && Channel->Source() == Source && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+                         if (Setup.UpdateChannels >= 5) {
+-                           if (!ISTRANSPONDER(cChannel::Transponder(Frequency, Polarization), Channel->Transponder())) {
+-                              for (int n = 0; n < NumFrequencies; n++) {
+-                                  if (ISTRANSPONDER(cChannel::Transponder(Frequencies[n], Polarization), Channel->Transponder())) {
+-                                     Frequency = Frequencies[n];
+-                                     break;
++                           if (ISTRANSPONDER(cChannel::Transponder(Frequency, Polarization), Transponder())) { // only modify channels if we're actually receiving this transponder
++                              if (!ISTRANSPONDER(cChannel::Transponder(Frequency, Polarization), Channel->Transponder())) {
++                                 for (int n = 0; n < NumFrequencies; n++) {
++                                     if (ISTRANSPONDER(cChannel::Transponder(Frequencies[n], Polarization), Channel->Transponder())) {
++                                        Frequency = Frequencies[n];
++                                        break;
++                                        }
+                                      }
+-                                  }
++                                 }
++                              Channel->SetSatTransponderData(Source, Frequency, Polarization, SymbolRate, CodeRate);
+                               }
+-                           Channel->SetSatTransponderData(Source, Frequency, Polarization, SymbolRate, CodeRate);
+                            }
+                         found = true;
+                         }
+@@ -193,15 +195,17 @@
+                  for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+                      if (!Channel->GroupSep() && Channel->Source() == Source && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+                         if (Setup.UpdateChannels >= 5) {
+-                           if (!ISTRANSPONDER(Frequency / 1000, Channel->Transponder())) {
+-                              for (int n = 0; n < NumFrequencies; n++) {
+-                                  if (ISTRANSPONDER(Frequencies[n] / 1000, Channel->Transponder())) {
+-                                     Frequency = Frequencies[n];
+-                                     break;
++                           if (ISTRANSPONDER(Frequency / 1000, Transponder())) { // only modify channels if we're actually receiving this transponder
++                              if (!ISTRANSPONDER(Frequency / 1000, Channel->Transponder())) {
++                                 for (int n = 0; n < NumFrequencies; n++) {
++                                     if (ISTRANSPONDER(Frequencies[n] / 1000, Channel->Transponder())) {
++                                        Frequency = Frequencies[n];
++                                        break;
++                                        }
+                                      }
+-                                  }
++                                 }
++                              Channel->SetCableTransponderData(Source, Frequency, Modulation, SymbolRate, CodeRate);
+                               }
+-                           Channel->SetCableTransponderData(Source, Frequency, Modulation, SymbolRate, CodeRate);
+                            }
+                         found = true;
+                         }
+@@ -249,15 +253,17 @@
+                  for (cChannel *Channel = Channels.First(); Channel; Channel = Channels.Next(Channel)) {
+                      if (!Channel->GroupSep() && Channel->Source() == Source && Channel->Nid() == ts.getOriginalNetworkId() && Channel->Tid() == ts.getTransportStreamId()) {
+                         if (Setup.UpdateChannels >= 5) {
+-                           if (!ISTRANSPONDER(Frequency / 1000000, Channel->Transponder())) {
+-                              for (int n = 0; n < NumFrequencies; n++) {
+-                                  if (ISTRANSPONDER(Frequencies[n] / 1000000, Channel->Transponder())) {
+-                                     Frequency = Frequencies[n];
+-                                     break;
++                           if (ISTRANSPONDER(Frequency / 1000000, Transponder())) { // only modify channels if we're actually receiving this transponder
++                              if (!ISTRANSPONDER(Frequency / 1000000, Channel->Transponder())) {
++                                 for (int n = 0; n < NumFrequencies; n++) {
++                                     if (ISTRANSPONDER(Frequencies[n] / 1000000, Channel->Transponder())) {
++                                        Frequency = Frequencies[n];
++                                        break;
++                                        }
+                                      }
+-                                  }
++                                 }
++                              Channel->SetTerrTransponderData(Source, Frequency, Bandwidth, Constellation, Hierarchy, CodeRateHP, CodeRateLP, GuardInterval, TransmissionMode);
+                               }
+-                           Channel->SetTerrTransponderData(Source, Frequency, Bandwidth, Constellation, Hierarchy, CodeRateHP, CodeRateLP, GuardInterval, TransmissionMode);
+                            }
+                         found = true;
+                         }

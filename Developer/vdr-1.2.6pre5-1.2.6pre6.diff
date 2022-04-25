@@ -1,0 +1,112 @@
+diff -ruNbw vdr-1.2.6pre5/CONTRIBUTORS vdr-1.2.6pre6/CONTRIBUTORS
+--- vdr-1.2.6pre5/CONTRIBUTORS	Sat Nov  8 16:36:59 2003
++++ vdr-1.2.6pre6/CONTRIBUTORS	Sun Nov  9 13:06:18 2003
+@@ -643,6 +643,8 @@
+  for reporting a wrong EPG bugfix code number for the MAX_USEFUL_SUBTITLE_LENGTH fix
+  for fixing a bug in resetting OSD color palettes
+  for adding missing 'const' to some cChannel member functions
++ for fixing handling Priority -1 in cDvbDevice::ProvidesChannel()
++ for fixing processing EPG data in case there is no title
+ 
+ Steffen Becker <stbecker@rbg.informatik.tu-darmstadt.de>
+  for reporting a problem with CPU load peaks (in the EPG scanner)
+diff -ruNbw vdr-1.2.6pre5/HISTORY vdr-1.2.6pre6/HISTORY
+--- vdr-1.2.6pre5/HISTORY	Sat Nov  8 16:45:59 2003
++++ vdr-1.2.6pre6/HISTORY	Sun Nov  9 13:06:01 2003
+@@ -2459,3 +2459,9 @@
+ - Added North American satellites to 'sources.conf' (thanks to Luke Jenkins).
+ - Fixed getting the list of recordings in case VDR is started from a directory
+   where it doesn't have access to (thanks to Dirk Mueller).
++
++2003-11-09: Version 1.2.6pre6
++
++- Fixed handling Priority -1 in cDvbDevice::ProvidesChannel() (thanks to
++  Torsten Herz).
++- Fixed processing EPG data in case there is no title (thanks to Torsten Herz).
+diff -ruNbw vdr-1.2.6pre5/config.h vdr-1.2.6pre6/config.h
+--- vdr-1.2.6pre5/config.h	Fri Nov  7 16:12:42 2003
++++ vdr-1.2.6pre6/config.h	Sun Nov  9 12:06:10 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.176.1.4 2003/11/07 15:12:42 kls Exp $
++ * $Id: config.h 1.176.1.5 2003/11/09 11:06:10 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -19,7 +19,7 @@
+ #include "device.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.2.6pre5"
++#define VDRVERSION  "1.2.6pre6"
+ #define VDRVERSNUM   10206  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+diff -ruNbw vdr-1.2.6pre5/dvbdevice.c vdr-1.2.6pre6/dvbdevice.c
+--- vdr-1.2.6pre5/dvbdevice.c	Fri Nov  7 14:24:49 2003
++++ vdr-1.2.6pre6/dvbdevice.c	Sun Nov  9 12:08:22 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.67.1.3 2003/11/07 13:24:49 kls Exp $
++ * $Id: dvbdevice.c 1.67.1.4 2003/11/09 11:08:22 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -654,7 +654,7 @@
+ 
+   if (ProvidesSource(Channel->Source()) && ProvidesCa(Channel->Ca())) {
+      result = hasPriority;
+-     if (Receiving()) {
++     if (Priority >= 0 && Receiving()) {
+         if (dvbTuner->IsTunedTo(Channel)) {
+            if (!HasPid(Channel->Vpid())) {
+ #ifdef DO_MULTIPLE_RECORDINGS
+diff -ruNbw vdr-1.2.6pre5/libdtv/libvdr/libvdr.c vdr-1.2.6pre6/libdtv/libvdr/libvdr.c
+--- vdr-1.2.6pre5/libdtv/libvdr/libvdr.c	Sun May 11 13:14:39 2003
++++ vdr-1.2.6pre6/libdtv/libvdr/libvdr.c	Sun Nov  9 13:02:51 2003
+@@ -118,7 +118,6 @@
+                   AddItemToText (Item->Text,
+                      VdrProgramInfo->ExtendedText);
+                }
+-               GotVdrProgramInfo = 1;
+             }
+             break;
+ 
+@@ -134,7 +133,6 @@
+                   VdrProgramInfo->ContentNibble2 =
+                      GetContentContentNibble2(Descriptor, j);
+                }
+-               GotVdrProgramInfo = 1;
+             }
+             break;
+ 
+@@ -147,12 +145,12 @@
+                   if (!strncmp (VdrProgramInfo->LanguageCode,
+                           Rating->LanguageCode, 3))
+                      VdrProgramInfo->Rating = Rating->Rating;
+-               GotVdrProgramInfo = 1;
+             }
+             break;
+          }
+       }      
+       if (GotVdrProgramInfo) xAddTail (Result, VdrProgramInfo);
++      else                   xMemFree (VdrProgramInfo);
+    }
+ 
+    return (Result);
+diff -ruNbw vdr-1.2.6pre5/newplugin vdr-1.2.6pre6/newplugin
+--- vdr-1.2.6pre5/newplugin	Fri May  9 16:59:28 2003
++++ vdr-1.2.6pre6/newplugin	Fri May  9 16:59:28 2003
+@@ -261,7 +261,7 @@
+ sub CreateFile
+ {
+   my ($Name, $Content) = @_;
+-  open(FILE, ">$PLUGINDIR/$Name") || die "$Name: V126pre5 $!\n";
++  open(FILE, ">$PLUGINDIR/$Name") || die "$Name:  $!\n";
+   print FILE $Content;
+   close(FILE);
+ }

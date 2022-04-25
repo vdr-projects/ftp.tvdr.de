@@ -1,0 +1,441 @@
+diff -ruN vdr-2.0.0/CONTRIBUTORS vdr-2.0.1/CONTRIBUTORS
+--- vdr-2.0.0/CONTRIBUTORS	2013-03-29 16:37:16.000000000 +0100
++++ vdr-2.0.1/CONTRIBUTORS	2013-04-11 10:58:49.000000000 +0200
+@@ -2832,6 +2832,8 @@
+  for fixing a typo in skins.h
+  for fixing some #include statements in plugins to use <vdr/...> instead of "vdr/..."
+  for reporting an invalid line in channels.conf.terr
++ for fixing handling '/' and '~' in recording file names in case DirectoryEncoding is
++ used
+ 
+ Alex Lasnier <alex@fepg.org>
+  for adding tuning support for ATSC devices
+@@ -3135,3 +3137,11 @@
+  for translating OSD texts to the Serbian language
+  for adding maximum SNR and signal strength value for TechniSat SkyStar HD2
+  for pointing out that the language file sr_SR.po should be renamed to sr_RS.po
++
++Stefan Braun <louis.braun@gmx.de>
++ for reporting an endless loop in cTextWrapper::Set() in case the given Width is smaller
++ than one character
++
++Jochen Dolze <vdr@dolze.de>
++ for changing cThread::SetIOPriority() from "best effort class" to "idle class" in order
++ to improve overall performance when an editing process is running
+diff -ruN vdr-2.0.0/HISTORY vdr-2.0.1/HISTORY
+--- vdr-2.0.0/HISTORY	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.0.1/HISTORY	2013-04-13 13:30:25.000000000 +0200
+@@ -7773,7 +7773,6 @@
+   Dominic Evans).
+ - Updated the default channels.conf file.
+ 
+-
+ 2013-03-31: Version 2.0.0
+ 
+ - Updated the Lithuanian OSD texts (thanks to Valdemaras Pipiras).
+@@ -7782,3 +7781,16 @@
+ - Fixed handling overlapping pending timers (reported by Matthias Senzel).
+ - Bumped all version numbers to 2.0.0.
+ - Official release.
++
++2013-04-13: Version 2.0.1
++
++- Fixed initializing cDevice::keepTracks.
++- Fixed an endless loop in cTextWrapper::Set() in case the given Width is smaller than
++  one character (reported by Stefan Braun).
++- Added definitions for older DVB API versions, back until 5.0 (based on a patch from
++  Udo Richter).
++- Fixed handling '/' and '~' in recording file names in case DirectoryEncoding is
++  used (thanks to Lars Hanisch).
++- Changed cThread::SetIOPriority() from "best effort class" to "idle class" in order to
++  improve overall performance when an editing process is running (thanks to Jochen
++  Dolze).
+diff -ruN vdr-2.0.0/PLUGINS/src/dvbhddevice/HISTORY vdr-2.0.1/PLUGINS/src/dvbhddevice/HISTORY
+--- vdr-2.0.0/PLUGINS/src/dvbhddevice/HISTORY	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.0.1/PLUGINS/src/dvbhddevice/HISTORY	2013-04-11 10:40:20.000000000 +0200
+@@ -71,3 +71,7 @@
+ 2013-03-31: Version 2.0.0
+ 
+ - Official release.
++
++2013-04-11: Version 2.0.1
++
++- Fixed aspect ratio and position of scaled video.
+diff -ruN vdr-2.0.0/PLUGINS/src/dvbhddevice/dvbhddevice.c vdr-2.0.1/PLUGINS/src/dvbhddevice/dvbhddevice.c
+--- vdr-2.0.0/PLUGINS/src/dvbhddevice/dvbhddevice.c	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.0.1/PLUGINS/src/dvbhddevice/dvbhddevice.c	2013-04-11 10:40:32.000000000 +0200
+@@ -10,7 +10,7 @@
+ #include "menu.h"
+ #include "setup.h"
+ 
+-static const char *VERSION        = "2.0.0";
++static const char *VERSION        = "2.0.1";
+ static const char *DESCRIPTION    = trNOOP("HD Full Featured DVB device");
+ static const char *MAINMENUENTRY  = "dvbhddevice";
+ 
+diff -ruN vdr-2.0.0/PLUGINS/src/dvbhddevice/dvbhdffdevice.c vdr-2.0.1/PLUGINS/src/dvbhddevice/dvbhdffdevice.c
+--- vdr-2.0.0/PLUGINS/src/dvbhddevice/dvbhdffdevice.c	2013-03-02 18:58:21.000000000 +0100
++++ vdr-2.0.1/PLUGINS/src/dvbhddevice/dvbhdffdevice.c	2013-04-11 10:41:16.000000000 +0200
+@@ -574,14 +574,35 @@
+     }
+     else
+     {
++        //printf("ScaleVideo: Rect = %d %d %d %d\n", Rect.X(), Rect.Y(), Rect.Width(), Rect.Height());
++
+         int osdWidth;
+         int osdHeight;
+         double osdPixelAspect;
+ 
+         GetOsdSize(osdWidth, osdHeight, osdPixelAspect);
+-        mHdffCmdIf->CmdAvSetVideoWindow(0, true,
+-            Rect.X() * 1000 / osdWidth, Rect.Y() * 1000 / osdHeight,
+-            Rect.Width() * 1000 / osdWidth, Rect.Height() * 1000 / osdHeight);
++        //printf("ScaleVideo: OsdSize = %d %d %g\n", osdWidth, osdHeight, osdPixelAspect);
++
++        // Convert the video window coordinates in 1/10 percent of the display
++        // resolution.
++        int x = (Rect.X() * 1000 + osdWidth / 2) / osdWidth;
++        int y = (Rect.Y() * 1000 + osdHeight / 2) / osdHeight;
++        int w = (Rect.Width() * 1000 + osdWidth / 2) / osdWidth;
++        int h = (Rect.Height() * 1000 + osdHeight / 2) / osdHeight;
++        //printf("ScaleVideo: Win1 = %d %d %d %d\n", x, y, w, h);
++
++        // fix aspect ratio, reposition video
++        if (w > h) {
++            x += (w - h) / 2;
++            w = h;
++        }
++        else if (w < h) {
++            y += (h - w) / 2;
++            h = w;
++        }
++
++        //printf("ScaleVideo: Win2 = %d %d %d %d\n", x, y, w, h);
++        mHdffCmdIf->CmdAvSetVideoWindow(0, true, x, y, w, h);
+     }
+ }
+ 
+diff -ruN vdr-2.0.0/config.h vdr-2.0.1/config.h
+--- vdr-2.0.0/config.h	2013-03-31 11:30:18.000000000 +0200
++++ vdr-2.0.1/config.h	2013-04-05 12:41:32.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.76 2013/03/31 09:30:18 kls Exp $
++ * $Id: config.h 2.76.1.1 2013/04/05 10:41:32 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,8 +22,8 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "2.0.0"
+-#define VDRVERSNUM   20000  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "2.0.1"
++#define VDRVERSNUM   20001  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+diff -ruN vdr-2.0.0/device.c vdr-2.0.1/device.c
+--- vdr-2.0.0/device.c	2013-03-07 14:18:35.000000000 +0100
++++ vdr-2.0.1/device.c	2013-04-05 12:47:38.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.74 2013/03/07 13:18:35 kls Exp $
++ * $Id: device.c 2.74.1.1 2013/04/05 10:47:38 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -94,11 +94,11 @@
+ 
+   player = NULL;
+   isPlayingVideo = false;
++  keepTracks = false; // used in ClrAvailableTracks()!
+   ClrAvailableTracks();
+   currentAudioTrack = ttNone;
+   currentAudioTrackMissingCount = 0;
+   currentSubtitleTrack = ttNone;
+-  keepTracks = false;
+   liveSubtitle = NULL;
+   dvbSubtitleConverter = NULL;
+   autoSelectPreferredSubtitleLanguage = true;
+diff -ruN vdr-2.0.0/dvbdevice.c vdr-2.0.1/dvbdevice.c
+--- vdr-2.0.0/dvbdevice.c	2013-03-16 16:23:35.000000000 +0100
++++ vdr-2.0.1/dvbdevice.c	2013-04-09 15:42:26.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.88 2013/03/16 15:23:35 kls Exp $
++ * $Id: dvbdevice.c 2.88.1.1 2013/04/09 13:42:26 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -21,10 +21,7 @@
+ #include "menuitems.h"
+ #include "sourceparams.h"
+ 
+-#if (DVB_API_VERSION << 8 | DVB_API_VERSION_MINOR) < 0x0508
+-#define DTV_STREAM_ID DTV_DVBT2_PLP_ID
+-#define FE_CAN_MULTISTREAM 0x4000000
+-#endif
++static int DvbApiVersion = 0x0000; // the version of the DVB driver actually in use (will be determined by the first device created)
+ 
+ #define DVBS_TUNE_TIMEOUT  9000 //ms
+ #define DVBS_LOCK_TIMEOUT  2000 //ms
+@@ -801,7 +798,8 @@
+         // DVB-S2
+         SETCMD(DTV_PILOT, PILOT_AUTO);
+         SETCMD(DTV_ROLLOFF, dtp.RollOff());
+-        SETCMD(DTV_STREAM_ID, dtp.StreamId());
++        if (DvbApiVersion >= 0x0508)
++           SETCMD(DTV_STREAM_ID, dtp.StreamId());
+         }
+      else {
+         // DVB-S
+@@ -835,7 +833,11 @@
+      SETCMD(DTV_HIERARCHY, dtp.Hierarchy());
+      if (frontendType == SYS_DVBT2) {
+         // DVB-T2
+-        SETCMD(DTV_STREAM_ID, dtp.StreamId());
++        if (DvbApiVersion >= 0x0508) {
++           SETCMD(DTV_STREAM_ID, dtp.StreamId());
++           }
++        else if (DvbApiVersion >= 0x0503)
++           SETCMD(DTV_DVBT2_PLP_ID_LEGACY, dtp.StreamId());
+         }
+ 
+      tuneTimeout = DVBT_TUNE_TIMEOUT;
+@@ -1178,28 +1180,44 @@
+      LOG_ERROR;
+      return false;
+      }
+-#if (DVB_API_VERSION << 8 | DVB_API_VERSION_MINOR) >= 0x0505
+   dtv_property Frontend[1];
+-  memset(&Frontend, 0, sizeof(Frontend));
+   dtv_properties CmdSeq;
+-  memset(&CmdSeq, 0, sizeof(CmdSeq));
+-  CmdSeq.props = Frontend;
+-  SETCMD(DTV_ENUM_DELSYS, 0);
+-  int Result = ioctl(fd_frontend, FE_GET_PROPERTY, &CmdSeq);
+-  if (Result == 0) {
+-     for (uint i = 0; i < Frontend[0].u.buffer.len; i++) {
+-         if (numDeliverySystems >= MAXDELIVERYSYSTEMS) {
+-            esyslog("ERROR: too many delivery systems on frontend %d/%d", adapter, frontend);
+-            break;
++  // Determine the version of the running DVB API:
++  if (!DvbApiVersion) {
++     memset(&Frontend, 0, sizeof(Frontend));
++     memset(&CmdSeq, 0, sizeof(CmdSeq));
++     CmdSeq.props = Frontend;
++     SETCMD(DTV_API_VERSION, 0);
++     if (ioctl(fd_frontend, FE_GET_PROPERTY, &CmdSeq) != 0) {
++        LOG_ERROR;
++        return false;
++        }
++     DvbApiVersion = Frontend[0].u.data;
++     isyslog("DVB API version is 0x%04X (VDR was built with 0x%04X)", DvbApiVersion, DVBAPIVERSION);
++     }
++  // Determine the types of delivery systems this device provides:
++  bool LegacyMode = true;
++  if (DvbApiVersion >= 0x0505) {
++     memset(&Frontend, 0, sizeof(Frontend));
++     memset(&CmdSeq, 0, sizeof(CmdSeq));
++     CmdSeq.props = Frontend;
++     SETCMD(DTV_ENUM_DELSYS, 0);
++     int Result = ioctl(fd_frontend, FE_GET_PROPERTY, &CmdSeq);
++     if (Result == 0) {
++        for (uint i = 0; i < Frontend[0].u.buffer.len; i++) {
++            if (numDeliverySystems >= MAXDELIVERYSYSTEMS) {
++               esyslog("ERROR: too many delivery systems on frontend %d/%d", adapter, frontend);
++               break;
++               }
++            deliverySystems[numDeliverySystems++] = Frontend[0].u.buffer.data[i];
+             }
+-         deliverySystems[numDeliverySystems++] = Frontend[0].u.buffer.data[i];
+-         }
++        LegacyMode = false;
++        }
++     else {
++        esyslog("ERROR: can't query delivery systems on frontend %d/%d - falling back to legacy mode", adapter, frontend);
++        }
+      }
+-  else {
+-     esyslog("ERROR: can't query delivery systems on frontend %d/%d - falling back to legacy mode", adapter, frontend);
+-#else
+-     {
+-#endif
++  if (LegacyMode) {
+      // Legacy mode (DVB-API < 5.5):
+      switch (frontendInfo.type) {
+        case FE_QPSK: deliverySystems[numDeliverySystems++] = SYS_DVBS;
+diff -ruN vdr-2.0.0/dvbdevice.h vdr-2.0.1/dvbdevice.h
+--- vdr-2.0.0/dvbdevice.h	2013-03-07 10:42:29.000000000 +0100
++++ vdr-2.0.1/dvbdevice.h	2013-04-09 15:43:33.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 2.29 2013/03/07 09:42:29 kls Exp $
++ * $Id: dvbdevice.h 2.29.1.1 2013/04/09 13:43:33 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -14,10 +14,59 @@
+ #include <linux/dvb/version.h>
+ #include "device.h"
+ 
+-#if (DVB_API_VERSION << 8 | DVB_API_VERSION_MINOR) < 0x0503
+-#error VDR requires Linux DVB driver API version 5.3 or higher!
++#define DVBAPIVERSION (DVB_API_VERSION << 8 | DVB_API_VERSION_MINOR)
++
++#if DVBAPIVERSION < 0x0500
++#error VDR requires Linux DVB driver API version 5.0 or higher!
++#endif
++
++// --- Definitions for older DVB API versions --------------------------------
++
++#if DVBAPIVERSION < 0x0501
++enum {
++  FE_CAN_2G_MODULATION = 0x10000000,
++  };
++enum {
++  TRANSMISSION_MODE_4K = TRANSMISSION_MODE_AUTO + 1,
++  };
+ #endif
+ 
++#if DVBAPIVERSION < 0x0502
++enum {
++  FE_CAN_TURBO_FEC = 0x8000000,
++  };
++#endif
++
++#if DVBAPIVERSION < 0x0503
++enum {
++  TRANSMISSION_MODE_1K = TRANSMISSION_MODE_4K + 1,
++  TRANSMISSION_MODE_16K,
++  TRANSMISSION_MODE_32K,
++  };
++enum {
++  GUARD_INTERVAL_1_128 = GUARD_INTERVAL_AUTO + 1,
++  GUARD_INTERVAL_19_128,
++  GUARD_INTERVAL_19_256,
++  };
++enum {
++  SYS_DVBT2 = SYS_DAB + 1,
++  };
++#endif
++
++#if DVBAPIVERSION < 0x0505
++#define DTV_ENUM_DELSYS  44
++#endif
++
++#if DVBAPIVERSION < 0x0508
++enum {
++  FE_CAN_MULTISTREAM = 0x4000000,
++  };
++#define DTV_STREAM_ID            42
++#define DTV_DVBT2_PLP_ID_LEGACY  43
++#endif
++
++// --- End of definitions for older DVB API versions -------------------------
++
+ #define MAXDVBDEVICES  8
+ #define MAXDELIVERYSYSTEMS 8
+ 
+diff -ruN vdr-2.0.0/font.c vdr-2.0.1/font.c
+--- vdr-2.0.0/font.c	2012-06-02 15:38:28.000000000 +0200
++++ vdr-2.0.1/font.c	2013-04-07 16:54:15.000000000 +0200
+@@ -6,7 +6,7 @@
+  *
+  * BiDi support by Osama Alrawab <alrawab@hotmail.com> @2008 Tripoli-Libya.
+  *
+- * $Id: font.c 2.13 2012/06/02 13:38:28 kls Exp $
++ * $Id: font.c 2.13.1.1 2013/04/07 14:54:15 kls Exp $
+  */
+ 
+ #include "font.h"
+@@ -592,7 +592,7 @@
+             p = Blank;
+             continue;
+             }
+-         else {
++         else if (w > 0) { // there has to be at least one character before the newline
+             // Here's the ugly part, where we don't have any whitespace to
+             // punch in a newline, so we need to make room for it:
+             if (Delim)
+@@ -608,8 +608,7 @@
+             continue;
+             }
+          }
+-      else
+-         w += cw;
++      w += cw;
+       if (strchr("-.,:;!?_", *p)) {
+          Delim = p;
+          Blank = NULL;
+diff -ruN vdr-2.0.0/newplugin vdr-2.0.1/newplugin
+--- vdr-2.0.0/newplugin	2013-01-12 14:46:00.000000000 +0100
++++ vdr-2.0.1/newplugin	2013-01-12 14:46:00.000000000 +0100
+@@ -353,7 +353,7 @@
+ sub CreateFile
+ {
+   my ($Name, $Content) = @_;
+-  open(FILE, ">$PLUGINDIR/$Name") || die "$Name:  $!\n";
++  open(FILE, ">$PLUGINDIR/$Name") || die "$Name: V20001 $!\n";
+   print FILE $Content;
+   close(FILE);
+ }
+diff -ruN vdr-2.0.0/recording.c vdr-2.0.1/recording.c
+--- vdr-2.0.0/recording.c	2013-03-11 11:34:41.000000000 +0100
++++ vdr-2.0.1/recording.c	2013-04-11 10:20:03.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.91 2013/03/11 10:34:41 kls Exp $
++ * $Id: recording.c 2.91.1.1 2013/04/11 08:20:03 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -561,6 +561,7 @@
+                      // characters that can be mapped to other characters:
+                      case ' ': *p = '_'; break;
+                      case FOLDERDELIMCHAR: *p = '/'; break;
++                     case '/': *p = FOLDERDELIMCHAR; break;
+                      // characters that have to be encoded:
+                      default:
+                        if (NeedsConversion(p)) {
+@@ -583,6 +584,7 @@
+               switch (*p) {
+                 // mapped characters:
+                 case '_': *p = ' '; break;
++                case FOLDERDELIMCHAR: *p = '/'; break;
+                 case '/': *p = FOLDERDELIMCHAR; break;
+                 // encoded characters:
+                 case '#': {
+diff -ruN vdr-2.0.0/thread.c vdr-2.0.1/thread.c
+--- vdr-2.0.0/thread.c	2013-02-22 15:52:49.000000000 +0100
++++ vdr-2.0.1/thread.c	2013-04-11 10:59:26.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: thread.c 2.7 2013/02/22 14:52:49 kls Exp $
++ * $Id: thread.c 2.7.1.1 2013/04/11 08:59:26 kls Exp $
+  */
+ 
+ #include "thread.h"
+@@ -229,7 +229,7 @@
+ 
+ void cThread::SetIOPriority(int Priority)
+ {
+-  if (syscall(SYS_ioprio_set, 1, 0, (Priority & 0xff) | (2 << 13)) < 0) // best effort class
++  if (syscall(SYS_ioprio_set, 1, 0, (Priority & 0xff) | (3 << 13)) < 0) // idle class
+      LOG_ERROR;
+ }
+ 

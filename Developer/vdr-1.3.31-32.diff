@@ -1,0 +1,3722 @@
+diff -ruN vdr-1.3.31/CONTRIBUTORS vdr-1.3.32/CONTRIBUTORS
+--- vdr-1.3.31/CONTRIBUTORS	2005-08-28 16:18:24.000000000 +0200
++++ vdr-1.3.32/CONTRIBUTORS	2005-09-11 15:23:49.000000000 +0200
+@@ -13,6 +13,7 @@
+  for suggesting that the "Back" button in replay mode should bring up the "Recordings" menu
+  for fixing the watchdog timer if the program hangs in OSD activities
+  for his support in keeping the Premiere World channels up to date in 'channels.conf'
++ for fixing converting summary.vdr files that would result in a very long 'short text'
+ 
+ Plamen Ganev <pganev@com-it.net>
+  for fixing the frequency offset for Hotbird channels
+@@ -588,6 +589,7 @@
+  unavailable due to a recording on a different transponder
+  for reporting a compiler warning about virtual cConfig::Load() functions
+  for reporting a warning about character comparison in libsi/si.c
++ for adjusting the Makefile to the dvb-kernel driver on kernel 2.6 and up
+ 
+ Andy Carter <fruit@ukgateway.net>
+  for helping to test new DVB-T handling
+@@ -791,6 +793,7 @@
+  for modifying LOF handling to allow for C-band reception
+  for reporting a crash in creating a new timer in case there is no device in the
+  system that can actually receive any channel
++ for suggesting to re-introduced the code that waits for a tuner lock in VDR/device.c
+ 
+ Ludwig Nussel <ludwig.nussel@web.de>
+  for making the LIRC thread avoid high CPU load in case the connection to LIRC gets lost
+@@ -828,6 +831,7 @@
+  umask settings
+  for reporting that there are empty info.vdr files created if there is no EPG
+  info available
++ for implementing the SVDRP command MOVC
+ 
+ Manuel Hartl <icecep@gmx.net>
+  for suggesting to extend the logging info when starting/stopping timers
+@@ -908,6 +912,7 @@
+ 
+ Peter Bieringer <pb@bieringer.de>
+  for reporting a problem with duplicate recordings with the same file name
++ for suggesting to implement the command line option '--vfat'
+ 
+ Alexander Damhuis <ad@phonedation.de>
+  for reporting problems when deleting a timer that is currently recording
+@@ -978,6 +983,9 @@
+  for fixing cDvbSpuBitmap::putPixel()
+  for implementing cAudioRepacker in remux.c
+  for modifying handling of audio packets for radio channels in remux.c
++ for suggesting to always use stream id 0xE0 for the video stream, to avoid problems
++ with post processing tools that choke on different ids
++ for fixing cDvbPlayer::SkipFrames() to properly handle radio recordings
+ 
+ Richard Robson <richard_robson@beeb.net>
+  for reporting freezing replay if a timer starts while in Transfer Mode from the
+@@ -1153,6 +1161,7 @@
+  for reporting an unused variable from cTimer::GetWDayFromMDay()
+  for reporting a spelling error in 'canceling'
+  for adding some 'mkdir -p' to the Makefile's 'install' target
++ for reporting some missing braces in remux.c
+ 
+ Marco Schlüßler <marco@lordzodiac.de>
+  for fixing handling colors in cDvbSpuPalette::yuv2rgb()
+@@ -1266,6 +1275,7 @@
+  for suggesting a fix for an out-of-bounds memory access with audio language ids
+  for reporting a problem with cRemux in a single thread
+  for adding 'Service' functions to the plugin interface
++ for reporting an unused MAINMENUENTRY in svdrpdemo.c
+ 
+ Sven Kreiensen <svenk@kammer.uni-hannover.de>
+  for his help in keeping 'channels.conf.terr' up to date
+@@ -1287,6 +1297,8 @@
+ 
+ Mogens Elneff <mogens@elneff.dk>
+  for translating OSD texts to the Danish language
++ for his help in testing automatically selecting the proper audio channel when
++ switching to a channel with two different languages on the same PID
+ 
+ Joachim Wilke <vdr@joachim-wilke.de>
+  for reporting missing calls to cStatus::MsgOsdClear() in cSkins::Message()
+@@ -1382,6 +1394,9 @@
+ Ville Skyttä <ville.skytta@iki.fi>
+  for reporting several compiler warnings in gcc 4.0
+  for including the optional user defined Make.config from the 'libsi' Makefile
++ for making LIRC command parsing more robust
++ for fixing some typos in MANUAL
++ for reporting that the default value for "Setup/EPG bugfix level" was wrong
+ 
+ Steffen Beyer <cpunk@reactor.de>
+  for fixing setting the colored button help after deleting a recording in case the next
+@@ -1389,6 +1404,7 @@
+ 
+ Daniel Thompson <daniel.thompson@st.com>
+  for fixing a memory leak in tComponent
++ for introducing a separate 'plugins-install' target in the Makefile
+ 
+ Matthias Lötzke <Matthias@Loetzke.de>
+  for adding missing text internationalization for "Starting EPG scan"
+@@ -1414,6 +1430,7 @@
+  for avoiding unnecessary calls to getLength() in libsi/si.c, and avoiding the
+  '& 0xff' in CRC32::crc32() of libsi/util.c
+  for suggesting to reduce the priority of the section handler threads
++ for a patch that was used to implement a hash for the channels
+ 
+ Henrik Niehaus <henrik.niehaus@gmx.de>
+  for reporting a problem with timers with a day given as MTWTF--@6, i.e. a repeating
+@@ -1456,3 +1473,9 @@
+ 
+ Harald Milz <hm@seneca.muc.de>
+  for his CUTR patch, which was used as a base to implement the SVDRP command EDIT
++
++Marko Mäkelä <marko.makela@hut.fi>
++ for making repeat keys be ignored when waiting for a keypress to cancel an operation
++
++Patrick Rother <krd-vdr@gulu.net>
++ for reporting a bug in defining timers that only differ in the day of week
+diff -ruN vdr-1.3.31/HISTORY vdr-1.3.32/HISTORY
+--- vdr-1.3.31/HISTORY	2005-08-28 16:16:51.000000000 +0200
++++ vdr-1.3.32/HISTORY	2005-09-11 15:23:12.000000000 +0200
+@@ -1114,7 +1114,7 @@
+   Please check if your system provides 'killall' - if it doesn't, please change
+   this back in 'runvdr' and report this (thanks to Achim Lange).
+ - The "Commands" menu now automatically assigns number keys as hotkeys to the
+-  commands. If you have preceeded your commands with digits you may want to
++  commands. If you have preceded your commands with digits you may want to
+   remove these from your 'commands.conf' file.
+ - The new Setup item "Restart" can be used to force a complete restart of VDR,
+   including reloading the driver. Note that this can only work if VDR and the
+@@ -3746,3 +3746,63 @@
+   Hardy Flor).
+ - The new SVDRP command EDIT can be used to start the editing process of a recording
+   (based on the CUTR patch by Harald Milz).
++
++2005-09-11: Version 1.3.32
++
++- Added some missing braces in remux.c (thanks to Wayne Keer for reporting this one).
++- Removed unused MAINMENUENTRY from svdrpdemo.c (thanks to Udo Richter for reporting
++  this one).
++- Fixed appending sequence end code in cDvbPlayer::Goto() (thanks to Reinhard Nissl).
++- Fixed syncing in cRepacker (thanks to Reinhard Nissl).
++- Now always using stream id 0xE0 for the video stream, to avoid problems with
++  post processing tools that choke on different ids (suggested by Reinhard Nissl).
++- Updated the Estonian OSD texts (thanks to Arthur Konovalov).
++- Fixed cDvbPlayer::SkipFrames() to properly handle radio recordings (thanks to
++  Reinhard Nissl).
++- Updated the Swedish OSD texts (thanks to Tomas Prybil).
++- Updated the Slovenian OSD texts (thanks to Matjaz Thaler).
++- Updated the Danish OSD texts (thanks to Mogens Elneff).
++- Made LIRC command parsing more robust (thanks to Ville Skyttä).
++- Introduced a separate 'plugins-install' target in the Makefile (thanks to Daniel
++  Thompson).
++- Re-introduced the code that waits for a tuner lock in VDR/device.c, since
++  apparently some users actually need it. It's not active by default, you'll have
++  to define the WAIT_FOR_TUNER_LOCK macro in that file if you need it (suggested
++  by Malcolm Caldwell).
++- Adjusted the Makefile to the dvb-kernel driver on kernel 2.6 and up (thanks to
++  Lauri Tischler).
++- Repeat keys are now ignored when waiting for a keypress to cancel an operation
++  (thanks to Marko Mäkelä).
++- The main menu function of a plugin can now be activated through a key macro of
++  the form "@plugin" even if that plugin doesn't have a main menu entry (using
++  part of a patch by Hardy Flor, which originally implemented calling plugins from
++  SVDRP).
++- The menu timeout handling is now done centrally in the main program loop.
++- Added missing help for the 'help' keyword in the SVDRP command PLUG.
++- The main menu function of a plugin can now be called programmatically through
++  the static function cRemote::CallPlugin().
++- The SVDRP command PLUG now has a new option 'main' which can be used to initiate
++  a call to the main menu function of a plugin (using part of a patch by Hardy Flor).
++- The new command line option '--vfat' can be used to make VDR encode special
++  characters in recording file names, even if it wasn't compiled with VFAT=1
++  (suggested by Peter Bieringer). The compile time option VFAT still exists and
++  creates a VDR that always behaves as if it were called with '--vfat'.
++- Replaced the ':' delimiter between hour and minute in recording file names with
++  a '.' under Linux, too. Existing recordings with ':' as delimiter will still work.
++- Implemented the SVDRP command MOVC (thanks to Andreas Brachold).
++- Added support for multiple audio language codes in ISO639LanguageDescriptors to
++  'libsi' (thanks to Marcel Wiesweg).
++- Changed the audio PID language codes to hold up to two 3 letter codes, separated
++  by '+', to store separate languages broadcast in two channel audio mode.
++- If the preferred audio language is broadcast on a PID that has two different
++  languages in the two stereo channels, the audio channel is now properly set when
++  switching to such a channel (thanks to Mogens Elneff for his help in testing this).
++- Fixed some typos in MANUAL (thanks to Ville Skyttä).
++- Fixed the default value for "Setup/EPG bugfix level" (thanks to Ville Skyttä for
++  reporting this one).
++- Fixed defining timers that only differ in the day of week (thanks to Patrick
++  Rother for reporting this one).
++- Fixed converting summary.vdr files that would result in a very long 'short text'
++  (thanks to Carsten Koch).
++- Implemented a hash for the channels to reduce the system load in the EIT scanning
++  thread (based on a patch by Georg Acher).
+diff -ruN vdr-1.3.31/INSTALL vdr-1.3.32/INSTALL
+--- vdr-1.3.31/INSTALL	2005-07-31 13:34:37.000000000 +0200
++++ vdr-1.3.32/INSTALL	2005-09-03 15:25:50.000000000 +0200
+@@ -23,18 +23,21 @@
+ Compiling and running the program:
+ ----------------------------------
+ 
+-Make sure the files from this package are located in a
+-directory that is "parallel" to the DVB directory of the
+-driver source for the Siemens DVB-S PCI card (refer to
+-http://linuxtv.org/dvb/siemens_dvb.html for more information
+-about that driver). For example, if the DVB driver was 
+-extracted into the directory /home/kls/vdr/DVB, then this
+-package should be extracted into /home/kls/vdr/VDR.
++VDR requires the Linux-DVB driver header files to compile.
++As of kernel 2.6 these are part of the official Linux kernel
++distribution, and VDR's Makefile will automatically locate
++them. If you are using kernel 2.4 or earlier, you should
++install the files from this package in a directory that is
++"parallel" to the DVB directory of the driver source (refer to
++http://linuxtv.org for more information about that driver).
++For example, if the DVB driver was extracted into the directory
++/home/kls/vdr/DVB, then this package should be extracted into
++/home/kls/vdr/VDR.
+ If you have the DVB driver source in a different location
+-you will have to change the definition of DVBDIR in the
+-Makefile (see the file Make.config.template).
++you can rename the file Make.config.template to Make.config and
++adjust the definition of DVBDIR in that file.
+ 
+-VDR requires the Linux-DVB card driver version dated 2003-08-23 or higher
++VDR requires the Linux-DVB driver version dated 2003-08-23 or higher
+ to work properly.
+ 
+ After extracting the package, change into the VDR directory
+@@ -68,7 +71,8 @@
+ 
+   VFAT=1
+ 
+-to the 'make' command.
++to the 'make' command. Alternatively, you can call VDR with the command
++line option '--vfat'.
+ 
+ When running, the 'vdr' program writes status information into the
+ system log file (/var/log/messages). You may want to watch these
+diff -ruN vdr-1.3.31/MANUAL vdr-1.3.32/MANUAL
+--- vdr-1.3.31/MANUAL	2005-08-13 15:48:10.000000000 +0200
++++ vdr-1.3.32/MANUAL	2005-09-09 17:07:32.000000000 +0200
+@@ -77,7 +77,7 @@
+       "by name" and "by provider".
+   (4) In the "Timers" menu, when on the "Day" item, the '0' key toggles between
+       a single shot and a repeating timer. If "Day" indicates a repeating timer,
+-      the keys '1'...'7' can be used to toggle the individual days ('1' is monday).
++      the keys '1'...'7' can be used to toggle the individual days ('1' is Monday).
+ 
+ * Navigating through the On Screen Menus
+ 
+@@ -342,7 +342,7 @@
+   mark, and a triangle at the bottom means that this is an "end" mark.
+   The cutting process will save all video data between "start" and "end" marks
+   into a new file (the original recording remains untouched). The new file will
+-  have the same name as the original recording, preceeded with a '%' character
++  have the same name as the original recording, preceded with a '%' character
+   (imagine the '%' somehow looking like a pair of scissors ;-). Red bars in the
+   progress display indicate which video sequences will be saved by the cutting
+   process.
+@@ -376,7 +376,7 @@
+   The parameters in the "Edit Timer" menu have the following meanings:
+ 
+   Active:    Defines whether the timer will be processed (set it to 'no' to
+-             temporarily desable a timer).
++             temporarily disable a timer).
+   Channel:   The channel to be recorded (as defined in the "Channels" list).
+              Any changes made in the "Channels" list (like renaming or
+              reordering channels) will be automatically reflected in the
+@@ -386,11 +386,11 @@
+              timer that hits once and is deleted after it ends.
+              Another option here are "repeating timers" which are defined
+              by listing the days of the week on which they shall record.
+-             For example, a timer that shall record every monday and wednesday
++             For example, a timer that shall record every Monday and Wednesday
+              would have a Day setting of "M-W----".
+              The '0' key toggles between a single shot and a repeating timer.
+              If "Day" indicates a repeating timer, the keys '1'...'7' can be
+-             used to toggle the individual days ('1' is monday).
++             used to toggle the individual days ('1' is Monday).
+              You can also switch to a set of predefined repeating timer settings
+              by pressing the "Left" key when the day is the present day. To return
+              to the single shot mode just press "Right" until a date is displayed.
+@@ -545,7 +545,7 @@
+   Set system time = no   Defines whether the system time will be set according to
+                          the time received from the DVB data stream.
+                          Note that this works only if VDR is running under a user
+-                         id that has permisson to set the system time. You also
++                         id that has permission to set the system time. You also
+                          need to set the option "Use time from transponder" to a
+                          channel that you trust to transmit a reliable time base
+                          (not all channels seem to have access to a correct time
+diff -ruN vdr-1.3.31/Make.config.template vdr-1.3.32/Make.config.template
+--- vdr-1.3.31/Make.config.template	2005-07-31 13:35:28.000000000 +0200
++++ vdr-1.3.32/Make.config.template	2005-09-02 16:24:31.000000000 +0200
+@@ -6,7 +6,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Make.config.template 1.5 2005/07/31 11:35:28 kls Exp $
++# $Id: Make.config.template 1.6 2005/09/02 14:24:31 kls Exp $
+ 
+ ### The C compiler and options:
+ 
+@@ -18,7 +18,7 @@
+ 
+ ### The directory environment:
+ 
+-DVBDIR   = ../DVB
++#DVBDIR   = ../DVB
+ MANDIR   = /usr/local/man
+ BINDIR   = /usr/local/bin
+ 
+diff -ruN vdr-1.3.31/Makefile vdr-1.3.32/Makefile
+--- vdr-1.3.31/Makefile	2005-08-14 13:42:20.000000000 +0200
++++ vdr-1.3.32/Makefile	2005-09-02 16:23:38.000000000 +0200
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 1.77 2005/08/14 11:42:20 kls Exp $
++# $Id: Makefile 1.79 2005/09/02 14:23:38 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -14,7 +14,16 @@
+ CXX      ?= g++
+ CXXFLAGS ?= -fPIC -g -O2 -Wall -Woverloaded-virtual
+ 
+-DVBDIR   = ../DVB
++LINUX_VERSION := $(shell uname -r | cut -c-3)
++LINUX         := $(shell uname -r)
++DVBDIR        := /lib/modules/$(LINUX)/build
++ifeq ($(LINUX_VERSION), 2.4)
++   DVBDIR = ../DVB
++endif
++ifeq ($(LINUX_VERSION), 2.2)
++   DVBDIR = ../DVB
++endif
++
+ LSIDIR   = ./libsi
+ MANDIR   = /usr/local/man
+ BINDIR   = /usr/local/bin
+@@ -185,8 +194,6 @@
+ install:
+ 	@mkdir -p $(BINDIR)
+ 	@cp vdr runvdr $(BINDIR)
+-	@mkdir -p $(BINDIR)/$(PLUGINLIBDIR)
+-	@cp $(PLUGINLIBDIR)/* $(BINDIR)/$(PLUGINLIBDIR)
+ 	@mkdir -p $(MANDIR)/man1
+ 	@mkdir -p $(MANDIR)/man5
+ 	@gzip -c vdr.1 > $(MANDIR)/man1/vdr.1.gz
+@@ -196,6 +203,10 @@
+             cp *.conf $(VIDEODIR);\
+             fi
+ 
++plugins-install:
++	@mkdir -p $(BINDIR)/$(PLUGINLIBDIR)
++	@cp $(PLUGINLIBDIR)/* $(BINDIR)/$(PLUGINLIBDIR)
++
+ # Source documentation:
+ 
+ srcdoc:
+diff -ruN vdr-1.3.31/PLUGINS/src/svdrpdemo/HISTORY vdr-1.3.32/PLUGINS/src/svdrpdemo/HISTORY
+--- vdr-1.3.31/PLUGINS/src/svdrpdemo/HISTORY	2005-08-27 13:26:49.000000000 +0200
++++ vdr-1.3.32/PLUGINS/src/svdrpdemo/HISTORY	2005-08-28 23:11:00.000000000 +0200
+@@ -4,3 +4,7 @@
+ 2005-08-27: Version 0.0.1
+ 
+ - Initial revision.
++
++2005-08-28: Version 0.0.2
++
++- Removed unused MAINMENUENTRY.
+diff -ruN vdr-1.3.31/PLUGINS/src/svdrpdemo/svdrpdemo.c vdr-1.3.32/PLUGINS/src/svdrpdemo/svdrpdemo.c
+--- vdr-1.3.31/PLUGINS/src/svdrpdemo/svdrpdemo.c	2005-08-27 18:28:58.000000000 +0200
++++ vdr-1.3.32/PLUGINS/src/svdrpdemo/svdrpdemo.c	2005-08-28 23:11:14.000000000 +0200
+@@ -3,14 +3,13 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: svdrpdemo.c 1.1 2005/08/27 16:28:58 kls Exp $
++ * $Id: svdrpdemo.c 1.2 2005/08/28 21:11:14 kls Exp $
+  */
+ 
+ #include <vdr/plugin.h>
+ 
+-static const char *VERSION        = "0.0.1";
++static const char *VERSION        = "0.0.2";
+ static const char *DESCRIPTION    = "How to add SVDRP support to a plugin";
+-static const char *MAINMENUENTRY  = NULL;
+ 
+ class cPluginSvdrpdemo : public cPlugin {
+ private:
+diff -ruN vdr-1.3.31/PLUGINS.html vdr-1.3.32/PLUGINS.html
+--- vdr-1.3.31/PLUGINS.html	2005-08-28 16:28:53.000000000 +0200
++++ vdr-1.3.32/PLUGINS.html	2005-09-09 17:14:04.000000000 +0200
+@@ -273,7 +273,7 @@
+ 
+ The example shown here is the way VDR does this in its core source files.
+ It takes the header file's name, converts it to all uppercase, replaces the
+-dot with an underline and preceedes the whole thing with two underlines.
++dot with an underline and precedes the whole thing with two underlines.
+ The GNU library header files do this pretty much the same way, except that they
+ usually precede the name with only one underline (there are exceptions, though).
+ <p>
+@@ -655,7 +655,7 @@
+ <p>
+ The plugin's setup parameters are stored in the same file as VDR's parameters.
+ In order to allow each plugin (and VDR itself) to have its own set of parameters,
+-the <tt>Name</tt> of each parameter will be preceeded with the plugin's
++the <tt>Name</tt> of each parameter will be preceded with the plugin's
+ name, as in
+ <p>
+ <tt>hello.GreetingTime = 3</tt>
+@@ -1031,7 +1031,7 @@
+ particular plugin's definitions.
+ <p>
+ The returned string may consist of several lines, separated by the newline character
+-('<tt>\n</tt>'). Each of these lines will be preceeded with the <tt>ReplyCode</tt>
++('<tt>\n</tt>'). Each of these lines will be preceded with the <tt>ReplyCode</tt>
+ when presenting them to the caller, and the continuation character ('<tt>-</tt>')
+ will be set for all but the last one.
+ 
+diff -ruN vdr-1.3.31/channels.c vdr-1.3.32/channels.c
+--- vdr-1.3.31/channels.c	2005-08-06 14:22:41.000000000 +0200
++++ vdr-1.3.32/channels.c	2005-09-11 16:22:24.000000000 +0200
+@@ -4,12 +4,13 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.c 1.44 2005/08/06 12:22:41 kls Exp $
++ * $Id: channels.c 1.46 2005/09/11 14:22:24 kls Exp $
+  */
+ 
+ #include "channels.h"
+ #include <linux/dvb/frontend.h>
+ #include <ctype.h>
++#include "device.h"
+ 
+ // IMPORTANT NOTE: in the 'sscanf()' calls there is a blank after the '%d'
+ // format characters in order to allow any number of blanks after a numeric
+@@ -341,11 +342,14 @@
+         dsyslog("changing id of channel %d from %d-%d-%d-%d to %d-%d-%d-%d", Number(), nid, tid, sid, rid, Nid, Tid, Sid, Rid);
+         modification |= CHANNELMOD_ID;
+         Channels.SetModified();
++        Channels.UnhashChannel(this);
+         }
+      nid = Nid;
+      tid = Tid;
+      sid = Sid;
+      rid = Rid;
++     if (Number())
++        Channels.HashChannel(this);
+      }
+ }
+ 
+@@ -386,7 +390,7 @@
+ #define STRDIFF 0x01
+ #define VALDIFF 0x02
+ 
+-static int IntArraysDiffer(const int *a, const int *b, const char na[][4] = NULL, const char nb[][4] = NULL)
++static int IntArraysDiffer(const int *a, const int *b, const char na[][MAXLANGCODE2] = NULL, const char nb[][MAXLANGCODE2] = NULL)
+ {
+   int result = 0;
+   for (int i = 0; a[i] || b[i]; i++) {
+@@ -400,7 +404,7 @@
+   return result;
+ }
+ 
+-static int IntArrayToString(char *s, const int *a, int Base = 10, const char n[][4] = NULL)
++static int IntArrayToString(char *s, const int *a, int Base = 10, const char n[][MAXLANGCODE2] = NULL)
+ {
+   char *q = s;
+   int i = 0;
+@@ -416,7 +420,7 @@
+   return q - s;
+ }
+ 
+-void cChannel::SetPids(int Vpid, int Ppid, int *Apids, char ALangs[][4], int *Dpids, char DLangs[][4], int Tpid)
++void cChannel::SetPids(int Vpid, int Ppid, int *Apids, char ALangs[][MAXLANGCODE2], int *Dpids, char DLangs[][MAXLANGCODE2], int Tpid)
+ {
+   int mod = CHANNELMOD_NONE;
+   if (vpid != Vpid || ppid != Ppid || tpid != Tpid)
+@@ -427,8 +431,9 @@
+   if (m & VALDIFF)
+      mod |= CHANNELMOD_PIDS;
+   if (mod) {
+-     char OldApidsBuf[(MAXAPIDS + MAXDPIDS) * 10 + 10]; // 10: 5 digits plus delimiting ',' or ';' plus optional '=cod', +10: paranoia
+-     char NewApidsBuf[(MAXAPIDS + MAXDPIDS) * 10 + 10];
++     const int BufferSize = (MAXAPIDS + MAXDPIDS) * (5 + 1 + MAXLANGCODE2) + 10; // 5 digits plus delimiting ',' or ';' plus optional '=cod+cod', +10: paranoia
++     char OldApidsBuf[BufferSize];
++     char NewApidsBuf[BufferSize];
+      char *q = OldApidsBuf;
+      q += IntArrayToString(q, apids, 10, alangs);
+      if (dpids[0]) {
+@@ -448,12 +453,12 @@
+      ppid = Ppid;
+      for (int i = 0; i < MAXAPIDS; i++) {
+          apids[i] = Apids[i];
+-         strn0cpy(alangs[i], ALangs[i], 4);
++         strn0cpy(alangs[i], ALangs[i], MAXLANGCODE2);
+          }
+      apids[MAXAPIDS] = 0;
+      for (int i = 0; i < MAXDPIDS; i++) {
+          dpids[i] = Dpids[i];
+-         strn0cpy(dlangs[i], DLangs[i], 4);
++         strn0cpy(dlangs[i], DLangs[i], MAXLANGCODE2);
+          }
+      dpids[MAXDPIDS] = 0;
+      tpid = Tpid;
+@@ -633,7 +638,8 @@
+      if (Channel->ppid && Channel->ppid != Channel->vpid)
+         q += snprintf(q, sizeof(vpidbuf) - (q - vpidbuf), "+%d", Channel->ppid);
+      *q = 0;
+-     char apidbuf[(MAXAPIDS + MAXDPIDS) * 10 + 10]; // 10: 5 digits plus delimiting ',' or ';' plus optional '=cod', +10: paranoia
++     const int BufferSize = (MAXAPIDS + MAXDPIDS) * (5 + 1 + MAXLANGCODE2) + 10; // 5 digits plus delimiting ',' or ';' plus optional '=cod+cod', +10: paranoia
++     char apidbuf[BufferSize];
+      q = apidbuf;
+      q += IntArrayToString(q, Channel->apids, 10, Channel->alangs);
+      if (Channel->dpids[0]) {
+@@ -722,7 +728,7 @@
+                     char *l = strchr(q, '=');
+                     if (l) {
+                        *l++ = 0;
+-                       strn0cpy(alangs[NumApids], l, 4);
++                       strn0cpy(alangs[NumApids], l, MAXLANGCODE2);
+                        }
+                     else
+                        *alangs[NumApids] = 0;
+@@ -743,7 +749,7 @@
+                        char *l = strchr(q, '=');
+                        if (l) {
+                           *l++ = 0;
+-                          strn0cpy(dlangs[NumDpids], l, 4);
++                          strn0cpy(dlangs[NumDpids], l, MAXLANGCODE2);
+                           }
+                        else
+                           *dlangs[NumDpids] = 0;
+@@ -865,6 +871,16 @@
+   return false;
+ }
+ 
++void cChannels::HashChannel(cChannel *Channel)
++{
++  channelsHashSid.Add(Channel, Channel->Sid());
++}
++
++void cChannels::UnhashChannel(cChannel *Channel)
++{
++  channelsHashSid.Del(Channel, Channel->Sid());
++}
++
+ int cChannels::GetNextGroup(int Idx)
+ {
+   cChannel *channel = Get(++Idx);
+@@ -891,6 +907,7 @@
+ 
+ void cChannels::ReNumber( void )
+ {
++  channelsHashSid.Clear();
+   int Number = 1;
+   for (cChannel *channel = First(); channel; channel = Next(channel)) {
+       if (channel->GroupSep()) {
+@@ -898,6 +915,7 @@
+             Number = channel->Number();
+          }
+       else {
++         HashChannel(channel);
+          maxNumber = Number;
+          channel->SetNumber(Number++);
+          }
+@@ -921,32 +939,43 @@
+ 
+ cChannel *cChannels::GetByServiceID(int Source, int Transponder, unsigned short ServiceID)
+ {
+-  for (cChannel *channel = First(); channel; channel = Next(channel)) {
+-      if (!channel->GroupSep() && channel->Source() == Source && ISTRANSPONDER(channel->Transponder(), Transponder) && channel->Sid() == ServiceID)
+-         return channel;
+-      }
++  cList<cHashObject> *list = channelsHashSid.GetList(ServiceID);
++  if (list) {
++     for (cHashObject *hobj = list->First(); hobj; hobj = list->Next(hobj)) {
++         cChannel *channel = (cChannel *)hobj->Object();
++         if (channel->Sid() == ServiceID && channel->Source() == Source && ISTRANSPONDER(channel->Transponder(), Transponder))
++            return channel;
++         }
++     }
+   return NULL;
+ }
+ 
+ cChannel *cChannels::GetByChannelID(tChannelID ChannelID, bool TryWithoutRid, bool TryWithoutPolarization)
+ {
+-  for (cChannel *channel = First(); channel; channel = Next(channel)) {
+-      if (!channel->GroupSep() && channel->GetChannelID() == ChannelID)
+-         return channel;
+-      }
+-  if (TryWithoutRid) {
+-     ChannelID.ClrRid();
+-     for (cChannel *channel = First(); channel; channel = Next(channel)) {
+-         if (!channel->GroupSep() && channel->GetChannelID().ClrRid() == ChannelID)
+-            return channel;
+-         }
+-     }
+-  if (TryWithoutPolarization) {
+-     ChannelID.ClrPolarization();
+-     for (cChannel *channel = First(); channel; channel = Next(channel)) {
+-         if (!channel->GroupSep() && channel->GetChannelID().ClrPolarization() == ChannelID)
++  int sid = ChannelID.Sid();
++  cList<cHashObject> *list = channelsHashSid.GetList(sid);
++  if (list) {
++     for (cHashObject *hobj = list->First(); hobj; hobj = list->Next(hobj)) {
++         cChannel *channel = (cChannel *)hobj->Object();
++         if (channel->Sid() == sid && channel->GetChannelID() == ChannelID)
+             return channel;
+          }
++     if (TryWithoutRid) {
++        ChannelID.ClrRid();
++        for (cHashObject *hobj = list->First(); hobj; hobj = list->Next(hobj)) {
++            cChannel *channel = (cChannel *)hobj->Object();
++            if (channel->Sid() == sid && channel->GetChannelID().ClrRid() == ChannelID)
++               return channel;
++            }
++        }
++     if (TryWithoutPolarization) {
++        ChannelID.ClrPolarization();
++        for (cHashObject *hobj = list->First(); hobj; hobj = list->Next(hobj)) {
++            cChannel *channel = (cChannel *)hobj->Object();
++            if (channel->Sid() == sid && channel->GetChannelID().ClrPolarization() == ChannelID)
++               return channel;
++            }
++        }
+      }
+   return NULL;
+ }
+diff -ruN vdr-1.3.31/channels.conf vdr-1.3.32/channels.conf
+--- vdr-1.3.31/channels.conf	2005-08-28 16:30:35.000000000 +0200
++++ vdr-1.3.32/channels.conf	2005-09-11 16:27:50.000000000 +0200
+@@ -1,12 +1,12 @@
+ RTL Television,RTL;RTL World:12187:hC34:S19.2E:27500:163:104=deu:105:0:12003:1:1089:0
+ SAT.1;ProSiebenSat.1:12480:vC34:S19.2E:27500:1791:1792=deu;1795=deu:34:0:46:133:33:0
+-ProSieben;ProSiebenSat.1:12480:vC34:S19.2E:27500:255:256=deu;257=deu:32:0:898:133:33:0
++ProSieben;ProSiebenSat.1:12480:vC34:S19.2E:27500:0:0:0:0:898:133:33:0
+ RTL2;RTL World:12187:hC34:S19.2E:27500:166:128=deu:68:0:12020:1:1089:0
+ Das Erste;ARD:11836:hC34:S19.2E:27500:101:102=deu:104:0:28106:1:1101:0
+ Bayerisches FS;ARD:11836:hC34:S19.2E:27500:201:202=deu:204:0:28107:1:1101:0
+ hr-fernsehen;ARD:11836:hC34:S19.2E:27500:301:302=deu:304:0:28108:1:1101:0
+-NDR FS MV;ARD:12109:hC34:S19.2E:27500:301:302=deu:2404:0:28224:1:1073:0
+-SR SÜDWEST Ferns.;ARD:11836:hC34:S19.2E:27500:501:502=deu:504:0:28110:1:1101:0
++NDR FS MV;ARD:12109:hC34:S19.2E:27500:2401:2402=deu:2404:0:28224:1:1073:0
++SR SÜDWEST Fernsehen;ARD:12265:hC34:S19.2E:27500:1301:1302=deu:1304:0:28486:1:1093:0
+ WDR Köln;ARD:11836:hC34:S19.2E:27500:601:602=deu:604:0:28111:1:1101:0
+ BR-alpha;ARD:11836:hC34:S19.2E:27500:701:702=deu:704:0:28112:1:1101:0
+ SÜDWEST Ferns. BW;ARD:11836:hC34:S19.2E:27500:801:802=deu:804:0:28113:1:1101:0
+@@ -15,7 +15,7 @@
+ 3sat;ZDFvision:11953:hC34:S19.2E:27500:210:220=deu,221=2ch;225=dd:230:0:28007:1:1079:0
+ KiKa;ZDFvision:11953:hC34:S19.2E:27500:310:320=deu:330:0:28008:1:1079:0
+ arte;ARD:11836:hC34:S19.2E:27500:401:402=deu,403=fra:404:0:28109:1:1101:0
+-ORF1;ORF:12692:hC56:S19.2E:22000:160:161=deu;163=deu:165:3:13001:1:1117:0
++ORF1;ORF:12692:hC56:S19.2E:22000:160:161=deu;163=deu:165:1762,D05,1702,1801:13001:1:1117:0
+ ORF2;ORF:12692:hC56:S19.2E:22000:500:501=deu;503=deu:505:3:13002:1:1117:0
+ ZDFinfokanal;ZDFvision:11953:hC34:S19.2E:27500:610:620=deu:130:0:28011:1:1079:0
+ CNN Int.;CNN:11778:vC34:S19.2E:27500:165:100=eng:47:0:28522:1:1068:0
+@@ -27,7 +27,7 @@
+ HSE24,HSE24;BetaDigital:12480:vC34:S19.2E:27500:1279:1280=deu:37:0:40:133:33:0
+ Bloomberg TV Germany;Bloomberg:12551:vC56:S19.2E:22000:162:99=deu:0:0:12160:1:1108:0
+ EURONEWS;CSAT:11817:vC34:S19.2E:27500:163:92=fra,93=eng,94=ita,95=esl,91=rus,98=por,99=deu:0:0:8004:1:1070:0
+-rbb Brandenburg;ARD:12109:hC34:S19.2E:27500:501:502=deu:504:0:28205:1:1073:0
++rbb Brandenburg;ARD:12109:hC34:S19.2E:27500:601:602=deu:604:0:28205:1:1073:0
+ Sky News:11597:vC56:S19.2E:22000:305+131:306=eng:0:0:28707:1:1026:0
+ Veronica/JETIX;CANALDIGITAAL:12574:hC56:S19.2E:22000:518+8190:92=dut:38:622,100:5020:53:1109:0
+ BVN;CANALDIGITAAL:12574:hC56:S19.2E:22000:515+8190:96=dut:36:0:5025:53:1109:0
+@@ -45,9 +45,9 @@
+ :Premiere World
+ PREMIERE START,START;PREMIERE:11797:hC34:S19.2E:27500:255:256=deu:32:1:8:133:2:0
+ PREMIERE 1,PREM 1;PREMIERE:11797:hC34:S19.2E:27500:511:512=deu,513=deu;515=deu:32:1:10:133:2:0
+-PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu,1793=deu;1795=deu:32:1801,1722,1702:11:133:2:0
++PREMIERE 2,PREM 2;PREMIERE:11797:hC34:S19.2E:27500:1791:1792=deu,1793=deu;1795=deu:32:1:11:133:2:0
+ PREMIERE 3,PREM 3;PREMIERE:11797:hC34:S19.2E:27500:2303:2304=deu,2305=deu:32:1722,1801,1702:43:133:2:0
+-PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu:32:1801,1722,1702:9:133:2:0
++PREMIERE 4,PREM 4;PREMIERE:11797:hC34:S19.2E:27500:767:768=deu,769=deu:32:1801,1722,1702:9:133:2:0
+ PREMIERE 5,PREM 5;PREMIERE:11797:hC34:S19.2E:27500:1279:1280=deu:32:1722,1801,1702:29:133:2:0
+ PREMIERE 6,PREM 6;PREMIERE:11797:hC34:S19.2E:27500:1535:1536=deu:32:1702,1801,1722:41:133:2:0
+ PREMIERE 7,PREM 7;PREMIERE:11797:hC34:S19.2E:27500:1023:1024=deu:32:1801,1722,1702:20:133:2:0
+@@ -56,7 +56,7 @@
+ PREMIERE DIREKT,DIREKT;PREMIERE:12031:hC34:S19.2E:27500:2815:2816=deu,2817=deu;2819=deu:0:0:18:133:4:0
+ :PW Erotic
+ BEATE-UHSE.TV,B-UHSE;PREMIERE:11758:hC34:S19.2E:27500:1791:1792=deu:32:1801,1722,1702:21:133:17:0
+-DIREKT EROTIK,EROTIK;PREMIERE:12031:hC34:S19.2E:27500:1279:0:0:1722,1801,1702:513:133:4:0
++DIREKT EROTIK,EROTIK;PREMIERE:12031:hC34:S19.2E:27500:1279:1280=deu:0:1722,1801,1702:513:133:4:0
+ :Sportsworld
+ PREMIERE SPORT PORTAL,SPORT PORTAL;PREMIERE:11719:hC34:S19.2E:27500:255:256=deu,257=deu:32:1702,1801,1722:17:133:3:0
+ PREMIERE WIN,WIN;PREMIERE:12031:hC34:S19.2E:27500:3839:3840=deu:32:1722,1801,1702:27:133:4:0
+@@ -79,8 +79,8 @@
+ ASTRA-Mosaic 5;SES ASTRA:12551:vC56:S19.2E:22000:163:164:0:0:3984:1:1108:0
+ Chamber TV;Chambre des Députées:12551:vC56:S19.2E:22000:55:56=ltz:0:0:12180:1:1108:0
+ RTL TELE Letzebuerg:12551:vC56:S19.2E:22000:168:144=eng,146=fra,151=ltz:74:0:3994:1:1108:0
+-RTL7.;CANALDIGITAAL:12574:hC56:S19.2E:22000:512+8190:84=dut:33:622,100:5010:53:1109:0
+-MTV2 Pop Channel;MTV Networks:12226:hC34:S19.2E:27500:513+8190:661=deu:577:0:28640:1:1091:0
++Test;CANALDIGITAAL:12574:hC56:S19.2E:22000:512+8190:84=dut:33:622,100:5010:53:1109:0
++Nickelodeon;MTV Networks:12226:hC34:S19.2E:27500:513+8190:661=deu:577:0:28640:1:1091:0
+ MTV Central;MTV Networks:11739:vC34:S19.2E:27500:3031:3032:3034:0:28653:1:1066:0
+ VIVA;VIVA Fernsehen GmbH & Co. KG:12669:vC56:S19.2E:22000:309:310=deu:311:0:12732:1:1116:0
+ VIVA PLUS;VIVA Fernsehen GmbH & Co. KG:12551:vC56:S19.2E:22000:171:172=deu:173:0:12120:1:1108:0
+@@ -108,12 +108,12 @@
+ Sky Cinema 2;BSkyB:12285:vC23:S28.2E:27500:517+8190:645=eng,665=NAR:581:960,961:4802:2:2030:0
+ :@900 Some 'seed' channels
+ Chelsea TV;BskyB:11778:vC23:S28.2E:27500:2308+2304:2309=eng:0:960,961:9307:2:2004:0
+-WDR Münster;ARD:12421:hC34:S19.2E:27500:701:702=deu:104:0:28310:1:1201:0
++WDR Münster;ARD:12421:hC34:S19.2E:27500:101:102=deu:104:0:28310:1:1201:0
+ Animal Plnt+;BSkyB:12070:hC23:S28.2E:27500:2314+2307:2315=eng:0:960,961:50002:2:2019:0
+ S1T;BSkyB:12285:vC23:S28.2E:27500:513+8190:641=eng,661=NAR:577:960,961:4409:2:2030:0
+ CNN;BSkyB:12051:vC23:S28.2E:27500:2313:2315=eng:2314:0:7140:2:2018:0
+ BBC PARL'MNT;BSkyB:10847:vC56:S28.2E:22000:2327:2328=eng:2331:0:6902:2:2050:0
+-Bethel TV;T-Systems/MTI:11200:vC56:S13.0E:27500:413:414:0:0:4733:318:13400:0
++JGLESIA MME;T-Systems/MTI:11200:vC56:S13.0E:27500:413:414:0:0:4733:318:13400:0
+ Euro1080;EURO1080:12168:vC34:S19.2E:27500:308:256:0:FF:21100:1:1088:0
+ Astra HD:12441:vC34:S19.2E:27500:133+80:134=eng:0:FF:29700:0:0:0
+ eng-WRN-multi;WRN:12597:vC34:S13.0E:27500:0:2132:0:0:8230:318:9400:0
+diff -ruN vdr-1.3.31/channels.h vdr-1.3.32/channels.h
+--- vdr-1.3.31/channels.h	2005-08-06 13:23:32.000000000 +0200
++++ vdr-1.3.32/channels.h	2005-09-11 13:17:19.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.h 1.33 2005/08/06 11:23:32 kls Exp $
++ * $Id: channels.h 1.35 2005/09/11 11:17:19 kls Exp $
+  */
+ 
+ #ifndef __CHANNELS_H
+@@ -36,6 +36,9 @@
+ #define MAXSPIDS  8 // subtitles
+ #define MAXCAIDS  8 // conditional access
+ 
++#define MAXLANGCODE1 4 // a 3 letter language code, zero terminated
++#define MAXLANGCODE2 8 // up to two 3 letter language codes, separated by '+' and zero terminated
++
+ struct tChannelParameterMap {
+   int userValue;
+   int driverValue;
+@@ -69,6 +72,11 @@
+   bool Valid(void) const { return (nid || tid) && sid; } // rid is optional and source may be 0//XXX source may not be 0???
+   tChannelID &ClrRid(void) { rid = 0; return *this; }
+   tChannelID &ClrPolarization(void);
++  int Source(void) { return source; }
++  int Nid(void) { return nid; }
++  int Tid(void) { return tid; }
++  int Sid(void) { return sid; }
++  int Rid(void) { return rid; }
+   static tChannelID FromString(const char *s);
+   cString ToString(void) const;
+   static const tChannelID InvalidID;
+@@ -102,11 +110,11 @@
+   int vpid;
+   int ppid;
+   int apids[MAXAPIDS + 1]; // list is zero-terminated
+-  char alangs[MAXAPIDS][4];
++  char alangs[MAXAPIDS][MAXLANGCODE2];
+   int dpids[MAXDPIDS + 1]; // list is zero-terminated
+-  char dlangs[MAXDPIDS][4];
++  char dlangs[MAXDPIDS][MAXLANGCODE2];
+   int spids[MAXSPIDS + 1]; // list is zero-terminated
+-  char slangs[MAXSPIDS][4];
++  char slangs[MAXSPIDS][MAXLANGCODE2];
+   int tpid;
+   int caids[MAXCAIDS + 1]; // list is zero-terminated
+   int nid;
+@@ -188,7 +196,7 @@
+   void SetId(int Nid, int Tid, int Sid, int Rid = 0);
+   void SetName(const char *Name, const char *ShortName, const char *Provider);
+   void SetPortalName(const char *PortalName);
+-  void SetPids(int Vpid, int Ppid, int *Apids, char ALangs[][4], int *Dpids, char DLangs[][4], int Tpid);
++  void SetPids(int Vpid, int Ppid, int *Apids, char ALangs[][MAXLANGCODE2], int *Dpids, char DLangs[][MAXLANGCODE2], int Tpid);
+   void SetCaIds(const int *CaIds); // list must be zero-terminated
+   void SetCaDescriptors(int Level);
+   void SetLinkChannels(cLinkChannels *LinkChannels);
+@@ -200,10 +208,13 @@
+   int maxNumber;
+   int modified;
+   int beingEdited;
++  cHash<cChannel> channelsHashSid;
+   void DeleteDuplicateChannels(void);
+ public:
+   cChannels(void);
+   bool Load(const char *FileName, bool AllowComments = false, bool MustExist = false);
++  void HashChannel(cChannel *Channel);
++  void UnhashChannel(cChannel *Channel);
+   int GetNextGroup(int Idx);   // Get next channel group
+   int GetPrevGroup(int Idx);   // Get previous channel group
+   int GetNextNormal(int Idx);  // Get next normal channel (not group)
+diff -ruN vdr-1.3.31/config.c vdr-1.3.32/config.c
+--- vdr-1.3.31/config.c	2005-08-13 15:47:08.000000000 +0200
++++ vdr-1.3.32/config.c	2005-09-09 17:08:59.000000000 +0200
+@@ -4,12 +4,13 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 1.136 2005/08/13 13:47:08 kls Exp $
++ * $Id: config.c 1.138 2005/09/09 15:08:59 kls Exp $
+  */
+ 
+ #include "config.h"
+ #include <ctype.h>
+ #include <stdlib.h>
++#include "device.h"
+ #include "i18n.h"
+ #include "interface.h"
+ #include "plugin.h"
+@@ -266,7 +267,7 @@
+   AudioLanguages[0] = -1;
+   EPGLanguages[0] = -1;
+   EPGScanTimeout = 5;
+-  EPGBugfixLevel = 2;
++  EPGBugfixLevel = 3;
+   EPGLinger = 0;
+   SVDRPTimeout = 300;
+   ZapTimeout = 3;
+diff -ruN vdr-1.3.31/config.h vdr-1.3.32/config.h
+--- vdr-1.3.31/config.h	2005-08-26 14:28:40.000000000 +0200
++++ vdr-1.3.32/config.h	2005-09-04 12:49:24.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.225 2005/08/26 12:28:40 kls Exp $
++ * $Id: config.h 1.227 2005/09/04 10:49:24 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -16,12 +16,11 @@
+ #include <string.h>
+ #include <time.h>
+ #include <unistd.h>
+-#include "device.h"
+ #include "i18n.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.3.31"
+-#define VDRVERSNUM   10331  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.3.32"
++#define VDRVERSNUM   10332  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+ #define MAXLIFETIME 99
+diff -ruN vdr-1.3.31/device.c vdr-1.3.32/device.c
+--- vdr-1.3.31/device.c	2005-08-27 11:01:09.000000000 +0200
++++ vdr-1.3.32/device.c	2005-09-04 16:28:16.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 1.107 2005/08/27 09:01:09 kls Exp $
++ * $Id: device.c 1.109 2005/09/04 14:28:16 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -795,13 +795,17 @@
+ {
+   if (Force || !availableTracks[currentAudioTrack].id) {
+      eTrackType PreferredTrack = ttAudioFirst;
++     int PreferredAudioChannel = 0;
+      int LanguagePreference = -1;
+      int StartCheck = Setup.CurrentDolby ? ttDolbyFirst : ttAudioFirst;
+      int EndCheck = ttDolbyLast;
+      for (int i = StartCheck; i <= EndCheck; i++) {
+          const tTrackId *TrackId = GetTrack(eTrackType(i));
+-         if (TrackId && TrackId->id && I18nIsPreferredLanguage(Setup.AudioLanguages, I18nLanguageIndex(TrackId->language), LanguagePreference))
++         int pos = 0;
++         if (TrackId && TrackId->id && I18nIsPreferredLanguage(Setup.AudioLanguages, TrackId->language, LanguagePreference, &pos)) {
+             PreferredTrack = eTrackType(i);
++            PreferredAudioChannel = pos;
++            }
+          if (Setup.CurrentDolby && i == ttDolbyLast) {
+             i = ttAudioFirst - 1;
+             EndCheck = ttAudioLast;
+@@ -811,8 +815,9 @@
+      const tTrackId *Track = GetTrack(GetCurrentAudioTrack());
+      if (Force || !Track || !Track->id || PreferredTrack != GetCurrentAudioTrack()) {
+         if (!Force) // only log this for automatic changes
+-           dsyslog("setting audio track to %d", PreferredTrack);
++           dsyslog("setting audio track to %d (%d)", PreferredTrack, PreferredAudioChannel);
+         SetCurrentAudioTrack(PreferredTrack);
++        SetAudioChannel(PreferredAudioChannel);
+         }
+      }
+ }
+@@ -1185,6 +1190,15 @@
+      return false;
+   if (Receiver->device == this)
+      return true;
++// activate the following line if you need it - actually the driver should be fixed!
++//#define WAIT_FOR_TUNER_LOCK
++#ifdef WAIT_FOR_TUNER_LOCK
++#define TUNER_LOCK_TIMEOUT 5000 // ms
++  if (!HasLock(TUNER_LOCK_TIMEOUT)) {
++     esyslog("ERROR: device %d has no lock, can't attach receiver!", CardIndex() + 1);
++     return false;
++     }
++#endif
+   cMutexLock MutexLock(&mutexReceiver);
+   for (int i = 0; i < MAXRECEIVERS; i++) {
+       if (!receiver[i]) {
+diff -ruN vdr-1.3.31/device.h vdr-1.3.32/device.h
+--- vdr-1.3.31/device.h	2005-08-21 10:52:20.000000000 +0200
++++ vdr-1.3.32/device.h	2005-09-10 13:54:02.000000000 +0200
+@@ -4,12 +4,13 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 1.62 2005/08/21 08:52:20 kls Exp $
++ * $Id: device.h 1.64 2005/09/10 11:54:02 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+ #define __DEVICE_H
+ 
++#include "channels.h"
+ #include "ci.h"
+ #include "eit.h"
+ #include "filter.h"
+@@ -81,12 +82,11 @@
+ #define IS_DOLBY_TRACK(t) (ttDolbyFirst <= (t) && (t) <= ttDolbyLast)
+ 
+ struct tTrackId {
+-  uint16_t id;          // The PES packet id or the PID.
+-  char language[8];     // something like either "eng" or "deu/eng"
+-  char description[32]; // something like "Dolby Digital 5.1"
++  uint16_t id;                  // The PES packet id or the PID.
++  char language[MAXLANGCODE2];  // something like either "eng" or "deu+eng"
++  char description[32];         // something like "Dolby Digital 5.1"
+   };
+ 
+-class cChannel;
+ class cPlayer;
+ class cReceiver;
+ class cPesAssembler;
+@@ -266,7 +266,7 @@
+          ///< On indicates whether the PID shall be added or deleted.
+          ///< Handle->handle can be used by the device to store information it
+          ///< needs to receive this PID (for instance a file handle).
+-         ///< Handle->used indicated how many receivers are using this PID.
++         ///< Handle->used indicates how many receivers are using this PID.
+          ///< Type indicates some special types of PIDs, which the device may
+          ///< need to set in a specific way.
+ 
+diff -ruN vdr-1.3.31/dvbplayer.c vdr-1.3.32/dvbplayer.c
+--- vdr-1.3.31/dvbplayer.c	2005-08-14 12:52:45.000000000 +0200
++++ vdr-1.3.32/dvbplayer.c	2005-08-29 17:43:30.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbplayer.c 1.38 2005/08/14 10:52:45 kls Exp $
++ * $Id: dvbplayer.c 1.40 2005/08/29 15:43:30 kls Exp $
+  */
+ 
+ #include "dvbplayer.h"
+@@ -621,7 +621,10 @@
+      int Current, Total;
+      GetIndex(Current, Total, true);
+      int OldCurrent = Current;
+-     Current = index->GetNextIFrame(Current + Frames, Frames > 0);
++     // As GetNextIFrame() increments/decrements at least once, the 
++     // destination frame (= Current + Frames) must be adjusted by
++     // -1/+1 respectively.
++     Current = index->GetNextIFrame(Current + Frames + (Frames > 0 ? -1 : 1), Frames > 0);
+      return Current >= 0 ? Current : OldCurrent;
+      }
+   return -1;
+@@ -661,7 +664,7 @@
+            if (playMode == pmPause)
+               DevicePlay();
+            // append sequence end code to get the image shown immediately with softdevices
+-           if (r > 6) { // should be always true
++           if (r > 6 && (b[3] & 0xF0) == 0xE0) { // make sure to append it only to a video packet
+               b[r++] = 0x00;
+               b[r++] = 0x00;
+               b[r++] = 0x01;
+diff -ruN vdr-1.3.31/eit.c vdr-1.3.32/eit.c
+--- vdr-1.3.31/eit.c	2005-08-13 15:27:34.000000000 +0200
++++ vdr-1.3.32/eit.c	2005-09-04 13:36:30.000000000 +0200
+@@ -8,7 +8,7 @@
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  * Adapted to 'libsi' for VDR 1.3.0 by Marcel Wiesweg <marcel.wiesweg@gmx.de>.
+  *
+- * $Id: eit.c 1.110 2005/08/13 13:27:34 kls Exp $
++ * $Id: eit.c 1.111 2005/09/04 11:36:30 kls Exp $
+  */
+ 
+ #include "eit.h"
+@@ -99,7 +99,7 @@
+           switch (d->getDescriptorTag()) {
+             case SI::ExtendedEventDescriptorTag: {
+                  SI::ExtendedEventDescriptor *eed = (SI::ExtendedEventDescriptor *)d;
+-                 if (I18nIsPreferredLanguage(Setup.EPGLanguages, I18nLanguageIndex(eed->languageCode), LanguagePreferenceExt) || !ExtendedEventDescriptors) {
++                 if (I18nIsPreferredLanguage(Setup.EPGLanguages, eed->languageCode, LanguagePreferenceExt) || !ExtendedEventDescriptors) {
+                     delete ExtendedEventDescriptors;
+                     ExtendedEventDescriptors = new SI::ExtendedEventDescriptors;
+                     UseExtendedEventDescriptor = true;
+@@ -114,7 +114,7 @@
+                  break;
+             case SI::ShortEventDescriptorTag: {
+                  SI::ShortEventDescriptor *sed = (SI::ShortEventDescriptor *)d;
+-                 if (I18nIsPreferredLanguage(Setup.EPGLanguages, I18nLanguageIndex(sed->languageCode), LanguagePreferenceShort) || !ShortEventDescriptor) {
++                 if (I18nIsPreferredLanguage(Setup.EPGLanguages, sed->languageCode, LanguagePreferenceShort) || !ShortEventDescriptor) {
+                     delete ShortEventDescriptor;
+                     ShortEventDescriptor = sed;
+                     d = NULL; // so that it is not deleted
+diff -ruN vdr-1.3.31/eitscan.h vdr-1.3.32/eitscan.h
+--- vdr-1.3.31/eitscan.h	2004-01-17 16:36:24.000000000 +0100
++++ vdr-1.3.32/eitscan.h	2005-09-04 12:51:35.000000000 +0200
+@@ -4,14 +4,16 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: eitscan.h 1.8 2004/01/17 15:36:24 kls Exp $
++ * $Id: eitscan.h 1.9 2005/09/04 10:51:35 kls Exp $
+  */
+ 
+ #ifndef __EITSCAN_H
+ #define __EITSCAN_H
+ 
+ #include <time.h>
++#include "channels.h"
+ #include "config.h"
++#include "device.h"
+ 
+ class cScanList;
+ class cTransponderList;
+diff -ruN vdr-1.3.31/epg.c vdr-1.3.32/epg.c
+--- vdr-1.3.31/epg.c	2005-07-30 16:44:54.000000000 +0200
++++ vdr-1.3.32/epg.c	2005-09-09 17:14:11.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.c 1.36 2005/07/30 14:44:54 kls Exp $
++ * $Id: epg.c 1.37 2005/09/09 15:14:11 kls Exp $
+  */
+ 
+ #include "epg.h"
+@@ -471,7 +471,7 @@
+            }
+         }
+ 
+-     // Some channels put the Description into the ShortText (preceeded
++     // Some channels put the Description into the ShortText (preceded
+      // by a blank) if there is no actual ShortText and the Description
+      // is short enough:
+      //
+diff -ruN vdr-1.3.31/epg.h vdr-1.3.32/epg.h
+--- vdr-1.3.31/epg.h	2005-05-28 13:32:36.000000000 +0200
++++ vdr-1.3.32/epg.h	2005-09-11 14:54:30.000000000 +0200
+@@ -7,7 +7,7 @@
+  * Original version (as used in VDR before 1.3.0) written by
+  * Robert Schneider <Robert.Schneider@web.de> and Rolf Hakenes <hakenes@hippomi.de>.
+  *
+- * $Id: epg.h 1.25 2005/05/28 11:32:36 kls Exp $
++ * $Id: epg.h 1.26 2005/09/11 12:54:30 kls Exp $
+  */
+ 
+ #ifndef __EPG_H
+@@ -132,8 +132,8 @@
+   void Cleanup(void);
+   cEvent *AddEvent(cEvent *Event);
+   void DelEvent(cEvent *Event);
+-  void cSchedule::HashEvent(cEvent *Event);
+-  void cSchedule::UnhashEvent(cEvent *Event);
++  void HashEvent(cEvent *Event);
++  void UnhashEvent(cEvent *Event);
+   const cList<cEvent> *Events(void) const { return &events; }
+   const cEvent *GetPresentEvent(bool CheckRunningStatus = false) const;
+   const cEvent *GetFollowingEvent(bool CheckRunningStatus = false) const;
+diff -ruN vdr-1.3.31/i18n.c vdr-1.3.32/i18n.c
+--- vdr-1.3.31/i18n.c	2005-08-26 15:39:07.000000000 +0200
++++ vdr-1.3.32/i18n.c	2005-09-10 12:20:48.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.c 1.200 2005/08/26 13:39:07 kls Exp $
++ * $Id: i18n.c 1.208 2005/09/10 10:20:48 kls Exp $
+  *
+  * Translations provided by:
+  *
+@@ -66,7 +66,7 @@
+  *    it included in the next version of VDR.
+  *
+  * In case an English phrase is used in more than one context (and might need
+- * different translations in other languages) it can be preceeded with an
++ * different translations in other languages) it can be preceded with an
+  * arbitrary string to describe its context, separated from the actual phrase
+  * by a '$' character (see for instance "Button$Stop" vs. "Stop").
+  * Of course this means that no English phrase may contain the '$' character!
+@@ -105,7 +105,7 @@
+   // The character set needed for this language (this MUST be the second phrase!):
+   { "iso8859-15",
+     "iso8859-15",
+-    "iso8859-1",
++    "iso8859-2",
+     "iso8859-1",
+     "iso8859-1",
+     "iso8859-1",
+@@ -127,7 +127,7 @@
+   // The 3-letter names of the language (this MUST be the third phrase!):
+   { "eng,dos",
+     "deu,ger",
+-    "slv",
++    "slv,slo",
+     "ita",
+     "dut,nla,nld",
+     "por",
+@@ -254,7 +254,7 @@
+   },
+   { "Recording info",
+     "Aufzeichnung",
+-    "",// TODO
++    "Podatki o snemanju",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -264,7 +264,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Inspelning",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -422,7 +422,7 @@
+   },
+   { "Info",
+     "Info",
+-    "",//TODO
++    "Info",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -432,14 +432,14 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "",//TODO
++    "Info",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+     "",//TODO
+     "Info",
+     "Info",
+-    "",//TODO
++    "Info",
+   },
+   { "Schedule - %s",
+     "Programm - %s",
+@@ -474,14 +474,14 @@
+     "Program biezacy",
+     "¿Qué hay ahora?",
+     "ÔñÝ÷ïí ðñüãñáììá",
+-    "Vilket program sänds nu?",
++    "Vad sänds nu?",
+     "Ce emisiuni sunt acum?",
+     "Mi megy most?",
+     "Què fan ara?",
+     "ÁÕÙçÐá Ò íäØàÕ:",
+     "©to je trenutno na programu?",
+     "Hetkel eetris",
+-    "Hvilket program vises nu?",
++    "Hvad vises nu?",
+   },
+   { "What's on next?",
+     "Was läuft als nächstes?",
+@@ -502,7 +502,7 @@
+     "´ÐÛÕÕ Ò ßàÞÓàÐÜÜÕ:",
+     "©to slijedi?",
+     "Järgmisena eetris",
+-    "Hvilket næste program vises?",
++    "Hvad vises som det næste?",
+   },
+   // Button texts (should not be more than 10 characters!):
+   { "Edit",
+@@ -549,7 +549,7 @@
+   },
+   { "Delete",
+     "Löschen",
+-    "Izbrisi",
++    "Izbri¹i",
+     "Cancella",
+     "Verwijder",
+     "Apagar",
+@@ -570,7 +570,7 @@
+   },
+   { "Mark",
+     "Markieren",
+-    "Oznaci",
++    "Oznaèi",
+     "Marca",
+     "Verplaats",
+     "Marcar",
+@@ -654,7 +654,7 @@
+   },
+   { "Rewind",
+     "Anfang",
+-    "Na zacetek",
++    "Na zaèetek",
+     "Da inizio",
+     "Naar begin",
+     "Rebobinar",
+@@ -864,7 +864,7 @@
+   },
+   { "Eject",
+     "Auswerfen",
+-    "Izvrzi",
++    "Izvr¾i",
+     "Eject",
+     "Eject",
+     "Ejectar",
+@@ -927,7 +927,7 @@
+   },
+   { "Overwrite",
+     "Überschreiben",
+-    "Prepisi",
++    "Prepi¹i",
+     "Sovrascrivi",
+     "Overschrijven",
+     "",// TODO
+@@ -990,7 +990,7 @@
+   },
+   { "Scan",
+     "Scan",
+-    "",//TODO
++    "I¹èi",
+     "Scansione",
+     "Scan",
+     "",//TODO
+@@ -1012,7 +1012,7 @@
+   // Confirmations:
+   { "Delete channel?",
+     "Kanal löschen?",
+-    "Izbrisi kanal?",
++    "Izbri¹i kanal?",
+     "Cancello il canale?",
+     "Kanaal verwijderen?",
+     "Apagar o canal?",
+@@ -1033,7 +1033,7 @@
+   },
+   { "Delete timer?",
+     "Timer löschen?",
+-    "Izbrisi termin?",
++    "Izbri¹i termin?",
+     "Cancello il timer?",
+     "Timer verwijderen?",
+     "Apagar o timer?",
+@@ -1054,7 +1054,7 @@
+   },
+   { "Delete recording?",
+     "Aufzeichnung löschen?",
+-    "Izbrisi posnetek?",
++    "Izbri¹i posnetek?",
+     "Cancello la registrazione?",
+     "Opname verwijderen?",
+     "Apagar a gravação?",
+@@ -1075,7 +1075,7 @@
+   },
+   { "Timer still recording - really delete?",
+     "Timer zeichnet auf - trotzdem löschen?",
+-    "Snemanje po terminu - zares izbrisi?",
++    "Snemanje po terminu - zares izbri¹i?",
+     "Timer in registrazione - cancello?",
+     "Timer neemt nog op - toch verwijderen?",
+     "Timer activo - têm a certeza que quer apagar?",
+@@ -1096,7 +1096,7 @@
+   },
+   { "Stop recording?",
+     "Aufzeichnung beenden?",
+-    "Koncaj snemanje?",
++    "Prekini snemanje?",
+     "Fermo la registrazione?",
+     "Opname stoppen?",
+     "Parar Gravação?",
+@@ -1138,7 +1138,7 @@
+   },
+   { "Cancel editing?",
+     "Schneiden abbrechen?",
+-    "Zelite prekiniti urejanje?",
++    "®elite prekiniti urejanje?",
+     "Annullo la modifica?",
+     "Bewerken afbreken?",
+     "Cancelar Modificações?",
+@@ -1222,7 +1222,7 @@
+   },
+   { "Recording in %d minutes, shut down anyway?",
+     "Aufnahme in %d Minuten - trotzdem ausschalten?",
+-    "Snemanje cez %d minut, zares izklopi?",
++    "Snemanje èez %d minut, zares izklopi?",
+     "Registrazione fra %d minuti - spengo comunque?",
+     "Opname in %d minuten - toch uitschakelen?",
+     "Em gravação dentro de %d minutos - quer mesmo desligar?",
+@@ -1265,7 +1265,7 @@
+   // Channel parameters:
+   { "Name",
+     "Name",
+-    "Naziv",
++    "Ime",
+     "Nome",
+     "Naam",
+     "Nome",
+@@ -1359,7 +1359,7 @@
+     "Srate",
+     "Srate",
+     "Srate",
+-    "Symbolrate",
++    "Srate",
+     "Ratã simboluri",
+     "Srate",
+     "Srate",
+@@ -1380,7 +1380,7 @@
+     "Vpid",
+     "Vpid",
+     "Bßíôåï PID",
+-    "Video PID",
++    "VPID",
+     "PID Video",
+     "Vpid",
+     "PID Vídeo",
+@@ -1422,7 +1422,7 @@
+     "Apid1",
+     "Apid1",
+     "Apid1",
+-    "Audio PID1",
++    "APID1",
+     "PID Audio (1)",
+     "Apid1",
+     "PID Àudio (1)",
+@@ -1443,7 +1443,7 @@
+     "Apid2",
+     "Apid2",
+     "Apid2",
+-    "Audio PID2",
++    "APID2",
+     "PID Audio (2)",
+     "Apid2",
+     "PID Àudio (2)",
+@@ -1464,7 +1464,7 @@
+     "Dpid1",
+     "Dpid1",
+     "Dpid1",
+-    "Dpid1",
++    "DPID1",
+     "PID AC3 (1)",
+     "Dpid1",
+     "PID AC3 (1)",
+@@ -1485,7 +1485,7 @@
+     "Dpid2",
+     "Dpid2",
+     "Dpid2",
+-    "Dpid2",
++    "DPID2",
+     "PID AC3 (2)",
+     "Dpid2",
+     "PID AC3 (2)",
+@@ -1506,7 +1506,7 @@
+     "Tpid",
+     "Tpid",
+     "Tpid",
+-    "Teletext PID",
++    "TPID",
+     "PID Teletext",
+     "Tpid",
+     "PID Teletext",
+@@ -1580,7 +1580,7 @@
+   },
+   { "Bandwidth",
+     "Bandwidth",
+-    "Pasovna sirina",
++    "Pasovna ¹irina",
+     "Bandwidth",
+     "Bandwidth",
+     "Bandwidth",
+@@ -1685,7 +1685,7 @@
+   },
+   { "Guard",
+     "Guard",
+-    "Zascita",
++    "Za¹èita",
+     "Guard",
+     "Guard",
+     "Guard",
+@@ -1749,7 +1749,7 @@
+   },
+   { "Channel",
+     "Kanal",
+-    "Kanal",
++    "Program",
+     "Canale",
+     "Kanaal",
+     "Canal",
+@@ -1791,7 +1791,7 @@
+   },
+   { "Start",
+     "Anfang",
+-    "Zacetek",
++    "Zaèetek",
+     "Inizio",
+     "Begin",
+     "Inicio",
+@@ -1833,7 +1833,7 @@
+   },
+   { "VPS",
+     "VPS",
+-    "",// TODO
++    "VPS",
+     "VPS",
+     "VPS",
+     "",// TODO
+@@ -1939,7 +1939,7 @@
+   // Error messages:
+   { "Channel is being used by a timer!",
+     "Kanal wird von einem Timer benutzt!",
+-    "Kanal uporablja termin za snemanje!",
++    "Kanal je zavzet s terminom za snemanje!",
+     "Canale occupato da un timer!",
+     "Kanaal wordt gebruikt door een timer!",
+     "Canal a ser utilizador por um timer!",
+@@ -2086,7 +2086,7 @@
+   },
+   { "Channel not available!",
+     "Kanal nicht verfügbar!",
+-    "Kanal ni razpolozljiv!",
++    "Kanal ni razpolo¾ljiv!",
+     "Canale non disponibile!",
+     "Kanaal niet beschikbaar",
+     "",//TODO
+@@ -2096,7 +2096,7 @@
+     "Kanal jest niedostepny!",
+     "!Canal no disponible!",
+     "Ôï êáíÜëç äÝí åßíáé äéáèÝóéìï!",
+-    "Kanalen ej tillgänglig!",
++    "Kanalen är inte tillgänglig!",
+     "Canal indisponibil",
+     "A csatorna nem elérhetö",
+     "Canal no disponible!",
+@@ -2149,7 +2149,7 @@
+   },
+   { "Can't start Transfer Mode!",
+     "Transfer-Mode kann nicht gestartet werden!",
+-    "Ne morem zaceti z prenosnim nacinom",
++    "Ne morem zaèeti s prenosnim naèinom",
+     "Impossibile iniziare la modalita' di trasferimento!",
+     "Kan Transfer-Mode niet starten",
+     "Impossível iniciar modo de transferência!",
+@@ -2170,7 +2170,7 @@
+   },
+   { "No editing marks defined!",
+     "Keine Schnittmarken gesetzt!",
+-    "Nobena tocka ni definirana!",
++    "Nobena prekinitvena toèka ni definirana!",
+     "Nessun marcatore di modifica definito!",
+     "Geen bewerkingsmarkeringen gedefinieerd!",
+     "",//TODO
+@@ -2191,7 +2191,7 @@
+   },
+   { "Can't start editing process!",
+     "Schnitt kann nicht gestartet werden!",
+-    "Ne morem zaceti urejanja!",
++    "Ne morem zaèeti urejanja!",
+     "Impossibile iniziare processo di modifica!",
+     "Kan niet beginnen met bewerken!",
+     "Não pode iniciar a modificação!",
+@@ -2212,7 +2212,7 @@
+   },
+   { "Editing process already active!",
+     "Schnitt bereits aktiv!",
+-    "Urejanje je ze aktivno!",
++    "Urejanje je ¾e aktivno!",
+     "Processo di modifica gia` attivo!",
+     "Bewerken is al actief!",
+     "Processo de modificação já activo!",
+@@ -2254,7 +2254,7 @@
+   },
+   { "Low disk space!",
+     "Platte beinahe voll!",
+-    "Zmanjkuje prostora na disku",
++    "Premalo prostora na disku!",
+     "Poco spazio su disco!",
+     "Disk bijna vol!",
+     "Espaço em disco reduzido!",
+@@ -2338,7 +2338,7 @@
+   },
+   { "No audio available!",
+     "Kein Audio verfügbar!",
+-    "",//TODO
++    "Zvok ni dosegljiv",
+     "",//TODO
+     "Geen audio beschikbaar!",
+     "",//TODO
+@@ -2391,7 +2391,7 @@
+     "EPG",
+     "Guía de Programación",
+     "Ïäçãüò ðñïãñÜììáôïò",
+-    "Elektronisk programguide",
++    "EPG",
+     "EPG",
+     "EPG",
+     "Guia de Programes",
+@@ -2613,7 +2613,7 @@
+   },
+   { "Setup.OSD$Skin",
+     "Oberfläche",
+-    "",// TODO
++    "Preobleka",
+     "Superficie Skin",
+     "Skin",
+     "",// TODO
+@@ -2634,7 +2634,7 @@
+   },
+   { "Setup.OSD$Theme",
+     "Thema",
+-    "",// TODO
++    "Tema",
+     "Tema",
+     "Thema",
+     "",// TODO
+@@ -2655,7 +2655,7 @@
+   },
+   { "Setup.OSD$Left",
+     "Links",
+-    "",// TODO
++    "Levo",
+     "Sinistra",
+     "Links",
+     "",// TODO
+@@ -2676,7 +2676,7 @@
+   },
+   { "Setup.OSD$Top",
+     "Oben",
+-    "",// TODO
++    "Zgoraj",
+     "Cima",
+     "Boven",
+     "",// TODO
+@@ -2697,7 +2697,7 @@
+   },
+   { "Setup.OSD$Width",
+     "Breite",
+-    "Sirina",
++    "©irina",
+     "Larghezza OSD",
+     "Breedte",
+     "Largura",
+@@ -2718,7 +2718,7 @@
+   },
+   { "Setup.OSD$Height",
+     "Höhe",
+-    "Visina",
++    "Vi¹ina",
+     "Altezza OSD",
+     "Hoogte",
+     "Altura",
+@@ -2739,7 +2739,7 @@
+   },
+   { "Setup.OSD$Message time (s)",
+     "Anzeigedauer für Nachrichten (s)",
+-    "Cas sporocila (s)",
++    "Èas prikaza sporoèila (s)",
+     "Tempo del messaggio (s)",
+     "Weergave duur van berichten (s)",
+     "Mostrar contador (s)",
+@@ -2760,7 +2760,7 @@
+   },
+   { "Setup.OSD$Use small font",
+     "Kleine Schrift benutzen",
+-    "",// TODO
++    "Uporabi male èrke",
+     "Utilizzare caratteri piccoli",
+     "Klein lettertype gebruiken",
+     "",// TODO
+@@ -2781,7 +2781,7 @@
+   },
+   { "never",
+     "nie",
+-    "",// TODO
++    "nikoli",
+     "mai",
+     "nooit",
+     "",// TODO
+@@ -2802,7 +2802,7 @@
+   },
+   { "skin dependent",
+     "je nach Oberfläche",
+-    "",// TODO
++    "odvisno od preobleke",
+     "in base alla superficie",
+     "skin afhankelijk",
+     "",// TODO
+@@ -2823,7 +2823,7 @@
+   },
+   { "always",
+     "immer",
+-    "",// TODO
++    "vedno",
+     "sempre",
+     "altijd",
+     "",// TODO
+@@ -2865,7 +2865,7 @@
+   },
+   { "Setup.OSD$Channel info time (s)",
+     "Anzeigedauer für Kanal-Info (s)",
+-    "",// TODO
++    "Èas prikaza podatka o programu (s)",
+     "",// TODO
+     "Duur tonen kanaal-informatie (s)",
+     "",// TODO
+@@ -2886,7 +2886,7 @@
+   },
+   { "Setup.OSD$Info on channel switch",
+     "Info beim Kanalwechsel",
+-    "Pokazi naziv kanala",
++    "Poka¾i naziv kanala",
+     "Mostra info al cambio canale",
+     "Kanaal info tonen",
+     "Mostrar info ao mudar de Canal",
+@@ -2928,7 +2928,7 @@
+   },
+   { "Setup.OSD$Scroll wraps",
+     "Rundum scrollen",
+-    "",// TODO
++    "Iz konca skoèi na zaèetek",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -2938,13 +2938,13 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Rulla texten",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+     "",// TODO
+     "S kraja skoèi na poèetak",
+-    "",// TODO
++    "Ridade kerimine",
+     "Scroll rundt",
+   },
+   { "Setup.OSD$Sort timers",
+@@ -2991,7 +2991,7 @@
+   },
+   { "Setup.EPG$EPG scan timeout (h)",
+     "Zeit bis EPG Scan (h)",
+-    "Cas do EPG pregleda (h)",
++    "Èas do EPG pregleda (h)",
+     "Timeout scansione aggiornamento EPG (ore)",
+     "EPG-scan Timeout (h)",
+     "Expirou o EPG (h)",
+@@ -3033,7 +3033,7 @@
+   },
+   { "Setup.EPG$EPG linger time (min)",
+     "Alte EPG-Daten anzeigen (min)",// TODO
+-    "",// TODO
++    "Prika¾i stare EPG podatke (min)",
+     "Visualizzazione dati vecchi (min)",
+     "Oude EPG data tonen (min)",
+     "",// TODO
+@@ -3043,7 +3043,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "Visa gammal info (min)",
++    "Visa gammal information (min)",
+     "Date EPG expirate cel mult (min)",
+     "",// TODO
+     "",// TODO
+@@ -3054,7 +3054,7 @@
+   },
+   { "Setup.EPG$Set system time",
+     "Systemzeit stellen",
+-    "Nastavi sistemski cas",
++    "Nastavi sistemski èas",
+     "Settaggio orario automatico",
+     "Systeem klok instellen",
+     "Ajustar relógio do sistema",
+@@ -3075,7 +3075,7 @@
+   },
+   { "Setup.EPG$Use time from transponder",
+     "Transponder für Systemzeit",
+-    "Transponder za nastavitev casa",
++    "Transponder za nastavitev èasa",
+     "Utilizza orario da transponder",
+     "Gebruik transponder tijd voor systeem",
+     "Usar relógio do transponder",
+@@ -3096,7 +3096,7 @@
+   },
+   { "Setup.EPG$Preferred languages", // note the plural
+     "Bevorzugte Sprachen",
+-    "",// TODO
++    "Prednostni jeziki",
+     "Lingue preferite",
+     "Voorkeurstalen",
+     "",// TODO
+@@ -3117,7 +3117,7 @@
+   },
+   { "Setup.EPG$Preferred language", // note the singular
+     "Bevorzugte Sprache",
+-    "",// TODO
++    "Prednostni jezik",
+     "Lingua preferita",
+     "Voorkeurstaal",
+     "",// TODO
+@@ -3159,7 +3159,7 @@
+   },
+   { "Setup.DVB$Video display format",
+     "Video Anzeige-Format",
+-    "",//TODO
++    "Format video prikaza",
+     "",//TODO
+     "Video display format",
+     "",//TODO
+@@ -3169,7 +3169,7 @@
+     "",//TODO
+     "",//TODO
+     "",//TODO
+-    "Format för Video display",
++    "Format för video display",
+     "",//TODO
+     "",//TODO
+     "",//TODO
+@@ -3264,7 +3264,7 @@
+   },
+   { "Setup.DVB$Use Dolby Digital",
+     "Dolby Digital Ton benutzen",
+-    "",//TODO
++    "Uporabljaj Dolby Digital",
+     "",//TODO
+     "Dolby Digital gebruiken",
+     "",//TODO
+@@ -3285,7 +3285,7 @@
+   },
+   { "Setup.DVB$Update channels",
+     "Kanäle aktualisieren",
+-    "",// TODO
++    "Posodobi kanale",
+     "Aggiornare i canali",
+     "Kanalen actualiseren",
+     "",// TODO
+@@ -3306,7 +3306,7 @@
+   },
+   { "names only",
+     "nur Namen",
+-    "",// TODO
++    "samo imena",
+     "solo nomi",
+     "alleen namen",
+     "",// TODO
+@@ -3327,7 +3327,7 @@
+   },
+   { "names and PIDs",
+     "Namen und PIDs",
+-    "",// TODO
++    "imena in PIDe",
+     "nomi e PIDs",
+     "namen en PIDs",
+     "",// TODO
+@@ -3337,7 +3337,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "namn och PIDdar",
++    "namn och PID",
+     "nume si PID-uri",
+     "",// TODO
+     "",// TODO
+@@ -3348,7 +3348,7 @@
+   },
+   { "add new channels",
+     "neue Kanäle hinzufügen",
+-    "",// TODO
++    "dodaj nove programe",
+     "aggiungere canali nuovi",
+     "nieuwe kanalen toevoegen",
+     "",// TODO
+@@ -3369,7 +3369,7 @@
+   },
+   { "add new transponders",
+     "neue Transponder hinzufügen",
+-    "",// TODO
++    "dodaj nove oddajnike",
+     "aggiungere transponder nuovi",
+     "nieuwe transponders toevoegen",
+     "",// TODO
+@@ -3390,7 +3390,7 @@
+   },
+   { "Setup.DVB$Audio languages",  // note the plural
+     "Audio Sprachen",
+-    "",//TODO
++    "Jeziki za zvok",
+     "",//TODO
+     "Audio talen",
+     "",//TODO
+@@ -3411,7 +3411,7 @@
+   },
+   { "Setup.DVB$Audio language",  // note the singular
+     "Audio Sprache",
+-    "",//TODO
++    "Jezik za zvok",
+     "",//TODO
+     "Audio taal",
+     "",//TODO
+@@ -3537,7 +3537,7 @@
+   },
+   { "Setup.Recording$Margin at start (min)",
+     "Zeitpuffer bei Anfang (min)",
+-    "Premor pred zacetkom (min)",
++    "Premik zaèetka snemanja (min)",
+     "Margine iniziale (min)",
+     "Tijd marge begin (min)",
+     "Margem inicial (min)",
+@@ -3558,7 +3558,7 @@
+   },
+   { "Setup.Recording$Margin at stop (min)",
+     "Zeitpuffer bei Ende (min)",
+-    "Premor za koncem (min)",
++    "Zamik konca snemanja (min)",
+     "Margine finale (min)",
+     "Tijd marge eind (min)",
+     "Margem final (min)",
+@@ -3579,7 +3579,7 @@
+   },
+   { "Setup.Recording$Primary limit",
+     "Primär-Limit",
+-    "Osnovna meja",
++    "Primarna meja",
+     "Limite primario",
+     "Eerste grens",
+     "Limite Primário",
+@@ -3600,7 +3600,7 @@
+   },
+   { "Setup.Recording$Default priority",
+     "Default Priorität",
+-    "Osnovna prioriteta",
++    "Privzeta prioriteta",
+     "Priorita' predefinita",
+     "Standaard prioriteit",
+     "Prioridade por defeito",
+@@ -3621,7 +3621,7 @@
+   },
+   { "Setup.Recording$Default lifetime (d)",
+     "Default Lebensdauer (d)",
+-    "Osnovni zivljenski cas (d)",
++    "Privzeti ¾ivljenski èas (d)",
+     "Durata predefinita (gg)",
+     "Standaard levensduur (d)",
+     "Validade por defeito (d)",
+@@ -3663,7 +3663,7 @@
+   },
+   { "Setup.Recording$Pause lifetime (d)",
+     "Pause Lebensdauer (d)",
+-    "Cas pavze (d)",
++    "Èas pavze (d)",
+     "Durata pausa (gg)",
+     "Pauze levensduur (d)",
+     "",// TODO
+@@ -3705,7 +3705,7 @@
+   },
+   { "Setup.Recording$Use VPS",
+     "VPS benutzen",
+-    "",// TODO
++    "Uporabi VPS",
+     "Utilizzare VPS",
+     "VPS gebruiken",
+     "",// TODO
+@@ -3726,7 +3726,7 @@
+   },
+   { "Setup.Recording$VPS margin (s)",
+     "Zeitpuffer bei VPS (s)",
+-    "",// TODO
++    "Èasovna rezerva pri VPS (s)",
+     "Margine VPS",
+     "Marge VPS (s)",
+     "",// TODO
+@@ -3747,7 +3747,7 @@
+   },
+   { "Setup.Recording$Mark instant recording",
+     "Direktaufzeichnung markieren",
+-    "Oznaci direktno snemanje",
++    "Oznaèi direktno snemanje",
+     "Marca la registrazione",
+     "Direkte opnamen markeren",
+     "Marca de gravação rápida",
+@@ -3789,7 +3789,7 @@
+   },
+   { "Setup.Recording$Instant rec. time (min)",
+     "Dauer der Direktaufzeichnung (min)",
+-    "Cas direktnega snemanja (min)",
++    "Èas direktnega snemanja (min)",
+     "Tempo registrazione istantanea (min)",
+     "Duur van de directe opname (min)",
+     "",//TODO
+@@ -3810,7 +3810,7 @@
+   },
+   { "Setup.Recording$Max. video file size (MB)",
+     "Max. Video Dateigröße (MB)",
+-    "Najvecja velikost datoteke (MB)",
++    "Najveèja velikost datoteke (MB)",
+     "Dimensione massima file video (MB)",
+     "Maximale omvang video file (MB)",
+     "Tamanho máximo dos ficheiros (MB)",
+@@ -3852,7 +3852,7 @@
+   },
+   { "Setup.Replay$Multi speed mode",
+     "MultiSpeed Modus",
+-    "Rezim z vec hitrostmi",
++    "Re¾im z veè hitrostmi",
+     "Modalita' multispeed",
+     "Multi-speed mode",
+     "Modo de multi-speed",
+@@ -3873,7 +3873,7 @@
+   },
+   { "Setup.Replay$Show replay mode",
+     "Wiedergabestatus anzeigen",
+-    "Prikazi rezim predvajanja",
++    "Prika¾i re¾im predvajanja",
+     "Modalita' di visualizz su replay",
+     "Weergave mode aangeven",
+     "Mostrar modo de replay",
+@@ -3883,7 +3883,7 @@
+     "Wyswietlac status odtwarzania",
+     "Mostrar modo de replay",
+     "¸íäåéîç êáôÜóôáóçò áíáìåôÜäïóçò",
+-    "Visa uppspelnings läge",
++    "Visa uppspelningsläge",
+     "Afiºeazã redarea",
+     "Lejátszás feltüntetése",
+     "Mostrar mode de reproducció",
+@@ -3894,7 +3894,7 @@
+   },
+   { "Setup.Replay$Resume ID",
+     "Wiedergabe ID",
+-    "Predvajalni ID",
++    "ID za predvajanje",
+     "ID Ripresa",
+     "Hervattings ID",
+     "Resume ID",// TODO
+@@ -3915,7 +3915,7 @@
+   },
+   { "Setup.Miscellaneous$Min. event timeout (min)",
+     "Mindest Event Pause (min)",
+-    "Najmanjsi cas dogodka (min)",
++    "Najmanj¹i èas dogodka (min)",
+     "Spegnimento: controllo prossimo evento (m)",
+     "Minimale event time-out (min)",
+     "Período mínimo de pausa (min)",
+@@ -3936,7 +3936,7 @@
+   },
+   { "Setup.Miscellaneous$Min. user inactivity (min)",
+     "Mindest Benutzer-Inaktivität (min)",
+-    "Najmanjsi cas neaktivnosti (min)",
++    "Najmanj¹i èas neaktivnosti (min)",
+     "Spegnimento: tempo minimo di inattività (m)",
+     "Minimum gebruikers inactiviteit (min)",
+     "Período mínimo de inactividade (min)",
+@@ -3946,7 +3946,7 @@
+     "Min. brak aktywnosci uzytkownika (min)",
+     "Tiempo mínimo inactividad (min)",
+     "ÅëÜ÷éóôïò ÷ñüíïò áíáìïíÞò (ëåðôÜ)",
+-    "Minsta anändar-inaktivitet (min)",
++    "Minsta användar-inaktivitet (min)",
+     "Durata minimã de inactivitate (min)",
+     "Min. kezelési aktivitás (min)",
+     "Temps mínim d'inactivitat (min)",
+@@ -3957,7 +3957,7 @@
+   },
+   { "Setup.Miscellaneous$SVDRP timeout (s)",
+     "SVDRP Timeout (s)",
+-    "SVDRP cas neaktivnosti (s)",
++    "SVDRP èas neaktivnosti (s)",
+     "Timeout SVDRP (s)",
+     "SVDRP Timeout (s)",
+     "Timeout SVDRP (s)",
+@@ -3967,7 +3967,7 @@
+     "Min. brak aktywnosci SVDRP (s)",
+     "SVDRP Timeout (s)",
+     "SVDRP äéáêïðÞ (ä)",
+-    "SVDRP Timeout (d)",
++    "SVDRP Timeout (s)",
+     "Timeout SVDRP (sec)",
+     "SVDRP Timeout (s)",
+     "SVDRP Timeout (s)",
+@@ -3978,7 +3978,7 @@
+   },
+   { "Setup.Miscellaneous$Zap timeout (s)",
+     "Zap Timeout (s)",
+-    "",// TODO
++    "Èas ugla¹evanja (s)",
+     "Timeout Zapping",
+     "Zap timeout (s)",
+     "",// TODO
+@@ -4043,7 +4043,7 @@
+   // The allowed characters in strings:
+   { " abcdefghijklmnopqrstuvwxyz0123456789-.#~",
+     " aäbcdefghijklmnoöpqrstuüvwxyz0123456789-.#~",
+-    " abcdefghijklmnopqrstuvwxyz0123456789-.#~",
++    " abcèdefghijklmnopqrs¹tuvwxyz¾0123456789-.#~",
+     " aàbcdeéèfghiîjklmnopqrstuùvwxyz0123456789-.#~",
+     " abcdefghijklmnopqrstuvwxyz0123456789-.#~áäàïóöòúüù",
+     "",// TODO
+@@ -4065,7 +4065,7 @@
+   // Learning keys:
+   { "Learning Remote Control Keys",
+     "Fernbedienungs-Codes lernen",
+-    "Ucenje kod upravljalca",
++    "Uèenje kod upravljalca",
+     "Apprendimento tasti unita` remota",
+     "Leren toetsen afstandsbediening",
+     "Aprender as teclas do telecomando",
+@@ -4096,7 +4096,7 @@
+     "Faza 1: Detekcja typu kodu",
+     "Fase 1: Detectando tipo de receptor",
+     "ÖÜóç 1: Áíß÷íåõóç êþäéêá RC",
+-    "Steg1: identifiering av RC kod",
++    "Steg1: identifiering av kod",
+     "Faza 1: Detecþia tipului telecomenzii",
+     "Elsö lépés: távirányító kódjának meghatározása",
+     "Fase 1: Detectant el tipus de receptor",
+@@ -4138,7 +4138,7 @@
+     "Kod pilota zostal poznany!",
+     "¡Código detectado!",
+     "ÂñÝèçêå êþäéêáò RC!",
+-    "RC koden detekterad!",
++    "Koden detekterad!",
+     "S-a detectat tipul telecomenzii!",
+     "Távirányító kódja felismerve!",
+     "Codi detectat!",
+@@ -4170,7 +4170,7 @@
+   },
+   { "Phase 2: Learning specific key codes",
+     "Phase 2: Einzelne Tastencodes lernen",
+-    "Faza 2: Ucenje posebnih kod",
++    "Faza 2: Uèenje posebnih kod",
+     "Fase 2: Codici specifici dei tasti",
+     "Fase 2: Leren specifieke toets-codes",
+     "Fase 2: A aprender códigos especificos",
+@@ -4180,7 +4180,7 @@
+     "Faza 2: Nauka pojedynczych klawiszy",
+     "Fase 2: Aprendiendo códigos específicos",
+     "Öáóç 2: ÅêìÜèçóç ìåìïíïìÝíùí ðëÞêôñùí",
+-    "Fas 2: Inlärning av specifika knapp koder",
++    "Fas 2: Inlärning av specifika knapp-koder",
+     "Faza 2: Învãþarea codurilor anumitor taste",
+     "Második lépés: az egyes gombok betanítása",
+     "Fase 2: Aprenentantge de les funcions",
+@@ -4285,7 +4285,7 @@
+     "(Nacisnac 'Dol' by zakonczyc)",
+     "(Pulse 'Abajo' para terminar programación teclas)",
+     "(Ðßåóå 'êÜôù' ãéÜ ôåñìáôéóìü äçëþóåùí ðëÞêôñùí)",
+-    "(Tryck 'Ner' för att avsluta knapp definition)",
++    "(Tryck 'Ner' för att avsluta inlärningen)",
+     "(Apãsaþi 'Jos' pentru terminare)",
+     "('Le' megnyomása a befejezéshez)",
+     "(Premeu 'Avall' per finalitzar l'aprenentatge)",
+@@ -4306,7 +4306,7 @@
+     "(Nacisnac 'Menu' by ominac klawisz)",
+     "Pulse 'Menu' para saltarse esta tecla",
+     "ÐÜôá 'ìåíïý' ãéá ðñïóðÝñáóç áõôïý ôïý ðëÞêôñïõ",
+-    "Tryck 'Meny' för att hoppa över denna knapp.",
++    "(Tryck 'Meny' för att hoppa över knappen.)",
+     "Apãsaþi 'Meniu' pentru a sãri peste aceastã tastã",
+     "A Menü gombot nyomni ennek a gombnak a kihagyásához",
+     "Premeu 'Menú' per obviar aquesta tecla",
+@@ -4348,7 +4348,7 @@
+     "'Gora' zapamietuje, 'Dol' przerywa",
+     "Pulse 'Arriba' para guardar, 'Abajo' para anular",
+     "'ÐÜíù' áðïèßêåõóç, 'ÊÜôù' áêýñùóç",
+-    "Tryck 'Upp' för att spara, 'Ner' för att avsluta",
++    "Tryck 'Upp' för att spara eller 'Ner' för att avsluta.",
+     "Apãsaþi 'Sus' pentru salvare, 'Jos' pentru anulare",
+     "'Fel' mentés, 'Le´ mégse",
+     "Premeu 'Amunt' per guardar, 'Avall' per anul·lar",
+@@ -4507,7 +4507,7 @@
+   },
+   { "Red",
+     "Rot",
+-    "Rdeca",
++    "Rdeèa",
+     "Rosso",
+     "Rood",
+     "Vermelho",
+@@ -4738,7 +4738,7 @@
+   },
+   { "Channel+",
+     "Kanal+",
+-    "Kanal+",
++    "Program+",
+     "Canale +",
+     "Kanaal+",
+     "",// TODO
+@@ -4759,7 +4759,7 @@
+   },
+   { "Channel-",
+     "Kanal-",
+-    "Kanal-",
++    "Program-",
+     "Canale -",
+     "Kanaal-",
+     "",// TODO
+@@ -4843,7 +4843,7 @@
+   },
+   { "Audio",
+     "Audio",
+-    "",// TODO
++    "Zvok",
+     "",// TODO
+     "Audio",
+     "",// TODO
+@@ -5054,7 +5054,7 @@
+   },
+   { "Jump: ", // note the trailing blank
+     "Springen: ",
+-    "Skoci: ",
++    "Skoèi: ",
+     "Vai a: ",
+     "Springen: ",
+     "Saltar: ",
+@@ -5096,7 +5096,7 @@
+   },
+   { " Stop replaying", // note the leading blank!
+     " Wiedergabe beenden",
+-    " Prekini ponavljanje",
++    " Prekini predvajanje",
+     " Interrompi riproduzione",
+     " Stop afspelen",
+     " Parar reprodução",
+@@ -5159,7 +5159,7 @@
+   },
+   { "Switching primary DVB...",
+     "Primäres Interface wird umgeschaltet...",
+-    "Preklapljanje primarne naprave...",
++    "Preklapljanje primarne DVB naprave...",
+     "Cambio su card DVB primaria...",
+     "Eerste DVB-kaart wordt omgeschakeld...",
+     "A mudar interface DVB primário...",
+@@ -5190,7 +5190,7 @@
+     "Gora/Dol na nowa pozycje - Ok zmienia",
+     "Arriba/Abajo para el nuevo lugar - OK para mover",
+     "ÐÜíù/ÊÜôù ãéÜ íÝá èÝóç. ÌåôÜ ÏÊ",
+-    "Upp/Ner för ny plats - OK för att flytta",
++    "Upp/Ner för nya platsen - därefter OK för att flytta",
+     "Sus/Jos pentru noua locaþie - OK pentru a muta",
+     "Fel/Le egy uj opcióért - aztán OK",
+     "Amunt/Avall per una nova localització - OK per moure",
+@@ -5201,7 +5201,7 @@
+   },
+   { "Editing process started",
+     "Schnitt gestartet",
+-    "Urejanje se je zacelo",
++    "Urejanje se je zaèelo",
+     "Processo di modifica iniziato",
+     "Bewerken is gestart",
+     "Processo de modificação iniciado",
+@@ -5211,7 +5211,7 @@
+     "Uruchomiony proces montazu",
+     "Proceso modificación iniciado",
+     "Áñ÷Þ åðåîåñãáóßáò",
+-    "Redigering startad",
++    "Redigeringen startar",
+     "Montajul înregistrãrii a început",
+     "Vágás elindítva",
+     "Procés d'edició iniciat",
+@@ -5222,7 +5222,7 @@
+   },
+   { "Editing process finished",
+     "Schnitt beendet",
+-    "Proces urejanja je koncan",
++    "Proces urejanja je konèan",
+     "Processo di modifica terminato",
+     "Bewerken is klaar",
+     "Processo de modificação terminado",
+@@ -5243,7 +5243,7 @@
+   },
+   { "Editing process failed!",
+     "Schnitt gescheitert!",
+-    "Napaka pri procesu urejenja!",
++    "Napaka pri procesu urejanja!",
+     "Processo di modifica fallito!",
+     "Bewerken is mislukt!",
+     "Falha no processo de modificação",
+@@ -5285,7 +5285,7 @@
+   },
+   { "Pausing live video...",
+     "Live-Signal wird angehalten...",
+-    "Ustavljanje predvajanja v zivo...",
++    "Ustavljanje predvajanja v ¾ivo...",
+     "Pausa del canale in visione...",
+     "Pauzeren live uitzending...",
+     "",// TODO
+@@ -5306,7 +5306,7 @@
+   },
+   { "Starting EPG scan",
+     "Beginne mit EPG-Scan",
+-    "",// TODO
++    "Prièenjam EPG-scan",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -5316,7 +5316,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "Påbörjar EPG skanning",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -5348,7 +5348,7 @@
+   },
+   { "Classic VDR",
+     "Klassischer VDR",
+-    "",// TODO
++    "Klasièni VDR",
+     "VDR Classico",
+     "VDR Klassiek",
+     "",// TODO
+@@ -5369,7 +5369,7 @@
+   },
+   { "ST:TNG Panels",
+     "ST:TNG Konsolen",
+-    "",// TODO
++    "ST:TNG Konsola",
+     "Consolles ST:TNG",
+     "ST:TNG Consoles",
+     "",// TODO
+@@ -5379,7 +5379,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "ST:TNG konsol",
++    "ST:TNG konsoll",
+     "Cons. ST:TNG",
+     "",// TODO
+     "",// TODO
+@@ -5390,7 +5390,7 @@
+   },
+   { "No title",
+     "Kein Titel",
+-    "",// TODO
++    "Brez naziva",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -5400,7 +5400,7 @@
+     "",// TODO
+     "",// TODO
+     "",// TODO
+-    "",// TODO
++    "ingen titel",
+     "",// TODO
+     "",// TODO
+     "",// TODO
+@@ -5500,7 +5500,7 @@
+   return &Phrases[1][0];
+ }
+ 
+-const char * I18nLanguageCode(int Index)
++const char *I18nLanguageCode(int Index)
+ {
+   return 0 <= Index && Index < I18nNumLanguages ? Phrases[2][Index] : NULL;
+ }
+@@ -5508,8 +5508,17 @@
+ int I18nLanguageIndex(const char *Code)
+ {
+   for (int i = 0; i < I18nNumLanguages; i++) {
+-      if (strcasestr(Phrases[2][i], Code))
+-         return i;
++      const char *s = Phrases[2][i];
++      while (*s) {
++            int l = 0;
++            for ( ; l < 3 && Code[l]; l++) {
++                if (s[l] != tolower(Code[l]))
++                   break;
++                }
++            if (l == 3)
++               return i;
++            s++;
++            }
+       }
+   //dsyslog("unknown language code: '%s'", Code);
+   return -1;
+@@ -5527,22 +5536,35 @@
+   return n >= 0 ? I18nLanguageCode(n) : Code;
+ }
+ 
+-bool I18nIsPreferredLanguage(int *PreferredLanguages, int LanguageIndex, int &OldPreference)
++bool I18nIsPreferredLanguage(int *PreferredLanguages, const char *LanguageCode, int &OldPreference, int *Position)
+ {
+-  for (int i = 0; i < I18nNumLanguages; i++) {
+-      if (PreferredLanguages[i] < 0)
+-         break; // the language is not a preferred one
+-      if (PreferredLanguages[i] == LanguageIndex) {
+-         if (OldPreference < 0 || i < OldPreference) {
+-            OldPreference = i;
+-            return true;
++  int pos = 1;
++  bool found = false;
++  while (LanguageCode) {
++        int LanguageIndex = I18nLanguageIndex(LanguageCode);
++        for (int i = 0; i < I18nNumLanguages; i++) {
++            if (PreferredLanguages[i] < 0)
++               break; // the language is not a preferred one
++            if (PreferredLanguages[i] == LanguageIndex) {
++               if (OldPreference < 0 || i < OldPreference) {
++                  OldPreference = i;
++                  if (Position)
++                     *Position = pos;
++                  found = true;
++                  break;
++                  }
++               }
+             }
+-         break;
+-         }
+-      }
++        if ((LanguageCode = strchr(LanguageCode, '+')) != NULL) {
++           LanguageCode++;
++           pos++;
++           }
++        else if (pos == 1 && Position)
++           *Position = 0;
++        }
+   if (OldPreference < 0) {
+      OldPreference = I18nNumLanguages; // higher than the maximum possible value
+      return true; // if we don't find a preferred one, we take the first one
+      }
+-  return false;
++  return found;
+ }
+diff -ruN vdr-1.3.31/i18n.h vdr-1.3.32/i18n.h
+--- vdr-1.3.31/i18n.h	2004-11-02 18:21:19.000000000 +0100
++++ vdr-1.3.32/i18n.h	2005-09-09 16:50:35.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: i18n.h 1.14 2004/11/02 17:21:19 kls Exp $
++ * $Id: i18n.h 1.16 2005/09/09 14:50:35 kls Exp $
+  */
+ 
+ #ifndef __I18N_H
+@@ -22,10 +22,22 @@
+ 
+ const char * const * I18nLanguages(void);
+ const char * const * I18nCharSets(void);
+-const char * I18nLanguageCode(int Index);
++const char *I18nLanguageCode(int Index);
+ int I18nLanguageIndex(const char *Code);
+ const char *I18nNormalizeLanguageCode(const char *Code);
+-bool I18nIsPreferredLanguage(int *PreferredLanguages, int LanguageIndex, int &OldPreference);
++   ///< Returns a 3 letter language code that may not be zero terminated.
++   ///< If no normalized language code can be found, the given Code is returned.
++   ///< Make sure at most 3 characters are copied when using it!
++bool I18nIsPreferredLanguage(int *PreferredLanguages, const char *LanguageCode, int &OldPreference, int *Position = NULL);
++   ///< Checks the given LanguageCode (which may be something like "eng" or "eng+deu")
++   ///< against the PreferredLanguages and returns true if one is found that has an index
++   ///< smaller than OldPreference (which should be initialized to -1 before the first
++   ///< call to this function in a sequence of checks). If LanguageCode is not any of
++   ///< the PreferredLanguages, and OldPreference is less than zero, OldPreference will
++   ///< be set to a value higher than the highest language index.  If Position is given,
++   ///< it will return 0 if this was a single language code (like "eng"), 1 if it was
++   ///< the first of two language codes (like "eng" out of "eng+deu") and 2 if it was
++   ///< the second one (like "deu" out of ""eng+deu").
+ 
+ #ifdef PLUGIN_NAME_I18N
+ #define tr(s)  I18nTranslate(s, PLUGIN_NAME_I18N)
+diff -ruN vdr-1.3.31/interface.c vdr-1.3.32/interface.c
+--- vdr-1.3.31/interface.c	2004-11-01 15:23:28.000000000 +0100
++++ vdr-1.3.32/interface.c	2005-09-03 11:07:23.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: interface.c 1.68 2004/11/01 14:23:28 kls Exp $
++ * $Id: interface.c 1.69 2005/09/03 09:07:23 kls Exp $
+  */
+ 
+ #include "interface.h"
+@@ -56,7 +56,7 @@
+   time_t timeout = time(NULL) + Seconds;
+   for (;;) {
+       Key = GetKey();
+-      if ((Key != kNone && (RAWKEY(Key) != kOk || RAWKEY(Key) == Key)) || time(NULL) > timeout || interrupted)
++      if (ISRAWKEY(Key) || time(NULL) > timeout || interrupted)
+          break;
+       }
+   if (KeepChar && ISRAWKEY(Key))
+diff -ruN vdr-1.3.31/keys.c vdr-1.3.32/keys.c
+--- vdr-1.3.31/keys.c	2004-12-27 12:08:34.000000000 +0100
++++ vdr-1.3.32/keys.c	2005-09-03 13:28:34.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: keys.c 1.7 2004/12/27 11:08:34 kls Exp $
++ * $Id: keys.c 1.8 2005/09/03 11:28:34 kls Exp $
+  */
+ 
+ #include "keys.h"
+@@ -210,7 +210,6 @@
+                  }
+               macro[n++] = k_Plugin;
+               if (n < MAXKEYSINMACRO) {
+-                 macro[n] = kOk;
+                  plugin = strdup(p + 1);
+                  if (!cPluginManager::GetPlugin(plugin)) {
+                     esyslog("ERROR: unknown plugin '%s'", plugin);
+diff -ruN vdr-1.3.31/libsi/descriptor.c vdr-1.3.32/libsi/descriptor.c
+--- vdr-1.3.31/libsi/descriptor.c	2004-10-16 11:51:05.000000000 +0200
++++ vdr-1.3.32/libsi/descriptor.c	2005-09-03 17:16:49.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: descriptor.c 1.14 2004/10/16 09:51:05 kls Exp $
++ *   $Id: descriptor.c 1.15 2005/09/03 15:16:49 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -655,14 +655,32 @@
+ }
+ 
+ void ISO639LanguageDescriptor::Parse() {
+-   unsigned int offset=0;
+-   data.setPointerAndOffset<const descr_iso_639_language>(s, offset);
++   languageLoop.setData(data+sizeof(descr_iso_639_language), getLength()-sizeof(descr_iso_639_language));
++   
++   //all this is for backwards compatibility only
++   Loop::Iterator it;
++   Language first;
++   if (languageLoop.getNext(first, it)) {
++      languageCode[0]=first.languageCode[0];
++      languageCode[1]=first.languageCode[1];
++      languageCode[2]=first.languageCode[2];
++      languageCode[3]=0;
++   } else
++      languageCode[0]=0;
++}
++
++void ISO639LanguageDescriptor::Language::Parse() {
++   s=data.getData<const descr_iso_639_language_loop>();
+    languageCode[0]=s->lang_code1;
+    languageCode[1]=s->lang_code2;
+    languageCode[2]=s->lang_code3;
+    languageCode[3]=0;
+ }
+ 
++AudioType ISO639LanguageDescriptor::Language::getAudioType() {
++   return (AudioType)s->audio_type;
++}
++
+ void PDCDescriptor::Parse() {
+    unsigned int offset=0;
+    data.setPointerAndOffset<const descr_pdc>(s, offset);
+diff -ruN vdr-1.3.31/libsi/descriptor.h vdr-1.3.32/libsi/descriptor.h
+--- vdr-1.3.31/libsi/descriptor.h	2005-05-08 16:08:19.000000000 +0200
++++ vdr-1.3.32/libsi/descriptor.h	2005-09-03 17:17:35.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: descriptor.h 1.12 2005/05/08 14:08:19 kls Exp $
++ *   $Id: descriptor.h 1.13 2005/09/03 15:17:35 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -392,7 +392,18 @@
+ 
+ class ISO639LanguageDescriptor : public Descriptor {
+ public:
+-   char languageCode[4];
++   char languageCode[4]; //for backwards compatibility
++   class Language : public LoopElement {
++   public:
++      virtual int getLength() { return sizeof(descr_iso_639_language_loop); }
++      char languageCode[4];
++      AudioType getAudioType();
++   protected:
++      virtual void Parse();
++   private:
++      const descr_iso_639_language_loop *s;
++   };
++   StructureLoop<Language> languageLoop;
+ protected:
+    virtual void Parse();
+ private:
+diff -ruN vdr-1.3.31/libsi/headers.h vdr-1.3.32/libsi/headers.h
+--- vdr-1.3.31/libsi/headers.h	2004-02-22 12:12:46.000000000 +0100
++++ vdr-1.3.32/libsi/headers.h	2005-09-03 17:18:16.000000000 +0200
+@@ -10,7 +10,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: headers.h 1.4 2004/02/22 11:12:46 kls Exp $
++ *   $Id: headers.h 1.5 2005/09/03 15:18:16 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -821,9 +821,13 @@
+ struct descr_iso_639_language {
+    u_char descriptor_tag                         :8;
+    u_char descriptor_length                      :8;
++};
++
++struct descr_iso_639_language_loop {
+    u_char lang_code1                             :8;
+    u_char lang_code2                             :8;
+    u_char lang_code3                             :8;
++   u_char audio_type                             :8;
+ };
+ 
+ /* 0x13 carousel_identifier_descriptor */
+diff -ruN vdr-1.3.31/libsi/si.h vdr-1.3.32/libsi/si.h
+--- vdr-1.3.31/libsi/si.h	2004-10-16 11:58:10.000000000 +0200
++++ vdr-1.3.32/libsi/si.h	2005-09-03 17:19:00.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.h 1.11 2004/10/16 09:58:10 kls Exp $
++ *   $Id: si.h 1.12 2005/09/03 15:19:00 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -166,6 +166,12 @@
+                    LinkageTypeTSContainingSsuBatOrNit = 0x0A
+                  };
+ 
++enum AudioType { AudioTypeUndefined = 0x00,
++                 AudioTypeCleanEffects = 0x01,
++                 AudioTypeHearingImpaired = 0x02,
++                 AudioTypeVisualImpairedCommentary = 0x03
++               };
++
+ /* Some principles:
+    - Objects that return references to other objects contained in their data must make sure
+      that the returned objects have been parsed.
+diff -ruN vdr-1.3.31/lirc.c vdr-1.3.32/lirc.c
+--- vdr-1.3.31/lirc.c	2005-08-15 14:28:10.000000000 +0200
++++ vdr-1.3.32/lirc.c	2005-09-02 14:51:35.000000000 +0200
+@@ -6,7 +6,7 @@
+  *
+  * LIRC support added by Carsten Koch <Carsten.Koch@icem.de>  2000-06-16.
+  *
+- * $Id: lirc.c 1.12 2005/08/15 12:28:10 kls Exp $
++ * $Id: lirc.c 1.13 2005/09/02 12:51:35 kls Exp $
+  */
+ 
+ #include "lirc.h"
+@@ -76,7 +76,10 @@
+         if (ready && ret > 21) {
+            int count;
+            char KeyName[LIRC_KEY_BUF];
+-           sscanf(buf, "%*x %x %29s", &count, KeyName); // '29' in '%29s' is LIRC_KEY_BUF-1!
++           if (sscanf(buf, "%*x %x %29s", &count, KeyName) != 2) { // '29' in '%29s' is LIRC_KEY_BUF-1!
++              esyslog("ERROR: unparseable lirc command: %s", buf);
++              continue;
++              }
+            if (count == 0) {
+               if (strcmp(KeyName, LastKeyName) == 0 && FirstTime.Elapsed() < KEYPRESSDELAY)
+                  continue; // skip keys coming in too fast
+diff -ruN vdr-1.3.31/menu.c vdr-1.3.32/menu.c
+--- vdr-1.3.31/menu.c	2005-08-27 11:37:23.000000000 +0200
++++ vdr-1.3.32/menu.c	2005-09-03 13:42:27.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.c 1.357 2005/08/27 09:37:23 kls Exp $
++ * $Id: menu.c 1.359 2005/09/03 11:42:27 kls Exp $
+  */
+ 
+ #include "menu.h"
+@@ -29,7 +29,6 @@
+ #include "transfer.h"
+ #include "videodir.h"
+ 
+-#define MENUTIMEOUT     120 // seconds
+ #define MAXWAIT4EPGINFO   3 // seconds
+ #define MODETIMEOUT       3 // seconds
+ 
+@@ -1300,7 +1299,6 @@
+   Add(new cOsdItem(ciMenu->BottomText()));
+   Display();
+   dsyslog("CAM: Menu - %s", ciMenu->TitleText());
+-  lastActivity = time(NULL);
+ }
+ 
+ cMenuCam::~cMenuCam()
+@@ -1329,10 +1327,6 @@
+        default: break;
+        }
+      }
+-  if (Key != kNone)
+-     lastActivity = time(NULL);
+-  else if (time(NULL) - lastActivity > MENUTIMEOUT)
+-     state = osEnd;
+   return state;
+ }
+ 
+@@ -1350,7 +1344,6 @@
+   SetTitle(ciEnquiry->Text() ? ciEnquiry->Text() : "CAM");
+   Add(new cMenuEditNumItem("Input", input, Length, ciEnquiry->Blind()));
+   Display();
+-  lastActivity = time(NULL);
+ }
+ 
+ cMenuCamEnquiry::~cMenuCamEnquiry()
+@@ -1379,10 +1372,6 @@
+        default: break;
+        }
+      }
+-  if (Key != kNone)
+-     lastActivity = time(NULL);
+-  else if (time(NULL) - lastActivity > MENUTIMEOUT)
+-     state = osEnd;
+   return state;
+ }
+ 
+@@ -2402,11 +2391,11 @@
+ 
+ cOsdObject *cMenuMain::pluginOsdObject = NULL;
+ 
+-cMenuMain::cMenuMain(bool Replaying, eOSState State, const char *Plugin)
++cMenuMain::cMenuMain(bool Replaying, eOSState State)
+ :cOsdMenu("")
+ {
+   replaying = Replaying;
+-  Set(Plugin);
++  Set();
+ 
+   // Initial submenus:
+ 
+@@ -2417,7 +2406,6 @@
+     case osRecordings: AddSubMenu(new cMenuRecordings(NULL, 0, true)); break;
+     case osSetup:      AddSubMenu(new cMenuSetup); break;
+     case osCommands:   AddSubMenu(new cMenuCommands(tr("Commands"), &Commands)); break;
+-    case osPlugin:     break; // the actual work is done in Set()
+     default: break;
+     }
+ }
+@@ -2429,7 +2417,7 @@
+   return o;
+ }
+ 
+-void cMenuMain::Set(const char *Plugin)
++void cMenuMain::Set(void)
+ {
+   Clear();
+   //XXX //SetTitle("VDR"); // this is done below, including disk usage
+@@ -2463,7 +2451,7 @@
+       if (p) {
+          const char *item = p->MainMenuEntry();
+          if (item)
+-            Add(new cMenuPluginItem(hk(item), i), Plugin && strcmp(Plugin, p->Name()) == 0);
++            Add(new cMenuPluginItem(hk(item), i));
+          }
+       else
+          break;
+@@ -2506,7 +2494,6 @@
+ 
+   SetHelp(!replaying ? tr("Record") : NULL, tr("Audio"), replaying ? NULL : tr("Pause"), replaying ? tr("Button$Stop") : cReplayControl::LastReplayed() ? tr("Resume") : NULL);
+   Display();
+-  lastActivity = time(NULL);
+ }
+ 
+ eOSState cMenuMain::ProcessKey(eKeys Key)
+@@ -2579,15 +2566,12 @@
+                }
+     }
+   if (Key != kNone) {
+-     lastActivity = time(NULL);
+      if (Setup.OSDLanguage != osdLanguage) {
+         Set();
+         if (!HasSubMenu())
+            Display();
+         }
+      }
+-  else if (time(NULL) - lastActivity > MENUTIMEOUT)
+-     state = osEnd;
+   return state;
+ }
+ 
+diff -ruN vdr-1.3.31/menu.h vdr-1.3.32/menu.h
+--- vdr-1.3.31/menu.h	2005-08-27 11:37:33.000000000 +0200
++++ vdr-1.3.32/menu.h	2005-09-03 13:41:41.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menu.h 1.71 2005/08/27 09:37:33 kls Exp $
++ * $Id: menu.h 1.73 2005/09/03 11:41:41 kls Exp $
+  */
+ 
+ #ifndef __MENU_H
+@@ -55,12 +55,11 @@
+ 
+ class cMenuMain : public cOsdMenu {
+ private:
+-  time_t lastActivity;
+   bool replaying;
+   static cOsdObject *pluginOsdObject;
+-  void Set(const char *Plugin = NULL);
++  void Set(void);
+ public:
+-  cMenuMain(bool Replaying, eOSState State = osUnknown, const char *Plugin = NULL);
++  cMenuMain(bool Replaying, eOSState State = osUnknown);
+   virtual eOSState ProcessKey(eKeys Key);
+   static cOsdObject *PluginOsdObject(void);
+   };
+@@ -120,7 +119,6 @@
+ class cMenuCam : public cOsdMenu {
+ private:
+   cCiMenu *ciMenu;
+-  time_t lastActivity;
+   bool selected;
+   eOSState Select(void);
+ public:
+@@ -132,7 +130,6 @@
+ class cMenuCamEnquiry : public cOsdMenu {
+ private:
+   cCiEnquiry *ciEnquiry;
+-  time_t lastActivity;
+   char *input;
+   bool replied;
+   eOSState Reply(void);
+diff -ruN vdr-1.3.31/pat.c vdr-1.3.32/pat.c
+--- vdr-1.3.31/pat.c	2005-08-06 14:23:51.000000000 +0200
++++ vdr-1.3.32/pat.c	2005-09-04 16:32:39.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: pat.c 1.13 2005/08/06 12:23:51 kls Exp $
++ * $Id: pat.c 1.14 2005/09/04 14:32:39 kls Exp $
+  */
+ 
+ #include "pat.h"
+@@ -326,8 +326,8 @@
+         int Ppid = pmt.getPCRPid();
+         int Apids[MAXAPIDS + 1] = { 0 }; // these lists are zero-terminated
+         int Dpids[MAXDPIDS + 1] = { 0 };
+-        char ALangs[MAXAPIDS][4] = { "" };
+-        char DLangs[MAXDPIDS][4] = { "" };
++        char ALangs[MAXAPIDS][MAXLANGCODE2] = { "" };
++        char DLangs[MAXDPIDS][MAXLANGCODE2] = { "" };
+         int Tpid = 0;
+         int NumApids = 0;
+         int NumDpids = 0;
+@@ -347,10 +347,19 @@
+                              switch (d->getDescriptorTag()) {
+                                case SI::ISO639LanguageDescriptorTag: {
+                                     SI::ISO639LanguageDescriptor *ld = (SI::ISO639LanguageDescriptor *)d;
+-                                    if (*ld->languageCode != '-') { // some use "---" to indicate "none"
+-                                       strn0cpy(ALangs[NumApids], I18nNormalizeLanguageCode(ld->languageCode), 4);
+-                                       ALangs[NumApids][4] = 0;
+-                                       }
++                                    SI::ISO639LanguageDescriptor::Language l;
++                                    char *s = ALangs[NumApids];
++                                    int n = 0;
++                                    for (SI::Loop::Iterator it; ld->languageLoop.getNext(l, it); ) {
++                                        if (*ld->languageCode != '-') { // some use "---" to indicate "none"
++                                           if (n > 0)
++                                              *s++ = '+';
++                                           strn0cpy(s, I18nNormalizeLanguageCode(l.languageCode), MAXLANGCODE1);
++                                           s += strlen(s);
++                                           if (n++ > 1)
++                                              break;
++                                           }
++                                        }
+                                     }
+                                     break;
+                                default: ;
+@@ -366,7 +375,7 @@
+               //XXX case 8: // STREAMTYPE_13818_DSMCC
+                       {
+                       int dpid = 0;
+-                      char lang[4] = { 0 };
++                      char lang[MAXLANGCODE1] = { 0 };
+                       SI::Descriptor *d;
+                       for (SI::Loop::Iterator it; (d = stream.streamDescriptors.getNext(it)); ) {
+                           switch (d->getDescriptorTag()) {
+@@ -378,7 +387,7 @@
+                                  break;
+                             case SI::ISO639LanguageDescriptorTag: {
+                                  SI::ISO639LanguageDescriptor *ld = (SI::ISO639LanguageDescriptor *)d;
+-                                 strn0cpy(lang, I18nNormalizeLanguageCode(ld->languageCode), 4);
++                                 strn0cpy(lang, I18nNormalizeLanguageCode(ld->languageCode), MAXLANGCODE1);
+                                  }
+                                  break;
+                             default: ;
+@@ -388,7 +397,7 @@
+                       if (dpid) {
+                          if (NumDpids < MAXDPIDS) {
+                             Dpids[NumDpids] = dpid;
+-                            strn0cpy(DLangs[NumDpids], lang, 4);
++                            strn0cpy(DLangs[NumDpids], lang, MAXLANGCODE1);
+                             NumDpids++;
+                             }
+                          }
+diff -ruN vdr-1.3.31/recording.c vdr-1.3.32/recording.c
+--- vdr-1.3.31/recording.c	2005-08-13 16:00:48.000000000 +0200
++++ vdr-1.3.32/recording.c	2005-09-10 14:36:48.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 1.111 2005/08/13 14:00:48 kls Exp $
++ * $Id: recording.c 1.113 2005/09/10 12:36:48 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -36,15 +36,8 @@
+ #define DATAFORMAT   "%4d-%02d-%02d.%02d:%02d.%02d.%02d" RECEXT
+ #define NAMEFORMAT   "%s/%s/" DATAFORMAT
+ */
+-// start of implementation for brain dead systems
+ #define DATAFORMAT   "%4d-%02d-%02d.%02d%*c%02d.%02d.%02d" RECEXT
+-#ifdef VFAT
+-#define nameFORMAT   "%4d-%02d-%02d.%02d.%02d.%02d.%02d" RECEXT
+-#else
+-#define nameFORMAT   "%4d-%02d-%02d.%02d:%02d.%02d.%02d" RECEXT
+-#endif
+-#define NAMEFORMAT   "%s/%s/" nameFORMAT
+-// end of implementation for brain dead systems
++#define NAMEFORMAT   "%s/%s/" "%4d-%02d-%02d.%02d.%02d.%02d.%02d" RECEXT
+ 
+ #define RESUMEFILESUFFIX  "/resume%s%s.vdr"
+ #ifdef SUMMARYFALLBACK
+@@ -65,6 +58,8 @@
+ 
+ #define MAX_SUBTITLE_LENGTH  40
+ 
++bool VfatFileSystem = false;
++
+ void RemoveDeletedRecordings(void)
+ {
+   static time_t LastRemoveCheck = 0;
+@@ -297,79 +292,80 @@
+ {
+   char *p = s;
+   while (*p) {
+-#ifdef VFAT
+-        // The VFAT file system can't handle all characters, so we
+-        // have to take extra efforts to encode/decode them:
+-        if (ToFileSystem) {
+-           switch (*p) {
+-                  // characters that can be used "as is":
+-                  case '!':
+-                  case '@':
+-                  case '$':
+-                  case '%':
+-                  case '&':
+-                  case '(':
+-                  case ')':
+-                  case '+':
+-                  case ',':
+-                  case '-':
+-                  case ';':
+-                  case '=':
+-                  case '0' ... '9':
+-                  case 'a' ... 'z':
+-                  case 'A' ... 'Z':
+-                  case 'ä': case 'Ä':
+-                  case 'ö': case 'Ö':
+-                  case 'ü': case 'Ü':
+-                  case 'ß':
+-                       break;
+-                  // characters that can be mapped to other characters:
+-                  case ' ': *p = '_'; break;
+-                  case '~': *p = '/'; break;
+-                  // characters that have to be encoded:
+-                  default:
+-                    if (*p != '.' || !*(p + 1) || *(p + 1) == '~') { // Windows can't handle '.' at the end of directory names
+-                       int l = p - s;
+-                       s = (char *)realloc(s, strlen(s) + 10);
+-                       p = s + l;
+-                       char buf[4];
+-                       sprintf(buf, "#%02X", (unsigned char)*p);
+-                       memmove(p + 2, p, strlen(p) + 1);
+-                       strncpy(p, buf, 3);
+-                       p += 2;
+-                       }
+-                  }
++        if (VfatFileSystem) {
++           // The VFAT file system can't handle all characters, so we
++           // have to take extra efforts to encode/decode them:
++           if (ToFileSystem) {
++              switch (*p) {
++                     // characters that can be used "as is":
++                     case '!':
++                     case '@':
++                     case '$':
++                     case '%':
++                     case '&':
++                     case '(':
++                     case ')':
++                     case '+':
++                     case ',':
++                     case '-':
++                     case ';':
++                     case '=':
++                     case '0' ... '9':
++                     case 'a' ... 'z':
++                     case 'A' ... 'Z':
++                     case 'ä': case 'Ä':
++                     case 'ö': case 'Ö':
++                     case 'ü': case 'Ü':
++                     case 'ß':
++                          break;
++                     // characters that can be mapped to other characters:
++                     case ' ': *p = '_'; break;
++                     case '~': *p = '/'; break;
++                     // characters that have to be encoded:
++                     default:
++                       if (*p != '.' || !*(p + 1) || *(p + 1) == '~') { // Windows can't handle '.' at the end of directory names
++                          int l = p - s;
++                          s = (char *)realloc(s, strlen(s) + 10);
++                          p = s + l;
++                          char buf[4];
++                          sprintf(buf, "#%02X", (unsigned char)*p);
++                          memmove(p + 2, p, strlen(p) + 1);
++                          strncpy(p, buf, 3);
++                          p += 2;
++                          }
++                     }
++              }
++           else {
++              switch (*p) {
++                // mapped characters:
++                case '_': *p = ' '; break;
++                case '/': *p = '~'; break;
++                // encodes characters:
++                case '#': {
++                     if (strlen(p) > 2) {
++                        char buf[3];
++                        sprintf(buf, "%c%c", *(p + 1), *(p + 2));
++                        unsigned char c = strtol(buf, NULL, 16);
++                        *p = c;
++                        memmove(p + 1, p + 3, strlen(p) - 2);
++                        }
++                     }
++                     break;
++                // backwards compatibility:
++                case '\x01': *p = '\''; break;
++                case '\x02': *p = '/';  break;
++                case '\x03': *p = ':';  break;
++                }
++              }
+            }
+         else {
+-           switch (*p) {
+-             // mapped characters:
+-             case '_': *p = ' '; break;
+-             case '/': *p = '~'; break;
+-             // encodes characters:
+-             case '#': {
+-                  if (strlen(p) > 2) {
+-                     char buf[3];
+-                     sprintf(buf, "%c%c", *(p + 1), *(p + 2));
+-                     unsigned char c = strtol(buf, NULL, 16);
+-                     *p = c;
+-                     memmove(p + 1, p + 3, strlen(p) - 2);
+-                     }
+-                  }
++           for (struct tCharExchange *ce = CharExchange; ce->a && ce->b; ce++) {
++               if (*p == (ToFileSystem ? ce->a : ce->b)) {
++                  *p = ToFileSystem ? ce->b : ce->a;
+                   break;
+-             // backwards compatibility:
+-             case '\x01': *p = '\''; break;
+-             case '\x02': *p = '/';  break;
+-             case '\x03': *p = ':';  break;
+-             }
+-           }
+-#else
+-        for (struct tCharExchange *ce = CharExchange; ce->a && ce->b; ce++) {
+-            if (*p == (ToFileSystem ? ce->a : ce->b)) {
+-               *p = ToFileSystem ? ce->b : ce->a;
+-               break;
++                  }
+                }
+-            }
+-#endif
++           }
+         p++;
+         }
+   return s;
+@@ -500,6 +496,20 @@
+               data[2] = data[1];
+               data[1] = NULL;
+               }
++           else if (line == 2) {
++              // if line 1 is too long, it can't be the short text,
++              // so assume the short text is missing and concatenate
++              // line 1 and line 2 to be the long text:
++              int len = strlen(data[1]);
++              if (len > 80) { 
++                 data[1] = (char *)realloc(data[1], len + 1 + strlen(data[2]) + 1);
++                 strcat(data[1], "\n");
++                 strcat(data[1], data[2]);
++                 free(data[2]);
++                 data[2] = data[1];
++                 data[1] = NULL;
++                 }
++              }
+            info->SetData(data[0], data[1], data[2]);
+            for (int i = 0; i < 3; i ++)
+                free(data[i]);
+diff -ruN vdr-1.3.31/recording.h vdr-1.3.32/recording.h
+--- vdr-1.3.31/recording.h	2005-08-13 16:09:50.000000000 +0200
++++ vdr-1.3.32/recording.h	2005-09-03 15:04:41.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.h 1.39 2005/08/13 14:09:50 kls Exp $
++ * $Id: recording.h 1.40 2005/09/03 13:04:41 kls Exp $
+  */
+ 
+ #ifndef __RECORDING_H
+@@ -18,6 +18,8 @@
+ #include "timers.h"
+ #include "tools.h"
+ 
++extern bool VfatFileSystem;
++
+ void RemoveDeletedRecordings(void);
+ void AssertFreeDiskSpace(int Priority = 0);
+      ///< The special Priority value -1 means that we shall get rid of any
+diff -ruN vdr-1.3.31/remote.c vdr-1.3.32/remote.c
+--- vdr-1.3.31/remote.c	2005-08-14 12:53:55.000000000 +0200
++++ vdr-1.3.32/remote.c	2005-09-03 14:29:48.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.c 1.44 2005/08/14 10:53:55 kls Exp $
++ * $Id: remote.c 1.45 2005/09/03 12:29:48 kls Exp $
+  */
+ 
+ #include "remote.h"
+@@ -143,6 +143,12 @@
+   return false;
+ }
+ 
++void cRemote::CallPlugin(const char *Plugin)
++{
++  plugin = Plugin;
++  Put(k_Plugin);
++}
++
+ bool cRemote::HasKeys(void)
+ {
+   cMutexLock MutexLock(&mutex);
+diff -ruN vdr-1.3.31/remote.h vdr-1.3.32/remote.h
+--- vdr-1.3.31/remote.h	2005-08-13 13:28:10.000000000 +0200
++++ vdr-1.3.32/remote.h	2005-09-03 14:28:42.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remote.h 1.30 2005/08/13 11:28:10 kls Exp $
++ * $Id: remote.h 1.31 2005/09/03 12:28:42 kls Exp $
+  */
+ 
+ #ifndef __REMOTE_H
+@@ -44,6 +44,10 @@
+   static void Clear(void);
+   static bool Put(eKeys Key, bool AtFront = false);
+   static bool PutMacro(eKeys Key);
++  static void CallPlugin(const char *Plugin);
++      ///< Initiates calling the given plugin's main menu function.
++      ///< The Plugin parameter is the name of the plugin, and must be
++      ///< a static string.
+   static const char *GetPlugin(void) { return plugin; }
+   static bool HasKeys(void);
+   static eKeys Get(int WaitMs = 1000, char **UnknownCode = NULL);
+diff -ruN vdr-1.3.31/remux.c vdr-1.3.32/remux.c
+--- vdr-1.3.31/remux.c	2005-08-28 13:46:44.000000000 +0200
++++ vdr-1.3.32/remux.c	2005-09-11 15:26:50.000000000 +0200
+@@ -11,7 +11,7 @@
+  * The cRepacker family's code was originally written by Reinhard Nissl <rnissl@gmx.de>,
+  * and adapted to the VDR coding style by Klaus.Schmidinger@cadsoft.de.
+  *
+- * $Id: remux.c 1.42 2005/08/28 11:46:44 kls Exp $
++ * $Id: remux.c 1.47 2005/09/11 13:26:50 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -98,7 +98,7 @@
+   static int Put(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count, int CapacityNeeded);
+   cRepacker(void) { initiallySyncing = true; maxPacketSize = 6 + 65535; subStreamId = 0; }
+   virtual ~cRepacker() {}
+-  virtual void Reset(void) { /* initiallySyncing = true; */ }
++  virtual void Reset(void) { initiallySyncing = true; }
+   virtual void Repack(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count) = 0;
+   virtual int BreakAt(const uchar *Data, int Count) = 0;
+   virtual int QuerySnoopSize(void) { return 0; }
+@@ -142,7 +142,7 @@
+ {
+   cRepacker::Reset();
+   skippedBytes = 0;
+-  packetTodo = maxPacketSize - 6 - 3;
++  packetTodo = 0;
+   fragmentLen = 0;
+   pesHeaderLen = 0;
+   pesHeaderBackupLen = 0;
+@@ -161,8 +161,10 @@
+      int PesPayloadOffset = 0;
+      if (AnalyzePesHeader(fragmentData, fragmentLen, PesPayloadOffset) <= phInvalid)
+         esyslog("cCommonRepacker: invalid PES packet encountered in fragment buffer!");
+-     else if (6 + PacketLen <= PesPayloadOffset)
++     else if (6 + PacketLen <= PesPayloadOffset) {
++        fragmentLen = 0;
+         return true; // skip empty packet
++        }
+      // amount of data to put into result buffer: a negative Count value means
+      // to strip off any partially contained start code.
+      int Bite = fragmentLen + (Count >= 0 ? 0 : Count);
+@@ -180,8 +182,10 @@
+      int PesPayloadOffset = 0;
+      if (AnalyzePesHeader(pesHeader, pesHeaderLen, PesPayloadOffset) <= phInvalid)
+         esyslog("cCommonRepacker: invalid PES packet encountered in header buffer!");
+-     else if (6 + PacketLen <= PesPayloadOffset)
++     else if (6 + PacketLen <= PesPayloadOffset) {
++        pesHeaderLen = 0;
+         return true; // skip empty packet
++        }
+      // amount of data to put into result buffer: a negative Count value means
+      // to strip off any partially contained start code.
+      int Bite = pesHeaderLen + (Count >= 0 ? 0 : Count);
+@@ -361,7 +365,7 @@
+         done++;
+         todo--;
+         // do we have to start a new packet as there is no more space left?
+-        if (--packetTodo <= 0) {
++        if (state != syncing && --packetTodo <= 0) {
+            // we connot start a new packet here if the current might end in a start
+            // code and this start code shall possibly be put in the next packet. So
+            // overfill the current packet until we can safely detect that we won't
+@@ -468,6 +472,9 @@
+ 
+ int cVideoRepacker::BreakAt(const uchar *Data, int Count)
+ {
++  if (initiallySyncing)
++     return -1; // fill the packet buffer completely until we have synced once
++
+   int PesPayloadOffset = 0;
+ 
+   if (AnalyzePesHeader(Data, Count, PesPayloadOffset) <= phInvalid)
+@@ -513,31 +520,31 @@
+     } state;
+   int frameTodo;
+   int frameSize;
++  int cid;
+   static bool IsValidAudioHeader(uint32_t Header, bool Mpeg2, int *FrameSize = NULL);
+ public:
+-  cAudioRepacker(void);
++  cAudioRepacker(int Cid);
+   virtual void Reset(void);
+   virtual void Repack(cRingBufferLinear *ResultBuffer, const uchar *Data, int Count);
+   virtual int BreakAt(const uchar *Data, int Count);
+   };
+ 
+ int cAudioRepacker::bitRates[2][3][16] = { // all values are specified as kbits/s
+-  // MPEG 1, Layer I
+-  0,  32,  64,  96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, -1,
+-  // MPEG 1, Layer II
+-  0,  32,  48,  56,  64,  80,  96, 112, 128, 160, 192, 224, 256, 320, 384, -1,
+-  // MPEG 1, Layer III
+-  0,  32,  40,  48,  56,  64,  80,  96, 112, 128, 160, 192, 224, 256, 320, -1,
+-  // MPEG 2, Layer I
+-  0,  32,  48,  56,  64,  80,  96, 112, 128, 144, 160, 176, 192, 224, 256, -1,
+-  // MPEG 2, Layer II/III
+-  0,   8,  16,  24,  32,  40,  48,  56,  64,  80,  96, 112, 128, 144, 160, -1,
+-  // MPEG 2, Layer II/III
+-  0,   8,  16,  24,  32,  40,  48,  56,  64,  80,  96, 112, 128, 144, 160, -1
++  {
++    { 0,  32,  64,  96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, -1 }, // MPEG 1, Layer I
++    { 0,  32,  48,  56,  64,  80,  96, 112, 128, 160, 192, 224, 256, 320, 384, -1 }, // MPEG 1, Layer II
++    { 0,  32,  40,  48,  56,  64,  80,  96, 112, 128, 160, 192, 224, 256, 320, -1 }  // MPEG 1, Layer III
++  },
++  {
++    { 0,  32,  48,  56,  64,  80,  96, 112, 128, 144, 160, 176, 192, 224, 256, -1 }, // MPEG 2, Layer I
++    { 0,   8,  16,  24,  32,  40,  48,  56,  64,  80,  96, 112, 128, 144, 160, -1 }, // MPEG 2, Layer II/III
++    { 0,   8,  16,  24,  32,  40,  48,  56,  64,  80,  96, 112, 128, 144, 160, -1 }  // MPEG 2, Layer II/III
++  }
+   };
+ 
+-cAudioRepacker::cAudioRepacker(void)
++cAudioRepacker::cAudioRepacker(int Cid)
+ {
++  cid = Cid;
+   Reset();
+ }
+ 
+@@ -589,17 +596,13 @@
+         *FrameSize = 0;
+      else {
+         static int samplingFrequencies[2][4] = { // all values are specified in Hz
+-          // MPEG 1
+-          44100, 48000, 32000, -1,
+-          // MPEG 2
+-          22050, 24000, 16000, -1
++          { 44100, 48000, 32000, -1 }, // MPEG 1
++          { 22050, 24000, 16000, -1 }  // MPEG 2
+           };
+ 
+         static int slots_per_frame[2][3] = {
+-          // MPEG 1, Layer I, II, III
+-          12, 144, 144,
+-          // MPEG 2, Layer I, II, III
+-          12, 144,  72
++          { 12, 144, 144 }, // MPEG 1, Layer I, II, III
++          { 12, 144,  72 }  // MPEG 2, Layer I, II, III
+           };
+ 
+         int mpegIndex = 1 - id;
+@@ -652,21 +655,11 @@
+         // collect number of skipped bytes while syncing
+         if (state <= syncing)
+            skippedBytes++;
+-        else if (frameTodo > 0) {
+-           frameTodo--;
+-           if (frameTodo == 0 && state == scanFrame) {
+-              // the current audio frame is is done now. So push out the packet to
+-              // start a new packet for the next audio frame.
+-              PushOutPacket(ResultBuffer, payload, data - payload);
+-              // go on with syncing to the next audio frame
+-              state = syncing;
+-              }
+-           }
+         // did we reach an audio frame header?
+         scanner <<= 8;
+         scanner |= *data;
+         if ((scanner & 0xFFF00000) == 0xFFF00000) {
+-           if (frameTodo <= 0 && IsValidAudioHeader(scanner, mpegLevel == phMPEG2, &frameSize)) {
++           if (frameTodo <= 0 && (frameSize == 0 || skippedBytes >= 4) && IsValidAudioHeader(scanner, mpegLevel == phMPEG2, &frameSize)) {
+               if (state == scanFrame) {
+                  // As a new audio frame starts here, the previous one is done. So push
+                  // out the packet to start a new packet for the next audio frame. If
+@@ -681,7 +674,7 @@
+                  if (initiallySyncing) // omit report for the typical initial case
+                     initiallySyncing = false;
+                  else if (skippedBytes > SkippedBytesLimit) // report that syncing dropped some bytes
+-                    esyslog("cAudioRepacker: skipped %d bytes to sync on next audio frame", skippedBytes - SkippedBytesLimit);
++                    esyslog("cAudioRepacker(0x%02X): skipped %d bytes to sync on next audio frame", cid, skippedBytes - SkippedBytesLimit);
+                  skippedBytes = 0;
+                  // if there is a PES header available, then use it ...
+                  if (pesHeaderBackupLen > 0) {
+@@ -731,8 +724,18 @@
+         data++;
+         done++;
+         todo--;
++        // do we have to start a new packet as the current is done?
++        if (frameTodo > 0) {
++           if (--frameTodo == 0) {
++              // the current audio frame is is done now. So push out the packet to
++              // start a new packet for the next audio frame.
++              PushOutPacket(ResultBuffer, payload, data - payload);
++              // go on with syncing to the next audio frame
++              state = syncing;
++              }
++           }
+         // do we have to start a new packet as there is no more space left?
+-        if (--packetTodo <= 0) {
++        if (state != syncing && --packetTodo <= 0) {
+            // We connot start a new packet here if the current might end in an audio
+            // frame header and this header shall possibly be put in the next packet. So
+            // overfill the current packet until we can safely detect that we won't
+@@ -829,13 +832,16 @@
+   // report that syncing dropped some bytes
+   if (skippedBytes > SkippedBytesLimit) {
+      if (!initiallySyncing) // omit report for the typical initial case
+-        esyslog("cAudioRepacker: skipped %d bytes while syncing on next audio frame", skippedBytes - SkippedBytesLimit);
++        esyslog("cAudioRepacker(0x%02X): skipped %d bytes while syncing on next audio frame", cid, skippedBytes - SkippedBytesLimit);
+      skippedBytes = SkippedBytesLimit;
+      }
+ }
+ 
+ int cAudioRepacker::BreakAt(const uchar *Data, int Count)
+ {
++  if (initiallySyncing)
++     return -1; // fill the packet buffer completely until we have synced once
++
+   int PesPayloadOffset = 0;
+ 
+   ePesHeader MpegLevel = AnalyzePesHeader(Data, Count, PesPayloadOffset);
+@@ -1189,6 +1195,8 @@
+ 
+ int cDolbyRepacker::BreakAt(const uchar *Data, int Count)
+ {
++  if (initiallySyncing)
++     return -1; // fill the packet buffer completely until we have synced once
+   // enough data for test?
+   if (Count < 6 + 3)
+      return -1;
+@@ -1263,7 +1271,7 @@
+   int count;
+   uint8_t *buf;
+   uint8_t cid;
+-  uint8_t audioCid;
++  uint8_t rewriteCid;
+   uint8_t subStreamId;
+   int plength;
+   uint8_t plen[2];
+@@ -1287,7 +1295,7 @@
+   void write_ipack(const uint8_t *Data, int Count);
+   void instant_repack(const uint8_t *Buf, int Count);
+ public:
+-  cTS2PES(int Pid, cRingBufferLinear *ResultBuffer, int Size, uint8_t AudioCid = 0x00, uint8_t SubStreamId = 0x00, cRepacker *Repacker = NULL);
++  cTS2PES(int Pid, cRingBufferLinear *ResultBuffer, int Size, uint8_t RewriteCid = 0x00, uint8_t SubStreamId = 0x00, cRepacker *Repacker = NULL);
+   ~cTS2PES();
+   int Pid(void) { return pid; }
+   void ts_to_pes(const uint8_t *Buf); // don't need count (=188)
+@@ -1296,12 +1304,12 @@
+ 
+ uint8_t cTS2PES::headr[] = { 0x00, 0x00, 0x01 };
+ 
+-cTS2PES::cTS2PES(int Pid, cRingBufferLinear *ResultBuffer, int Size, uint8_t AudioCid, uint8_t SubStreamId, cRepacker *Repacker)
++cTS2PES::cTS2PES(int Pid, cRingBufferLinear *ResultBuffer, int Size, uint8_t RewriteCid, uint8_t SubStreamId, cRepacker *Repacker)
+ {
+   pid = Pid;
+   resultBuffer = ResultBuffer;
+   size = Size;
+-  audioCid = AudioCid;
++  rewriteCid = RewriteCid;
+   subStreamId = SubStreamId;
+   repacker = Repacker;
+   if (repacker) {
+@@ -1363,7 +1371,7 @@
+ {
+   if (count <= ((mpeg == 2) ? 9 : 7)) // skip empty packets
+      return;
+-  buf[3] = (AUDIO_STREAM_S <= cid && cid <= AUDIO_STREAM_E && audioCid) ? audioCid : cid;
++  buf[3] = rewriteCid ? rewriteCid : cid;
+   buf[4] = (uint8_t)(((count - 6) & 0xFF00) >> 8);
+   buf[5] = (uint8_t)((count - 6) & 0x00FF);
+   store(buf, count);
+@@ -1679,19 +1687,21 @@
+   if (VPid)
+ #define TEST_cVideoRepacker
+ #ifdef TEST_cVideoRepacker
+-     ts2pes[numTracks++] = new cTS2PES(VPid, resultBuffer, IPACKS, 0x00, 0x00, new cVideoRepacker);
++     ts2pes[numTracks++] = new cTS2PES(VPid, resultBuffer, IPACKS, 0xE0, 0x00, new cVideoRepacker);
+ #else
+-     ts2pes[numTracks++] = new cTS2PES(VPid, resultBuffer, IPACKS);
++     ts2pes[numTracks++] = new cTS2PES(VPid, resultBuffer, IPACKS, 0xE0);
+ #endif
+   if (APids) {
+      int n = 0;
+-     while (*APids && numTracks < MAXTRACKS && n < MAXAPIDS)
++     while (*APids && numTracks < MAXTRACKS && n < MAXAPIDS) {
+ #define TEST_cAudioRepacker
+ #ifdef TEST_cAudioRepacker
+-           ts2pes[numTracks++] = new cTS2PES(*APids++, resultBuffer, IPACKS, 0xC0 + n++, 0x00, new cAudioRepacker);
++           ts2pes[numTracks++] = new cTS2PES(*APids++, resultBuffer, IPACKS, 0xC0 + n, 0x00, new cAudioRepacker(0xC0 + n));
++           n++;
+ #else
+            ts2pes[numTracks++] = new cTS2PES(*APids++, resultBuffer, IPACKS, 0xC0 + n++);
+ #endif
++           }
+      }
+   if (DPids) {
+      int n = 0;
+diff -ruN vdr-1.3.31/summary2info.pl vdr-1.3.32/summary2info.pl
+--- vdr-1.3.31/summary2info.pl	2005-06-04 13:33:09.000000000 +0200
++++ vdr-1.3.32/summary2info.pl	2005-09-10 14:40:40.000000000 +0200
+@@ -10,7 +10,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: summary2info.pl 1.3 2005/06/04 11:33:09 kls Exp $
++# $Id: summary2info.pl 1.4 2005/09/10 12:40:40 kls Exp $
+ 
+ $VideoDir = $ARGV[0] || die "please provide the name of the video directory\n";
+ 
+@@ -37,6 +37,15 @@
+        $data[2] = $data[1];
+        $data[1] = "";
+        }
++    elsif ($line == 2) {
++       # if line 1 is too long, it can't be the short text,
++       # so assume the short text is missing and concatenate
++       # line 1 and line 2 to be the long text:
++       if (length($data[1]) > 80) { 
++          $data[2] = $data[1] . "|" . $data[2];
++          $data[1] = "";
++          }
++       }
+     ($InfoFile = $SummaryFile) =~ s/summary\.vdr$/info.vdr/;
+     open(F, ">$InfoFile") || die "$InfoFile: $!\n";
+     print F "T $data[0]\n" if ($data[0]);
+diff -ruN vdr-1.3.31/svdrp.c vdr-1.3.32/svdrp.c
+--- vdr-1.3.31/svdrp.c	2005-08-28 16:12:00.000000000 +0200
++++ vdr-1.3.32/svdrp.c	2005-09-03 16:09:02.000000000 +0200
+@@ -10,7 +10,7 @@
+  * and interact with the Video Disk Recorder - or write a full featured
+  * graphical interface that sits on top of an SVDRP connection.
+  *
+- * $Id: svdrp.c 1.77 2005/08/28 14:12:00 kls Exp $
++ * $Id: svdrp.c 1.80 2005/09/03 14:09:02 kls Exp $
+  */
+ 
+ #include "svdrp.h"
+@@ -269,12 +269,16 @@
+   "    at the position where any previous replay was stopped, or from the beginning\n"
+   "    by default. To control or stop the replay session, use the usual remote\n"
+   "    control keypresses via the HITK command.",
+-  "PLUG <name> [ <command> [ <options> ]]\n"
++  "PLUG <name> [ help | main ] [ <command> [ <options> ]]\n"
+   "    Send a command to a plugin.\n"
+   "    The PLUG command without any parameters lists all plugins.\n"
+   "    If only a name is given, all commands known to that plugin are listed.\n"
+   "    If a command is given (optionally followed by parameters), that command\n"
+-  "    is sent to the plugin, and the result will be displayed.",
++  "    is sent to the plugin, and the result will be displayed.\n"
++  "    The keyword 'help' lists all the SVDRP commands known to the named plugin.\n"
++  "    If 'help' is followed by a command, the detailed help for that command is\n"
++  "    given. The keyword 'main' initiates a call to the main menu function of the\n"
++  "    given plugin.\n",
+   "PUTE\n"
+   "    Put data into the EPG list. The data entered has to strictly follow the\n"
+   "    format defined in vdr(5) for the 'epg.data' file.  A '.' on a line\n"
+@@ -1035,8 +1039,51 @@
+ 
+ void cSVDRP::CmdMOVC(const char *Option)
+ {
+-  //TODO combine this with menu action (timers must be updated)
+-  Reply(502, "MOVC not yet implemented");
++  if (*Option) {
++     if (!Channels.BeingEdited() && !Timers.BeingEdited()) {
++        char *tail;
++        int From = strtol(Option, &tail, 10);
++        if (tail && tail != Option) {
++           tail = skipspace(tail);
++           if (tail && tail != Option) {
++              int To = strtol(tail, NULL, 10);
++              int CurrentChannelNr = cDevice::CurrentChannel();
++              cChannel *CurrentChannel = Channels.GetByNumber(CurrentChannelNr);
++              cChannel *FromChannel = Channels.GetByNumber(From);
++              if (FromChannel) {
++                 cChannel *ToChannel = Channels.GetByNumber(To);
++                 if (ToChannel) {
++                    int FromNumber = FromChannel->Number();
++                    int ToNumber = ToChannel->Number();
++                    if (FromNumber != ToNumber) {
++                       Channels.Move(FromChannel, ToChannel);
++                       Channels.ReNumber();
++                       Channels.SetModified(true);
++                       if (CurrentChannel && CurrentChannel->Number() != CurrentChannelNr)
++                          Channels.SwitchTo(CurrentChannel->Number());
++                       isyslog("channel %d moved to %d", FromNumber, ToNumber);
++                       Reply(250,"Channel \"%d\" moved to \"%d\"", From, To);
++                       }
++                    else
++                       Reply(501, "Can't move channel to same postion");
++                    }
++                 else
++                    Reply(501, "Channel \"%d\" not defined", To);
++                 }
++              else
++                 Reply(501, "Channel \"%d\" not defined", From);
++              }
++           else
++              Reply(501, "Error in channel number");
++           }
++        else
++           Reply(501, "Error in channel number");
++        }
++     else
++        Reply(550, "Channels or timers are being edited - try again later");
++     }
++  else
++     Reply(501, "Missing channel number");
+ }
+ 
+ void cSVDRP::CmdMOVT(const char *Option)
+@@ -1204,6 +1251,10 @@
+                  Reply(214, "This plugin has no SVDRP commands");
+               }
+            }
++        else if (strcasecmp(cmd, "MAIN") == 0) {
++           cRemote::CallPlugin(plugin->Name());
++           Reply(250, "Initiated call to main menu function of plugin \"%s\"", plugin->Name());
++           }
+         else {
+            int ReplyCode = 900;
+            cString s = plugin->SVDRPCommand(cmd, option, ReplyCode);
+diff -ruN vdr-1.3.31/timers.c vdr-1.3.32/timers.c
+--- vdr-1.3.31/timers.c	2005-07-30 15:03:51.000000000 +0200
++++ vdr-1.3.32/timers.c	2005-09-09 17:22:33.000000000 +0200
+@@ -4,12 +4,13 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: timers.c 1.34 2005/07/30 13:03:51 kls Exp $
++ * $Id: timers.c 1.36 2005/09/09 15:22:33 kls Exp $
+  */
+ 
+ #include "timers.h"
+ #include <ctype.h>
+ #include "channels.h"
++#include "device.h"
+ #include "i18n.h"
+ #include "remote.h"
+ 
+@@ -518,7 +519,10 @@
+ cTimer *cTimers::GetTimer(cTimer *Timer)
+ {
+   for (cTimer *ti = First(); ti; ti = Next(ti)) {
+-      if (ti->Channel() == Timer->Channel() && ti->Day() == Timer->Day() && ti->Start() == Timer->Start() && ti->Stop() == Timer->Stop())
++      if (ti->Channel() == Timer->Channel() &&
++          (ti->WeekDays() && ti->WeekDays() == Timer->WeekDays() || !ti->WeekDays() && ti->Day() == Timer->Day()) &&
++          ti->Start() == Timer->Start() &&
++          ti->Stop() == Timer->Stop())
+          return ti;
+       }
+   return NULL;
+diff -ruN vdr-1.3.31/tools.c vdr-1.3.32/tools.c
+--- vdr-1.3.31/tools.c	2005-08-27 16:43:55.000000000 +0200
++++ vdr-1.3.32/tools.c	2005-09-11 15:11:05.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 1.97 2005/08/27 14:43:55 kls Exp $
++ * $Id: tools.c 1.98 2005/09/11 13:11:05 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -1080,8 +1080,7 @@
+ 
+ cHashBase::~cHashBase(void)
+ {
+-  for (int i = 0; i < size; i++)
+-      delete hashTable[i];
++  Clear();
+   free(hashTable);
+ }
+ 
+@@ -1106,6 +1105,14 @@
+      }
+ }
+ 
++void cHashBase::Clear(void)
++{
++  for (int i = 0; i < size; i++) {
++      delete hashTable[i];
++      hashTable[i] = NULL;
++      }
++}
++
+ cListObject *cHashBase::Get(unsigned int Id) const
+ {
+   cList<cHashObject> *list = hashTable[hashfn(Id)];
+diff -ruN vdr-1.3.31/tools.h vdr-1.3.32/tools.h
+--- vdr-1.3.31/tools.h	2005-08-27 16:40:08.000000000 +0200
++++ vdr-1.3.32/tools.h	2005-09-11 15:04:03.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.h 1.75 2005/08/27 14:40:08 kls Exp $
++ * $Id: tools.h 1.76 2005/09/11 13:04:03 kls Exp $
+  */
+ 
+ #ifndef __TOOLS_H
+@@ -259,6 +259,7 @@
+   cListObject *object;
+ public:
+   cHashObject(cListObject *Object, unsigned int Id) { object = Object; id = Id; }
++  cListObject *Object(void) { return object; }
+   };
+ 
+ class cHashBase {
+@@ -272,6 +273,7 @@
+   virtual ~cHashBase();
+   void Add(cListObject *Object, unsigned int Id);
+   void Del(cListObject *Object, unsigned int Id);
++  void Clear(void);
+   cListObject *Get(unsigned int Id) const;
+   cList<cHashObject> *GetList(unsigned int Id) const;
+   };
+diff -ruN vdr-1.3.31/vdr.5 vdr-1.3.32/vdr.5
+--- vdr-1.3.31/vdr.5	2005-05-16 16:16:48.000000000 +0200
++++ vdr-1.3.32/vdr.5	2005-09-04 16:43:42.000000000 +0200
+@@ -8,7 +8,7 @@
+ .\" License as specified in the file COPYING that comes with the
+ .\" vdr distribution.
+ .\"
+-.\" $Id: vdr.5 1.37 2005/05/16 14:16:48 kls Exp $
++.\" $Id: vdr.5 1.38 2005/09/04 14:43:42 kls Exp $
+ .\"
+ .TH vdr 5 "19 Mar 2005" "1.3.23" "Video Disk Recorder Files"
+ .SH NAME
+@@ -136,6 +136,11 @@
+ 
+ .B ...:101=deu,102=eng;103=deu,104=eng:...
+ 
++Some channels broadcast two different languages in the two stereo channels, which
++can be indicated by adding a second language code, delimited by a '+' sign, as in
++
++.B ...:101=deu,102=eng+spa;103=deu,104=eng:...
++
+ .TP
+ .B TPID
+ The teletext PID.
+diff -ruN vdr-1.3.31/vdr.c vdr-1.3.32/vdr.c
+--- vdr-1.3.31/vdr.c	2005-08-21 10:47:06.000000000 +0200
++++ vdr-1.3.32/vdr.c	2005-09-04 10:57:15.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.cadsoft.de/vdr
+  *
+- * $Id: vdr.c 1.211 2005/08/21 08:47:06 kls Exp $
++ * $Id: vdr.c 1.216 2005/09/04 08:57:15 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -66,6 +66,7 @@
+ #define LASTCAMMENUTIMEOUT  3 // seconds to run the main loop 'fast' after a CAM menu has been closed
+                               // in order to react on a possible new CAM menu as soon as possible
+ #define DEVICEREADYTIMEOUT 30 // seconds to wait until all devices are ready
++#define MENUTIMEOUT       120 // seconds of user inactivity after which an OSD display is closed
+ 
+ #define EXIT(v) { ExitCode = (v); goto Exit; }
+ 
+@@ -130,6 +131,9 @@
+ #elif defined(REMOTE_RCU)
+   RcuDevice = RCU_DEVICE;
+ #endif
++#if defined(VFAT)
++  VfatFileSystem = true;
++#endif
+ 
+   cPluginManager PluginManager(DEFAULTPLUGINDIR);
+   int ExitCode = 0;
+@@ -153,6 +157,7 @@
+       { "shutdown", required_argument, NULL, 's' },
+       { "terminal", required_argument, NULL, 't' },
+       { "version",  no_argument,       NULL, 'V' },
++      { "vfat",     no_argument,       NULL, 'v' | 0x100 },
+       { "video",    required_argument, NULL, 'v' },
+       { "watchdog", required_argument, NULL, 'w' },
+       { NULL }
+@@ -245,6 +250,9 @@
+                     break;
+           case 'V': DisplayVersion = true;
+                     break;
++          case 'v' | 0x100:
++                    VfatFileSystem = true;
++                    break;
+           case 'v': VideoDirectory = optarg;
+                     while (optarg && *optarg && optarg[strlen(optarg) - 1] == '/')
+                           optarg[strlen(optarg) - 1] = 0;
+@@ -303,6 +311,8 @@
+                "  -t TTY,   --terminal=TTY controlling tty\n"
+                "  -v DIR,   --video=DIR    use DIR as video directory (default: %s)\n"
+                "  -V,       --version      print version information and exit\n"
++               "            --vfat         encode special characters in recording names to\n"
++               "                           avoid problems with VFAT file systems\n"
+                "  -w SEC,   --watchdog=SEC activate the watchdog timer with a timeout of SEC\n"
+                "                           seconds (default: %d); '0' disables the watchdog\n"
+                "\n",
+@@ -695,7 +705,7 @@
+                Menu = new cMenuMain(cControl::Control());
+                Temp = NULL;
+                break;
+-          #define DirectMainFunction(function...)\
++          #define DirectMainFunction(function)\
+             DELETENULL(Menu);\
+             if (cControl::Control())\
+                cControl::Control()->Hide();\
+@@ -709,7 +719,25 @@
+           case kSetup:      DirectMainFunction(osSetup); break;
+           case kCommands:   DirectMainFunction(osCommands); break;
+           case kUser1 ... kUser9: cRemote::PutMacro(key); key = kNone; break;
+-          case k_Plugin:    DirectMainFunction(osPlugin, cRemote::GetPlugin()); break;
++          case k_Plugin: {
++               DELETENULL(Menu);
++               Temp = NULL;
++               if (cControl::Control())
++                  cControl::Control()->Hide();
++               cPlugin *plugin = cPluginManager::GetPlugin(cRemote::GetPlugin());
++               if (plugin) {
++                  Menu = Temp = plugin->MainMenuAction();
++                  if (Menu) {
++                     Menu->Show();
++                     if (Menu->IsMenu())
++                        ((cOsdMenu*)Menu)->Display();
++                     }
++                  }
++               else
++                  esyslog("ERROR: unknown plugin '%s'", cRemote::GetPlugin());
++               key = kNone; // nobody else needs to see these keys
++               }
++               break;
+           // Channel up/down:
+           case kChanUp|k_Repeat:
+           case kChanUp:
+@@ -790,8 +818,12 @@
+         Interact = Menu ? Menu : cControl::Control(); // might have been closed in the mean time
+         if (Interact) {
+            eOSState state = Interact->ProcessKey(key);
+-           if (state == osUnknown && ISMODELESSKEY(key) && cControl::Control() && Interact != cControl::Control())
+-              state = cControl::Control()->ProcessKey(key);
++           if (state == osUnknown && Interact != cControl::Control()) {
++              if (ISMODELESSKEY(key) && cControl::Control())
++                 state = cControl::Control()->ProcessKey(key);
++              else if (time(NULL) - LastActivity > MENUTIMEOUT)
++                 state = osEnd;
++              }
+            switch (state) {
+              case osPause:  DELETENULL(Menu);
+                             cControl::Shutdown(); // just in case

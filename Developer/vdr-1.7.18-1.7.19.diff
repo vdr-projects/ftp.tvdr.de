@@ -1,0 +1,3639 @@
+diff -ruN vdr-1.7.18/CONTRIBUTORS vdr-1.7.19/CONTRIBUTORS
+--- vdr-1.7.18/CONTRIBUTORS	2011-04-17 16:40:58.000000000 +0200
++++ vdr-1.7.19/CONTRIBUTORS	2011-06-15 23:29:03.000000000 +0200
+@@ -1028,6 +1028,8 @@
+ Lars Bl‰ser <LBlaeser@hofheim.de>
+  for reporting a bug in EPG bugfix statistics which made log entries for undefined
+  channels
++ for reporting a problem with the initial channel in case channels are reordered or
++ deleted
+ 
+ Niko Tarnanen <niko.tarnanen@hut.fi>
+  for translating OSD texts to the Finnish language
+@@ -1104,6 +1106,7 @@
+  for adding support for "registration descriptor" to 'libsi' and using it in pat.c
+  for adding an include of VDR's 'Make.global' to libsi's Makefile
+  for adding handling of "ANSI/SCTE 57" descriptors
++ for some input on how to use BER and UNC values to generate a "quality" value
+ 
+ Ralf Klueber <ralf.klueber@vodafone.com>
+  for reporting a bug in cutting a recording if there is only a single editing mark
+@@ -1269,6 +1272,7 @@
+  for fixing a buffer overflow in cFont::Bidi()
+  for avoiding an unecessary call to Recordings.ResetResume()
+  for debugging a problem in handling the bitmap color depth for scaled subtitles
++ for making subtitle PIDs be decrypted
+ 
+ Richard Robson <richard_robson@beeb.net>
+  for reporting freezing replay if a timer starts while in Transfer Mode from the
+@@ -2141,6 +2145,8 @@
+ AndrÈ Weidemann <Andre.Weidemann@web.de>
+  for suggesting to only write Dolby Digital tracks into the 'info.vdr' file of a
+  recording if Setup.UseDolbyDigital is true
++ for suggesting that the primary device should only be avoided for recording if
++ it is an old SD full featured card
+ 
+ J¸rgen Schilling <juergen_schilling@web.de>
+  for reporting that color buttons were displayed in the recording info menu if it
+@@ -2257,6 +2263,7 @@
+  for reporting unneeded include files <linux/dvb/dmx.h> and <time.h> in remux.h
+  for a patch that added a workaround for the broken linux-dvb driver header files
+  for reporting a faulty "frame duration" instead of "frame rate" in vdr.5
++ for avoiding a gcc 4.6 compiler error in the skincurses plugin.
+ 
+ Helge Lenz <h.lenz@gmx.de>
+  for reporting a bug in setting the 'Delta' parameter when calling the shutdown
+@@ -2567,6 +2574,11 @@
+  for reporting a problem where the frame rate was not detected correctly
+  for testing the implementation of FE_CAN_TURBO_FEC
+  for reporting unjustified log entries about changed channel pids
++ for reporting a problem with the frame detector in case it gets MaxPtsValues values
++ and stops analyzing even though the incoming data is still garbage
++ for reporting a problem with the fps value in the info file of a recording being
++ overwritten in case a recording was interrupted and resumed, and the fps value
++ could not be determined after resuming recording
+ 
+ Marcel Unbehaun <frostworks@gmx.de>
+  for adding cRecordingInfo::GetEvent()
+@@ -2697,3 +2709,20 @@
+ 
+ Mika Laitio <lamikr@pilppa.org>
+  for reporting a case where cRecordingInfo::Read(FILE *f) was called with a NULL pointer
++
++Dirk Leber <dirk.leber@reel-multimedia.com>
++ for fixing cString's operator=(const char *String) in case the given string is the
++ same as the existing one
++ for reporting that TsGetPayload() gets called without checking whether there actually
++ is a payload in the given TS packet
++
++Marco Gˆbenich <mg@needful.de>
++ for reporting a problem with executing diseqc commands from different threads
++
++Johan Andersson <jna@jna.pp.se>
++ for reporting a bug in detecting frames in case the Picture Start Code or Access Unit
++ Delimiter extends over TS packet boundaries
++
++Dave Pickles <dave@pickles.me.uk>
++ for adding support for "content identifier descriptor" and "default authority
++ descriptor" to 'libsi'
+diff -ruN vdr-1.7.18/HISTORY vdr-1.7.19/HISTORY
+--- vdr-1.7.18/HISTORY	2011-04-17 16:40:31.000000000 +0200
++++ vdr-1.7.19/HISTORY	2011-06-19 11:53:58.000000000 +0200
+@@ -6606,3 +6606,46 @@
+ - Added handling of "ANSI/SCTE 57" descriptors (thanks too Rolf Ahrenberg).
+ - Avoiding an unecessary call to Recordings.ResetResume() (thanks to Reinhard
+   Nissl).
++
++2011-06-19: Version 1.7.19
++
++- Fixed cString's operator=(const char *String) in case the given string is the
++  same as the existing one (thanks to Dirk Leber).
++- Avoiding a gcc 4.6 compiler error in the skincurses plugin (thanks to Tobias Grimm).
++- TsGetPayload() now checks if there actually is a payload in the given TS packet
++  (reported by Dirk Leber).
++- Now sorting the source file names in the call to xgettext, to make sure the results
++  are not dependent on the sequence of the files.
++  Plugin authors may want to change the line containing the xgettext call in their
++  Makefile accordingly by changing "$^" to "`ls $^`".
++- The primary device is now only avoided for recording if it is an old SD full
++  featured card. This is done through the new function cDevice::AvoidRecording().
++- Subtitle PIDs are now also decrypted (thanks to Reinhard Nissl).
++- Fixed a possible race condition in cDiseqc::Execute() (reported by Marco Gˆbenich).
++  The return value of cDiseqcs::Get() is now const, so plugin authors may need to
++  adjust their code if they use this function.
++- The new functions cDevice::SignalStrength() and cDevice::SignalQuality() can be
++  used to determine the signal strength and quality of a given device (thanks to
++  Rolf Ahrenberg for some input on how to use BER and UNC values to generate a
++  "quality" value).
++- The 'sttng' skin now displays two colored bars at the bottom of the channel display,
++  indicating the strength (upper bar) and quality (lower bar) of the received signal.
++  The number to the left of these bars indicates the actual device the current
++  channel is being received with.
++- Fixed detecting frames in case the Picture Start Code or Access Unit Delimiter
++  extends over TS packet boundaries (reported by Johan Andersson).
++  In order to fix this, the semantics of cFrameDetector had to be changed a little.
++  See cRecorder::Action() and cIndexFileGenerator::Action() on how to use the new
++  cFrameDetector::NewPayload() function.
++- The frame detector now only starts collecting PTS values after it has seen the
++  first I-frame, otherwise it might get MaxPtsValues values and stop analyzing
++  even though the incoming data is still garbage (reported by Derek Kelly).
++- The info file of a recording is now only overwritten with a new fps value if
++  that new value is not the default value (thanks to Derek Kelly for reporting a
++  problem with the fps value being overwritten in case a recording was interrupted
++  and resumed, and the fps value could not be determined after resuming recording).
++- The initial channel is now stored by the channel ID in the setup.conf file, in
++  order to avoid problems in case channels are reordered or deleted (reported by
++  Lars Bl‰ser).
++- Added support for "content identifier descriptor" and "default authority descriptor"
++  to 'libsi' (thanks to Dave Pickles).
+diff -ruN vdr-1.7.18/MANUAL vdr-1.7.19/MANUAL
+--- vdr-1.7.18/MANUAL	2010-06-06 12:42:35.000000000 +0200
++++ vdr-1.7.19/MANUAL	2011-06-13 16:42:18.000000000 +0200
+@@ -885,8 +885,8 @@
+                          key. Note that the total maximum is also limited by
+                          the "OSD/Channel info time" parameter.
+ 
+-  Initial channel = 0    The number of the channel that shall be tuned to when
+-                         VDR starts. Default is 0, which means that it will
++  Initial channel =      The channel ID of the channel that shall be tuned to when
++                         VDR starts. Default is empty, which means that it will
+                          tune to the channel that was on before VDR was stopped.
+ 
+   Initial volume = -1    The volume that shall be set when VDR starts. Default
+diff -ruN vdr-1.7.18/Makefile vdr-1.7.19/Makefile
+--- vdr-1.7.18/Makefile	2011-04-17 15:35:53.000000000 +0200
++++ vdr-1.7.19/Makefile	2011-05-21 14:21:40.000000000 +0200
+@@ -4,7 +4,7 @@
+ # See the main source file 'vdr.c' for copyright information and
+ # how to reach the author.
+ #
+-# $Id: Makefile 2.17 2011/04/17 13:35:53 kls Exp $
++# $Id: Makefile 2.18 2011/05/21 12:21:40 kls Exp $
+ 
+ .DELETE_ON_ERROR:
+ 
+@@ -115,7 +115,7 @@
+ 	msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ $^
++	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ `ls $^`
+ 
+ %.po: $(I18Npot)
+ 	msgmerge -U --no-wrap --no-location --backup=none -q $@ $<
+diff -ruN vdr-1.7.18/PLUGINS/src/dvbhddevice/HISTORY vdr-1.7.19/PLUGINS/src/dvbhddevice/HISTORY
+--- vdr-1.7.18/PLUGINS/src/dvbhddevice/HISTORY	2011-04-17 13:38:20.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/dvbhddevice/HISTORY	2011-04-22 20:49:38.000000000 +0200
+@@ -13,4 +13,33 @@
+ 
+ 2011-04-17: Version 0.0.3
+ 
+-- Added support for TrueColor OSD.
++- Improved trickmodes
++- No transfer mode needed for dolby digital
++- Clear audio and video PID when Clear() ist called to stop audio decoding when jumping to cutting marks
++- Support still frames in H264 format
++- Remote control setup
++- Added analogue video setting, support volume control.
++- Support setting of audio delay.
++- Support setting of audio channel (Stereo, Left, Right)
++- Support setting of audio downmix mode.
++- Playback of PES data is working now.
++- Fall back to MPEG2 stream type when no PMT is available.
++- Added support for PES PCM playback
++- Support HDMI-CEC. (One-Touch Play)
++- Added low level OSD implementation.
++- Added option to select between high level and low level OSD.
++- high level OSD: Implement SaveRegion and RestoreRegion.
++- Fix not working video playback when PCR PID is different from video PID.
++- Fix not working pause when playing H.264 video
++- Improvements in transfer mode, fix audio dropouts or no audio at all
++- Add implementation of CanHandleAreas method to support VDR 1.7.17
++- in cHdffOsdRaw::Flush fix reusing of loop variable i in subloop that lead to OSD update problems
++- Specify container format when starting audio decoding to support PES-DVD containers
++- Added support for True Color OSD
++- Allow to disable true color OSD support via setup option
++
++2011-04-xx: Version 0.0.4
++- locally define DVB OSD API extensions to support compiling with original DVB headers
++- Return correct pixel aspect ratio in GetOsdSize
++- Adapt Makefile to changes introduced in recent VDR versions
++
+diff -ruN vdr-1.7.18/PLUGINS/src/dvbhddevice/Makefile vdr-1.7.19/PLUGINS/src/dvbhddevice/Makefile
+--- vdr-1.7.18/PLUGINS/src/dvbhddevice/Makefile	2011-04-17 13:40:55.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/dvbhddevice/Makefile	2011-05-21 14:25:33.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.7 2011/04/17 11:40:55 kls Exp $
++# $Id: Makefile 1.8 2011/05/21 12:25:33 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -83,7 +83,7 @@
+ 	msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<see README>' -o $@ $^
++	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<see README>' -o $@ `ls $^`
+ 
+ %.po: $(I18Npot)
+ 	msgmerge -U --no-wrap --no-location --backup=none -q $@ $<
+diff -ruN vdr-1.7.18/PLUGINS/src/dvbhddevice/dvbhddevice.c vdr-1.7.19/PLUGINS/src/dvbhddevice/dvbhddevice.c
+--- vdr-1.7.18/PLUGINS/src/dvbhddevice/dvbhddevice.c	2011-04-17 13:20:22.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/dvbhddevice/dvbhddevice.c	2011-04-24 11:31:21.000000000 +0200
+@@ -3,14 +3,14 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbhddevice.c 1.12 2011/04/17 11:20:22 kls Exp $
++ * $Id: dvbhddevice.c 1.13 2011/04/24 09:31:21 kls Exp $
+  */
+ 
+ #include <vdr/plugin.h>
+ #include "dvbhdffdevice.h"
+ #include "setup.h"
+ 
+-static const char *VERSION        = "0.0.3";
++static const char *VERSION        = "0.0.4";
+ static const char *DESCRIPTION    = "HD Full Featured DVB device";
+ 
+ class cPluginDvbhddevice : public cPlugin {
+diff -ruN vdr-1.7.18/PLUGINS/src/dvbhddevice/dvbhdffdevice.c vdr-1.7.19/PLUGINS/src/dvbhddevice/dvbhdffdevice.c
+--- vdr-1.7.18/PLUGINS/src/dvbhddevice/dvbhdffdevice.c	2011-04-17 13:20:22.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/dvbhddevice/dvbhdffdevice.c	2011-05-22 17:19:59.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbhdffdevice.c 1.29 2011/04/17 11:20:22 kls Exp $
++ * $Id: dvbhdffdevice.c 1.32 2011/05/22 15:19:59 kls Exp $
+  */
+ 
+ #include "dvbhdffdevice.h"
+@@ -110,7 +110,7 @@
+ {
+   HDFF::tVideoFormat videoFormat;
+   videoFormat.AutomaticEnabled = true;
+-  videoFormat.AfdEnabled = true;
++  videoFormat.AfdEnabled = false;
+   videoFormat.TvFormat = (HDFF::eTvFormat) gHdffSetup.TvFormat;
+   videoFormat.VideoConversion = (HDFF::eVideoConversion) gHdffSetup.VideoConversion;
+   mHdffCmdIf->CmdAvSetVideoFormat(0, &videoFormat);
+@@ -364,7 +364,7 @@
+      if (playMode == pmNone)
+         TurnOffLiveMode(true);
+ 
+-     mHdffCmdIf->CmdAvSetPlayMode(1, Transferring());
++     mHdffCmdIf->CmdAvSetPlayMode(1, Transferring() || (cTransferControl::ReceiverDevice() == this));
+      mHdffCmdIf->CmdAvSetStc(0, 100000);
+      mHdffCmdIf->CmdAvEnableSync(0, true);
+      mHdffCmdIf->CmdAvEnableVideoAfterStop(0, true);
+@@ -725,28 +725,14 @@
+ bool cDvbHdFfDeviceProbe::Probe(int Adapter, int Frontend)
+ {
+   static uint32_t SubsystemIds[] = {
+-    0x13C23009, // Technotrend S2-6400 HDFF
++    0x13C23009, // Technotrend S2-6400 HDFF development samples
++    0x13C2300A, // Technotrend S2-6400 HDFF production version
+     0x00000000
+     };
+-  cString FileName;
+-  cReadLine ReadLine;
+-  FILE *f = NULL;
+-  uint32_t SubsystemId = 0;
+-  FileName = cString::sprintf("/sys/class/dvb/dvb%d.frontend%d/device/subsystem_vendor", Adapter, Frontend);
+-  if ((f = fopen(FileName, "r")) != NULL) {
+-     if (char *s = ReadLine.Read(f))
+-        SubsystemId = strtoul(s, NULL, 0) << 16;
+-     fclose(f);
+-     }
+-  FileName = cString::sprintf("/sys/class/dvb/dvb%d.frontend%d/device/subsystem_device", Adapter, Frontend);
+-  if ((f = fopen(FileName, "r")) != NULL) {
+-     if (char *s = ReadLine.Read(f))
+-        SubsystemId |= strtoul(s, NULL, 0);
+-     fclose(f);
+-     }
++  uint32_t SubsystemId = GetSubsystemId(Adapter, Frontend);
+   for (uint32_t *sid = SubsystemIds; *sid; sid++) {
+       if (*sid == SubsystemId) {
+-         FileName = cString::sprintf("/dev/dvb/adapter%d/osd0", Adapter);
++         cString FileName = cString::sprintf("/dev/dvb/adapter%d/osd0", Adapter);
+          int fd = open(FileName, O_RDWR);
+          if (fd != -1) { //TODO treat the second path of the S2-6400 as a budget device
+             close(fd);
+diff -ruN vdr-1.7.18/PLUGINS/src/dvbhddevice/hdffcmd.c vdr-1.7.19/PLUGINS/src/dvbhddevice/hdffcmd.c
+--- vdr-1.7.18/PLUGINS/src/dvbhddevice/hdffcmd.c	2011-04-17 13:20:22.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/dvbhddevice/hdffcmd.c	2011-04-24 11:31:59.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: hdffcmd.c 1.19 2011/04/17 11:20:22 kls Exp $
++ * $Id: hdffcmd.c 1.20 2011/04/24 09:31:59 kls Exp $
+  */
+ 
+ #include "hdffcmd.h"
+@@ -13,6 +13,25 @@
+ #include <sys/ioctl.h>
+ #include <vdr/tools.h>
+ 
++#if !defined OSD_RAW_CMD
++typedef struct osd_raw_cmd_s {
++    const void *cmd_data;
++    int cmd_len;
++    void *result_data;
++    int result_len;
++} osd_raw_cmd_t;
++
++typedef struct osd_raw_data_s {
++    const void *data_buffer;
++    int data_length;
++    int data_handle;
++} osd_raw_data_t;
++
++#define OSD_RAW_CMD            _IOWR('o', 162, osd_raw_cmd_t)
++#define OSD_RAW_DATA           _IOWR('o', 163, osd_raw_data_t)
++#endif
++
++
+ namespace HDFF
+ {
+ 
+diff -ruN vdr-1.7.18/PLUGINS/src/dvbhddevice/hdffosd.c vdr-1.7.19/PLUGINS/src/dvbhddevice/hdffosd.c
+--- vdr-1.7.18/PLUGINS/src/dvbhddevice/hdffosd.c	2011-04-17 13:20:22.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/dvbhddevice/hdffosd.c	2011-05-15 16:47:29.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: hdffosd.c 1.9 2011/04/17 11:20:22 kls Exp $
++ * $Id: hdffosd.c 1.10 2011/05/15 14:47:29 kls Exp $
+  */
+ 
+ #include "hdffosd.h"
+@@ -154,8 +154,12 @@
+     {
+         //printf("SetAreas %d: %d %d %d %d %d\n", i, Areas[i].x1, Areas[i].y1, Areas[i].x2, Areas[i].y2, Areas[i].bpp);
+     }
+-    mHdffCmdIf->CmdOsdDrawRectangle(mDisplay, 0, 0, mDispWidth, mDispHeight, 0);
+-    mHdffCmdIf->CmdOsdRenderDisplay(mDisplay);
++    if (shown)
++    {
++        mHdffCmdIf->CmdOsdDrawRectangle(mDisplay, 0, 0, mDispWidth, mDispHeight, 0);
++        mHdffCmdIf->CmdOsdRenderDisplay(mDisplay);
++        shown = false;
++    }
+     return cOsd::SetAreas(Areas, NumAreas);
+ }
+ 
+@@ -166,9 +170,13 @@
+         cOsd::SetActive(On);
+         if (On)
+         {
++            if (GetBitmap(0)) // only flush here if there are already bitmaps
++                Flush();
+         }
+         else if (shown)
+         {
++            mHdffCmdIf->CmdOsdDrawRectangle(mDisplay, 0, 0, mDispWidth, mDispHeight, 0);
++            mHdffCmdIf->CmdOsdRenderDisplay(mDisplay);
+             shown = false;
+         }
+     }
+@@ -594,9 +602,13 @@
+         cOsd::SetActive(On);
+         if (On)
+         {
++            if (GetBitmap(0)) // only flush here if there are already bitmaps
++                Flush();
+         }
+         else if (shown)
+         {
++            mHdffCmdIf->CmdOsdDrawRectangle(mDisplay, 0, 0, mDispWidth, mDispHeight, 0);
++            mHdffCmdIf->CmdOsdRenderDisplay(mDisplay);
+             shown = false;
+         }
+     }
+@@ -623,8 +635,12 @@
+     {
+         //printf("SetAreas %d: %d %d %d %d %d\n", i, Areas[i].x1, Areas[i].y1, Areas[i].x2, Areas[i].y2, Areas[i].bpp);
+     }
+-    mHdffCmdIf->CmdOsdDrawRectangle(mDisplay, 0, 0, mDispWidth, mDispHeight, 0);
+-    mHdffCmdIf->CmdOsdRenderDisplay(mDisplay);
++    if (shown)
++    {
++        mHdffCmdIf->CmdOsdDrawRectangle(mDisplay, 0, 0, mDispWidth, mDispHeight, 0);
++        mHdffCmdIf->CmdOsdRenderDisplay(mDisplay);
++        shown = false;
++    }
+     return cOsd::SetAreas(Areas, NumAreas);
+ }
+ 
+diff -ruN vdr-1.7.18/PLUGINS/src/dvbhddevice/po/de_DE.po vdr-1.7.19/PLUGINS/src/dvbhddevice/po/de_DE.po
+--- vdr-1.7.18/PLUGINS/src/dvbhddevice/po/de_DE.po	1970-01-01 01:00:00.000000000 +0100
++++ vdr-1.7.19/PLUGINS/src/dvbhddevice/po/de_DE.po	2011-05-05 20:50:52.000000000 +0200
+@@ -0,0 +1,89 @@
++# VDR plugin language source file
++# Copyright (C) 2011 Andreas Regel
++# This file is distributed under the same license as the dvbhddevice package.
++# Christoph Haubrich, 2011
++#
++msgid ""
++msgstr ""
++"Project-Id-Version: VDR \n"
++"Report-Msgid-Bugs-To: <see README>\n"
++"POT-Creation-Date: 2011-05-05 20:34+0200\n"
++"PO-Revision-Date: 2011-04-25 21:44+0200\n"
++"Last-Translator: Christoph Haubrich\n"
++"Language-Team: <see README>\n"
++"Language: \n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=utf-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++
++msgid "Automatic"
++msgstr "automatisch"
++
++msgid "Letterbox 16/9"
++msgstr "Letterbox 16:9"
++
++msgid "Letterbox 14/9"
++msgstr "Letterbox 14:9"
++
++msgid "Pillarbox"
++msgstr "Pillarbox"
++
++msgid "CentreCutOut"
++msgstr "CentreCutOut"
++
++msgid "Always 16/9"
++msgstr "immer 16:9"
++
++msgid "Disabled"
++msgstr "abgeschaltet"
++
++msgid "Analogue only"
++msgstr "nur Analoge Ausg√§nge"
++
++msgid "Always"
++msgstr "immer"
++
++msgid "HDMI only"
++msgstr "nur HDMI"
++
++msgid "Follow resolution"
++msgstr "folge Aufl√∂sung"
++
++msgid "none"
++msgstr "keins"
++
++msgid "Resolution"
++msgstr "Aufl√∂sung"
++
++msgid "TV format"
++msgstr "TV-Format"
++
++msgid "Video Conversion"
++msgstr "Videokonvertierung"
++
++msgid "Analogue Video"
++msgstr "Analoges Video"
++
++msgid "Audio Delay (ms)"
++msgstr "Audio Verz√∂gerung (ms)"
++
++msgid "Audio Downmix"
++msgstr "Audio Downmix"
++
++msgid "OSD Size"
++msgstr "OSD Gr√∂√üe"
++
++msgid "HDMI CEC"
++msgstr "HDMI CEC"
++
++msgid "Remote Control Protocol"
++msgstr "Fernbedienungsprotokoll"
++
++msgid "Remote Control Address"
++msgstr "Fernbedienungsadresse"
++
++msgid "High Level OSD"
++msgstr "High Level OSD"
++
++msgid "Allow True Color OSD"
++msgstr "Erlaube True Color OSD"
+diff -ruN vdr-1.7.18/PLUGINS/src/dvbhddevice/setup.c vdr-1.7.19/PLUGINS/src/dvbhddevice/setup.c
+--- vdr-1.7.18/PLUGINS/src/dvbhddevice/setup.c	2011-04-17 13:45:17.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/dvbhddevice/setup.c	2011-05-15 16:47:45.000000000 +0200
+@@ -3,88 +3,17 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: setup.c 1.11 2011/04/17 11:45:17 kls Exp $
++ * $Id: setup.c 1.12 2011/05/15 14:47:45 kls Exp $
+  */
+ 
+ #include "setup.h"
+ #include "hdffcmd.h"
+ 
+-const int kResolutions = 4;
+-const int kTvFormats = 2;
+-const int kVideoConversions = 6;
+-const int kAnalogueVideos = 4;
+-const int kAudioDownmixes = 5;
+-const int kOsdSizes = 5;
+-const int kRemoteProtocols = 3;
+-
+ const int kResolution1080i = 0;
+ const int kResolution720p = 1;
+ const int kResolution576p = 2;
+ const int kResolution576i = 3;
+ 
+-static const char * ResolutionItems[] =
+-{
+-    "1080i",
+-    "720p",
+-    "576p",
+-    "576i",
+-    NULL
+-};
+-
+-static const char * TvFormatItems[] =
+-{
+-    "4/3",
+-    "16/9",
+-    NULL
+-};
+-
+-static const char * VideoConversionItems[] =
+-{
+-    "Automatic",
+-    "Letterbox 16/9",
+-    "Letterbox 14/9",
+-    "Pillarbox",
+-    "CentreCutOut",
+-    "Always 16/9",
+-    NULL
+-};
+-
+-static const char * AnalogueVideoItems[] =
+-{
+-    "Disabled",
+-    "RGB",
+-    "CVBS + YUV",
+-    "YC (S-Video)",
+-    NULL
+-};
+-
+-static const char * AudioDownmixItems[] =
+-{
+-    "Disabled",
+-    "Analogue only",
+-    "Always",
+-    "Automatic",
+-    "HDMI only",
+-    NULL
+-};
+-
+-static const char * OsdSizeItems[] =
+-{
+-    "Follow resolution",
+-    "1920x1080",
+-    "1280x720",
+-    "1024x576",
+-    "720x576",
+-    NULL
+-};
+-
+-static const char * RemoteProtocolItems[] =
+-{
+-    "none",
+-    "RC5",
+-    "RC6",
+-    NULL
+-};
+ 
+ cHdffSetup gHdffSetup;
+ 
+@@ -162,7 +91,7 @@
+         Height = 576;
+         PixelAspect = 4.0 / 3.0;
+     }
+-  PixelAspect /= double(Width) / Height;
++    PixelAspect /= double(Width) / Height;
+ }
+ 
+ HDFF::eHdmiVideoMode cHdffSetup::GetVideoMode(void)
+@@ -183,21 +112,87 @@
+ 
+ cHdffSetupPage::cHdffSetupPage(HDFF::cHdffCmdIf * pHdffCmdIf)
+ {
++    const int kResolutions = 4;
++    const int kTvFormats = 2;
++    const int kVideoConversions = 6;
++    const int kAnalogueVideos = 4;
++    const int kAudioDownmixes = 5;
++    const int kOsdSizes = 5;
++    const int kRemoteProtocols = 3;
++
++    static const char * ResolutionItems[kResolutions] =
++    {
++        "1080i",
++        "720p",
++        "576p",
++        "576i",
++    };
++
++    static const char * TvFormatItems[kTvFormats] =
++    {
++        "4/3",
++        "16/9",
++    };
++
++    static const char * VideoConversionItems[kVideoConversions] =
++    {
++        tr("Automatic"),
++        tr("Letterbox 16/9"),
++        tr("Letterbox 14/9"),
++        tr("Pillarbox"),
++        tr("CentreCutOut"),
++        tr("Always 16/9"),
++    };
++
++
++    static const char * AnalogueVideoItems[kAnalogueVideos] =
++    {
++        tr("Disabled"),
++        "RGB",
++        "CVBS + YUV",
++        "YC (S-Video)",
++    };
++
++    static const char * AudioDownmixItems[kAudioDownmixes] =
++    {
++        tr("Disabled"),
++        tr("Analogue only"),
++        tr("Always"),
++        tr("Automatic"),
++        tr("HDMI only"),
++    };
++
++    static const char * OsdSizeItems[kOsdSizes] =
++    {
++        tr("Follow resolution"),
++        "1920x1080",
++        "1280x720",
++        "1024x576",
++        "720x576",
++    };
++
++    static const char * RemoteProtocolItems[] =
++    {
++        tr("none"),
++        "RC5",
++        "RC6",
++    };
++
+     mHdffCmdIf = pHdffCmdIf;
+     mNewHdffSetup = gHdffSetup;
+ 
+-    Add(new cMenuEditStraItem("Resolution", &mNewHdffSetup.Resolution, kResolutions, ResolutionItems));
+-    Add(new cMenuEditStraItem("TV format", &mNewHdffSetup.TvFormat, kTvFormats, TvFormatItems));
+-    Add(new cMenuEditStraItem("Video Conversion", &mNewHdffSetup.VideoConversion, kVideoConversions, VideoConversionItems));
+-    Add(new cMenuEditStraItem("Analogue Video", &mNewHdffSetup.AnalogueVideo, kAnalogueVideos, AnalogueVideoItems));
+-    Add(new cMenuEditIntItem("Audio Delay (ms)", &mNewHdffSetup.AudioDelay, 0, 500));
+-    Add(new cMenuEditStraItem("Audio Downmix", &mNewHdffSetup.AudioDownmix, kAudioDownmixes, AudioDownmixItems));
+-    Add(new cMenuEditStraItem("Osd Size", &mNewHdffSetup.OsdSize, kOsdSizes, OsdSizeItems));
+-    Add(new cMenuEditBoolItem("HDMI CEC", &mNewHdffSetup.CecEnabled));
+-    Add(new cMenuEditStraItem("Remote Control Protocol", &mNewHdffSetup.RemoteProtocol, kRemoteProtocols, RemoteProtocolItems));
+-    Add(new cMenuEditIntItem("Remote Control Address", &mNewHdffSetup.RemoteAddress, -1, 31));
+-    Add(new cMenuEditBoolItem("High Level OSD", &mNewHdffSetup.HighLevelOsd));
+-    Add(new cMenuEditBoolItem("Allow True Color OSD", &mNewHdffSetup.TrueColorOsd));
++    Add(new cMenuEditStraItem(tr("Resolution"), &mNewHdffSetup.Resolution, kResolutions, ResolutionItems));
++    Add(new cMenuEditStraItem(tr("TV format"), &mNewHdffSetup.TvFormat, kTvFormats, TvFormatItems));
++    Add(new cMenuEditStraItem(tr("Video Conversion"), &mNewHdffSetup.VideoConversion, kVideoConversions, VideoConversionItems));
++    Add(new cMenuEditStraItem(tr("Analogue Video"), &mNewHdffSetup.AnalogueVideo, kAnalogueVideos, AnalogueVideoItems));
++    Add(new cMenuEditIntItem(tr("Audio Delay (ms)"), &mNewHdffSetup.AudioDelay, 0, 500));
++    Add(new cMenuEditStraItem(tr("Audio Downmix"), &mNewHdffSetup.AudioDownmix, kAudioDownmixes, AudioDownmixItems));
++    Add(new cMenuEditStraItem(tr("OSD Size"), &mNewHdffSetup.OsdSize, kOsdSizes, OsdSizeItems));
++    Add(new cMenuEditBoolItem(tr("HDMI CEC"), &mNewHdffSetup.CecEnabled));
++    Add(new cMenuEditStraItem(tr("Remote Control Protocol"), &mNewHdffSetup.RemoteProtocol, kRemoteProtocols, RemoteProtocolItems));
++    Add(new cMenuEditIntItem(tr("Remote Control Address"), &mNewHdffSetup.RemoteAddress, -1, 31));
++    Add(new cMenuEditBoolItem(tr("High Level OSD"), &mNewHdffSetup.HighLevelOsd));
++    Add(new cMenuEditBoolItem(tr("Allow True Color OSD"), &mNewHdffSetup.TrueColorOsd));
+ }
+ 
+ cHdffSetupPage::~cHdffSetupPage(void)
+diff -ruN vdr-1.7.18/PLUGINS/src/dvbsddevice/Makefile vdr-1.7.19/PLUGINS/src/dvbsddevice/Makefile
+--- vdr-1.7.18/PLUGINS/src/dvbsddevice/Makefile	2011-02-27 11:04:54.000000000 +0100
++++ vdr-1.7.19/PLUGINS/src/dvbsddevice/Makefile	2011-05-21 14:25:37.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 1.6 2011/02/27 10:04:54 kls Exp $
++# $Id: Makefile 1.7 2011/05/21 12:25:37 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -83,7 +83,7 @@
+ 	msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<see README>' -o $@ $^
++	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<see README>' -o $@ `ls $^`
+ 
+ %.po: $(I18Npot)
+ 	msgmerge -U --no-wrap --no-location --backup=none -q $@ $<
+diff -ruN vdr-1.7.18/PLUGINS/src/dvbsddevice/dvbsdffdevice.c vdr-1.7.19/PLUGINS/src/dvbsddevice/dvbsdffdevice.c
+--- vdr-1.7.18/PLUGINS/src/dvbsddevice/dvbsdffdevice.c	2010-09-19 14:43:33.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/dvbsddevice/dvbsdffdevice.c	2011-05-22 17:22:14.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsdffdevice.c 2.27 2010/09/19 12:43:33 kls Exp $
++ * $Id: dvbsdffdevice.c 2.29 2011/05/22 15:22:14 kls Exp $
+  */
+ 
+ #include "dvbsdffdevice.h"
+@@ -90,6 +90,11 @@
+   return true;
+ }
+ 
++bool cDvbSdFfDevice::AvoidRecording(void) const
++{
++  return true;
++}
++
+ cSpuDecoder *cDvbSdFfDevice::GetSpuDecoder(void)
+ {
+   if (!spuDecoder && IsPrimaryDevice())
+@@ -772,22 +777,7 @@
+     0x13C21002, // Technotrend/Hauppauge WinTV DVB-S rev1.3 SE
+     0x00000000
+     };
+-  cString FileName;
+-  cReadLine ReadLine;
+-  FILE *f = NULL;
+-  uint32_t SubsystemId = 0;
+-  FileName = cString::sprintf("/sys/class/dvb/dvb%d.frontend%d/device/subsystem_vendor", Adapter, Frontend);
+-  if ((f = fopen(FileName, "r")) != NULL) {
+-     if (char *s = ReadLine.Read(f))
+-        SubsystemId = strtoul(s, NULL, 0) << 16;
+-     fclose(f);
+-     }
+-  FileName = cString::sprintf("/sys/class/dvb/dvb%d.frontend%d/device/subsystem_device", Adapter, Frontend);
+-  if ((f = fopen(FileName, "r")) != NULL) {
+-     if (char *s = ReadLine.Read(f))
+-        SubsystemId |= strtoul(s, NULL, 0);
+-     fclose(f);
+-     }
++  uint32_t SubsystemId = GetSubsystemId(Adapter, Frontend);
+   for (uint32_t *sid = SubsystemIds; *sid; sid++) {
+       if (*sid == SubsystemId) {
+          dsyslog("creating cDvbSdFfDevice");
+diff -ruN vdr-1.7.18/PLUGINS/src/dvbsddevice/dvbsdffdevice.h vdr-1.7.19/PLUGINS/src/dvbsddevice/dvbsdffdevice.h
+--- vdr-1.7.18/PLUGINS/src/dvbsddevice/dvbsdffdevice.h	2010-01-04 12:01:14.000000000 +0100
++++ vdr-1.7.19/PLUGINS/src/dvbsddevice/dvbsdffdevice.h	2011-05-21 14:56:49.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: dvbsdffdevice.h 2.11 2010/01/04 11:01:14 kls Exp $
++ * $Id: dvbsdffdevice.h 2.12 2011/05/21 12:56:49 kls Exp $
+  */
+ 
+ #ifndef __DVBSDFFDEVICE_H
+@@ -23,6 +23,7 @@
+   cDvbSdFfDevice(int Adapter, int Frontend);
+   virtual ~cDvbSdFfDevice();
+   virtual bool HasDecoder(void) const;
++  virtual bool AvoidRecording(void) const;
+ 
+ // SPU facilities
+ 
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/Makefile vdr-1.7.19/PLUGINS/src/hello/Makefile
+--- vdr-1.7.18/PLUGINS/src/hello/Makefile	2011-02-27 11:04:58.000000000 +0100
++++ vdr-1.7.19/PLUGINS/src/hello/Makefile	2011-05-21 14:25:41.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.6 2011/02/27 10:04:58 kls Exp $
++# $Id: Makefile 2.7 2011/05/21 12:25:41 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -83,7 +83,7 @@
+ 	msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ $^
++	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ `ls $^`
+ 
+ %.po: $(I18Npot)
+ 	msgmerge -U --no-wrap --no-location --backup=none -q $@ $<
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/ca_ES.po vdr-1.7.19/PLUGINS/src/hello/po/ca_ES.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/ca_ES.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/ca_ES.po	2011-05-21 14:36:11.000000000 +0200
+@@ -9,14 +9,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Jordi Vil‡ <jvila@tinet.org>\n"
+ "Language-Team: Catalan <vdr@linuxtv.org>\n"
++"Language: ca\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: ca\n"
+ 
+ msgid "A friendly greeting"
+ msgstr ""
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/cs_CZ.po vdr-1.7.19/PLUGINS/src/hello/po/cs_CZ.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/cs_CZ.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/cs_CZ.po	2011-05-21 14:36:11.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: VladimÌr B·rta <vladimir.barta@k2atmitec.cz>\n"
+ "Language-Team: Czech <vdr@linuxtv.org>\n"
++"Language: cs\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: cs\n"
+ 
+ msgid "A friendly greeting"
+ msgstr "P¯·telsk˝ pozdrav"
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/da_DK.po vdr-1.7.19/PLUGINS/src/hello/po/da_DK.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/da_DK.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/da_DK.po	2011-05-21 14:36:11.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish <vdr@linuxtv.org>\n"
++"Language: da\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: da\n"
+ 
+ msgid "A friendly greeting"
+ msgstr ""
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/de_DE.po vdr-1.7.19/PLUGINS/src/hello/po/de_DE.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/de_DE.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/de_DE.po	2011-05-21 14:36:11.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
++"Language: de\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: de\n"
+ 
+ msgid "A friendly greeting"
+ msgstr "Ein freundlicher Gruﬂ"
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/el_GR.po vdr-1.7.19/PLUGINS/src/hello/po/el_GR.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/el_GR.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/el_GR.po	2011-05-21 14:36:11.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek <vdr@linuxtv.org>\n"
++"Language: el\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-7\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: el\n"
+ 
+ msgid "A friendly greeting"
+ msgstr ""
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/es_ES.po vdr-1.7.19/PLUGINS/src/hello/po/es_ES.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/es_ES.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/es_ES.po	2011-05-21 14:36:11.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Ruben Nunez Francisco <ruben.nunez@tang-it.com>\n"
+ "Language-Team: Spanish <vdr@linuxtv.org>\n"
++"Language: es\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: es\n"
+ 
+ msgid "A friendly greeting"
+ msgstr ""
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/et_EE.po vdr-1.7.19/PLUGINS/src/hello/po/et_EE.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/et_EE.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/et_EE.po	2011-05-21 14:36:11.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Arthur Konovalov <kasjas@hot.ee>\n"
+ "Language-Team: Estonian <vdr@linuxtv.org>\n"
++"Language: et\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-13\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: et\n"
+ 
+ msgid "A friendly greeting"
+ msgstr ""
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/fi_FI.po vdr-1.7.19/PLUGINS/src/hello/po/fi_FI.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/fi_FI.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/fi_FI.po	2011-05-21 14:36:11.000000000 +0200
+@@ -10,14 +10,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
++"Language: fi\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: fi\n"
+ 
+ msgid "A friendly greeting"
+ msgstr "Yst√§v√§llisin terveisin"
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/fr_FR.po vdr-1.7.19/PLUGINS/src/hello/po/fr_FR.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/fr_FR.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/fr_FR.po	2011-05-21 14:36:11.000000000 +0200
+@@ -10,14 +10,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Nicolas Huillard <nhuillard@e-dition.fr>\n"
+ "Language-Team: French <vdr@linuxtv.org>\n"
++"Language: fr\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: fr\n"
+ 
+ msgid "A friendly greeting"
+ msgstr ""
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/hr_HR.po vdr-1.7.19/PLUGINS/src/hello/po/hr_HR.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/hr_HR.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/hr_HR.po	2011-05-21 14:36:11.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2008-03-17 19:52+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian <vdr@linuxtv.org>\n"
++"Language: hr\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: hr\n"
+ 
+ msgid "A friendly greeting"
+ msgstr "Prijateljska dobrodoπlica"
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/hu_HU.po vdr-1.7.19/PLUGINS/src/hello/po/hu_HU.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/hu_HU.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/hu_HU.po	2011-05-21 14:36:11.000000000 +0200
+@@ -8,14 +8,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Istvan Koenigsberger <istvnko@hotmail.com>, Guido Josten <guido.josten@t-online.de>\n"
+ "Language-Team: Hungarian <vdr@linuxtv.org>\n"
++"Language: hu\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: hu\n"
+ 
+ msgid "A friendly greeting"
+ msgstr ""
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/it_IT.po vdr-1.7.19/PLUGINS/src/hello/po/it_IT.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/it_IT.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/it_IT.po	2011-05-21 14:36:11.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2008-01-27 20:11+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
++"Language: it\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: it\n"
+ 
+ msgid "A friendly greeting"
+ msgstr "Un saluto cordiale"
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/lt_LT.po vdr-1.7.19/PLUGINS/src/hello/po/lt_LT.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/lt_LT.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/lt_LT.po	2011-05-21 14:36:11.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.10\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2009-12-08 12:18+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian <vdr@linuxtv.org>\n"
++"Language: lt\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: lt\n"
+ 
+ msgid "A friendly greeting"
+ msgstr "Draugi≈°kas labas"
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/nl_NL.po vdr-1.7.19/PLUGINS/src/hello/po/nl_NL.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/nl_NL.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/nl_NL.po	2011-05-21 14:36:11.000000000 +0200
+@@ -9,14 +9,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Maarten Wisse <Maarten.Wisse@urz.uni-hd.de>\n"
+ "Language-Team: Dutch <vdr@linuxtv.org>\n"
++"Language: nl\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: nl\n"
+ 
+ msgid "A friendly greeting"
+ msgstr ""
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/nn_NO.po vdr-1.7.19/PLUGINS/src/hello/po/nn_NO.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/nn_NO.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/nn_NO.po	2011-05-21 14:36:11.000000000 +0200
+@@ -8,14 +8,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian Nynorsk <vdr@linuxtv.org>\n"
++"Language: nn\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: nn\n"
+ 
+ msgid "A friendly greeting"
+ msgstr ""
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/pl_PL.po vdr-1.7.19/PLUGINS/src/hello/po/pl_PL.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/pl_PL.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/pl_PL.po	2011-05-21 14:36:11.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Michael Rakowski <mrak@gmx.de>\n"
+ "Language-Team: Polish <vdr@linuxtv.org>\n"
++"Language: pl\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: pl\n"
+ 
+ msgid "A friendly greeting"
+ msgstr ""
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/pt_PT.po vdr-1.7.19/PLUGINS/src/hello/po/pt_PT.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/pt_PT.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/pt_PT.po	2011-05-21 14:36:11.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Paulo Lopes <pmml@netvita.pt>\n"
+ "Language-Team: Portuguese <vdr@linuxtv.org>\n"
++"Language: pt\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: pt\n"
+ 
+ msgid "A friendly greeting"
+ msgstr ""
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/ro_RO.po vdr-1.7.19/PLUGINS/src/hello/po/ro_RO.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/ro_RO.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/ro_RO.po	2011-05-21 14:36:11.000000000 +0200
+@@ -8,14 +8,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+ "Language-Team: Romanian <vdr@linuxtv.org>\n"
++"Language: ro\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: ro\n"
+ 
+ msgid "A friendly greeting"
+ msgstr ""
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/ru_RU.po vdr-1.7.19/PLUGINS/src/hello/po/ru_RU.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/ru_RU.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/ru_RU.po	2011-05-21 14:36:11.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Vyacheslav Dikonov <sdiconov@mail.ru>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
++"Language: ru\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-5\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: ru\n"
+ 
+ msgid "A friendly greeting"
+ msgstr "¥‡„÷’·⁄ﬁ’ ﬂ‡ÿ“’‚·‚“ÿ’"
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/sk_SK.po vdr-1.7.19/PLUGINS/src/hello/po/sk_SK.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/sk_SK.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/sk_SK.po	2011-05-21 14:36:11.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2009-09-30 09:48+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak <vdr@linuxtv.org>\n"
++"Language: sk\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: sk\n"
+ 
+ msgid "A friendly greeting"
+ msgstr "Priateµsk˝ pozdrav"
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/sl_SI.po vdr-1.7.19/PLUGINS/src/hello/po/sl_SI.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/sl_SI.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/sl_SI.po	2011-05-21 14:36:11.000000000 +0200
+@@ -8,14 +8,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian <vdr@linuxtv.org>\n"
++"Language: sl\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: sl\n"
+ 
+ msgid "A friendly greeting"
+ msgstr ""
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/sv_SE.po vdr-1.7.19/PLUGINS/src/hello/po/sv_SE.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/sv_SE.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/sv_SE.po	2011-05-21 14:36:11.000000000 +0200
+@@ -8,14 +8,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2007-08-11 12:34+0200\n"
+ "Last-Translator: Tomas Prybil <tomas@prybil.se>\n"
+ "Language-Team: Swedish <vdr@linuxtv.org>\n"
++"Language: sv\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: sv\n"
+ 
+ msgid "A friendly greeting"
+ msgstr ""
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/tr_TR.po vdr-1.7.19/PLUGINS/src/hello/po/tr_TR.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/tr_TR.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/tr_TR.po	2011-05-21 14:36:11.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2008-05-12 22:34:4800\n"
+ "Last-Translator: Oktay YolgeÁen <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish <vdr@linuxtv.org>\n"
++"Language: tr\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-9\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: tr\n"
+ 
+ msgid "A friendly greeting"
+ msgstr "DostÁa selam"
+diff -ruN vdr-1.7.18/PLUGINS/src/hello/po/zh_CN.po vdr-1.7.19/PLUGINS/src/hello/po/zh_CN.po
+--- vdr-1.7.18/PLUGINS/src/hello/po/zh_CN.po	2010-10-24 16:43:03.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/hello/po/zh_CN.po	2011-05-21 14:36:11.000000000 +0200
+@@ -10,14 +10,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2009-01-23 09:48+0800\n"
+ "Last-Translator: senin\n"
+ "Language-Team: Chinese (simplified) <vdr@linuxtv.org>\n"
++"Language: zh_CN\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=utf-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: zh_CN\n"
+ 
+ msgid "A friendly greeting"
+ msgstr "ÂèãÂ•ΩÁöÑÈóÆÂÄô"
+diff -ruN vdr-1.7.18/PLUGINS/src/pictures/Makefile vdr-1.7.19/PLUGINS/src/pictures/Makefile
+--- vdr-1.7.18/PLUGINS/src/pictures/Makefile	2011-02-27 11:05:02.000000000 +0100
++++ vdr-1.7.19/PLUGINS/src/pictures/Makefile	2011-05-21 14:25:45.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.6 2011/02/27 10:05:02 kls Exp $
++# $Id: Makefile 2.7 2011/05/21 12:25:45 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -83,7 +83,7 @@
+ 	msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ $^
++	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ `ls $^`
+ 
+ %.po: $(I18Npot)
+ 	msgmerge -U --no-wrap --no-location --backup=none -q $@ $<
+diff -ruN vdr-1.7.18/PLUGINS/src/pictures/po/de_DE.po vdr-1.7.19/PLUGINS/src/pictures/po/de_DE.po
+--- vdr-1.7.18/PLUGINS/src/pictures/po/de_DE.po	2010-10-24 16:43:10.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/pictures/po/de_DE.po	2011-05-21 14:36:19.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2008-01-12 17:41+0100\n"
+ "Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
++"Language: de\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: de\n"
+ "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+ 
+ msgid "Pictures"
+diff -ruN vdr-1.7.18/PLUGINS/src/pictures/po/fi_FI.po vdr-1.7.19/PLUGINS/src/pictures/po/fi_FI.po
+--- vdr-1.7.18/PLUGINS/src/pictures/po/fi_FI.po	2010-10-24 16:43:10.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/pictures/po/fi_FI.po	2011-05-21 14:36:19.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2008-01-12 17:41+0100\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
++"Language: fi\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: fi\n"
+ "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+ 
+ msgid "Pictures"
+diff -ruN vdr-1.7.18/PLUGINS/src/pictures/po/fr_FR.po vdr-1.7.19/PLUGINS/src/pictures/po/fr_FR.po
+--- vdr-1.7.18/PLUGINS/src/pictures/po/fr_FR.po	2010-10-24 16:43:10.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/pictures/po/fr_FR.po	2011-05-21 14:36:19.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2008-01-12 17:41+0100\n"
+ "Last-Translator: Patrice Staudt <ipatrice.staudt@laposte.net>\n"
+ "Language-Team: French <vdr@linuxtv.org>\n"
++"Language: fr\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: fr\n"
+ "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+ 
+ msgid "Pictures"
+diff -ruN vdr-1.7.18/PLUGINS/src/pictures/po/it_IT.po vdr-1.7.19/PLUGINS/src/pictures/po/it_IT.po
+--- vdr-1.7.18/PLUGINS/src/pictures/po/it_IT.po	2010-10-24 16:43:10.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/pictures/po/it_IT.po	2011-05-21 14:36:19.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2008-01-27 20:22+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
++"Language: it\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: it\n"
+ "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+ 
+ msgid "Pictures"
+diff -ruN vdr-1.7.18/PLUGINS/src/pictures/po/lt_LT.po vdr-1.7.19/PLUGINS/src/pictures/po/lt_LT.po
+--- vdr-1.7.18/PLUGINS/src/pictures/po/lt_LT.po	2010-10-24 16:43:10.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/pictures/po/lt_LT.po	2011-05-21 14:36:19.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.10\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2009-12-08 12:41+0100\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>, 2009\n"
+ "Language-Team: Lithuanian <vdr@linuxtv.org>\n"
++"Language: lt\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: lt\n"
+ "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+ 
+ msgid "Pictures"
+diff -ruN vdr-1.7.18/PLUGINS/src/pictures/po/ru_RU.po vdr-1.7.19/PLUGINS/src/pictures/po/ru_RU.po
+--- vdr-1.7.18/PLUGINS/src/pictures/po/ru_RU.po	2010-10-24 16:43:10.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/pictures/po/ru_RU.po	2011-05-21 14:36:19.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2008-03-14 00:45+0100\n"
+ "Last-Translator: Alexander Gross <Bikalexander@gmail.com>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
++"Language: ru\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-5\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: ru\n"
+ "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+ "X-Generator: KBabel 1.11.4\n"
+ 
+diff -ruN vdr-1.7.18/PLUGINS/src/pictures/po/sk_SK.po vdr-1.7.19/PLUGINS/src/pictures/po/sk_SK.po
+--- vdr-1.7.18/PLUGINS/src/pictures/po/sk_SK.po	2010-10-24 16:43:10.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/pictures/po/sk_SK.po	2011-05-21 14:36:19.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-15 15:08+0200\n"
+ "PO-Revision-Date: 2009-09-30 12:54+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak <vdr@linuxtv.org>\n"
++"Language: sk\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=iso-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: sk\n"
+ 
+ msgid "Pictures"
+ msgstr "Obr·zky"
+diff -ruN vdr-1.7.18/PLUGINS/src/skincurses/HISTORY vdr-1.7.19/PLUGINS/src/skincurses/HISTORY
+--- vdr-1.7.18/PLUGINS/src/skincurses/HISTORY	2010-02-28 13:50:08.000000000 +0100
++++ vdr-1.7.19/PLUGINS/src/skincurses/HISTORY	2011-05-15 23:43:11.000000000 +0200
+@@ -88,3 +88,7 @@
+ 2010-02-28: Version 0.1.9
+ 
+ - Added Lithuanian language translations (thanks to Valdemaras Pipiras).
++
++2011-05-15: Version 0.1.10
++
++- Avoiding a gcc 4.6 compiler error (thanks to Tobias Grimm).
+diff -ruN vdr-1.7.18/PLUGINS/src/skincurses/Makefile vdr-1.7.19/PLUGINS/src/skincurses/Makefile
+--- vdr-1.7.18/PLUGINS/src/skincurses/Makefile	2011-02-27 11:05:05.000000000 +0100
++++ vdr-1.7.19/PLUGINS/src/skincurses/Makefile	2011-05-21 14:25:49.000000000 +0200
+@@ -1,7 +1,7 @@
+ #
+ # Makefile for a Video Disk Recorder plugin
+ #
+-# $Id: Makefile 2.6 2011/02/27 10:05:05 kls Exp $
++# $Id: Makefile 2.7 2011/05/21 12:25:49 kls Exp $
+ 
+ # The official name of this plugin.
+ # This name will be used in the '-P...' option of VDR to load the plugin.
+@@ -83,7 +83,7 @@
+ 	msgfmt -c -o $@ $<
+ 
+ $(I18Npot): $(wildcard *.c)
+-	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ $^
++	xgettext -C -cTRANSLATORS --no-wrap --no-location -k -ktr -ktrNOOP --package-name=VDR --package-version=$(VDRVERSION) --msgid-bugs-address='<vdr-bugs@tvdr.de>' -o $@ `ls $^`
+ 
+ %.po: $(I18Npot)
+ 	msgmerge -U --no-wrap --no-location --backup=none -q $@ $<
+diff -ruN vdr-1.7.18/PLUGINS/src/skincurses/po/de_DE.po vdr-1.7.19/PLUGINS/src/skincurses/po/de_DE.po
+--- vdr-1.7.18/PLUGINS/src/skincurses/po/de_DE.po	2010-10-24 16:43:12.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/skincurses/po/de_DE.po	2011-05-21 14:36:22.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-21 14:36+0200\n"
+ "PO-Revision-Date: 2007-08-15 16:07+0200\n"
+ "Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
++"Language: de\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: de\n"
+ 
+ msgid "A text only skin"
+ msgstr "Eine reine Text-Oberfl‰che"
+diff -ruN vdr-1.7.18/PLUGINS/src/skincurses/po/fi_FI.po vdr-1.7.19/PLUGINS/src/skincurses/po/fi_FI.po
+--- vdr-1.7.18/PLUGINS/src/skincurses/po/fi_FI.po	2010-10-24 16:43:13.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/skincurses/po/fi_FI.po	2011-05-21 14:36:22.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-21 14:36+0200\n"
+ "PO-Revision-Date: 2007-08-14 20:48+0300\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
++"Language: fi\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: fi\n"
+ 
+ msgid "A text only skin"
+ msgstr "Tekstipohjainen ulkoasu"
+diff -ruN vdr-1.7.18/PLUGINS/src/skincurses/po/it_IT.po vdr-1.7.19/PLUGINS/src/skincurses/po/it_IT.po
+--- vdr-1.7.18/PLUGINS/src/skincurses/po/it_IT.po	2010-10-24 16:43:13.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/skincurses/po/it_IT.po	2011-05-21 14:36:22.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-21 14:36+0200\n"
+ "PO-Revision-Date: 2008-01-27 20:35+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
++"Language: it\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: it\n"
+ 
+ msgid "A text only skin"
+ msgstr "Una interfaccia solo testo"
+diff -ruN vdr-1.7.18/PLUGINS/src/skincurses/po/lt_LT.po vdr-1.7.19/PLUGINS/src/skincurses/po/lt_LT.po
+--- vdr-1.7.18/PLUGINS/src/skincurses/po/lt_LT.po	2010-10-24 16:43:13.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/skincurses/po/lt_LT.po	2011-05-21 14:36:22.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.12\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-21 14:36+0200\n"
+ "PO-Revision-Date: 2010-02-22 18:18+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian <vdr@linuxtv.org>\n"
++"Language: lt\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: lt\n"
+ 
+ msgid "A text only skin"
+ msgstr "Tekstinis apvalkalas"
+diff -ruN vdr-1.7.18/PLUGINS/src/skincurses/po/ru_RU.po vdr-1.7.19/PLUGINS/src/skincurses/po/ru_RU.po
+--- vdr-1.7.18/PLUGINS/src/skincurses/po/ru_RU.po	2010-10-24 16:43:13.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/skincurses/po/ru_RU.po	2011-05-21 14:36:22.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-21 14:36+0200\n"
+ "PO-Revision-Date: 2008-03-14 00:21+0100\n"
+ "Last-Translator: Alexander Gross <Bikalexander@gmail.com>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
++"Language: ru\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-5\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: ru\n"
+ "X-Generator: KBabel 1.11.4\n"
+ 
+ msgid "A text only skin"
+diff -ruN vdr-1.7.18/PLUGINS/src/skincurses/po/sk_SK.po vdr-1.7.19/PLUGINS/src/skincurses/po/sk_SK.po
+--- vdr-1.7.18/PLUGINS/src/skincurses/po/sk_SK.po	2010-10-24 16:43:13.000000000 +0200
++++ vdr-1.7.19/PLUGINS/src/skincurses/po/sk_SK.po	2011-05-21 14:36:22.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:43+0200\n"
++"POT-Creation-Date: 2011-05-21 14:36+0200\n"
+ "PO-Revision-Date: 2009-09-30 12:52+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak <vdr@linuxtv.org>\n"
++"Language: sk\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=iso-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: sk\n"
+ 
+ msgid "A text only skin"
+ msgstr "Iba text vzhµadu"
+diff -ruN vdr-1.7.18/PLUGINS/src/skincurses/skincurses.c vdr-1.7.19/PLUGINS/src/skincurses/skincurses.c
+--- vdr-1.7.18/PLUGINS/src/skincurses/skincurses.c	2011-01-04 09:52:03.000000000 +0100
++++ vdr-1.7.19/PLUGINS/src/skincurses/skincurses.c	2011-05-15 23:41:47.000000000 +0200
+@@ -3,7 +3,7 @@
+  *
+  * See the README file for copyright information and how to reach the author.
+  *
+- * $Id: skincurses.c 2.5 2011/01/04 08:52:03 kls Exp $
++ * $Id: skincurses.c 2.6 2011/05/15 21:41:47 kls Exp $
+  */
+ 
+ #include <ncurses.h>
+@@ -11,7 +11,7 @@
+ #include <vdr/plugin.h>
+ #include <vdr/skins.h>
+ 
+-static const char *VERSION        = "0.1.9";
++static const char *VERSION        = "0.1.10";
+ static const char *DESCRIPTION    = trNOOP("A text only skin");
+ static const char *MAINMENUENTRY  = NULL;
+ 
+@@ -26,7 +26,7 @@
+   virtual void DrawText(cPixmap *Pixmap, int x, int y, const char *s, tColor ColorFg, tColor ColorBg, int Width) const {}
+   };
+ 
+-static const cCursesFont Font;
++static const cCursesFont Font = cCursesFont(); // w/o the '= cCursesFont()' gcc 4.6 complains - can anybody explain why this is necessary?
+ 
+ // --- cCursesOsd ------------------------------------------------------------
+ 
+diff -ruN vdr-1.7.18/ci.c vdr-1.7.19/ci.c
+--- vdr-1.7.18/ci.c	2010-01-02 11:39:50.000000000 +0100
++++ vdr-1.7.19/ci.c	2011-05-21 17:21:33.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 2.6 2010/01/02 10:39:50 kls Exp $
++ * $Id: ci.c 2.7 2011/05/21 15:21:33 kls Exp $
+  */
+ 
+ #include "ci.h"
+@@ -1894,9 +1894,9 @@
+ }
+ 
+ // see ISO/IEC 13818-1
+-#define STREAM_TYPE_VIDEO  0x02
+-#define STREAM_TYPE_AUDIO  0x04
+-#define STREAM_TYPE_DOLBY  0x06
++#define STREAM_TYPE_VIDEO    0x02
++#define STREAM_TYPE_AUDIO    0x04
++#define STREAM_TYPE_PRIVATE  0x06
+ 
+ void cCamSlot::AddChannel(const cChannel *Channel)
+ {
+@@ -1910,7 +1910,9 @@
+      for (const int *Apid = Channel->Apids(); *Apid; Apid++)
+          AddPid(Channel->Sid(), *Apid, STREAM_TYPE_AUDIO);
+      for (const int *Dpid = Channel->Dpids(); *Dpid; Dpid++)
+-         AddPid(Channel->Sid(), *Dpid, STREAM_TYPE_DOLBY);
++         AddPid(Channel->Sid(), *Dpid, STREAM_TYPE_PRIVATE);
++     for (const int *Spid = Channel->Spids(); *Spid; Spid++)
++         AddPid(Channel->Sid(), *Spid, STREAM_TYPE_PRIVATE);
+      }
+ }
+ 
+@@ -1931,7 +1933,9 @@
+      for (const int *Apid = Channel->Apids(); *Apid; Apid++)
+          CaPmt.AddPid(*Apid, STREAM_TYPE_AUDIO);
+      for (const int *Dpid = Channel->Dpids(); *Dpid; Dpid++)
+-         CaPmt.AddPid(*Dpid, STREAM_TYPE_DOLBY);
++         CaPmt.AddPid(*Dpid, STREAM_TYPE_PRIVATE);
++     for (const int *Spid = Channel->Spids(); *Spid; Spid++)
++         CaPmt.AddPid(*Spid, STREAM_TYPE_PRIVATE); 
+      cas->SendPMT(&CaPmt);
+      cTimeMs Timeout(QUERY_REPLY_TIMEOUT);
+      do {
+diff -ruN vdr-1.7.18/config.c vdr-1.7.19/config.c
+--- vdr-1.7.18/config.c	2010-06-06 12:06:43.000000000 +0200
++++ vdr-1.7.19/config.c	2011-06-13 16:41:01.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.c 2.13 2010/06/06 10:06:43 kls Exp $
++ * $Id: config.c 2.14 2011/06/13 14:41:01 kls Exp $
+  */
+ 
+ #include "config.h"
+@@ -395,7 +395,7 @@
+   CurrentChannel = -1;
+   CurrentVolume = MAXVOLUME;
+   CurrentDolby = 0;
+-  InitialChannel = 0;
++  // InitialChannel is initialized by constructor
+   InitialVolume = -1;
+   ChannelsWrap = 0;
+   EmergencyExit = 1;
+@@ -404,6 +404,7 @@
+ cSetup& cSetup::operator= (const cSetup &s)
+ {
+   memcpy(&__BeginData__, &s.__BeginData__, (char *)&s.__EndData__ - (char *)&s.__BeginData__);
++  InitialChannel = s.InitialChannel;
+   return *this;
+ }
+ 
+@@ -586,7 +587,7 @@
+   else if (!strcasecmp(Name, "CurrentChannel"))      CurrentChannel     = atoi(Value);
+   else if (!strcasecmp(Name, "CurrentVolume"))       CurrentVolume      = atoi(Value);
+   else if (!strcasecmp(Name, "CurrentDolby"))        CurrentDolby       = atoi(Value);
+-  else if (!strcasecmp(Name, "InitialChannel"))      InitialChannel     = atoi(Value);
++  else if (!strcasecmp(Name, "InitialChannel"))      InitialChannel     = Value;
+   else if (!strcasecmp(Name, "InitialVolume"))       InitialVolume      = atoi(Value);
+   else if (!strcasecmp(Name, "ChannelsWrap"))        ChannelsWrap       = atoi(Value);
+   else if (!strcasecmp(Name, "EmergencyExit"))       EmergencyExit      = atoi(Value);
+diff -ruN vdr-1.7.18/config.h vdr-1.7.19/config.h
+--- vdr-1.7.18/config.h	2011-03-13 13:02:31.000000000 +0100
++++ vdr-1.7.19/config.h	2011-06-13 16:24:40.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 2.30 2011/03/13 12:02:31 kls Exp $
++ * $Id: config.h 2.32 2011/06/13 14:24:40 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -22,13 +22,13 @@
+ 
+ // VDR's own version number:
+ 
+-#define VDRVERSION  "1.7.18"
+-#define VDRVERSNUM   10718  // Version * 10000 + Major * 100 + Minor
++#define VDRVERSION  "1.7.19"
++#define VDRVERSNUM   10719  // Version * 10000 + Major * 100 + Minor
+ 
+ // The plugin API's version number:
+ 
+-#define APIVERSION  "1.7.18"
+-#define APIVERSNUM   10718  // Version * 10000 + Major * 100 + Minor
++#define APIVERSION  "1.7.19"
++#define APIVERSNUM   10719  // Version * 10000 + Major * 100 + Minor
+ 
+ // When loading plugins, VDR searches them by their APIVERSION, which
+ // may be smaller than VDRVERSION in case there have been no changes to
+@@ -287,11 +287,11 @@
+   int CurrentChannel;
+   int CurrentVolume;
+   int CurrentDolby;
+-  int InitialChannel;
+   int InitialVolume;
+   int ChannelsWrap;
+   int EmergencyExit;
+   int __EndData__;
++  cString InitialChannel;
+   cSetup(void);
+   cSetup& operator= (const cSetup &s);
+   bool Load(const char *FileName);
+diff -ruN vdr-1.7.18/device.c vdr-1.7.19/device.c
+--- vdr-1.7.18/device.c	2011-02-25 16:12:03.000000000 +0100
++++ vdr-1.7.19/device.c	2011-06-02 15:14:16.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.c 2.38 2011/02/25 15:12:03 kls Exp $
++ * $Id: device.c 2.41 2011/06/02 13:14:16 kls Exp $
+  */
+ 
+ #include "device.h"
+@@ -286,10 +286,10 @@
+              imp <<= 8; imp |= min(max(device[i]->Priority() + MAXPRIORITY, 0), 0xFF);                               // use the device with the lowest priority (+MAXPRIORITY to assure that values -99..99 can be used)
+              imp <<= 8; imp |= min(max((NumUsableSlots ? SlotPriority[j] : 0) + MAXPRIORITY, 0), 0xFF);              // use the CAM slot with the lowest priority (+MAXPRIORITY to assure that values -99..99 can be used)
+              imp <<= 1; imp |= ndr;                                                                                  // avoid devices if we need to detach existing receivers
+-             imp <<= 1; imp |= device[i]->IsPrimaryDevice();                                                         // avoid the primary device
+              imp <<= 1; imp |= NumUsableSlots ? 0 : device[i]->HasCi();                                              // avoid cards with Common Interface for FTA channels
+-             imp <<= 1; imp |= device[i]->HasDecoder();                                                              // avoid full featured cards
++             imp <<= 1; imp |= device[i]->AvoidRecording();                                                          // avoid SD full featured cards
+              imp <<= 1; imp |= NumUsableSlots ? !ChannelCamRelations.CamDecrypt(Channel->GetChannelID(), j + 1) : 0; // prefer CAMs that are known to decrypt this channel
++             imp <<= 1; imp |= device[i]->IsPrimaryDevice();                                                         // avoid the primary device
+              if (imp < Impact) {
+                 // This device has less impact than any previous one, so we take it.
+                 Impact = imp;
+@@ -618,6 +618,16 @@
+   return 0;
+ }
+ 
++int cDevice::SignalStrength(void) const
++{
++  return -1;
++}
++
++int cDevice::SignalQuality(void) const
++{
++  return -1;
++}
++
+ const cChannel *cDevice::GetCurrentlyTunedTransponder(void) const
+ {
+   return NULL;
+diff -ruN vdr-1.7.18/device.h vdr-1.7.19/device.h
+--- vdr-1.7.18/device.h	2011-03-21 18:58:41.000000000 +0100
++++ vdr-1.7.19/device.h	2011-06-02 15:15:31.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: device.h 2.24 2011/03/21 17:58:41 kls Exp $
++ * $Id: device.h 2.26 2011/06/02 13:15:31 kls Exp $
+  */
+ 
+ #ifndef __DEVICE_H
+@@ -197,6 +197,9 @@
+          ///< Returns the number of this device (0 ... numDevices).
+   virtual bool HasDecoder(void) const;
+          ///< Tells whether this device has an MPEG decoder.
++  virtual bool AvoidRecording(void) const { return false; }
++         ///< Returns true if this device should only be used for recording
++         ///< if no other device is available.
+ 
+ // Device hooks
+ 
+@@ -250,6 +253,16 @@
+          ///< actually provide channels must implement this function.
+          ///< The result of this function is used when selecting a device, in order
+          ///< to avoid devices that provide more than one system.
++  virtual int SignalStrength(void) const;
++         ///< Returns the "strength" of the currently received signal.
++         ///< This is a value in the range 0 (no signal at all) through
++         ///< 100 (best possible signal). A value of -1 indicates that this
++         ///< device has no concept of a "signal strength".
++  virtual int SignalQuality(void) const;
++         ///< Returns the "quality" of the currently received signal.
++         ///< This is a value in the range 0 (worst quality) through
++         ///< 100 (best possible quality). A value of -1 indicates that this
++         ///< device has no concept of a "signal quality".
+   virtual const cChannel *GetCurrentlyTunedTransponder(void) const;
+          ///< Returns a pointer to the currently tuned transponder.
+          ///< This is not one of the channels in the global cChannels list, but rather
+diff -ruN vdr-1.7.18/diseqc.c vdr-1.7.19/diseqc.c
+--- vdr-1.7.18/diseqc.c	2010-02-06 16:43:31.000000000 +0100
++++ vdr-1.7.19/diseqc.c	2011-05-22 12:36:12.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: diseqc.c 2.2 2010/02/06 15:43:31 kls Exp $
++ * $Id: diseqc.c 2.4 2011/05/22 10:36:12 kls Exp $
+  */
+ 
+ #include "diseqc.h"
+@@ -59,7 +59,7 @@
+         polarization = char(toupper(polarization));
+         if (polarization == 'V' || polarization == 'H' || polarization == 'L' || polarization == 'R') {
+            parsing = true;
+-           char *CurrentAction = NULL;
++           const char *CurrentAction = NULL;
+            while (Execute(&CurrentAction) != daNone)
+                  ;
+            parsing = false;
+@@ -75,7 +75,7 @@
+   return result;
+ }
+ 
+-char *cDiseqc::Wait(char *s)
++const char *cDiseqc::Wait(const char *s) const
+ {
+   char *p = NULL;
+   errno = 0;
+@@ -89,19 +89,22 @@
+   return NULL;
+ }
+ 
+-char *cDiseqc::Codes(char *s)
++const char *cDiseqc::Codes(const char *s) const
+ {
+-  char *e = strchr(s, ']');
++  const char *e = strchr(s, ']');
+   if (e) {
+-     numCodes = 0;
+-     char *t = s;
+-     char *p = s;
++     int NumCodes = 0;
++     const char *t = s;
++     char *p;
+      while (t < e) {
+-           if (numCodes < MaxDiseqcCodes) {
++           if (NumCodes < MaxDiseqcCodes) {
+               errno = 0;
+               int n = strtol(t, &p, 16);
+               if (!errno && p != t && 0 <= n && n <= 255) {
+-                 codes[numCodes++] = uchar(n);
++                 if (parsing) {
++                    codes[NumCodes++] = uchar(n);
++                    numCodes = NumCodes;
++                    }
+                  t = skipspace(p);
+                  }
+               else {
+@@ -121,7 +124,7 @@
+   return NULL;
+ }
+ 
+-cDiseqc::eDiseqcActions cDiseqc::Execute(char **CurrentAction)
++cDiseqc::eDiseqcActions cDiseqc::Execute(const char **CurrentAction) const
+ {
+   if (!*CurrentAction)
+      *CurrentAction = commands;
+@@ -146,10 +149,10 @@
+ 
+ cDiseqcs Diseqcs;
+ 
+-cDiseqc *cDiseqcs::Get(int Device, int Source, int Frequency, char Polarization)
++const cDiseqc *cDiseqcs::Get(int Device, int Source, int Frequency, char Polarization) const
+ {
+   int Devices = 0;
+-  for (cDiseqc *p = First(); p; p = Next(p)) {
++  for (const cDiseqc *p = First(); p; p = Next(p)) {
+       if (p->Devices()) {
+          Devices = p->Devices();
+          continue;
+@@ -157,7 +160,7 @@
+       if (Devices && !(Devices & (1 << Device - 1)))
+          continue;
+       if (p->Source() == Source && p->Slof() > Frequency && p->Polarization() == toupper(Polarization))
+-        return p;
++         return p;
+       }
+   return NULL;
+ }
+diff -ruN vdr-1.7.18/diseqc.h vdr-1.7.19/diseqc.h
+--- vdr-1.7.18/diseqc.h	2010-02-06 16:14:42.000000000 +0100
++++ vdr-1.7.19/diseqc.h	2011-05-22 12:35:38.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: diseqc.h 2.1 2010/02/06 15:14:42 kls Exp $
++ * $Id: diseqc.h 2.2 2011/05/22 10:35:38 kls Exp $
+  */
+ 
+ #ifndef __DISEQC_H
+@@ -33,15 +33,15 @@
+   int lof;
+   char *commands;
+   bool parsing;
+-  uchar codes[MaxDiseqcCodes];
+-  int numCodes;
+-  char *Wait(char *s);
+-  char *Codes(char *s);
++  mutable uchar codes[MaxDiseqcCodes];
++  mutable int numCodes;
++  const char *Wait(const char *s) const;
++  const char *Codes(const char *s) const;
+ public:
+   cDiseqc(void);
+   ~cDiseqc();
+   bool Parse(const char *s);
+-  eDiseqcActions Execute(char **CurrentAction);
++  eDiseqcActions Execute(const char **CurrentAction) const;
+       // Parses the DiSEqC commands and returns the appropriate action code
+       // with every call. CurrentAction must be the address of a character pointer,
+       // which is initialized to NULL. This pointer is used internally while parsing
+@@ -55,12 +55,12 @@
+   char Polarization(void) const { return polarization; }
+   int Lof(void) const { return lof; }
+   const char *Commands(void) const { return commands; }
+-  uchar *Codes(int &NumCodes) { NumCodes = numCodes; return numCodes ? codes : NULL; }
++  const uchar *Codes(int &NumCodes) const { NumCodes = numCodes; return numCodes ? codes : NULL; }
+   };
+ 
+ class cDiseqcs : public cConfig<cDiseqc> {
+ public:
+-  cDiseqc *Get(int Device, int Source, int Frequency, char Polarization);
++  const cDiseqc *Get(int Device, int Source, int Frequency, char Polarization) const;
+   };
+ 
+ extern cDiseqcs Diseqcs;
+diff -ruN vdr-1.7.18/dvbdevice.c vdr-1.7.19/dvbdevice.c
+--- vdr-1.7.18/dvbdevice.c	2010-05-01 11:47:13.000000000 +0200
++++ vdr-1.7.19/dvbdevice.c	2011-06-11 16:34:24.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 2.38 2010/05/01 09:47:13 kls Exp $
++ * $Id: dvbdevice.c 2.42 2011/06/11 14:34:24 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -253,12 +253,15 @@
+ 
+ // --- cDvbTuner -------------------------------------------------------------
+ 
++#define TUNER_POLL_TIMEOUT  10 // ms
++
+ class cDvbTuner : public cThread {
+ private:
+   enum eTunerStatus { tsIdle, tsSet, tsTuned, tsLocked };
+   int device;
+   int fd_frontend;
+   int adapter, frontend;
++  uint32_t subsystemId;
+   int tuneTimeout;
+   int lockTimeout;
+   time_t lastTimeoutReport;
+@@ -269,16 +272,20 @@
+   cMutex mutex;
+   cCondVar locked;
+   cCondVar newSet;
+-  bool GetFrontendStatus(fe_status_t &Status, int TimeoutMs = 0);
++  void ClearEventQueue(void) const;
++  bool GetFrontendStatus(fe_status_t &Status) const;
+   bool SetFrontend(void);
+   virtual void Action(void);
+ public:
+   cDvbTuner(int Device, int Fd_Frontend, int Adapter, int Frontend, fe_delivery_system FrontendType);
+   virtual ~cDvbTuner();
+   const cChannel *GetTransponder(void) const { return &channel; }
++  uint32_t SubsystemId(void) const { return subsystemId; }
+   bool IsTunedTo(const cChannel *Channel) const;
+   void Set(const cChannel *Channel);
+   bool Locked(int TimeoutMs = 0);
++  int GetSignalStrength(void) const;
++  int GetSignalQuality(void) const;
+   };
+ 
+ cDvbTuner::cDvbTuner(int Device, int Fd_Frontend, int Adapter, int Frontend, fe_delivery_system FrontendType)
+@@ -288,6 +295,7 @@
+   adapter = Adapter;
+   frontend = Frontend;
+   frontendType = FrontendType;
++  subsystemId = cDvbDeviceProbe::GetSubsystemId(adapter, frontend);
+   tuneTimeout = 0;
+   lockTimeout = 0;
+   lastTimeoutReport = 0;
+@@ -339,16 +347,19 @@
+   return tunerStatus >= tsLocked;
+ }
+ 
+-bool cDvbTuner::GetFrontendStatus(fe_status_t &Status, int TimeoutMs)
++void cDvbTuner::ClearEventQueue(void) const
+ {
+-  if (TimeoutMs) {
+-     cPoller Poller(fd_frontend);
+-     if (Poller.Poll(TimeoutMs)) {
+-        dvb_frontend_event Event;
+-        while (ioctl(fd_frontend, FE_GET_EVENT, &Event) == 0)
+-              ; // just to clear the event queue - we'll read the actual status below
+-        }
++  cPoller Poller(fd_frontend);
++  if (Poller.Poll(TUNER_POLL_TIMEOUT)) {
++     dvb_frontend_event Event;
++     while (ioctl(fd_frontend, FE_GET_EVENT, &Event) == 0)
++           ; // just to clear the event queue - we'll read the actual status below
+      }
++}
++
++bool cDvbTuner::GetFrontendStatus(fe_status_t &Status) const
++{
++  ClearEventQueue();
+   while (1) {
+         if (ioctl(fd_frontend, FE_READ_STATUS, &Status) != -1)
+            return true;
+@@ -358,6 +369,112 @@
+   return false;
+ }
+ 
++//#define DEBUG_SIGNALSTRENGTH
++//#define DEBUG_SIGNALQUALITY
++
++int cDvbTuner::GetSignalStrength(void) const
++{
++  ClearEventQueue();
++  uint16_t Signal;
++  while (1) {
++        if (ioctl(fd_frontend, FE_READ_SIGNAL_STRENGTH, &Signal) != -1)
++           break;
++        if (errno != EINTR)
++           return -1;
++        }
++  uint16_t MaxSignal = 0xFFFF; // Let's assume the default is using the entire range.
++  // Use the subsystemId to identify individual devices in case they need
++  // special treatment to map their Signal value into the range 0...0xFFFF.
++  switch (subsystemId) {
++    case 0x13C21019: MaxSignal = 670; break; // TT-budget S2-3200 (DVB-S/DVB-S2)
++    }
++  int s = int(Signal) * 100 / MaxSignal;
++  if (s > 100)
++     s = 100;
++#ifdef DEBUG_SIGNALSTRENGTH
++  fprintf(stderr, "FE %d/%d: %08X S = %04X %04X %3d%%\n", adapter, frontend, subsystemId, MaxSignal, Signal, s);
++#endif
++  return s;
++}
++
++#define LOCK_THRESHOLD 5 // indicates that all 5 FE_HAS_* flags are set
++
++int cDvbTuner::GetSignalQuality(void) const
++{
++  fe_status_t Status;
++  if (GetFrontendStatus(Status)) {
++     // Actually one would expect these checks to be done from FE_HAS_SIGNAL to FE_HAS_LOCK, but some drivers (like the stb0899) are broken, so FE_HAS_LOCK is the only one that (hopefully) is generally reliable...
++     if ((Status & FE_HAS_LOCK) == 0) {
++        if ((Status & FE_HAS_SIGNAL) == 0)
++           return 0;
++        if ((Status & FE_HAS_CARRIER) == 0)
++           return 1;
++        if ((Status & FE_HAS_VITERBI) == 0)
++           return 2;
++        if ((Status & FE_HAS_SYNC) == 0)
++           return 3;
++        return 4;
++        }
++     bool HasSnr = true;
++     uint16_t Snr;
++     while (1) {
++           if (ioctl(fd_frontend, FE_READ_SNR, &Snr) != -1)
++              break;
++           if (errno == EOPNOTSUPP) {
++              Snr = 0xFFFF;
++              HasSnr = false;
++              break;
++              }
++           if (errno != EINTR)
++              return -1;
++           }
++     bool HasBer = true;
++     uint32_t Ber;
++     while (1) {
++           if (ioctl(fd_frontend, FE_READ_BER, &Ber) != -1)
++              break;
++           if (errno == EOPNOTSUPP) {
++              Ber = 0;
++              HasBer = false;
++              break;
++              }
++           if (errno != EINTR)
++              return -1;
++           }
++     bool HasUnc = true;
++     uint32_t Unc;
++     while (1) {
++           if (ioctl(fd_frontend, FE_READ_UNCORRECTED_BLOCKS, &Unc) != -1)
++              break;
++           if (errno == EOPNOTSUPP) {
++              Unc = 0;
++              HasUnc = false;
++              break;
++              }
++           if (errno != EINTR)
++              return -1;
++           }
++     uint16_t MaxSnr = 0xFFFF; // Let's assume the default is using the entire range.
++     // Use the subsystemId to identify individual devices in case they need
++     // special treatment to map their Snr value into the range 0...0xFFFF.
++     switch (subsystemId) {
++       case 0x13C21019: MaxSnr = 200; break; // TT-budget S2-3200 (DVB-S/DVB-S2)
++       }
++     int a = int(Snr) * 100 / MaxSnr;
++     int b = 100 - (Unc * 10 + (Ber / 256) * 5);
++     if (b < 0)
++        b = 0;
++     int q = LOCK_THRESHOLD + a * b * (100 - LOCK_THRESHOLD) / 100 / 100;
++     if (q > 100)
++        q = 100;
++#ifdef DEBUG_SIGNALQUALITY
++     fprintf(stderr, "FE %d/%d: %08X Q = %04X %04X %5d %5d %3d%%\n", adapter, frontend, subsystemId, MaxSnr, Snr, HasBer ? int(Ber) : -1, HasUnc ? int(Unc) : -1, q);
++#endif
++     return q;
++     }
++  return -1;
++}
++
+ static unsigned int FrequencyToHz(unsigned int f)
+ {
+   while (f && f < 1000000)
+@@ -392,11 +509,11 @@
+   if (frontendType == SYS_DVBS || frontendType == SYS_DVBS2) {
+      unsigned int frequency = channel.Frequency();
+      if (Setup.DiSEqC) {
+-        cDiseqc *diseqc = Diseqcs.Get(device, channel.Source(), channel.Frequency(), dtp.Polarization());
++        const cDiseqc *diseqc = Diseqcs.Get(device, channel.Source(), channel.Frequency(), dtp.Polarization());
+         if (diseqc) {
+            if (diseqc->Commands() && (!diseqcCommands || strcmp(diseqcCommands, diseqc->Commands()) != 0)) {
+               cDiseqc::eDiseqcActions da;
+-              for (char *CurrentAction = NULL; (da = diseqc->Execute(&CurrentAction)) != cDiseqc::daNone; ) {
++              for (const char *CurrentAction = NULL; (da = diseqc->Execute(&CurrentAction)) != cDiseqc::daNone; ) {
+                   switch (da) {
+                     case cDiseqc::daNone:      break;
+                     case cDiseqc::daToneOff:   CHECK(ioctl(fd_frontend, FE_SET_TONE, SEC_TONE_OFF)); break;
+@@ -407,7 +524,7 @@
+                     case cDiseqc::daMiniB:     CHECK(ioctl(fd_frontend, FE_DISEQC_SEND_BURST, SEC_MINI_B)); break;
+                     case cDiseqc::daCodes: {
+                          int n = 0;
+-                         uchar *codes = diseqc->Codes(n);
++                         const uchar *codes = diseqc->Codes(n);
+                          if (codes) {
+                             struct dvb_diseqc_master_cmd cmd;
+                             cmd.msg_len = min(n, int(sizeof(cmd.msg)));
+@@ -504,9 +621,9 @@
+      SETCMD(DTV_FREQUENCY, FrequencyToHz(channel.Frequency()));
+      SETCMD(DTV_INVERSION, dtp.Inversion());
+      SETCMD(DTV_MODULATION, dtp.Modulation());
+-     
++
+      tuneTimeout = ATSC_TUNE_TIMEOUT;
+-     lockTimeout = ATSC_LOCK_TIMEOUT;     
++     lockTimeout = ATSC_LOCK_TIMEOUT;
+      }
+   else {
+      esyslog("ERROR: attempt to set channel with unknown DVB frontend type");
+@@ -527,7 +644,7 @@
+   fe_status_t Status = (fe_status_t)0;
+   while (Running()) {
+         fe_status_t NewStatus;
+-        if (GetFrontendStatus(NewStatus, 10))
++        if (GetFrontendStatus(NewStatus))
+            Status = NewStatus;
+         cMutexLock MutexLock(&mutex);
+         switch (tunerStatus) {
+@@ -936,7 +1053,7 @@
+   bool hasPriority = Priority < 0 || Priority > this->Priority();
+   bool needsDetachReceivers = false;
+ 
+-  if (ProvidesTransponder(Channel)) {
++  if (dvbTuner && ProvidesTransponder(Channel)) {
+      result = hasPriority;
+      if (Priority >= 0 && Receiving(true)) {
+         if (dvbTuner->IsTunedTo(Channel)) {
+@@ -969,19 +1086,30 @@
+   return numProvidedSystems;
+ }
+ 
++int cDvbDevice::SignalStrength(void) const
++{
++  return dvbTuner ? dvbTuner->GetSignalStrength() : -1;
++}
++
++int cDvbDevice::SignalQuality(void) const
++{
++  return dvbTuner ? dvbTuner->GetSignalQuality() : -1;
++}
++
+ const cChannel *cDvbDevice::GetCurrentlyTunedTransponder(void) const
+ {
+-  return dvbTuner->GetTransponder(); 
++  return dvbTuner ? dvbTuner->GetTransponder() : NULL;
+ }
+ 
+ bool cDvbDevice::IsTunedToTransponder(const cChannel *Channel)
+ {
+-  return dvbTuner->IsTunedTo(Channel);
++  return dvbTuner ? dvbTuner->IsTunedTo(Channel) : false;
+ }
+ 
+ bool cDvbDevice::SetChannelDevice(const cChannel *Channel, bool LiveView)
+ {
+-  dvbTuner->Set(Channel);
++  if (dvbTuner)
++     dvbTuner->Set(Channel);
+   return true;
+ }
+ 
+@@ -1036,3 +1164,24 @@
+ {
+   DvbDeviceProbes.Del(this, false);
+ }
++
++uint32_t cDvbDeviceProbe::GetSubsystemId(int Adapter, int Frontend)
++{
++  cString FileName;
++  cReadLine ReadLine;
++  FILE *f = NULL;
++  uint32_t SubsystemId = 0;
++  FileName = cString::sprintf("/sys/class/dvb/dvb%d.frontend%d/device/subsystem_vendor", Adapter, Frontend);
++  if ((f = fopen(FileName, "r")) != NULL) {
++     if (char *s = ReadLine.Read(f))
++        SubsystemId = strtoul(s, NULL, 0) << 16;
++     fclose(f);
++     }
++  FileName = cString::sprintf("/sys/class/dvb/dvb%d.frontend%d/device/subsystem_device", Adapter, Frontend);
++  if ((f = fopen(FileName, "r")) != NULL) {
++     if (char *s = ReadLine.Read(f))
++        SubsystemId |= strtoul(s, NULL, 0);
++     fclose(f);
++     }
++  return SubsystemId;
++}
+diff -ruN vdr-1.7.18/dvbdevice.h vdr-1.7.19/dvbdevice.h
+--- vdr-1.7.18/dvbdevice.h	2010-04-11 12:29:37.000000000 +0200
++++ vdr-1.7.19/dvbdevice.h	2011-06-02 15:20:05.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.h 2.14 2010/04/11 10:29:37 kls Exp $
++ * $Id: dvbdevice.h 2.15 2011/06/02 13:20:05 kls Exp $
+  */
+ 
+ #ifndef __DVBDEVICE_H
+@@ -141,6 +141,8 @@
+   virtual bool ProvidesTransponder(const cChannel *Channel) const;
+   virtual bool ProvidesChannel(const cChannel *Channel, int Priority = -1, bool *NeedsDetachReceivers = NULL) const;
+   virtual int NumProvidedSystems(void) const;
++  virtual int SignalStrength(void) const;
++  virtual int SignalQuality(void) const;
+   virtual const cChannel *GetCurrentlyTunedTransponder(void) const;
+   virtual bool IsTunedToTransponder(const cChannel *Channel);
+ protected:
+@@ -196,6 +198,7 @@
+ public:
+   cDvbDeviceProbe(void);
+   virtual ~cDvbDeviceProbe();
++  static uint32_t GetSubsystemId(int Adapter, int Frontend);
+   virtual bool Probe(int Adapter, int Frontend) = 0;
+      ///< Probes for a DVB device at the given Adapter and creates the appropriate
+      ///< object derived from cDvbDevice if applicable.
+diff -ruN vdr-1.7.18/libsi/descriptor.c vdr-1.7.19/libsi/descriptor.c
+--- vdr-1.7.18/libsi/descriptor.c	2010-11-01 16:24:31.000000000 +0100
++++ vdr-1.7.19/libsi/descriptor.c	2011-06-15 23:26:00.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: descriptor.c 2.1 2010/11/01 15:24:31 kls Exp $
++ *   $Id: descriptor.c 2.2 2011/06/15 21:26:00 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -643,6 +643,33 @@
+    textualServiceIdentifier.setData(data+sizeof(descr_service_identifier), getLength()-sizeof(descr_service_identifier));
+ }
+ 
++void ContentIdentifierDescriptor::Parse() {
++   identifierLoop.setData(data+sizeof(descr_content_identifier), getLength()-sizeof(descr_content_identifier));
++}
++
++void ContentIdentifierDescriptor::Identifier::Parse() {
++   int offset=0;
++   data.setPointerAndOffset<const content_identifier_entry>(s, offset);
++   if (s->crid_location == 0) {
++     identifier.setData(data+(offset-1), s->crid_length);
++   }
++   else {
++      identifier.setData(data+(offset-1), 2);
++   }
++}
++
++int ContentIdentifierDescriptor::Identifier::getCridType() const {
++   return s->crid_type;
++}
++
++int ContentIdentifierDescriptor::Identifier::getCridLocation() const {
++   return s->crid_location;
++}
++
++void DefaultAuthorityDescriptor::Parse() {
++   DefaultAuthority.setData(data+sizeof(descr_default_authority), getLength()-sizeof(descr_default_authority));
++}
++
+ void MultilingualNameDescriptor::Parse() {
+    nameLoop.setData(data+sizeof(descr_multilingual_network_name), getLength()-sizeof(descr_multilingual_network_name));
+ }
+diff -ruN vdr-1.7.18/libsi/descriptor.h vdr-1.7.19/libsi/descriptor.h
+--- vdr-1.7.18/libsi/descriptor.h	2010-11-01 16:24:32.000000000 +0100
++++ vdr-1.7.19/libsi/descriptor.h	2011-06-15 23:26:00.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: descriptor.h 2.1 2010/11/01 15:24:32 kls Exp $
++ *   $Id: descriptor.h 2.2 2011/06/15 21:26:00 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -360,6 +360,31 @@
+ protected:
+    virtual void Parse();
+ };
++
++class ContentIdentifierDescriptor : public Descriptor {
++public:
++   class Identifier : public LoopElement {
++   public:
++      String identifier;
++      int getCridType() const;
++      int getCridLocation() const;
++      virtual int getLength() { return sizeof(content_identifier_entry)+identifier.getLength(); }
++   protected:
++      virtual void Parse();
++   private:
++      const content_identifier_entry *s;
++   };
++   StructureLoop<Identifier> identifierLoop;
++protected:
++   virtual void Parse();
++};
++
++class DefaultAuthorityDescriptor : public Descriptor {
++public:
++   String DefaultAuthority; //ID
++protected:
++   virtual void Parse();
++};
+ 
+ //abstract base class
+ class MultilingualNameDescriptor : public Descriptor {
+diff -ruN vdr-1.7.18/libsi/headers.h vdr-1.7.19/libsi/headers.h
+--- vdr-1.7.18/libsi/headers.h	2010-11-01 16:24:32.000000000 +0100
++++ vdr-1.7.19/libsi/headers.h	2011-06-15 23:26:00.000000000 +0200
+@@ -10,7 +10,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: headers.h 2.1 2010/11/01 15:24:32 kls Exp $
++ *   $Id: headers.h 2.2 2011/06/15 21:26:00 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -1680,6 +1680,24 @@
+    u_char descriptor_length                      :8;
+ };
+ 
++struct content_identifier_entry {
++#if BYTE_ORDER == BIG_ENDIAN
++   u_char crid_type                              :6;
++   u_char crid_location                          :2;
++#else
++   u_char crid_location                          :2;
++   u_char crid_type                              :6;
++#endif
++  union {
++    u_char crid_length                           :8;
++    u_char crid_ref_hi                           :8;
++  };
++  union {
++    u_char crid_byte                             :8;
++    u_char crid_ref_lo                           :8;
++  };
++};
++
+ /* 0x77 time_slice_fec_identifier_descriptor (ETSI EN 301 192) */
+ 
+ struct descr_time_slice_fec_identifier {
+diff -ruN vdr-1.7.18/libsi/si.c vdr-1.7.19/libsi/si.c
+--- vdr-1.7.18/libsi/si.c	2010-11-01 16:24:32.000000000 +0100
++++ vdr-1.7.19/libsi/si.c	2011-06-15 23:26:00.000000000 +0200
+@@ -6,7 +6,7 @@
+  *   the Free Software Foundation; either version 2 of the License, or     *
+  *   (at your option) any later version.                                   *
+  *                                                                         *
+- *   $Id: si.c 2.3 2010/11/01 15:24:32 kls Exp $
++ *   $Id: si.c 2.4 2011/06/15 21:26:00 kls Exp $
+  *                                                                         *
+  ***************************************************************************/
+ 
+@@ -609,6 +609,12 @@
+          case RegistrationDescriptorTag:
+             d=new RegistrationDescriptor();
+             break;
++         case ContentIdentifierDescriptorTag:
++            d=new ContentIdentifierDescriptor();
++            break;
++         case DefaultAuthorityDescriptorTag:
++            d=new DefaultAuthorityDescriptor();
++            break;
+ 
+          //note that it is no problem to implement one
+          //of the unimplemented descriptors.
+@@ -650,10 +656,8 @@
+          case TransportStreamDescriptorTag:
+ 
+          //defined in ETSI EN 300 468 v 1.7.1
+-         case DefaultAuthorityDescriptorTag:
+          case RelatedContentDescriptorTag:
+          case TVAIdDescriptorTag:
+-         case ContentIdentifierDescriptorTag:
+          case TimeSliceFecIdentifierDescriptorTag:
+          case ECMRepetitionRateDescriptorTag:
+          case EnhancedAC3DescriptorTag:
+diff -ruN vdr-1.7.18/menuitems.c vdr-1.7.19/menuitems.c
+--- vdr-1.7.18/menuitems.c	2010-12-12 14:41:09.000000000 +0100
++++ vdr-1.7.19/menuitems.c	2011-06-13 16:48:41.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.c 2.8 2010/12/12 13:41:09 kls Exp $
++ * $Id: menuitems.c 2.9 2011/06/13 14:48:41 kls Exp $
+  */
+ 
+ #include "menuitems.h"
+@@ -713,7 +713,19 @@
+ cMenuEditChanItem::cMenuEditChanItem(const char *Name, int *Value, const char *NoneString)
+ :cMenuEditIntItem(Name, Value, NoneString ? 0 : 1, Channels.MaxNumber())
+ {
++  channelID = NULL;
+   noneString = NoneString;
++  dummyValue = 0;
++  Set();
++}
++
++cMenuEditChanItem::cMenuEditChanItem(const char *Name, cString *ChannelID, const char *NoneString)
++:cMenuEditIntItem(Name, &dummyValue, NoneString ? 0 : 1, Channels.MaxNumber())
++{
++  channelID = ChannelID;
++  noneString = NoneString;
++  cChannel *channel = Channels.GetByChannelID(tChannelID::FromString(*ChannelID));
++  dummyValue = channel ? channel->Number() : 0;
+   Set();
+ }
+ 
+@@ -744,6 +756,8 @@
+                       *value = channel->Number();
+                    else if (delta < 0 && noneString)
+                       *value = 0;
++                   if (channelID)
++                      *channelID = channel ? channel->GetChannelID().ToString() : "";
+                    Set();
+                  }
+                  break;
+diff -ruN vdr-1.7.18/menuitems.h vdr-1.7.19/menuitems.h
+--- vdr-1.7.18/menuitems.h	2010-06-06 12:32:38.000000000 +0200
++++ vdr-1.7.19/menuitems.h	2011-06-13 15:46:03.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: menuitems.h 2.4 2010/06/06 10:32:38 kls Exp $
++ * $Id: menuitems.h 2.5 2011/06/13 13:46:03 kls Exp $
+  */
+ 
+ #ifndef __MENUITEMS_H
+@@ -133,9 +133,12 @@
+ class cMenuEditChanItem : public cMenuEditIntItem {
+ protected:
+   const char *noneString;
++  int dummyValue;
++  cString *channelID;
+   virtual void Set(void);
+ public:
+   cMenuEditChanItem(const char *Name, int *Value, const char *NoneString = NULL);
++  cMenuEditChanItem(const char *Name, cString *ChannelID, const char *NoneString = NULL);
+   virtual eOSState ProcessKey(eKeys Key);
+   };
+ 
+diff -ruN vdr-1.7.18/osd.c vdr-1.7.19/osd.c
+--- vdr-1.7.18/osd.c	2011-04-17 16:25:07.000000000 +0200
++++ vdr-1.7.19/osd.c	2011-06-02 14:00:17.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: osd.c 2.21 2011/04/17 14:25:07 kls Exp $
++ * $Id: osd.c 2.22 2011/06/02 12:00:17 kls Exp $
+  */
+ 
+ #include "osd.h"
+@@ -594,9 +594,10 @@
+      x2 = min(x2, width - 1);
+      y2 = min(y2, height - 1);
+      tIndex c = Index(Color);
+-     for (int y = y1; y <= y2; y++)
++     for (int y = y1; y <= y2; y++) {
+          for (int x = x1; x <= x2; x++)
+              SetIndex(x, y, c);
++         }
+      }
+ }
+ 
+diff -ruN vdr-1.7.18/po/ar.po vdr-1.7.19/po/ar.po
+--- vdr-1.7.18/po/ar.po	2010-12-24 12:36:42.000000000 +0100
++++ vdr-1.7.19/po/ar.po	2011-05-21 14:29:39.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-12-24 12:35+0100\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2008-10-16 11:16-0400\n"
+ "Last-Translator: Osama Alrawab <alrawab@hotmail.com>\n"
+ "Language-Team: Arabic <ar@li.org>\n"
++"Language: ar\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: ar\n"
+ "X-Poedit-Bookmarks: -1,-1,-1,-1,-1,-1,-1,-1,1249,-1\n"
+ "X-Poedit-Language: Arabic\n"
+ "X-Poedit-Country: LIBYA\n"
+diff -ruN vdr-1.7.18/po/ca_ES.po vdr-1.7.19/po/ca_ES.po
+--- vdr-1.7.18/po/ca_ES.po	2010-10-24 16:40:27.000000000 +0200
++++ vdr-1.7.19/po/ca_ES.po	2011-05-21 14:29:38.000000000 +0200
+@@ -10,14 +10,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Catalan <vdr@linuxtv.org>\n"
++"Language: ca\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: ca\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Canal incorrecte ***"
+diff -ruN vdr-1.7.18/po/cs_CZ.po vdr-1.7.19/po/cs_CZ.po
+--- vdr-1.7.18/po/cs_CZ.po	2010-10-24 16:40:27.000000000 +0200
++++ vdr-1.7.19/po/cs_CZ.po	2011-05-21 14:29:38.000000000 +0200
+@@ -9,14 +9,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.14\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2010-05-06 11:00+0200\n"
+ "Last-Translator: Radek ≈†≈•astn√Ω <dedkus@gmail.com>\n"
+ "Language-Team: Czech <vdr@linuxtv.org>\n"
++"Language: cs\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: cs\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Neplatn√Ω kan√°l ***"
+diff -ruN vdr-1.7.18/po/da_DK.po vdr-1.7.19/po/da_DK.po
+--- vdr-1.7.18/po/da_DK.po	2010-10-24 16:40:27.000000000 +0200
++++ vdr-1.7.19/po/da_DK.po	2011-05-21 14:29:38.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Mogens Elneff <mogens@elneff.dk>\n"
+ "Language-Team: Danish <vdr@linuxtv.org>\n"
++"Language: da\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: da\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Ugyldig kanal! ***"
+diff -ruN vdr-1.7.18/po/de_DE.po vdr-1.7.19/po/de_DE.po
+--- vdr-1.7.18/po/de_DE.po	2010-10-24 16:40:27.000000000 +0200
++++ vdr-1.7.19/po/de_DE.po	2011-05-21 14:29:39.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2010-01-16 16:46+0100\n"
+ "Last-Translator: Klaus Schmidinger <kls@tvdr.de>\n"
+ "Language-Team: German <vdr@linuxtv.org>\n"
++"Language: de\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: de\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Ung¸ltiger Kanal ***"
+diff -ruN vdr-1.7.18/po/el_GR.po vdr-1.7.19/po/el_GR.po
+--- vdr-1.7.18/po/el_GR.po	2010-10-24 16:40:27.000000000 +0200
++++ vdr-1.7.19/po/el_GR.po	2011-05-21 14:29:38.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Dimitrios Dimitrakos <mail@dimitrios.de>\n"
+ "Language-Team: Greek <vdr@linuxtv.org>\n"
++"Language: el\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-7\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: el\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** ¡ÍıÒÔ Í·Ì‹ÎÁ ***"
+diff -ruN vdr-1.7.18/po/es_ES.po vdr-1.7.19/po/es_ES.po
+--- vdr-1.7.18/po/es_ES.po	2010-10-24 16:40:28.000000000 +0200
++++ vdr-1.7.19/po/es_ES.po	2011-05-21 14:29:38.000000000 +0200
+@@ -8,14 +8,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2008-03-02 19:02+0100\n"
+ "Last-Translator: Luca Olivetti <luca@ventoso.org>\n"
+ "Language-Team: Spanish <vdr@linuxtv.org>\n"
++"Language: es\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: es\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Canal no v·lido ***"
+diff -ruN vdr-1.7.18/po/et_EE.po vdr-1.7.19/po/et_EE.po
+--- vdr-1.7.18/po/et_EE.po	2010-10-24 16:40:28.000000000 +0200
++++ vdr-1.7.19/po/et_EE.po	2011-05-21 14:29:38.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Arthur Konovalov <artlov@gmail.com>\n"
+ "Language-Team: Estonian <vdr@linuxtv.org>\n"
++"Language: et\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-13\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: et\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Vigane kanal ***"
+diff -ruN vdr-1.7.18/po/fi_FI.po vdr-1.7.19/po/fi_FI.po
+--- vdr-1.7.18/po/fi_FI.po	2010-10-24 16:40:28.000000000 +0200
++++ vdr-1.7.19/po/fi_FI.po	2011-05-21 14:29:38.000000000 +0200
+@@ -10,14 +10,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2007-08-15 15:52+0200\n"
+ "Last-Translator: Rolf Ahrenberg <rahrenbe@cc.hut.fi>\n"
+ "Language-Team: Finnish <vdr@linuxtv.org>\n"
++"Language: fi\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: fi\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Virheellinen kanavavalinta ***"
+diff -ruN vdr-1.7.18/po/fr_FR.po vdr-1.7.19/po/fr_FR.po
+--- vdr-1.7.18/po/fr_FR.po	2010-10-24 16:40:28.000000000 +0200
++++ vdr-1.7.19/po/fr_FR.po	2011-05-21 14:29:39.000000000 +0200
+@@ -13,14 +13,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2008-02-27 18:14+0100\n"
+ "Last-Translator: Jean-Claude Repetto <jc@repetto.org>\n"
+ "Language-Team: French <vdr@linuxtv.org>\n"
++"Language: fr\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: fr\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** ChaÓne invalide ! ***"
+diff -ruN vdr-1.7.18/po/hr_HR.po vdr-1.7.19/po/hr_HR.po
+--- vdr-1.7.18/po/hr_HR.po	2010-10-24 16:40:28.000000000 +0200
++++ vdr-1.7.19/po/hr_HR.po	2011-05-21 14:29:38.000000000 +0200
+@@ -9,14 +9,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2008-03-17 19:00+0100\n"
+ "Last-Translator: Adrian Caval <anrxc@sysphere.org>\n"
+ "Language-Team: Croatian <vdr@linuxtv.org>\n"
++"Language: hr\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: hr\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Neispravan Program ***"
+diff -ruN vdr-1.7.18/po/hu_HU.po vdr-1.7.19/po/hu_HU.po
+--- vdr-1.7.18/po/hu_HU.po	2010-10-24 16:40:28.000000000 +0200
++++ vdr-1.7.19/po/hu_HU.po	2011-05-21 14:29:39.000000000 +0200
+@@ -10,14 +10,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2007-12-01 21:42+0200\n"
+ "Last-Translator: Istv·n F¸ley <ifuley@tigercomp.ro>\n"
+ "Language-Team: Hungarian <vdr@linuxtv.org>\n"
++"Language: hu\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: hu\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** …rvÈnytelen csatorna ***"
+diff -ruN vdr-1.7.18/po/it_IT.po vdr-1.7.19/po/it_IT.po
+--- vdr-1.7.18/po/it_IT.po	2010-10-24 16:40:28.000000000 +0200
++++ vdr-1.7.19/po/it_IT.po	2011-05-21 14:29:38.000000000 +0200
+@@ -11,14 +11,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2010-06-13 00:30+0100\n"
+ "Last-Translator: Diego Pierotto <vdr-italian@tiscali.it>\n"
+ "Language-Team: Italian <vdr@linuxtv.org>\n"
++"Language: it\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=utf-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: it\n"
+ "X-Poedit-Language: Italian\n"
+ "X-Poedit-Country: ITALY\n"
+ "X-Poedit-SourceCharset: utf-8\n"
+diff -ruN vdr-1.7.18/po/lt_LT.po vdr-1.7.19/po/lt_LT.po
+--- vdr-1.7.18/po/lt_LT.po	2010-10-30 11:55:40.000000000 +0200
++++ vdr-1.7.19/po/lt_LT.po	2011-05-21 14:29:38.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.16\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-06-06 12:52+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2010-10-30 11:55+0200\n"
+ "Last-Translator: Valdemaras Pipiras <varas@ambernet.lt>\n"
+ "Language-Team: Lithuanian <vdr@linuxtv.org>\n"
++"Language: lt\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: lt\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Blogi kanalo nustatymai ***"
+diff -ruN vdr-1.7.18/po/mk_MK.po vdr-1.7.19/po/mk_MK.po
+--- vdr-1.7.18/po/mk_MK.po	2010-10-24 16:40:28.000000000 +0200
++++ vdr-1.7.19/po/mk_MK.po	2011-05-21 14:29:39.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR-1.7.14\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2010-03-11 00:54+0100\n"
+ "Last-Translator: Dimitar Petrovski <dimeptr@gmail.com>\n"
+ "Language-Team: Macedonian <en@li.org>\n"
++"Language: mk\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: mk\n"
+ "X-Generator: KBabel 1.11.4\n"
+ 
+ msgid "*** Invalid Channel ***"
+diff -ruN vdr-1.7.18/po/nl_NL.po vdr-1.7.19/po/nl_NL.po
+--- vdr-1.7.18/po/nl_NL.po	2010-10-24 16:40:28.000000000 +0200
++++ vdr-1.7.19/po/nl_NL.po	2011-05-21 14:29:38.000000000 +0200
+@@ -11,14 +11,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2008-02-26 17:20+0100\n"
+ "Last-Translator: Johan Schuring <johan.schuring@vetteblei.nl>\n"
+ "Language-Team: Dutch <vdr@linuxtv.org>\n"
++"Language: nl\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-15\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: nl\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Ongeldig kanaal ***"
+diff -ruN vdr-1.7.18/po/nn_NO.po vdr-1.7.19/po/nn_NO.po
+--- vdr-1.7.18/po/nn_NO.po	2010-10-24 16:40:28.000000000 +0200
++++ vdr-1.7.19/po/nn_NO.po	2011-05-21 14:29:38.000000000 +0200
+@@ -8,14 +8,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2007-08-12 14:17+0200\n"
+ "Last-Translator: Truls Slevigen <truls@slevigen.no>\n"
+ "Language-Team: Norwegian Nynorsk <vdr@linuxtv.org>\n"
++"Language: nn\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: nn\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Ugyldig Kanal! ***"
+diff -ruN vdr-1.7.18/po/pl_PL.po vdr-1.7.19/po/pl_PL.po
+--- vdr-1.7.18/po/pl_PL.po	2010-10-24 16:40:28.000000000 +0200
++++ vdr-1.7.19/po/pl_PL.po	2011-05-21 14:29:38.000000000 +0200
+@@ -8,14 +8,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2008-03-09 12:59+0100\n"
+ "Last-Translator: Michael Rakowski <mrak@gmx.de>\n"
+ "Language-Team: Polish <vdr@linuxtv.org>\n"
++"Language: pl\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: pl\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Niepoprawny kana≥ ***"
+diff -ruN vdr-1.7.18/po/pt_PT.po vdr-1.7.19/po/pt_PT.po
+--- vdr-1.7.18/po/pt_PT.po	2010-10-24 16:40:28.000000000 +0200
++++ vdr-1.7.19/po/pt_PT.po	2011-05-21 14:29:38.000000000 +0200
+@@ -8,14 +8,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.15\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2010-03-28 22:49+0100\n"
+ "Last-Translator: Cris Silva <hudokkow@gmail.com>\n"
+ "Language-Team: Portuguese <vdr@linuxtv.org>\n"
++"Language: pt\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: pt\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Canal inv·lido ***"
+diff -ruN vdr-1.7.18/po/ro_RO.po vdr-1.7.19/po/ro_RO.po
+--- vdr-1.7.18/po/ro_RO.po	2011-03-12 11:30:13.000000000 +0100
++++ vdr-1.7.19/po/ro_RO.po	2011-05-21 14:29:39.000000000 +0200
+@@ -8,14 +8,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.12\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2011-03-10 23:52+0100\n"
+ "Last-Translator: Lucian Muresan <lucianm@users.sourceforge.net>\n"
+ "Language-Team: Romanian <vdr@linuxtv.org>\n"
++"Language: ro\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: ro\n"
+ "X-Poedit-Language: Romanian\n"
+ "X-Poedit-Country: ROMANIA\n"
+ 
+diff -ruN vdr-1.7.18/po/ru_RU.po vdr-1.7.19/po/ru_RU.po
+--- vdr-1.7.18/po/ru_RU.po	2010-10-24 16:40:28.000000000 +0200
++++ vdr-1.7.19/po/ru_RU.po	2011-05-21 14:29:38.000000000 +0200
+@@ -8,14 +8,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2008-12-15 14:37+0100\n"
+ "Last-Translator: Oleg Roitburd <oleg@roitburd.de>\n"
+ "Language-Team: Russian <vdr@linuxtv.org>\n"
++"Language: ru\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-5\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: ru\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Ω’ﬂ‡–“ÿ€Ï›ÎŸ ⁄–›–€ ***"
+diff -ruN vdr-1.7.18/po/sk_SK.po vdr-1.7.19/po/sk_SK.po
+--- vdr-1.7.18/po/sk_SK.po	2011-02-20 16:43:24.000000000 +0100
++++ vdr-1.7.19/po/sk_SK.po	2011-05-21 14:29:39.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.16\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-06-06 12:52+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2011-02-15 16:29+0100\n"
+ "Last-Translator: Milan Hrala <hrala.milan@gmail.com>\n"
+ "Language-Team: Slovak <vdr@linuxtv.org>\n"
++"Language: sk\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: sk\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Neplatn˝ kan·l ***"
+diff -ruN vdr-1.7.18/po/sl_SI.po vdr-1.7.19/po/sl_SI.po
+--- vdr-1.7.18/po/sl_SI.po	2010-10-24 16:40:28.000000000 +0200
++++ vdr-1.7.19/po/sl_SI.po	2011-05-21 14:29:38.000000000 +0200
+@@ -8,14 +8,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2008-02-28 19:44+0100\n"
+ "Last-Translator: Matjaz Thaler <matjaz.thaler@guest.arnes.si>\n"
+ "Language-Team: Slovenian <vdr@linuxtv.org>\n"
++"Language: sl\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: sl\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Neznan kanal ***"
+diff -ruN vdr-1.7.18/po/sr_SR.po vdr-1.7.19/po/sr_SR.po
+--- vdr-1.7.18/po/sr_SR.po	2011-03-21 18:40:53.000000000 +0100
++++ vdr-1.7.19/po/sr_SR.po	2011-05-21 14:29:38.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.1\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2011-02-20 19:02+0100\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2011-01-09 15:57+0100\n"
+ "Last-Translator: Milan CvijanoviÊ <elcom_cvijo@hotmail.com>\n"
+ "Language-Team: Serbian <vdr@linuxtv.org>\n"
++"Language: sr\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-2\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: sr\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Neispravan Kanal ***"
+diff -ruN vdr-1.7.18/po/sv_SE.po vdr-1.7.19/po/sv_SE.po
+--- vdr-1.7.18/po/sv_SE.po	2010-10-24 16:40:28.000000000 +0200
++++ vdr-1.7.19/po/sv_SE.po	2011-05-21 14:29:38.000000000 +0200
+@@ -10,14 +10,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2008-03-12 18:25+0100\n"
+ "Last-Translator: Magnus Andersson <svankan@bahnhof.se>\n"
+ "Language-Team: Swedish <vdr@linuxtv.org>\n"
++"Language: sv\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-1\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: sv\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** Felaktig kanal ***"
+diff -ruN vdr-1.7.18/po/tr_TR.po vdr-1.7.19/po/tr_TR.po
+--- vdr-1.7.18/po/tr_TR.po	2010-10-24 16:40:29.000000000 +0200
++++ vdr-1.7.19/po/tr_TR.po	2011-05-21 14:29:38.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2008-02-28 00:33+0100\n"
+ "Last-Translator: Oktay YolgeÁen <oktay_73@yahoo.de>\n"
+ "Language-Team: Turkish <vdr@linuxtv.org>\n"
++"Language: tr\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=ISO-8859-9\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: tr\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** GeÁersiz kanal ***"
+diff -ruN vdr-1.7.18/po/uk_UA.po vdr-1.7.19/po/uk_UA.po
+--- vdr-1.7.18/po/uk_UA.po	2010-10-24 16:40:29.000000000 +0200
++++ vdr-1.7.19/po/uk_UA.po	2011-05-21 14:29:38.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.7.7\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2010-04-25 16:35+0200\n"
+ "Last-Translator: Yarema aka Knedlyk <yupadmin@gmail.com>\n"
+ "Language-Team: Ukrainian <vdr@linuxtv.org>\n"
++"Language: uk\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=UTF-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: uk\n"
+ 
+ msgid "*** Invalid Channel ***"
+ msgstr "*** –ù–µ–ø—Ä–∞–≤–∏–ª—å–Ω–∏–π –∫–∞–Ω–∞–ª ***"
+diff -ruN vdr-1.7.18/po/zh_CN.po vdr-1.7.19/po/zh_CN.po
+--- vdr-1.7.18/po/zh_CN.po	2010-10-24 16:40:29.000000000 +0200
++++ vdr-1.7.19/po/zh_CN.po	2011-05-21 14:29:38.000000000 +0200
+@@ -7,14 +7,14 @@
+ msgstr ""
+ "Project-Id-Version: VDR 1.6.0\n"
+ "Report-Msgid-Bugs-To: <vdr-bugs@tvdr.de>\n"
+-"POT-Creation-Date: 2010-10-24 16:26+0200\n"
++"POT-Creation-Date: 2011-05-21 14:26+0200\n"
+ "PO-Revision-Date: 2009-09-23 23:50+0800\n"
+ "Last-Translator: Nan Feng <nfgx@21cn.com>\n"
+ "Language-Team: Chinese (simplified) <vdr@linuxtv.org>\n"
++"Language: zh_CN\n"
+ "MIME-Version: 1.0\n"
+ "Content-Type: text/plain; charset=utf-8\n"
+ "Content-Transfer-Encoding: 8bit\n"
+-"Language: zh_CN\n"
+ "X-Poedit-Language: Chinese\n"
+ "X-Poedit-Country: CHINA\n"
+ "X-Poedit-SourceCharset: utf-8\n"
+diff -ruN vdr-1.7.18/recorder.c vdr-1.7.19/recorder.c
+--- vdr-1.7.18/recorder.c	2010-12-27 12:35:46.000000000 +0100
++++ vdr-1.7.19/recorder.c	2011-06-12 16:16:45.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recorder.c 2.9 2010/12/27 11:35:46 kls Exp $
++ * $Id: recorder.c 2.11 2011/06/12 14:16:45 kls Exp $
+  */
+ 
+ #include "recorder.h"
+@@ -31,7 +31,7 @@
+ 
+   SpinUpDisk(FileName);
+ 
+-  ringBuffer = new cRingBufferLinear(RECORDERBUFSIZE, MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE, true, "Recorder");
++  ringBuffer = new cRingBufferLinear(RECORDERBUFSIZE, TS_SIZE, true, "Recorder");
+   ringBuffer->SetTimeouts(0, 100);
+ 
+   int Pid = Channel->Vpid();
+@@ -119,6 +119,8 @@
+   time_t t = time(NULL);
+   bool InfoWritten = false;
+   bool FirstIframeSeen = false;
++  int FileNumber = 0;
++  off_t FrameOffset = -1;
+   while (Running()) {
+         int r;
+         uchar *b = ringBuffer->Get(r);
+@@ -131,7 +133,7 @@
+                  if (!InfoWritten) {
+                     cRecordingInfo RecordingInfo(recordingName);
+                     if (RecordingInfo.Read()) {
+-                       if (frameDetector->FramesPerSecond() > 0 && !DoubleEqual(RecordingInfo.FramesPerSecond(), frameDetector->FramesPerSecond())) {
++                       if (frameDetector->FramesPerSecond() > 0 && DoubleEqual(RecordingInfo.FramesPerSecond(), DEFAULTFRAMESPERSECOND) && !DoubleEqual(RecordingInfo.FramesPerSecond(), frameDetector->FramesPerSecond())) {
+                           RecordingInfo.SetFramesPerSecond(frameDetector->FramesPerSecond());
+                           RecordingInfo.Write();
+                           Recordings.UpdateByName(recordingName);
+@@ -139,12 +141,16 @@
+                        }
+                     InfoWritten = true;
+                     }
++                 if (frameDetector->NewPayload()) {
++                    FileNumber = fileName->Number();
++                    FrameOffset = fileSize;
++                    }
+                  if (FirstIframeSeen || frameDetector->IndependentFrame()) {
+                     FirstIframeSeen = true; // start recording with the first I-frame
+                     if (!NextFile())
+                        break;
+                     if (index && frameDetector->NewFrame())
+-                       index->Write(frameDetector->IndependentFrame(), fileName->Number(), fileSize);
++                       index->Write(frameDetector->IndependentFrame(), FileNumber, FrameOffset);
+                     if (frameDetector->IndependentFrame()) {
+                        recordFile->Write(patPmtGenerator.GetPat(), TS_SIZE);
+                        fileSize += TS_SIZE;
+diff -ruN vdr-1.7.18/recording.c vdr-1.7.19/recording.c
+--- vdr-1.7.18/recording.c	2011-04-17 15:53:11.000000000 +0200
++++ vdr-1.7.19/recording.c	2011-06-12 15:04:28.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 2.30 2011/04/17 13:53:11 kls Exp $
++ * $Id: recording.c 2.31 2011/06/12 13:04:28 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -1403,11 +1403,12 @@
+   bool Rewind = false;
+   cFileName FileName(recordingName, false);
+   cUnbufferedFile *ReplayFile = FileName.Open();
+-  cRingBufferLinear Buffer(IFG_BUFFER_SIZE, MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE);
++  cRingBufferLinear Buffer(IFG_BUFFER_SIZE, TS_SIZE);
+   cPatPmtParser PatPmtParser;
+   cFrameDetector FrameDetector;
+   cIndexFile IndexFile(recordingName, true);
+   int BufferChunks = KILOBYTE(1); // no need to read a lot at the beginning when parsing PAT/PMT
++  int FileNumber = 0;
+   off_t FileSize = 0;
+   off_t FrameOffset = -1;
+   Skins.QueueMessage(mtInfo, tr("Regenerating index file"));
+@@ -1424,12 +1425,18 @@
+         if (Data) {
+            if (FrameDetector.Synced()) {
+               // Step 3 - generate the index:
+-              if (TsPid(Data) == PATPID)
++              if (FrameOffset < 0 && TsPid(Data) == PATPID) {
++                 FileNumber = FileName.Number();
+                  FrameOffset = FileSize; // the PAT/PMT is at the beginning of an I-frame
++                 }
+               int Processed = FrameDetector.Analyze(Data, Length);
+               if (Processed > 0) {
++                 if (FrameDetector.NewPayload() && FrameOffset < 0) {
++                    FileNumber = FileName.Number();
++                    FrameOffset = FileSize;
++                    }
+                  if (FrameDetector.NewFrame()) {
+-                    IndexFile.Write(FrameDetector.IndependentFrame(), FileName.Number(), FrameOffset >= 0 ? FrameOffset : FileSize);
++                    IndexFile.Write(FrameDetector.IndependentFrame(), FileNumber, FrameOffset);
+                     FrameOffset = -1;
+                     }
+                  FileSize += Processed;
+diff -ruN vdr-1.7.18/remux.c vdr-1.7.19/remux.c
+--- vdr-1.7.18/remux.c	2011-03-20 11:21:14.000000000 +0100
++++ vdr-1.7.19/remux.c	2011-06-12 16:24:09.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.c 2.53 2011/03/20 10:21:14 kls Exp $
++ * $Id: remux.c 2.57 2011/06/12 14:24:09 kls Exp $
+  */
+ 
+ #include "remux.h"
+@@ -12,6 +12,7 @@
+ #include "libsi/si.h"
+ #include "libsi/section.h"
+ #include "libsi/descriptor.h"
++#include "recording.h"
+ #include "shutdown.h"
+ #include "tools.h"
+ 
+@@ -781,7 +782,8 @@
+ {
+   SetPid(Pid, Type);
+   synced = false;
+-  newFrame = independentFrame = false;
++  newPayload = newFrame = independentFrame = false;
++  frameTypeOffset = -1;
+   numPtsValues = 0;
+   numFrames = 0;
+   numIFrames = 0;
+@@ -808,7 +810,8 @@
+ 
+ void cFrameDetector::Reset(void)
+ {
+-  newFrame = independentFrame = false;
++  newPayload = newFrame = independentFrame = false;
++  frameTypeOffset = -1;
+   payloadUnitOfFrame = 0;
+   scanning = false;
+   scanner = EMPTY_SCANNER;
+@@ -816,9 +819,8 @@
+ 
+ int cFrameDetector::Analyze(const uchar *Data, int Length)
+ {
+-  int SeenPayloadStart = false;
+   int Processed = 0;
+-  newFrame = independentFrame = false;
++  newPayload = newFrame = independentFrame = false;
+   while (Length >= TS_SIZE) {
+         if (Data[0] != TS_SYNC_BYTE) {
+            int Skipped = 1;
+@@ -831,16 +833,13 @@
+            int Pid = TsPid(Data);
+            if (Pid == pid) {
+               if (TsPayloadStart(Data)) {
+-                 SeenPayloadStart = true;
+                  if (synced && Processed)
+-                    return Processed;
+-                 if (Length < MIN_TS_PACKETS_FOR_FRAME_DETECTOR * TS_SIZE)
+-                    return Processed; // need more data, in case the frame type is not stored in the first TS packet
++                    return Processed; // flush everything before this new payload
+                  if (framesPerSecond <= 0.0) {
+                     // frame rate unknown, so collect a sequence of PTS values:
+                     if (numPtsValues < MaxPtsValues && numIFrames < 2) { // collect a sequence containing at least two I-frames
+                        const uchar *Pes = Data + TsPayloadOffset(Data);
+-                       if (PesHasPts(Pes)) {
++                       if (numIFrames && PesHasPts(Pes)) {
+                           ptsValues[numPtsValues] = PesGetPts(Pes);
+                           // check for rollover:
+                           if (numPtsValues && ptsValues[numPtsValues - 1] > 0xF0000000 && ptsValues[numPtsValues] < 0x10000000) {
+@@ -885,8 +884,8 @@
+                              else
+                                 framesPerSecond = 60.0 / 1.001;
+                           else {
+-                             framesPerSecond = 25.0;
+-                             dsyslog("unknown frame delta (%d), assuming 25 fps", Delta);
++                             framesPerSecond = DEFAULTFRAMESPERSECOND;
++                             dsyslog("unknown frame delta (%d), assuming %5.2f fps", Delta, DEFAULTFRAMESPERSECOND);
+                              }
+                           }
+                        else // audio
+@@ -900,6 +899,10 @@
+               if (scanning) {
+                  int PayloadOffset = TsPayloadOffset(Data);
+                  if (TsPayloadStart(Data)) {
++                    if (synced && Processed)
++                       return Processed; // flush everything before this new payload
++                    newPayload = true;
++                    scanner = EMPTY_SCANNER;
+                     PayloadOffset += PesPayloadOffset(Data + PayloadOffset);
+                     if (!framesPerPayloadUnit)
+                        framesPerPayloadUnit = framesInPayloadUnit;
+@@ -907,17 +910,30 @@
+                        dbgframes("/");
+                     }
+                  for (int i = PayloadOffset; scanning && i < TS_SIZE; i++) {
+-                     scanner <<= 8;
+-                     scanner |= Data[i];
++                     if (frameTypeOffset < 0) {
++                        scanner <<= 8;
++                        scanner |= Data[i];
++                        }
++                     else
++                        frameTypeOffset += PayloadOffset;
+                      switch (type) {
+                        case 0x01: // MPEG 1 video
+                        case 0x02: // MPEG 2 video
+                             if (scanner == 0x00000100) { // Picture Start Code
++                               if (frameTypeOffset < 0) {
++                                  frameTypeOffset = i + 2;
++                                  if (frameTypeOffset >= TS_SIZE) { // the byte to check is in the next TS packet
++                                     frameTypeOffset -= TS_SIZE;
++                                     if (!synced)
++                                        dbgframes("%d>", frameTypeOffset);
++                                     break;
++                                     }
++                                  }
+                                scanner = EMPTY_SCANNER;
+-                               if (synced && !SeenPayloadStart && Processed)
+-                                  return Processed; // flush everything before this new frame
+                                newFrame = true;
+-                               independentFrame = ((Data[i + 2] >> 3) & 0x07) == 1; // I-Frame
++                               uchar FrameType = (Data[frameTypeOffset] >> 3) & 0x07;
++                               frameTypeOffset = -1;
++                               independentFrame = FrameType == 1; // I-Frame
+                                if (synced) {
+                                   if (framesPerPayloadUnit <= 1)
+                                      scanning = false;
+@@ -928,7 +944,7 @@
+                                      numIFrames++;
+                                   if (numIFrames == 1)
+                                      numFrames++;
+-                                  dbgframes("%d ", (Data[i + 2] >> 3) & 0x07);
++                                  dbgframes("%u ", FrameType);
+                                   }
+                                if (synced)
+                                   return Processed + TS_SIZE; // flag this new frame
+@@ -936,11 +952,20 @@
+                             break;
+                        case 0x1B: // MPEG 4 video
+                             if (scanner == 0x00000109) { // Access Unit Delimiter
++                               if (frameTypeOffset < 0) {
++                                  frameTypeOffset = i + 1;
++                                  if (frameTypeOffset >= TS_SIZE) { // the byte to check is in the next TS packet
++                                     frameTypeOffset -= TS_SIZE;
++                                     if (!synced)
++                                        dbgframes("%d>", frameTypeOffset);
++                                     break;
++                                     }
++                                  }
+                                scanner = EMPTY_SCANNER;
+-                               if (synced && !SeenPayloadStart && Processed)
+-                                  return Processed; // flush everything before this new frame
+                                newFrame = true;
+-                               independentFrame = Data[i + 1] == 0x10;
++                               uchar FrameType = Data[frameTypeOffset];
++                               frameTypeOffset = -1;
++                               independentFrame = FrameType == 0x10;
+                                if (synced) {
+                                   if (framesPerPayloadUnit < 0) {
+                                      payloadUnitOfFrame = (payloadUnitOfFrame + 1) % -framesPerPayloadUnit;
+@@ -958,7 +983,7 @@
+                                      numIFrames++;
+                                   if (numIFrames == 1)
+                                      numFrames++;
+-                                  dbgframes("%02X ", Data[i + 1]);
++                                  dbgframes("%02X ", FrameType);
+                                   }
+                                if (synced)
+                                   return Processed + TS_SIZE; // flag this new frame
+diff -ruN vdr-1.7.18/remux.h vdr-1.7.19/remux.h
+--- vdr-1.7.18/remux.h	2011-03-19 17:52:46.000000000 +0100
++++ vdr-1.7.19/remux.h	2011-06-12 14:49:17.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: remux.h 2.28 2011/03/19 16:52:46 kls Exp $
++ * $Id: remux.h 2.30 2011/06/12 12:49:17 kls Exp $
+  */
+ 
+ #ifndef __REMUX_H
+@@ -84,15 +84,18 @@
+ 
+ inline int TsPayloadOffset(const uchar *p)
+ {
+-  int o = (p[3] & TS_ADAPT_FIELD_EXISTS) ? p[4] + 5 : 4;
++  int o = TsHasAdaptationField(p) ? p[4] + 5 : 4;
+   return o <= TS_SIZE ? o : TS_SIZE;
+ }
+ 
+ inline int TsGetPayload(const uchar **p)
+ {
+-  int o = TsPayloadOffset(*p);
+-  *p += o;
+-  return TS_SIZE - o;
++  if (TsHasPayload(*p)) {
++     int o = TsPayloadOffset(*p);
++     *p += o;
++     return TS_SIZE - o;
++     }
++  return 0;
+ }
+ 
+ inline int TsContinuityCounter(const uchar *p)
+@@ -294,7 +297,7 @@
+   ~cTsToPes();
+   void PutTs(const uchar *Data, int Length);
+        ///< Puts the payload data of the single TS packet at Data into the converter.
+-       ///< Length is always 188.
++       ///< Length is always TS_SIZE.
+        ///< If the given TS packet starts a new PES payload packet, the converter
+        ///< will be automatically reset. Any packets before the first one that starts
+        ///< a new PES payload packet will be ignored.
+@@ -333,16 +336,16 @@
+ 
+ // Frame detector:
+ 
+-#define MIN_TS_PACKETS_FOR_FRAME_DETECTOR 2
+-
+ class cFrameDetector {
+ private:
+   enum { MaxPtsValues = 150 };
+   int pid;
+   int type;
+   bool synced;
++  bool newPayload;
+   bool newFrame;
+   bool independentFrame;
++  int frameTypeOffset;
+   uint32_t ptsValues[MaxPtsValues]; // 32 bit is enough - we only need the delta
+   int numPtsValues;
+   int numFrames;
+@@ -368,12 +371,17 @@
+       ///< the frame detector for actual work.
+   int Analyze(const uchar *Data, int Length);
+       ///< Analyzes the TS packets pointed to by Data. Length is the number of
+-      ///< bytes Data points to, and must be a multiple of 188.
++      ///< bytes Data points to, and must be a multiple of TS_SIZE.
+       ///< Returns the number of bytes that have been analyzed.
+       ///< If the return value is 0, the data was not sufficient for analyzing and
+       ///< Analyze() needs to be called again with more actual data.
+   bool Synced(void) { return synced; }
+       ///< Returns true if the frame detector has synced on the data stream.
++  bool NewPayload(void) { return newPayload; }
++      ///< Returns true if the data given to the last call to Analyze() started a
++      ///< new payload. The caller should remember the current file offset in
++      ///< order to be able to generate an index entry later, when NewFrame()
++      ///< returns true.
+   bool NewFrame(void) { return newFrame; }
+       ///< Returns true if the data given to the last call to Analyze() started a
+       ///< new frame.
+diff -ruN vdr-1.7.18/skinsttng.c vdr-1.7.19/skinsttng.c
+--- vdr-1.7.18/skinsttng.c	2011-02-20 14:02:49.000000000 +0100
++++ vdr-1.7.19/skinsttng.c	2011-06-12 17:20:59.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: skinsttng.c 2.7 2011/02/20 13:02:49 kls Exp $
++ * $Id: skinsttng.c 2.10 2011/06/12 15:20:59 kls Exp $
+  */
+ 
+ // Star Trek: The Next GenerationÆ is a registered trademark of Paramount Pictures
+@@ -92,6 +92,8 @@
+ THEME_CLR(Theme, clrChannelEpgShortText,    clrYellow);
+ THEME_CLR(Theme, clrChannelTimebarSeen,     clrYellow);
+ THEME_CLR(Theme, clrChannelTimebarRest,     clrGray50);
++THEME_CLR(Theme, clrChannelSignalValue,     clrGreen);
++THEME_CLR(Theme, clrChannelSignalRest,      clrRed);
+ THEME_CLR(Theme, clrMenuFrame,              clrYellow);
+ THEME_CLR(Theme, clrMenuTitle,              clrBlack);
+ THEME_CLR(Theme, clrMenuDate,               clrBlack);
+@@ -134,6 +136,10 @@
+   const cEvent *present;
+   cString lastDate;
+   int lastSeen;
++  int lastDeviceNumber;
++  int lastSignalStrength;
++  int lastSignalQuality;
++  time_t lastSignalDisplay;
+   tTrackId lastTrackId;
+   static cBitmap bmTeletext, bmRadio, bmAudio, bmDolbyDigital, bmEncrypted, bmRecording;
+ public:
+@@ -156,6 +162,10 @@
+ {
+   present = NULL;
+   lastSeen = -1;
++  lastDeviceNumber = -1;
++  lastSignalStrength = -1;
++  lastSignalQuality = -1;
++  lastSignalDisplay = 0;
+   memset(&lastTrackId, 0, sizeof(lastTrackId));
+   const cFont *font = cFont::GetFont(fontOsd);
+   withInfo = WithInfo;
+@@ -274,6 +284,7 @@
+         }
+      }
+   osd->DrawText(x3 + TextFrame, y0, ChannelString(Channel, Number), Theme.Color(clrChannelName), frameColor, cFont::GetFont(fontOsd), x - x3 - TextFrame);
++  lastSignalDisplay = time(NULL); // don't get slowed down during heavy zapping
+ }
+ 
+ void cSkinSTTNGDisplayChannel::SetEvents(const cEvent *Present, const cEvent *Following)
+@@ -330,8 +341,40 @@
+            osd->DrawText(x3 + TextFrame, y6, Track ? Track->description : "", Theme.Color(clrChannelName), frameColor, font, x4 - x3 - w - 2 * TextFrame);
+            strn0cpy(lastTrackId.description, Track ? Track->description : "", sizeof(lastTrackId.description));
+            }
++        if (time(NULL) != lastSignalDisplay) {
++           int DeviceNumber = cDevice::ActualDevice()->DeviceNumber() + 1;
++           int SignalStrength = cDevice::ActualDevice()->SignalStrength();
++           int SignalQuality = cDevice::ActualDevice()->SignalQuality();
++           if (DeviceNumber != lastDeviceNumber || SignalStrength != lastSignalStrength || SignalQuality != lastSignalQuality) {
++              int d = 3;
++              int h = ((y7 - y6 + 1) - 3 * d) / 2;
++              int w = (x4 - x3) / 5;
++              int x = (x3 + x4) / 2 - w / 2;
++              if (SignalStrength >= 0) {
++                 int s = SignalStrength * w / 100;
++                 osd->DrawRectangle(x,     y6 + d, x + s - 1, y6 + d + h - 1, Theme.Color(clrChannelSignalValue));
++                 osd->DrawRectangle(x + s, y6 + d, x + w - 1, y6 + d + h - 1, Theme.Color(clrChannelSignalRest));
++                 }
++              else if (DeviceNumber != lastDeviceNumber)
++                 osd->DrawRectangle(x, y6 + d, x + w - 1, y6 + d + h - 1, Theme.Color(clrChannelFrame));
++              if (SignalQuality >= 0) {
++                 int q = SignalQuality * w / 100;
++                 osd->DrawRectangle(x,     y7 - d - h + 1, x + q - 1, y7 - d, Theme.Color(clrChannelSignalValue));
++                 osd->DrawRectangle(x + q, y7 - d - h + 1, x + w - 1, y7 - d, Theme.Color(clrChannelSignalRest));
++                 }
++              else if (DeviceNumber != lastDeviceNumber)
++                 osd->DrawRectangle(x, y7 - d - h + 1, x + w - 1, y7 - d, Theme.Color(clrChannelFrame));
++              cString dn = cString::sprintf(" %d ", DeviceNumber);
++              const cFont *font = cFont::GetFont(fontSml);
++              int dw = font->Width(dn);
++              osd->DrawText(x - 2 * d - dw, y6, dn, Theme.Color(clrChannelDate), frameColor, font, dw);
++              lastDeviceNumber = DeviceNumber;
++              lastSignalStrength = SignalStrength;
++              lastSignalQuality = SignalQuality;
++              }
++           lastSignalDisplay = time(NULL);
++           }
+         }
+-
+      int seen = 0;
+      if (present) {
+         time_t t = time(NULL);
+diff -ruN vdr-1.7.18/tools.c vdr-1.7.19/tools.c
+--- vdr-1.7.18/tools.c	2011-03-20 13:07:18.000000000 +0100
++++ vdr-1.7.19/tools.c	2011-04-29 16:51:14.000000000 +0200
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: tools.c 2.13 2011/03/20 12:07:18 kls Exp $
++ * $Id: tools.c 2.14 2011/04/29 14:51:14 kls Exp $
+  */
+ 
+ #include "tools.h"
+@@ -906,6 +906,8 @@
+ 
+ cString &cString::operator=(const char *String)
+ {
++  if (s == String)
++    return *this;
+   free(s);
+   s = String ? strdup(String) : NULL;
+   return *this;
+diff -ruN vdr-1.7.18/vdr.c vdr-1.7.19/vdr.c
+--- vdr-1.7.18/vdr.c	2010-12-12 14:42:00.000000000 +0100
++++ vdr-1.7.19/vdr.c	2011-06-13 16:40:12.000000000 +0200
+@@ -22,7 +22,7 @@
+  *
+  * The project's page is at http://www.tvdr.de
+  *
+- * $Id: vdr.c 2.20 2010/12/12 13:42:00 kls Exp $
++ * $Id: vdr.c 2.21 2011/06/13 14:40:12 kls Exp $
+  */
+ 
+ #include <getopt.h>
+@@ -704,8 +704,12 @@
+ 
+   if (!cDevice::WaitForAllDevicesReady(DEVICEREADYTIMEOUT))
+      dsyslog("not all devices ready after %d seconds", DEVICEREADYTIMEOUT);
+-  if (Setup.InitialChannel > 0)
+-     Setup.CurrentChannel = Setup.InitialChannel;
++  if (isnumber(Setup.InitialChannel)) { // for compatibility with old setup.conf files
++     if (cChannel *Channel = Channels.GetByNumber(atoi(Setup.InitialChannel)))
++        Setup.InitialChannel = Channel->GetChannelID().ToString();
++     }
++  if (cChannel *Channel = Channels.GetByChannelID(tChannelID::FromString(Setup.InitialChannel)))
++     Setup.CurrentChannel = Channel->Number();
+   if (Setup.InitialVolume >= 0)
+      Setup.CurrentVolume = Setup.InitialVolume;
+   Channels.SwitchTo(Setup.CurrentChannel);

@@ -1,0 +1,230 @@
+diff -ruNbw vdr-1.2.6pre3/CONTRIBUTORS vdr-1.2.6pre4/CONTRIBUTORS
+--- vdr-1.2.6pre3/CONTRIBUTORS	Fri Oct 17 16:40:37 2003
++++ vdr-1.2.6pre4/CONTRIBUTORS	Sun Oct 26 14:32:45 2003
+@@ -641,6 +641,7 @@
+  to switch to an other channel
+  for reporting a wrong EPG bugfix code number for the MAX_USEFUL_SUBTITLE_LENGTH fix
+  for fixing a bug in resetting OSD color palettes
++ for adding missing 'const' to some cChannel member functions
+ 
+ Steffen Becker <stbecker@rbg.informatik.tu-darmstadt.de>
+  for reporting a problem with CPU load peaks (in the EPG scanner)
+@@ -844,3 +845,7 @@
+ 
+ Thomas Rausch <Thomas.Rausch@gmx.de>
+  for making VDR try to get a timer's channel without RID when loading 'timers.conf'
++
++Thomas v. Keller <v.keller@neckarufer.de>
++ for reporting a crash in case the CAM connection fails while a CAM menu
++ is being presented
+diff -ruNbw vdr-1.2.6pre3/HISTORY vdr-1.2.6pre4/HISTORY
+--- vdr-1.2.6pre3/HISTORY	Fri Oct 24 16:47:39 2003
++++ vdr-1.2.6pre4/HISTORY	Sun Oct 26 14:49:59 2003
+@@ -2444,3 +2444,10 @@
+ - Continuing learning remote control keys in case one rc fails (thanks to
+   Oliver Endriss).
+ - Fixed handling comments in editing marks.
++
++2003-10-26: Version 1.2.6pre4
++
++- Fixed handling CAM menus in case the CAM connection fails while the menu
++  is being presented (thanks to Thomas v. Keller for reportign this one).
++- Added missing 'const' to some cChannel member functions (thanks to Torsten
++  Herz).
+diff -ruNbw vdr-1.2.6pre3/channels.h vdr-1.2.6pre4/channels.h
+--- vdr-1.2.6pre3/channels.h	Sat Aug 16 11:12:15 2003
++++ vdr-1.2.6pre4/channels.h	Sun Oct 26 14:21:59 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: channels.h 1.8 2003/08/16 09:12:15 kls Exp $
++ * $Id: channels.h 1.9 2003/10/26 13:21:59 kls Exp $
+  */
+ 
+ #ifndef __CHANNELS_H
+@@ -119,9 +119,9 @@
+   int Transmission(void) const { return transmission; }
+   int Guard(void) const { return guard; }
+   int Hierarchy(void) const { return hierarchy; }
+-  bool IsCable(void) { return (source & cSource::st_Mask) == cSource::stCable; }
+-  bool IsSat(void) { return (source & cSource::st_Mask) == cSource::stSat; }
+-  bool IsTerr(void) { return (source & cSource::st_Mask) == cSource::stTerr; }
++  bool IsCable(void) const { return (source & cSource::st_Mask) == cSource::stCable; }
++  bool IsSat(void) const { return (source & cSource::st_Mask) == cSource::stSat; }
++  bool IsTerr(void) const { return (source & cSource::st_Mask) == cSource::stTerr; }
+   tChannelID GetChannelID(void) const;
+   };
+ 
+diff -ruNbw vdr-1.2.6pre3/ci.c vdr-1.2.6pre4/ci.c
+--- vdr-1.2.6pre3/ci.c	Sat Aug  2 12:00:01 2003
++++ vdr-1.2.6pre4/ci.c	Sun Oct 26 14:04:23 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.c 1.16 2003/08/02 10:00:01 kls Exp $
++ * $Id: ci.c 1.17 2003/10/26 13:04:23 kls Exp $
+  */
+ 
+ /* XXX TODO
+@@ -1004,15 +1004,15 @@
+ class cCiMMI : public cCiSession {
+ private:
+   char *GetText(int &Length, const uint8_t **Data);
+-  cCiMenu *menu;
+-  cCiEnquiry *enquiry;
++  cCiMenu *menu, *fetchedMenu;
++  cCiEnquiry *enquiry, *fetchedEnquiry;
+ public:
+   cCiMMI(int SessionId, cCiTransportConnection *Tc);
+   virtual ~cCiMMI();
+   virtual bool Process(int Length = 0, const uint8_t *Data = NULL);
+   virtual bool HasUserIO(void) { return menu || enquiry; }
+-  cCiMenu *Menu(void);
+-  cCiEnquiry *Enquiry(void);
++  cCiMenu *Menu(bool Clear = false);
++  cCiEnquiry *Enquiry(bool Clear = false);
+   bool SendMenuAnswer(uint8_t Selection);
+   bool SendAnswer(const char *Text);
+   };
+@@ -1021,13 +1021,21 @@
+ :cCiSession(SessionId, RI_MMI, Tc)
+ {
+   dbgprotocol("New MMI (session id %d)\n", SessionId);
+-  menu = NULL;
+-  enquiry = NULL;
++  menu = fetchedMenu = NULL;
++  enquiry = fetchedEnquiry = NULL;
+ }
+ 
+ cCiMMI::~cCiMMI()
+ {
++  if (fetchedMenu) {
++     cMutexLock MutexLock(&fetchedMenu->mutex);
++     fetchedMenu->mmi = NULL;
++     }
+   delete menu;
++  if (fetchedEnquiry) {
++     cMutexLock MutexLock(&fetchedEnquiry->mutex);
++     fetchedEnquiry->mmi = NULL;
++     }
+   delete enquiry;
+ }
+ 
+@@ -1123,18 +1131,26 @@
+   return true;
+ }
+ 
+-cCiMenu *cCiMMI::Menu(void)
++cCiMenu *cCiMMI::Menu(bool Clear)
+ {
+-  cCiMenu *m = menu;
++  if (Clear)
++     fetchedMenu = NULL;
++  else if (menu) {
++     fetchedMenu = menu;
+   menu = NULL;
+-  return m;
++     }
++  return fetchedMenu;
+ }
+ 
+-cCiEnquiry *cCiMMI::Enquiry(void)
++cCiEnquiry *cCiMMI::Enquiry(bool Clear)
+ {
+-  cCiEnquiry *e = enquiry;
++  if (Clear)
++     fetchedEnquiry = NULL;
++  else if (enquiry) {
++     fetchedEnquiry = enquiry;
+   enquiry = NULL;
+-  return e;
++     }
++  return fetchedEnquiry;
+ }
+ 
+ bool cCiMMI::SendMenuAnswer(uint8_t Selection)
+@@ -1170,6 +1186,9 @@
+ 
+ cCiMenu::~cCiMenu()
+ {
++  cMutexLock MutexLock(&mutex);
++  if (mmi)
++     mmi->Menu(true);
+   free(titleText);
+   free(subTitleText);
+   free(bottomText);
+@@ -1188,6 +1207,7 @@
+ 
+ bool cCiMenu::Select(int Index)
+ {
++  cMutexLock MutexLock(&mutex);
+   if (mmi && -1 <= Index && Index < numEntries)
+      return mmi->SendMenuAnswer(Index + 1);
+   return false;
+@@ -1210,11 +1230,15 @@
+ 
+ cCiEnquiry::~cCiEnquiry()
+ {
++  cMutexLock MutexLock(&mutex);
++  if (mmi)
++     mmi->Enquiry(true);
+   free(text);
+ }
+ 
+ bool cCiEnquiry::Reply(const char *s)
+ {
++  cMutexLock MutexLock(&mutex);
+   return mmi ? mmi->SendAnswer(s) : false;
+ }
+ 
+diff -ruNbw vdr-1.2.6pre3/ci.h vdr-1.2.6pre4/ci.h
+--- vdr-1.2.6pre3/ci.h	Sun May 25 13:44:47 2003
++++ vdr-1.2.6pre4/ci.h	Sun Oct 26 13:22:09 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: ci.h 1.8 2003/05/25 11:44:47 kls Exp $
++ * $Id: ci.h 1.9 2003/10/26 12:22:09 kls Exp $
+  */
+ 
+ #ifndef __CI_H
+@@ -21,6 +21,7 @@
+ private:
+   enum { MAX_CIMENU_ENTRIES = 64 }; ///< XXX is there a specified maximum?
+   cCiMMI *mmi;
++  cMutex mutex;
+   bool selectable;
+   char *titleText;
+   char *subTitleText;
+@@ -45,6 +46,7 @@
+   friend class cCiMMI;
+ private:
+   cCiMMI *mmi;
++  cMutex mutex;
+   char *text;
+   bool blind;
+   int expectedLength;
+diff -ruNbw vdr-1.2.6pre3/config.h vdr-1.2.6pre4/config.h
+--- vdr-1.2.6pre3/config.h	Fri Oct 24 16:31:17 2003
++++ vdr-1.2.6pre4/config.h	Sun Oct 26 14:30:36 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.176.1.2 2003/10/24 14:31:17 kls Exp $
++ * $Id: config.h 1.176.1.3 2003/10/26 13:30:36 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -19,7 +19,7 @@
+ #include "device.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.2.6pre3"
++#define VDRVERSION  "1.2.6pre4"
+ #define VDRVERSNUM   10206  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99

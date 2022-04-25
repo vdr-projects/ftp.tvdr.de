@@ -1,0 +1,101 @@
+diff -ruNbw vdr-1.2.6pre2/HISTORY vdr-1.2.6pre3/HISTORY
+--- vdr-1.2.6pre2/HISTORY	Sun Oct 19 13:42:51 2003
++++ vdr-1.2.6pre3/HISTORY	Fri Oct 24 16:47:39 2003
+@@ -2437,3 +2437,10 @@
+ 2003-10-19: Version 1.2.6pre2
+ 
+ - Improved cDvbDevice::StillPicture() (thanks to Thomas Heiligenmann).
++
++2003-10-24: Version 1.2.6pre3
++
++- Improved cDvbDevice::StillPicture() (thanks to Oliver Endriss).
++- Continuing learning remote control keys in case one rc fails (thanks to
++  Oliver Endriss).
++- Fixed handling comments in editing marks.
+diff -ruNbw vdr-1.2.6pre2/config.h vdr-1.2.6pre3/config.h
+--- vdr-1.2.6pre2/config.h	Sun Oct 19 13:43:07 2003
++++ vdr-1.2.6pre3/config.h	Fri Oct 24 16:31:17 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: config.h 1.176.1.1 2003/10/19 11:43:07 kls Exp $
++ * $Id: config.h 1.176.1.2 2003/10/24 14:31:17 kls Exp $
+  */
+ 
+ #ifndef __CONFIG_H
+@@ -19,7 +19,7 @@
+ #include "device.h"
+ #include "tools.h"
+ 
+-#define VDRVERSION  "1.2.6pre2"
++#define VDRVERSION  "1.2.6pre3"
+ #define VDRVERSNUM   10206  // Version * 10000 + Major * 100 + Minor
+ 
+ #define MAXPRIORITY 99
+diff -ruNbw vdr-1.2.6pre2/dvbdevice.c vdr-1.2.6pre3/dvbdevice.c
+--- vdr-1.2.6pre2/dvbdevice.c	Sun Oct 19 13:41:07 2003
++++ vdr-1.2.6pre3/dvbdevice.c	Fri Oct 24 16:32:20 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: dvbdevice.c 1.67.1.1 2003/10/19 11:41:07 kls Exp $
++ * $Id: dvbdevice.c 1.67.1.2 2003/10/24 14:32:20 kls Exp $
+  */
+ 
+ #include "dvbdevice.h"
+@@ -963,7 +963,7 @@
+                     offs += Data[i + 8];
+                     len -= 3;
+                     len -= Data[i + 8];
+-                    if (len < 0 || offs + len >= Length)
++                    if (len < 0 || offs + len > Length)
+                        break;
+                     }
+                  else {
+diff -ruNbw vdr-1.2.6pre2/interface.c vdr-1.2.6pre3/interface.c
+--- vdr-1.2.6pre2/interface.c	Sun Oct  5 11:48:13 2003
++++ vdr-1.2.6pre3/interface.c	Fri Oct 24 16:38:08 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: interface.c 1.65 2003/10/05 09:48:13 kls Exp $
++ * $Id: interface.c 1.66 2003/10/24 14:38:08 kls Exp $
+  */
+ 
+ #include "interface.h"
+@@ -433,7 +433,7 @@
+          Clear();
+          if (!rc) {
+             Close();
+-            return;
++            continue;
+             }
+          WriteText(1, 1, Headline);
+          WriteText(1, 3, tr("Phase 3: Saving key codes"));
+diff -ruNbw vdr-1.2.6pre2/recording.c vdr-1.2.6pre3/recording.c
+--- vdr-1.2.6pre2/recording.c	Fri Oct 17 16:36:58 2003
++++ vdr-1.2.6pre3/recording.c	Fri Oct 24 16:47:14 2003
+@@ -4,7 +4,7 @@
+  * See the main source file 'vdr.c' for copyright information and
+  * how to reach the author.
+  *
+- * $Id: recording.c 1.84 2003/10/17 14:36:58 kls Exp $
++ * $Id: recording.c 1.85 2003/10/24 14:47:14 kls Exp $
+  */
+ 
+ #include "recording.h"
+@@ -681,10 +681,8 @@
+   const char *p = strchr(s, ' ');
+   if (p) {
+      p = skipspace(p);
+-     if (*p) {
++     if (*p)
+         comment = strdup(p);
+-        comment[strlen(comment) - 1] = 0; // strips trailing newline
+-        }
+      }
+   return true;
+ }
